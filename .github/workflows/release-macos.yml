@@ -1,0 +1,120 @@
+name: Release macOS App
+
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag'
+        required: true
+        default: '0.0.1'
+
+jobs:
+  release:
+    name: Release macOS App
+    runs-on: macos-latest # We can cross compile but need to be on macOS to notarise
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        platform:
+          - darwin/amd64
+          - darwin/arm64
+    #          - darwin/universal
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Normalise platform tag
+        id: normalise_platform
+        shell: bash
+        run: |
+          tag=$(echo ${{ matrix.platform }} | sed -e 's/\//_/g' -e 's/darwin/mac/g' -e 's/amd64/intel/g')
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Normalise version tag
+        id: normalise_version
+        shell: bash
+        run: |
+          if [ "${{ github.event.release.tag_name }}" == "" ]; then
+            version=$(echo ${{ github.event.inputs.tag }} | sed -e 's/v//g')
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+          else
+            version=$(echo ${{ github.event.release.tag_name }} | sed -e 's/v//g')
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.22.6
+
+      - name: Install wails
+        shell: bash
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.9.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Build frontend assets
+        shell: bash
+        run: |
+          npm install -g npm@9
+          jq '.info.productVersion = "${{ steps.normalise_version.outputs.version }}"' wails.json > tmp.json
+          mv tmp.json wails.json
+          cd frontend
+          jq '.version = "${{ steps.normalise_version.outputs.version }}"' package.json > tmp.json
+          mv tmp.json package.json
+          npm install
+
+      # - name: Build wails app for macOS
+      #   shell: bash
+      #   run: |
+      #     CGO_ENABLED=1 wails build -platform ${{ matrix.platform }} \
+      #     -ldflags "-X main.version=${{ steps.normalise_version.outputs.version }} -X main.gaMeasurementID=${{ secrets.GA_MEASUREMENT_ID }} -X main.gaSecretKey=${{ secrets.MAC_GA_SECRET }}"
+
+      - name: Build wails app for macOS
+        shell: bash
+        run: |
+          CGO_ENABLED=1 wails build -platform ${{ matrix.platform }} \
+          -ldflags "-X main.version=${{ steps.normalise_version.outputs.version }}"
+
+      - name: Checkout create-image
+        uses: actions/checkout@v2
+        with:
+          repository: create-dmg/create-dmg
+          path: ./build/create-dmg
+          ref: master
+
+      - name: Build macOS DMG
+        shell: bash
+        working-directory: ./build
+        run: |
+          mv bin/canme.app "bin/CanMe.app"
+          ./create-dmg/create-dmg \
+            --no-internet-enable \
+            --volname "CanMe" \
+            --volicon "bin/CanMe.app/Contents/Resources/iconfile.icns" \
+            --text-size 12 \
+            --window-pos 400 400 \
+            --window-size 660 450 \
+            --icon-size 80 \
+            --icon "CanMe.app" 180 180 \
+            --hide-extension "CanMe.app" \
+            --app-drop-link 480 180 \
+            "bin/CanMe-${{ steps.normalise_platform.outputs.tag }}.dmg" \
+            "bin"
+
+      - name: Rename dmg
+        working-directory: ./build/bin
+        run: mv "CanMe-${{ steps.normalise_platform.outputs.tag }}.dmg" "CanMe_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.dmg"
+
+      - name: Upload release asset (DMG Package)
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.normalise_version.outputs.version }}
+          files: ./build/bin/CanMe_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.dmg
+          token: ${{ secrets.GITHUB_TOKEN }}

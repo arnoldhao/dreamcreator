@@ -1,0 +1,48 @@
+# wails file
+build/bin
+node_modules
+frontend/dist
+frontend/wailsjs
+frontend/node_modules
+node_modules
+
+.DS_Store
+.idea
+
+*.code-workspace
+
+# log file
+*.log
+
+# temporary file
+*.tmp
+*.temp
+
+# compiled file
+*.exe
+*.dll
+*.so
+*.dylib
+
+# operating system generated file
+Thumbs.db
+.DS_Store
+
+# IDE and editor generated files
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*~
+
+# environment configuration file
+.env
+.env.local
+.env.*.local
+
+# dependency management tool generated files
+yarn-error.log
+npm-debug.log*
+
+# test coverage report
+coverage/

@@ -1,0 +1,28 @@
+.content-container {
+    height: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.empty-content {
+    height: 100%;
+    justify-content: center;
+}
+
+.content-log {
+    padding: 20px;
+}
+
+.content-value {
+    user-select: text;
+    cursor: text;
+}
+
+.tab-content {
+}
+
+:deep(.cmd-line) {
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
