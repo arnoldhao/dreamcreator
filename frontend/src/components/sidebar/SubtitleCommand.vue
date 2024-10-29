@@ -110,15 +110,12 @@ const streamStatus = computed(() => translationState.value.streamStatus)
 const translationStatus = computed(() => translationState.value.translationStatus)
 const translationProgress = computed(() => translationState.value.translationProgress)
 const actionDescription = computed(() => translationState.value.actionDescription)
-
+const isCompleted = computed(() => translationState.value.isCompleted || false)
 const isPending = computed(() =>
   streamStatus.value === 'streaming' && translationStatus.value === 'pending'
 )
 const isTranslating = computed(() =>
   streamStatus.value === 'streaming' && translationStatus.value === 'running'
-)
-const isCompleted = computed(() =>
-  streamStatus.value === 'translation_done' && translationStatus.value === 'completed'
 )
 const isCanceled = computed(() =>
   streamStatus.value === 'canceled' || translationStatus.value === 'canceled'
@@ -131,7 +128,7 @@ const streamingTabs = computed(() =>
   tabs.value.filter(tab => tab.stream === true)
 )
 
-const allowAction = computed(() => !isStream.value || isCompleted.value || isCanceled.value)
+const allowAction = computed(() => isCompleted.value)
 
 const safeTranslationProgress = computed(() => {
   const progress = translationProgress.value;

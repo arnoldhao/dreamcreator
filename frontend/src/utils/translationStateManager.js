@@ -1,5 +1,6 @@
 // define translation status
 export const TranslationStatus = {
+    NONEED: 'noneed',
     PENDING: 'pending',
     RUNNING: 'running',
     COMPLETED: 'completed',
@@ -9,6 +10,7 @@ export const TranslationStatus = {
   }
   
   export const StreamStatus = {
+    NONEED: 'noneed',
     STREAMING: 'streaming',
     TRANSLATION_DONE: 'translation_done',
     ERROR: 'error',
@@ -20,11 +22,11 @@ export const TranslationStatus = {
   export class TranslationStateManager {
     constructor(initialState = {}) {
       this.state = {
-        streamStatus: StreamStatus.STREAMING,
-        translationStatus: TranslationStatus.PENDING,
+        streamStatus: StreamStatus.NONEED,
+        translationStatus: TranslationStatus.NONEED,
         translationProgress: 0,
         actionDescription: undefined,
-        isCompleted: false,
+        isCompleted: true,
         ...initialState
       }
     }
@@ -32,7 +34,6 @@ export const TranslationStatus = {
     updateState(newState) {
       this.state = { ...this.state, ...newState }
       this.validateState()
-      this.computedIsCompleted()
     }
   
     validateState() {
@@ -46,12 +47,18 @@ export const TranslationStatus = {
         this.state.translationStatus = TranslationStatus.COMPLETED
         this.state.translationProgress = 100
       }
-    }
-  
-    computedIsCompleted() {
-      if (this.state.streamStatus === StreamStatus.TRANSLATION_DONE || this.state.streamStatus === StreamStatus.CANCELED || this.state.streamStatus === StreamStatus.ERROR) {
+
+      // ensure stream status is according to translation status
+      if (this.state.translationStatus === TranslationStatus.COMPLETED) {
+        this.state.streamStatus = StreamStatus.TRANSLATION_DONE
         this.state.isCompleted = true
-      } else if (this.state.streamStatus = StreamStatus.STREAMING ||  this.state.streamStatus === StreamStatus.CANCEL_PENDING ){
+      } else if (this.state.translationStatus === TranslationStatus.ERROR) {
+        this.state.streamStatus = StreamStatus.ERROR
+        this.state.isCompleted = true
+      } else if (this.state.translationStatus === TranslationStatus.CANCELED) {
+        this.state.streamStatus = StreamStatus.CANCELED
+        this.state.isCompleted = true
+      } else {
         this.state.isCompleted = false
       }
     }

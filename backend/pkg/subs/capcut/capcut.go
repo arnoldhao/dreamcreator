@@ -30,21 +30,32 @@ func (p *Capcut) Format(ctx context.Context, fileName, jsonData string) (caption
 	if len(data.Tracks) == 0 {
 		return nil, errors.New("no tracks found")
 	}
-	tracks := data.Tracks[0]
+
+	tracks := make(map[string]types.TargetTimerange)
+	for _, track := range data.Tracks {
+		if track.Segments != nil {
+			for _, s := range track.Segments {
+				tracks[s.MaterialID] = types.TargetTimerange{
+					Duration: s.TargetTimerange.Duration,
+					Start:    s.TargetTimerange.Start,
+				}
+			}
+		}
+	}
 
 	// capcut -> astisub.Subtitles
 	captions = astisub.NewSubtitles()
 	for idx, text := range data.Materials.Texts {
 		st := &astisub.Item{}
-		// generate idx
-		if idx >= len(tracks.Segments) {
+		if _, ok := tracks[text.ID]; !ok {
 			fmt.Printf("Warning: No matching segment for text index %d\n", idx)
 			continue
 		}
+
 		st.Index = idx + 1
 
 		// generate time
-		timeRange := tracks.Segments[idx].TargetTimerange
+		timeRange := tracks[text.ID]
 		if st.StartAt, err = timeutil.ParseCapcut(timeRange.Start); err != nil {
 			return nil, err
 		}

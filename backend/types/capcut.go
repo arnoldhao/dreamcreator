@@ -5,6 +5,11 @@ type CapCutContentMaterialsTextsContent struct {
 	Text string `json:"text"`
 }
 
+type TargetTimerange struct {
+	Duration int `json:"duration"`
+	Start    int `json:"start"`
+}
+
 // CapCutContent CapCut Content Allin1
 type CapCutContent struct {
 	CanvasConfig struct {

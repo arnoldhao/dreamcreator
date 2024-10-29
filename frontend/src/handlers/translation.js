@@ -32,6 +32,7 @@ export function useTranslationEventHandlers() {
     function handleTranslationUpdate(id, data) {
         tabStore.updateTranslation(id, data.content, data.status, formatNumber(data.progress), data.message)
         if (data.status === 'completed' || data.status === 'error' || data.status === 'canceled') {
+            tabStore.streamDone(id)
             removeEventListener(id)
         }
     }

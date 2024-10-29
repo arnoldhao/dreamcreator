@@ -7,13 +7,14 @@ import (
 	"CanMe/backend/utils/coll"
 	"context"
 	"encoding/json"
-	"github.com/adrg/sysfont"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"net/http"
 	"os"
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/adrg/sysfont"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type Service struct {
@@ -29,7 +30,7 @@ func New() *Service {
 		oncePreferences.Do(func() {
 			preferences = &Service{
 				pref:          storage.NewPreferences(),
-				clientVersion: "",
+				clientVersion: consts.APP_VERSION,
 			}
 		})
 	}

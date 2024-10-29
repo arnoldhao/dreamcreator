@@ -72,8 +72,8 @@ const useSuperTabStore = defineStore('supertab', {
                 icon: 'file',
                 originalSubtileId: '',
                 language: 'Original',
-                stream: false,
-                streamStatus: '',
+                stream: true,
+                streamStatus: 'streaming',
                 captions: captions,
                 switchTab: true,
             })
@@ -237,6 +237,13 @@ const useSuperTabStore = defineStore('supertab', {
                 }
  
             }
+        },
+
+        streamDone(id) {
+            this.updateAndInsertTab({
+                id: id,
+                stream: false,
+            })
         },
 
         async formatCaptions(id, newCaptions) {
