@@ -1,7 +1,5 @@
 package chunk
 
-import "fmt"
-
 const (
 	CHUNK_SIZE = 1024 * 1024 * 10 // 10MB
 )
@@ -24,7 +22,5 @@ func GetChunk(totalSize int64) []Chunk {
 		chunks = append(chunks, Chunk{start, end, make(chan []byte, 1)})
 	}
 
-	// debug log
-	fmt.Printf("get chunks: %v\n", chunks)
 	return chunks
 }

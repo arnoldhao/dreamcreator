@@ -8,7 +8,7 @@ on:
       tag:
         description: 'Version tag'
         required: true
-        default: '0.0.1'
+        default: '0.0.3'
 
 jobs:
   release:
@@ -56,7 +56,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: 1.22.6
+          go-version: 1.23.3
 
       - name: Install wails
         shell: bash
@@ -71,7 +71,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: 20
+          node-version: 23.1.0
 
       - name: Build frontend assets
         shell: bash

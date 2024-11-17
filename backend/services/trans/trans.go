@@ -115,9 +115,6 @@ func (wq *WorkQueue) AddTranslation(id, originalSubId, lang string) (err error) 
 		return err
 	}
 
-	// debug log
-	fmt.Println("after get client")
-
 	// get original subtitle
 	originalSub := storage.Subtitles{}
 	err = originalSub.Read(wq.ctx, originalSubId)
@@ -125,17 +122,12 @@ func (wq *WorkQueue) AddTranslation(id, originalSubId, lang string) (err error) 
 		return fmt.Errorf("read original subtitle failed: " + err.Error())
 	}
 
-	// debug log
-	fmt.Println("after get original subtitle")
-
 	// unmarshal captions
 	var captions *astisub.Subtitles
 	if err = json.Unmarshal([]byte(originalSub.Captions), &captions); err != nil {
 		return fmt.Errorf("unmarshal captions failed: " + err.Error())
 	}
 
-	// debug log
-	fmt.Println("after unmarshal captions")
 	// initialize tranlation subtitle
 	transSub := &TranslationWorkQueue{
 		ctx:    wq.ctx,
@@ -154,9 +146,6 @@ func (wq *WorkQueue) AddTranslation(id, originalSubId, lang string) (err error) 
 		TranslationProgress: 0,
 		ActionDescription:   "",
 	}
-
-	// debug log
-	fmt.Println("after initialize tranlation subtitle")
 
 	// push to pending queue
 	wq.pending <- transSub
