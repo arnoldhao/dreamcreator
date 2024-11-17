@@ -10,6 +10,7 @@ type WSRequestMessage struct {
 	Translate TranslateRequest `json:"translate"`
 	Ollama    OllamaRequest    `json:"ollama"`
 	Chat      ChatRequest      `json:"chat"`
+	Download  DownloadRequest  `json:"download"`
 }
 
 type TranslateRequest struct {
@@ -24,6 +25,10 @@ type OllamaRequest struct {
 }
 
 type ChatRequest struct {
+	ID string `json:"id"`
+}
+
+type TestProxyRequest struct {
 	ID string `json:"id"`
 }
 
@@ -73,4 +78,50 @@ func (s OllamaResponse) WSResponseMessage() string {
 
 type ChatResponse struct {
 	ID string `json:"id"`
+}
+
+type TestProxyResult struct {
+	ID      string `json:"id"`
+	Done    bool   `json:"done"`
+	URL     string `json:"url"`
+	Success bool   `json:"success"`
+	Latency int    `json:"latency"`
+	Error   string `json:"error"`
+}
+
+func (s TestProxyResult) WSResponseMessage() string {
+	resp := WSResponseMessage{
+		Event:   string(consts.WS_EVENT_TEST_PROXY_RESULT),
+		Payload: s,
+	}
+
+	responseJSON, _ := json.Marshal(resp)
+	return string(responseJSON)
+}
+
+type DownloadRequest struct {
+	ID      string `json:"id"`
+	Stream  string `json:"stream"`
+	Caption string `json:"caption"`
+}
+
+type DownloadResponse struct {
+	ID       string                `json:"id"`       // all task uniq id
+	Status   consts.DownloadStatus `json:"status"`   // task status
+	Total    int64                 `json:"total"`    // total task count
+	Finished int64                 `json:"finished"` // finished task count
+	Speed    string                `json:"speed"`    // task speed
+	DataType ExtractorDataType     `json:"dataType"` // task data type
+	Progress float64               `json:"progress"` // task progress
+	Error    string                `json:"error"`    // task error
+}
+
+func (s DownloadResponse) WSResponseMessage() string {
+	resp := WSResponseMessage{
+		Event:   string(consts.WS_EVENT_DOWNLOAD_UPDATE),
+		Payload: s,
+	}
+
+	responseJSON, _ := json.Marshal(resp)
+	return string(responseJSON)
 }

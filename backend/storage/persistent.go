@@ -64,6 +64,12 @@ func (p *PersistentStorage) AutoMigrate(ctx context.Context) error {
 		return err
 	}
 
+	// migrate downloads
+	err = p.db.WithContext(ctx).AutoMigrate(&Downloads{})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

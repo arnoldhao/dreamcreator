@@ -5,6 +5,7 @@ import { SuperTabItem } from '../objects/supertebItem';
 import { Convert, GetCaptions, UpdateCaptions } from 'wailsjs/go/subtitles/Service'
 import { CancelTranslation } from 'wailsjs/go/trans/WorkQueue';
 import emitter from '@/utils/eventBus'
+import { EMITTER_EVENTS } from '../consts/emitter';
 
 const useSuperTabStore = defineStore('supertab', {
     state: () => ({
@@ -130,7 +131,7 @@ const useSuperTabStore = defineStore('supertab', {
             })
 
             // emit
-            emitter.emit('newTranslateSubtitle', this.latestTab)
+            emitter.emit(EMITTER_EVENTS.TRANSLATE_SUBTITLE, this.latestTab)
         },
 
         openBlankTab() {

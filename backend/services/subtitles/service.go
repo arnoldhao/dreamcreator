@@ -60,6 +60,8 @@ func (s *Service) Convert(filePath string) (resp types.JSResp) {
 			subs = &capcut.Capcut{}
 		} else if isBcut(file) {
 			subs = &bcut.BCut{}
+		} else {
+			subs = &others.Others{}
 		}
 	default:
 		subs = &others.Others{}

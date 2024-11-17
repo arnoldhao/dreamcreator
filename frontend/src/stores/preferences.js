@@ -7,6 +7,7 @@ import {
     GetPreferences,
     RestorePreferences,
     SetPreferences,
+    SetProxy,
 } from 'wailsjs/go/preferences/Service.js'
 import { BrowserOpenURL } from 'wailsjs/runtime/runtime.js'
 import { i18nGlobal } from '@/utils/i18n.js'
@@ -69,6 +70,15 @@ const usePreferencesStore = defineStore('preferences', {
             fontSize: 14,
             cursorStyle: 'block',
         },
+        proxy: {
+            enabled:  false,
+            protocal: '',
+            addr: '',
+            port: '',
+        },
+        download: {
+            dir: '',
+        },
         buildInDecoder: [],
         decoder: [],
         lastPref: {},
@@ -122,6 +132,23 @@ const usePreferencesStore = defineStore('preferences', {
                 label: font.name,
                 path: font.path,
             }))
+        },
+
+        protocalOption() {
+            return [
+                {
+                    value: 'http',
+                    label: 'preferences.proxy.protocal_http',
+                },
+                {
+                    value: 'https',
+                    label: 'preferences.proxy.protocal_https',
+                },
+                {
+                    value: 'socks5',
+                    label: 'preferences.proxy.protocal_socks5',
+                },
+            ]
         },
 
         /**
@@ -285,6 +312,15 @@ const usePreferencesStore = defineStore('preferences', {
                 if (links === undefined) {
                     set(data, 'editor.links', true)
                 }
+                const proxy = get(data, 'proxy')
+                if (proxy === undefined) {
+                    set(data, 'proxy', {
+                        Enabled: false,
+                        Protocal: 'http',
+                        Addr: '',
+                        Port: '',
+                    })
+                }
                 i18nGlobal.locale.value = this.currentLanguage
             }
         },
@@ -309,8 +345,10 @@ const usePreferencesStore = defineStore('preferences', {
          * @returns {Promise<boolean>}
          */
         async savePreferences() {
-            const pf = pick(this, ['behavior', 'general', 'editor', 'cli', 'decoder'])
+            const pf = pick(this, ['behavior', 'general', 'editor', 'cli', 'decoder', 'proxy', 'download'])
             const { success, msg } = await SetPreferences(pf)
+            // proxy 
+            this.setProxy()
             return success === true
         },
 
@@ -322,6 +360,35 @@ const usePreferencesStore = defineStore('preferences', {
             if (!isEmpty(this.lastPref)) {
                 this._applyPreferences(this.lastPref)
             }
+        },
+
+        async setProxy() {
+            if (this.proxy.enabled) {
+                if (isEmpty(this.proxy.addr)) {
+                    $message.error(i18nGlobal.t('preferences.proxy.addr_required'))
+                    return false
+                }
+                if (this.proxy.port === 0) {
+                    $message.error(i18nGlobal.t('preferences.proxy.port_required'))
+                    return false
+                }
+                if (isEmpty(this.proxy.protocal)) {
+                    $message.error(i18nGlobal.t('preferences.proxy.protocal_required'))
+                    return false
+                }
+                const url = this.proxy.protocal + '://' + this.proxy.addr + ':' + this.proxy.port
+                const { success, msg } = await SetProxy(url)
+                if (!success) {
+                    $message.error(i18nGlobal.t('preferences.proxy.test_failed') + msg)
+                }
+                return success === true
+            } else {
+                return true
+            }
+        },
+
+        updateDownloadDir(newDir) {
+            this.download.dir = newDir
         },
 
         /**

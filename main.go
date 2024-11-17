@@ -2,6 +2,7 @@ package main
 
 import (
 	"CanMe/backend/consts"
+	"CanMe/backend/services/downloads"
 	"CanMe/backend/services/languages"
 	"CanMe/backend/services/llms"
 	"CanMe/backend/services/ollama"
@@ -15,6 +16,8 @@ import (
 	"embed"
 	"fmt"
 	"runtime"
+
+	_ "CanMe/backend/pkg/extractors/youtube" // init youtube extractor
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/menu"
@@ -47,6 +50,7 @@ func main() {
 	ollamaService := ollama.New()
 	subtitlesService := subtitles.New()
 	transService := trans.New()
+	downloadsService := downloads.New()
 
 	// database
 	persistentStorage, err := storage.NewPersistentStorage()
@@ -89,13 +93,15 @@ func main() {
 		StartHidden:      true,
 		OnStartup: func(ctx context.Context) {
 			systemService.SetContext(ctx, consts.APP_VERSION)
+			preferencesService.RegisterServices(ctx, websocketService)
 			languageService.RegisterService(ctx)
 			llmsService.RegisterServices(ctx)
 			subtitlesService.SetContext(ctx)
 			ollamaService.RegisterServices(ctx, websocketService)
 			languageService.RegisterService(ctx)
 			transService.Process(ctx, websocketService)
-			websocketService.RegisterServices(ctx, transService, ollamaService)
+			downloadsService.Process(ctx, websocketService)
+			websocketService.RegisterServices(ctx, transService, ollamaService, preferencesService, downloadsService)
 			persistentStorage.AutoMigrate(ctx)
 		},
 		OnDomReady: func(ctx context.Context) {
@@ -118,6 +124,7 @@ func main() {
 			subtitlesService,
 			websocketService,
 			transService,
+			downloadsService,
 		},
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarHiddenInset(),

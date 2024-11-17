@@ -69,3 +69,29 @@ func OllamaHost(host string) *url.URL {
 		Host:   net.JoinHostPort(host, port),
 	}
 }
+
+func SanitizeFileName(fileName string) string {
+	// define illegal characters
+	illegalChars := []string{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"}
+
+	result := fileName
+	// replace
+	for _, char := range illegalChars {
+		result = strings.ReplaceAll(result, char, "_")
+	}
+
+	// trim space
+	result = strings.TrimSpace(result)
+
+	// if file name is empty, use default name
+	if result == "" {
+		result = "untitled"
+	}
+
+	// limit file name length (optional, Windows max path length is 255 characters)
+	if len(result) > 200 {
+		result = result[:200]
+	}
+
+	return result
+}

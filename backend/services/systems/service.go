@@ -6,10 +6,11 @@ import (
 	"CanMe/backend/types"
 	"CanMe/backend/utils/sliceUtil"
 	"context"
-	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"runtime"
 	"sync"
 	"time"
+
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type Service struct {
@@ -61,6 +62,29 @@ func (s *Service) Info() (resp types.JSResp) {
 		Version: s.appVersion,
 	}
 	return
+}
+
+// OpenDirectoryDialog open directory dialog
+func (s *Service) OpenDirectoryDialog(title string) (resp types.JSResp) {
+	filepath, err := wailsRuntime.OpenDirectoryDialog(s.ctx, wailsRuntime.OpenDialogOptions{
+		Title: title,
+	})
+	if err != nil {
+		resp.Msg = err.Error()
+		return
+	}
+	resp.Success = true
+	resp.Data = map[string]any{
+		"path": filepath,
+	}
+	return
+}
+
+// OpenDirectory opens the specified directory in system file explorer
+func (s *Service) OpenDirectory(path string) {
+	url := "file:///" + path
+
+	wailsRuntime.BrowserOpenURL(s.ctx, url)
 }
 
 // SelectFile open file dialog to select a file

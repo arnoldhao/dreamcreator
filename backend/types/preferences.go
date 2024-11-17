@@ -5,6 +5,8 @@ import "CanMe/backend/consts"
 type Preferences struct {
 	Behavior PreferencesBehavior `json:"behavior" yaml:"behavior"`
 	General  PreferencesGeneral  `json:"general" yaml:"general"`
+	Proxy    Proxy               `json:"proxy" yaml:"proxy"`
+	Download Download            `json:"download" yaml:"download"`
 }
 
 func NewPreferences() Preferences {
@@ -22,6 +24,11 @@ func NewPreferences() Preferences {
 			KeyIconStyle: 0,
 			CheckUpdate:  true,
 			AllowTrack:   true,
+		},
+		Proxy: Proxy{
+			Enabled:  false,
+			Protocal: "",
+			Addr:     "",
 		},
 	}
 }
@@ -49,4 +56,15 @@ type PreferencesGeneral struct {
 	CheckUpdate     bool     `json:"checkUpdate" yaml:"check_update"`
 	SkipVersion     string   `json:"skipVersion" yaml:"skip_version,omitempty"`
 	AllowTrack      bool     `json:"allowTrack" yaml:"allow_track"`
+}
+
+type Proxy struct {
+	Enabled  bool   `json:"enabled" yaml:"enabled"`
+	Protocal string `json:"protocal" yaml:"protocal"`
+	Addr     string `json:"addr" yaml:"addr"`
+	Port     int    `json:"port" yaml:"port"`
+}
+
+type Download struct {
+	Dir string `json:"dir" yaml:"dir"`
 }

@@ -11,9 +11,13 @@ import { darkThemeOverrides, themeOverrides } from '@/utils/theme.js'
 import hljs from "highlight.js/lib/core"
 import { useTranslationEventHandlers } from '@/handlers/translation.js'
 import { useOllamaEventHandlers } from '@/handlers/ollama.js'
+import { useCommonEventHandlers } from '@/handlers/common.js'
+import { useDownloadEventHandlers } from '@/handlers/download.js'
 import useLLMTabStore from '@/stores/llmtab.js'
 const { initEventHandlers } = useTranslationEventHandlers()
 const { initOllamaEventHandlers } = useOllamaEventHandlers()
+const { initCommonEventHandlers } = useCommonEventHandlers()
+const { initDownloadEventHandlers } = useDownloadEventHandlers()
 const prefStore = usePreferencesStore()
 const i18n = useI18n()
 const initializing = ref(true)
@@ -79,6 +83,10 @@ onMounted(async () => {
     initEventHandlers()
     // initialize ollama event handlers
     initOllamaEventHandlers()
+    // initialize common event handlers
+    initCommonEventHandlers()
+    // initialize download event handlers
+    initDownloadEventHandlers()
     // initialize LLM
     llmStore.initialize(true)
   } finally {

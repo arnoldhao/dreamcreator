@@ -73,20 +73,3 @@ func ListSubtitles(ctx context.Context) ([]Subtitles, error) {
 							Find(&subtitles).Error
 	return subtitles, err
 }
-
-func (s *Subtitles) UpdateTranslationStatus(ctx context.Context, status TranslationStatus, progress float64, error string) error {
-	return GetGlobalPersistentStorage().DB(ctx).Model(s).Updates(map[string]interface{}{
-		"translation_status":   status,
-		"translation_progress": progress,
-		"translation_error":    error,
-	}).Error
-}
-
-func (s *Subtitles) UpdateTranslationCaptionsAndStatus(ctx context.Context, captions string, status TranslationStatus, progress float64, error string) error {
-	return GetGlobalPersistentStorage().DB(ctx).Model(s).Updates(map[string]interface{}{
-		"captions":             captions,
-		"translation_status":   status,
-		"translation_progress": progress,
-		"translation_error":    error,
-	}).Error
-}

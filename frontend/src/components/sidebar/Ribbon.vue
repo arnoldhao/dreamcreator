@@ -14,6 +14,7 @@ import Twitter from '@/components/icons/Twitter.vue'
 import {extraTheme} from "@/utils/extra_theme.js";
 import ServerIcon from "@/components/icons/Server.vue";
 import {Project} from "@/consts/global.js";
+import VideoDownloadIcon from '@/components/icons/VideoDownload.vue';
 
 
 const themeVars = useThemeVars()
@@ -50,6 +51,11 @@ const menuOptions = computed(() => {
       label: 'menu.history',
       key: 'history',
       icon: HistoryIcon,
+    },
+    {
+      label: 'menu.download',
+      key: 'download',
+      icon: VideoDownloadIcon,
     },
   ]
 })

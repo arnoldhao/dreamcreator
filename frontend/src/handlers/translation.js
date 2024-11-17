@@ -2,6 +2,7 @@ import { WS_EVENTS, WS_REQUEST_EVENTS } from '@/consts/wsEvents'
 import useSuperTabStore from "@/stores/supertab.js"
 import WebSocketService from '@/services/websocket'
 import emitter from '@/utils/eventBus'
+import { EMITTER_EVENTS } from '@/consts/emitter'
 
 export function useTranslationEventHandlers() {
     const tabStore = useSuperTabStore()
@@ -82,7 +83,7 @@ export function useTranslationEventHandlers() {
         processQueue()
     }
     function initEventHandlers() {
-        emitter.on('newTranslateSubtitle', (newTab) => {
+        emitter.on(EMITTER_EVENTS.TRANSLATE_SUBTITLE, (newTab) => {
             if (newTab) {
                 tabQueue.push(newTab)
                 processQueue()
@@ -92,7 +93,7 @@ export function useTranslationEventHandlers() {
         // no need to remove event listeners
         // onUnmounted(() => {
         //     removeAllEventListeners()
-        //     emitter.off('newTranslateSubtitle')
+        //     emitter.off(EMITTER_EVENTS.TRANSLATE_SUBTITLE)
         // })
     }
 

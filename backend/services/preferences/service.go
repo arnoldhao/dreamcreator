@@ -2,6 +2,8 @@ package preferences
 
 import (
 	"CanMe/backend/consts"
+	"CanMe/backend/pkg/specials/config"
+	innerinterfaces "CanMe/backend/services/innerInterfaces"
 	"CanMe/backend/storage"
 	"CanMe/backend/types"
 	"CanMe/backend/utils/coll"
@@ -20,6 +22,9 @@ import (
 type Service struct {
 	pref          *storage.PreferencesStorage
 	clientVersion string
+
+	ctx       context.Context
+	wsService innerinterfaces.WebSocketServiceInterface
 }
 
 var preferences *Service
@@ -37,6 +42,11 @@ func New() *Service {
 	return preferences
 }
 
+func (p *Service) RegisterServices(ctx context.Context, wsService innerinterfaces.WebSocketServiceInterface) {
+	p.ctx = ctx
+	p.wsService = wsService
+}
+
 func (p *Service) GetPreferences() (resp types.JSResp) {
 	resp.Data = p.pref.GetPreferences()
 	resp.Success = true
@@ -51,6 +61,7 @@ func (p *Service) SetPreferences(pf types.Preferences) (resp types.JSResp) {
 	}
 
 	p.UpdateEnv()
+	p.UpdateGlobalConfig()
 	resp.Success = true
 	return
 }
@@ -228,5 +239,13 @@ func (p *Service) UpdateEnv() {
 		os.Setenv("LANG", "zh_CN.UTF-8")
 	} else {
 		os.Unsetenv("LANG")
+	}
+}
+
+func (p *Service) UpdateGlobalConfig() {
+	// set download dir
+	downloadDir := p.pref.GetPreferences().Download.Dir
+	if len(downloadDir) > 0 {
+		config.GetDownloadInstance().SetDownloadURL(downloadDir)
 	}
 }

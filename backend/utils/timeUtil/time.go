@@ -1,4 +1,4 @@
-package timeutil
+package timeUtil
 
 import (
 	"fmt"
@@ -26,6 +26,14 @@ func ParseBCut(d time.Duration) (time.Duration, error) {
 	// todo
 
 	return d, nil
+}
+
+func ParseBilibiliSubtitle(i float32) (d time.Duration, err error) {
+	return parseDuration(fmt.Sprintf("%f", i), ".", 3)
+}
+
+func ParseYoutubeTranscript(i string) (d time.Duration, err error) {
+	return parseDuration(i, ".", 3)
 }
 
 func formatDurationCapcut(i string) (d time.Duration, err error) {

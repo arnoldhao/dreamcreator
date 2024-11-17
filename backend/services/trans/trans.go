@@ -54,9 +54,9 @@ type SubtitleInfo struct {
 
 func New() *WorkQueue {
 	return &WorkQueue{
-		pending:    make(chan *TranslationWorkQueue, 100),
-		processing: make(map[string]*TranslationWorkQueue, 100),
-		completed:  make(chan *TranslationWorkQueue, 100),
+		pending:    make(chan *TranslationWorkQueue, consts.TRANSLATION_WORK_QUEUE_MAX_SIZE),
+		processing: make(map[string]*TranslationWorkQueue, consts.TRANSLATION_WORK_QUEUE_MAX_SIZE),
+		completed:  make(chan *TranslationWorkQueue, consts.TRANSLATION_WORK_QUEUE_MAX_SIZE),
 	}
 }
 

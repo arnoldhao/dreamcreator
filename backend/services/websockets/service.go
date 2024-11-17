@@ -16,12 +16,14 @@ import (
 )
 
 type Service struct {
-	ctx              context.Context
-	upgrader         websocket.Upgrader
-	wsManager        *innerWS.Manager
-	translateService innerInterfaces.TranslateServiceInterface
-	ollamaService    innerInterfaces.OllamaServiceInterface
-	TranslationList  []string
+	ctx                context.Context
+	upgrader           websocket.Upgrader
+	wsManager          *innerWS.Manager
+	translateService   innerInterfaces.TranslateServiceInterface
+	ollamaService      innerInterfaces.OllamaServiceInterface
+	preferencesService innerInterfaces.PreferenceServiceInterface
+	downloadService    innerInterfaces.DownloadServiceInterface
+	TranslationList    []string
 }
 
 func New() *Service {
@@ -52,10 +54,14 @@ func (s *Service) RegisterServices(
 	ctx context.Context,
 	translateService innerInterfaces.TranslateServiceInterface,
 	ollamaService innerInterfaces.OllamaServiceInterface,
+	preferencesService innerInterfaces.PreferenceServiceInterface,
+	downloadService innerInterfaces.DownloadServiceInterface,
 ) {
 	s.ctx = ctx
 	s.translateService = translateService
 	s.ollamaService = ollamaService
+	s.preferencesService = preferencesService
+	s.downloadService = downloadService
 }
 
 func (s *Service) handleWebSocket(w http.ResponseWriter, r *http.Request) {
@@ -118,6 +124,26 @@ func (s *Service) readPump(client *innerWS.Client) {
 					Message: err.Error(),
 				}.WSResponseMessage())
 			}
+		case consts.REQUEST_TEST_PROXY:
+			err = s.preferencesService.TestProxy(client.ID)
+			if err != nil {
+				s.SendToClient(client.ID, types.TestProxyResult{
+					ID:      client.ID,
+					Done:    true,
+					Success: false,
+					Error:   err.Error(),
+				}.WSResponseMessage())
+			}
+		case consts.REQUEST_DOWNLOAD:
+			err = s.downloadService.Download(msg.Download)
+			if err != nil {
+				runtime.LogInfof(s.ctx, "downloadService.Download error: %v", err)
+				s.SendToClient(client.ID, types.DownloadResponse{
+					ID:     msg.Download.ID,
+					Status: consts.DownloadStatusDownloadFailed,
+					Error:  err.Error(),
+				}.WSResponseMessage())
+			}
 		default:
 			runtime.LogErrorf(s.ctx, "Unexpected event from %s: %s", client.ID, msg.Event)
 		}
@@ -147,6 +173,10 @@ func (s *Service) SendToClient(clientID string, message string) {
 	} else {
 		runtime.LogInfo(s.ctx, fmt.Sprintf("client: %v is not processing, skip", clientID))
 	}
+}
+
+func (s *Service) CommonSendToClient(clientID string, message string) {
+	s.wsManager.SendToClient(clientID, message)
 }
 
 func (s *Service) addTranslation(id string) {

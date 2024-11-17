@@ -17,7 +17,7 @@ import ContentValueTab from "@/components/content/ContentValueTab.vue";
 import AiConfigurationSidebar from "@/components/sidebar/AIConfiguration.vue";
 import LLMConfiguration from "@/components/content/LLMConfiguration.vue";
 import HistoryPane from "@/components/content/HistoryPane.vue";
-
+import DownloadVideoPage from "@/components/content/DownloadVideoPage.vue";
 const themeVars = useThemeVars()
 
 const props = defineProps({
@@ -198,6 +198,11 @@ function initializeTabs(tabName) {
         <!-- history page -->
         <div v-show="tabStore.nav === 'history'" class="content-area flex-box-h flex-item-expand">
           <history-pane class="flex-item-expand" />
+        </div>
+
+        <!-- download video page -->
+        <div v-show="tabStore.nav === 'download'" class="content-area flex-box-h flex-item-expand">
+          <download-video-page class="flex-item-expand" />
         </div>
       </div>
     </div>
