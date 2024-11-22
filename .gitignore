@@ -1,5 +1,6 @@
 # wails file
 build/bin
+
 node_modules
 frontend/dist
 frontend/wailsjs

@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"sync"
 
 	"CanMe/backend/pkg/extractors"
+	"CanMe/backend/pkg/specials/cmdrun"
 	innerInterfaces "CanMe/backend/services/innerInterfaces"
 	"CanMe/backend/storage"
 	"CanMe/backend/types"
@@ -91,7 +91,8 @@ func (wq *WorkQueue) Get(url string) (resp types.JSResp) {
 }
 
 func (wq *WorkQueue) GetFFMPEGVersion() (resp types.JSResp) {
-	out, err := exec.Command(findFFmpeg(), "-version").Output()
+	cmd := cmdrun.RunCommand(findFFmpeg(), "-version")
+	out, err := cmd.Output()
 	if err != nil {
 		resp.Msg = fmt.Errorf("failed to get ffmpeg: %v", err).Error()
 		resp.Success = false

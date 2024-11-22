@@ -1,11 +1,14 @@
 package downloads
 
 import (
+	"CanMe/backend/pkg/specials/cmdrun"
 	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 func findFFmpeg() string {
@@ -13,6 +16,41 @@ func findFFmpeg() string {
 	if runtime.GOOS == "windows" {
 		fileName += ".exe"
 	}
+
+	execPath, err := os.Executable()
+	if err == nil {
+		appDir := filepath.Dir(execPath)
+		if runtime.GOOS == "darwin" {
+			// if macOS .app checkContents/MacOS directory
+			if strings.Contains(appDir, "Contents/MacOS") {
+				ffmpegPath := filepath.Join(filepath.Dir(filepath.Dir(appDir)), "Resources", fileName)
+				if _, err := os.Stat(ffmpegPath); err == nil {
+					return ffmpegPath
+				}
+			}
+		}
+		// check app directory
+		ffmpegPath := filepath.Join(appDir, fileName)
+		if _, err := os.Stat(ffmpegPath); err == nil {
+			return ffmpegPath
+		}
+	}
+
+	// get system PATH
+	pathEnv := os.Getenv("PATH")
+	if runtime.GOOS == "darwin" {
+		// default macOS PATH
+		pathEnv = "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:" + pathEnv
+	}
+
+	// find ffmpeg
+	for _, dir := range filepath.SplitList(pathEnv) {
+		path := filepath.Join(dir, fileName)
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
 	return fileName
 }
 
@@ -39,5 +77,5 @@ func (wq *WorkQueue) muxParts(parts []string, mergedFilePath string) (err error)
 	}
 
 	cmd = append(cmd, "-c:v", "copy", "-c:a", "copy", mergedFilePath)
-	return runMuxParts(exec.Command(findFFmpeg(), cmd...), parts)
+	return runMuxParts(cmdrun.RunCommand(findFFmpeg(), cmd...), parts)
 }
