@@ -83,12 +83,17 @@
         </div>
 
         <!-- Download task list -->
-        <div class="flex-1 card bg-base-100 p-4 mt-4 flex flex-col min-h-0">
+        <div class="flex-1 card bg-base-100 p-4 mt-4 flex flex-col min-h-0 tasks-list">
             <div class="shrink-0 flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold">{{ t('video_download.tasks') }}</h3>
-                <button @click="refreshInstantData" class="btn btn-ghost btn-sm">
-                    <i class="fas fa-sync-alt mr-2"></i>{{ t('video_download.refresh') }}
-                </button>
+                <div class="flex justify-end gap-2">
+                    <button @click.stop="deleteRecord" class="btn btn-ghost btn-sm" :disabled="!toDelete">
+                        <n-icon size="18" class="mr-1"><TrashOutline /></n-icon>{{ t('video_download.delete') }}
+                    </button>
+                    <button @click.stop="refreshInstantData" class="btn btn-ghost btn-sm">
+                        <n-icon size="18" class="mr-1"><RefreshOutline /></n-icon>{{ t('video_download.refresh') }}
+                    </button>
+                </div>
             </div>
 
             <div class="flex-1 overflow-auto min-h-0">
@@ -110,7 +115,10 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="item in instantData" :key="item.id">
+                        <tr v-for="item in instantData" :key="item.id" 
+                            @click.stop="toDelete = item.id"
+                            :class="{'bg-primary/20': toDelete === item.id}"
+                            class="cursor-pointer">
                             <td>
                                 <div class="flex justify-center">
                                     <YoutubeIcon v-if="getSiteIcon(item.source) === 'YoutubeIcon'" class="w-4 h-4" />
@@ -121,7 +129,7 @@
                             </td>
                             <td class="max-w-xs">
                                 <div class="truncate">
-                                    <button class="hover:text-primary w-full text-left" @click="showDetailModal(item)">
+                                    <button class="hover:text-primary w-full text-left" @click.stop="showDetailModal(item)">
                                         {{ item.title }}
                                     </button>
                                 </div>
@@ -134,7 +142,7 @@
                                         <template v-if="downloadFailed(item.total, item.finished, item.status)">
                                             <div class="flex items-center justify-center flex-1">
                                                 <button class="btn btn-xs btn-ghost text-error gap-2"
-                                                    @click="showErrorModal(item.error)">
+                                                    @click.stop="showErrorModal(item.error)">
                                                     {{ t('video_download.download_failed') }}
                                                     <i class="fas fa-info-circle"></i>
                                                 </button>
@@ -158,7 +166,7 @@
                             </td>
                             <td class="text-center">
                                 <button class="btn btn-ghost btn-sm !bg-transparent flex justify-center items-center"
-                                    @click="openFolder(item.savedPath)">
+                                    @click.stop="openFolder(item.savedPath)">
                                     <div class="flex justify-center items-center">
                                         <OpenDirectoryIcon class="w-4 h-4" />
                                     </div>
@@ -247,8 +255,8 @@
 </template>
 
 <script setup>
-import { Get, GetFFMPEGVersion, CheckTask } from 'wailsjs/go/downloads/WorkQueue'
-import { ref, watch, computed, onMounted } from 'vue'
+import { Get, GetFFMPEGVersion, CheckTask, DeleteRecord } from 'wailsjs/go/downloads/WorkQueue'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import emitter from '@/utils/eventBus'
 import { EMITTER_EVENTS } from '@/consts/emitter'
 import useDownloadStore from '@/stores/download'
@@ -258,6 +266,7 @@ import BilibiliIcon from '@/components/icons/Bilibili.vue';
 import OpenDirectoryIcon from '@/components/icons/OpenDirectory.vue';
 import { OpenDirectory } from 'wailsjs/go/systems/Service'
 import { useI18n } from 'vue-i18n';
+import { TrashOutline, RefreshOutline } from '@vicons/ionicons5'
 const downloadStore = useDownloadStore()
 const { instantData } = storeToRefs(downloadStore)
 const { t } = useI18n();
@@ -414,6 +423,17 @@ async function download() {
     }
 }
 
+const toDelete = ref(null)
+async function deleteRecord() {
+    const { success, msg } = await DeleteRecord(toDelete.value)
+    if (success) {
+        $message.success(t('video_download.delete_success'))
+        downloadStore.setInstantData()
+    } else {
+        $message.error(msg)
+    }
+}
+
 const formatQuality = (quality) => {
     if (!quality) return ''
     // Split by semicolon, take the first part
@@ -429,8 +449,21 @@ const refreshInstantData = () => {
 
 // Get data once when the component is loaded
 onMounted(() => {
-    refreshInstantData()
+    refreshInstantData() 
+    document.addEventListener('click', handleGlobalClick)
 })
+
+onUnmounted(() => {
+    document.removeEventListener('click', handleGlobalClick)
+})
+
+function handleGlobalClick(event) {
+    // check if the click is outside the tasks list
+    const tasksElement = document.querySelector('.tasks-list')
+    if (!tasksElement?.contains(event.target)) {
+        toDelete.value = null
+    }
+}
 
 // Get site icon
 const getSiteIcon = (source) => {

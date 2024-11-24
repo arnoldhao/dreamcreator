@@ -97,6 +97,9 @@ func (wq *WorkQueue) processStreams(parts map[string]*types.Part) (err error) {
 		})
 		if err != nil {
 			wq.setPartFinished(stream.GetID(), stream.GetFileName(), err)
+
+			// save record error
+			wq.setFinished(stream.GetID(), consts.DownloadStatusDownloadFailed, err)
 			return err
 		} else {
 			// fix current < size ,but download success

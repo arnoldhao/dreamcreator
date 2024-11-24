@@ -319,6 +319,8 @@
     "file_name": "File Name",
     "open_folder": "Open Folder",
     "open_file": "Open File",
-    "error_info": "Error Info"
+    "error_info": "Error Info",
+    "delete": "Delete",
+    "delete_success": "Delete Success"
   }
 }

@@ -3,6 +3,7 @@ package downloads
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -131,11 +132,17 @@ func (wq *WorkQueue) CheckTask(id, streamID, captionsID string) (resp types.JSRe
 	}
 
 	record := storage.Downloads{}
-	err := record.Read(wq.ctx, id)
-	if err != nil && err == gorm.ErrRecordNotFound {
-		resp.Data = id // return old task id
-		resp.Success = true
-		return
+	err := record.ReadWithDeleted(wq.ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			resp.Data = id // return old task id
+			resp.Success = true
+			return
+		} else {
+			resp.Msg = err.Error()
+			resp.Success = false
+			return
+		}
 	}
 
 	cached, ok := wq.cached.Get(id)
@@ -169,6 +176,37 @@ func (wq *WorkQueue) ListDownloaded() (resp types.JSResp) {
 	return
 }
 
+func (wq *WorkQueue) DeleteRecord(id string) (resp types.JSResp) {
+	record := storage.Downloads{}
+	// if record not exist, return
+	err := record.Read(wq.ctx, id)
+	if err != nil && err == gorm.ErrRecordNotFound {
+		resp.Msg = err.Error()
+		resp.Success = false
+		return
+	}
+
+	// if record is downloading, return
+	_, ok := wq.getDownloadingTask(id)
+	if ok {
+		resp.Msg = fmt.Sprintf("record:%v is downloading, no permission", id)
+		resp.Success = false
+		return
+	}
+
+	// delete
+	record.ID = id
+	err = record.Delete(wq.ctx)
+	if err != nil {
+		resp.Msg = err.Error()
+		resp.Success = false
+		return
+	}
+
+	resp.Success = true
+	return
+}
+
 // Download download video and caption for websocket request
 func (wq *WorkQueue) Download(req types.DownloadRequest) (err error) {
 	// parse to task
@@ -178,13 +216,13 @@ func (wq *WorkQueue) Download(req types.DownloadRequest) (err error) {
 	}
 
 	// download caption
-	if caption := t.Captions; caption != nil {
-		_ = wq.processCaptions(caption, cached.CaptionsTransform)
+	if len(t.Captions) > 0 {
+		_ = wq.processCaptions(t.Captions, cached.CaptionsTransform)
 	}
 
 	// download stream
-	if stream := t.Streams; stream != nil {
-		_ = wq.processStreams(stream)
+	if len(t.Streams) > 0 {
+		_ = wq.processStreams(t.Streams)
 	}
 
 	return nil

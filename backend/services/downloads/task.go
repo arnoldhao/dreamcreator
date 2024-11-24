@@ -4,6 +4,7 @@ import (
 	"CanMe/backend/consts"
 	"CanMe/backend/storage"
 	"CanMe/backend/types"
+	"errors"
 	"fmt"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -15,6 +16,13 @@ func (wq *WorkQueue) setDownloadingTask(id string, t *types.DownloadTask) {
 	wq.mutex.Lock()
 	defer wq.mutex.Unlock()
 	wq.downloading[id] = t
+}
+
+func (wq *WorkQueue) getDownloadingTask(id string) (*types.DownloadTask, bool) {
+	wq.mutex.Lock()
+	defer wq.mutex.Unlock()
+	t, ok := wq.downloading[id]
+	return t, ok
 }
 
 // parseToTask [INITIAL_FUNCTION] with WebSocket Logic
@@ -144,14 +152,18 @@ func (wq *WorkQueue) parseToTask(req types.DownloadRequest) (task *types.Downloa
 		Error:     "",
 	}
 
-	err = record.Create(wq.ctx)
+	err = record.ReadWithDeleted(wq.ctx, req.ID)
 	if err != nil {
-		if err == gorm.ErrDuplicatedKey {
-			runtime.LogInfof(wq.ctx, "create download record error: %v", err)
-			// update record
-			record.Update(wq.ctx)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// create record
+			err = record.Create(wq.ctx)
+			if err != nil {
+				runtime.LogInfof(wq.ctx, "create download record error: %v", err)
+			} else {
+				runtime.LogInfof(wq.ctx, "create download record success")
+			}
 		} else {
-			runtime.LogInfof(wq.ctx, "create download record error: %v", err)
+			runtime.LogInfof(wq.ctx, "read download record error: %v", err)
 		}
 	}
 
@@ -303,6 +315,7 @@ func (wq *WorkQueue) setPartFinished(id, fileName string, err error) {
 
 		// update task
 		wq.downloading[id] = task
+		runtime.LogInfof(wq.ctx, "setPartFinished: updated task for id:%s", id)
 	} else {
 		runtime.LogInfof(wq.ctx, "setPartFinished error: id:%s not found", id)
 	}
@@ -338,7 +351,7 @@ func (wq *WorkQueue) setFinished(id string, status consts.DownloadStatus, err er
 		// send to finished
 		wq.finished <- task
 		delete(wq.downloading, id)
-		runtime.LogInfof(wq.ctx, "setFinished: id:%s finished", id)
+		runtime.LogInfof(wq.ctx, "setFinished: deleted id:%s from downloading map", id)
 	} else {
 		runtime.LogInfof(wq.ctx, "setFinished error: id:%s not found", id)
 	}

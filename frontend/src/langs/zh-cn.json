@@ -320,6 +320,8 @@
     "file_name": "文件名",
     "open_folder": "打开文件夹",
     "open_file": "打开文件",
-    "error_info": "错误信息"
+    "error_info": "错误信息",
+    "delete": "删除",
+    "delete_success": "删除成功"
   }
 }

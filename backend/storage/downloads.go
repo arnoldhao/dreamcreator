@@ -37,6 +37,11 @@ func (d *Downloads) Read(ctx context.Context, id string) error {
 	return GetGlobalPersistentStorage().First(ctx, d, "id = ?", id)
 }
 
+// ReadWithDeleted read a download record by id, including soft deleted records
+func (d *Downloads) ReadWithDeleted(ctx context.Context, id string) error {
+	return GetGlobalPersistentStorage().DB(ctx).Unscoped().First(d, "id = ?", id).Error
+}
+
 // Update update a download record
 func (d *Downloads) Update(ctx context.Context) error {
 	return GetGlobalPersistentStorage().Update(ctx, d, d)
