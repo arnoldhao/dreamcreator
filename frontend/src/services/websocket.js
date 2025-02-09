@@ -1,37 +1,41 @@
+import { types } from 'wailsjs/go/models';
+
 class WebSocketService {
   constructor() {
-    this.sockets = new Map();
+    this.client = null;
     this.listeners = new Map();
   }
 
-  connect(clientId) {
+  connect() {
     return new Promise((resolve, reject) => {
-      if (this.sockets.has(clientId)) {
+      if (this.client) {
         resolve();
         return;
       }
 
-      const socket = new WebSocket(`ws://localhost:34444/ws?id=${clientId}`);
+      const socket = new WebSocket(`ws://localhost:34444/ws?id=canme`);
 
       socket.onopen = () => {
-        this.sockets.set(clientId, socket);
+        console.log(`WebSocket connected`);
+        this.client = socket;
         resolve();
       };
 
       socket.onerror = (error) => {
-        console.error(`WebSocket error for clientId ${clientId}:`, error);
+        console.error(`WebSocket error:`, error);
         reject(error);
       };
 
-      socket.onmessage = (event) => {
+      socket.onmessage = (message) => {
         let data;
         try {
-          data = JSON.parse(event.data);
+          const jsonData = JSON.parse(message.data);
+          data = new types.WSResponse(jsonData);
         } catch (e) {
           console.error('Parse message error:', e);
           return;
         }
-        this.notifyListeners(clientId, data);
+        this.notifyListeners(data);
       };
 
       socket.onclose = () => {
@@ -40,25 +44,30 @@ class WebSocketService {
     });
   }
 
-  send(clientId, message) {
-    const socket = this.sockets.get(clientId);
+  send(namespace, event, data) {
+    const socket = this.client;
     if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify(message));
+      const request = new types.WSRequest({
+        namespace: namespace,
+        event: event,
+        data: data
+    });
+      socket.send(JSON.stringify(request));
     } else {
-      console.error(`WebSocket is not connected for clientId: ${clientId}`);
+      console.error(`WebSocket is not connected`);
     }
   }
 
-  addListener(clientId, event, callback) {
-    const key = `${clientId}:${event}`;
+  addListener(namespace, callback) {
+    const key = `${namespace}`;
     if (!this.listeners.has(key)) {
       this.listeners.set(key, []);
     }
     this.listeners.get(key).push(callback);
   }
 
-  removeListener(clientId, event, callback) {
-    const key = `${clientId}:${event}`;
+  removeListener(namespace, callback) {
+    const key = `${namespace}`;
     if (this.listeners.has(key)) {
       const callbacks = this.listeners.get(key);
       const index = callbacks.indexOf(callback);
@@ -68,18 +77,20 @@ class WebSocketService {
     }
   }
 
-  notifyListeners(clientId, data) {
-    const key = `${clientId}:${data.event}`;
+  notifyListeners(data) {
+    const key = `${data.namespace}`;
     if (this.listeners.has(key)) {
-      this.listeners.get(key).forEach(callback => callback(data.payload));
+      this.listeners.get(key).forEach(callback => callback(data));
+    } else {
+      console.log(`No listeners for ${key}`);
     }
   }
 
-  disconnect(clientId) {
-    const socket = this.sockets.get(clientId);
+  disconnect() {
+    const socket = this.client;
     if (socket) {
       socket.close();
-      this.sockets.delete(clientId);
+      this.client = null;
     }
   }
 }

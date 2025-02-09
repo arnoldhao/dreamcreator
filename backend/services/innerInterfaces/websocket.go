@@ -1,7 +1,7 @@
 package innerinterfaces
 
+import "CanMe/backend/types"
+
 type WebSocketServiceInterface interface {
-	SendToClient(clientID string, message string)
-	CommonSendToClient(clientID string, message string)
-	RemoveTranslation(id string)
+	SendToClient(message types.WSResponse)
 }

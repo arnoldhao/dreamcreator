@@ -1,7 +1,6 @@
-package downloads
+package download
 
 import (
-	"CanMe/backend/pkg/specials/cmdrun"
 	"bytes"
 	"fmt"
 	"os"
@@ -9,6 +8,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"CanMe/backend/pkg/specials/cmdrun"
 )
 
 func findFFmpeg() string {
@@ -69,13 +70,7 @@ func runMuxParts(cmd *exec.Cmd, parts []string) (err error) {
 	return nil
 }
 
-func (wq *WorkQueue) muxParts(parts []string, mergedFilePath string) (err error) {
-	cmd := []string{"-y"}
-
-	for _, part := range parts {
-		cmd = append(cmd, "-i", part)
-	}
-
-	cmd = append(cmd, "-c:v", "copy", "-c:a", "copy", mergedFilePath)
-	return runMuxParts(cmdrun.RunCommand(findFFmpeg(), cmd...), parts)
+func ffmpegVersion() (version []byte, err error) {
+	cmd := cmdrun.RunCommand(findFFmpeg(), "-version")
+	return cmd.Output()
 }

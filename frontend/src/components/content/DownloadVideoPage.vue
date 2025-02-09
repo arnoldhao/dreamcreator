@@ -116,8 +116,8 @@
                     </thead>
                     <tbody>
                         <tr v-for="item in instantData" :key="item.id" 
-                            @click.stop="toDelete = item.id"
-                            :class="{'bg-primary/20': toDelete === item.id}"
+                            @click.stop="toDelete = item.taskId"
+                            :class="{'bg-primary/20': toDelete === item.taskId}"
                             class="cursor-pointer">
                             <td>
                                 <div class="flex justify-center">
@@ -134,8 +134,8 @@
                                     </button>
                                 </div>
                             </td>
-                            <td class="text-center">{{ item.format }}</td>
-                            <td class="text-center">{{ formatFileSize(item.size) }}</td>
+                            <td class="text-center">{{ item.streams && item.streams.length > 0 ? item.streams[0].ext : 'N/A' }}</td>
+                            <td class="text-center">{{ formatFileSize(item.totalSize) }}</td>
                             <td class="text-center">
                                 <div class="flex items-center gap-2">
                                     <div class="flex-1">
@@ -151,10 +151,10 @@
                                         <template v-else>
                                             <div class="flex items-center gap-2">
                                                 <progress class="progress progress-primary flex-1"
-                                                    :value="Number(item.progress).toFixed(2)" max="100">
+                                                    :value="isNaN(Number(item.progress)) ? 0 : Number(item.progress).toFixed(2)" max="100">
                                                 </progress>
                                                 <span class="text-sm min-w-[3.5rem]">
-                                                    {{ `${Number(item.progress).toFixed(2)}%` }}
+                                                    {{ isNaN(Number(item.progress)) ? '0.00' : Number(item.progress).toFixed(2) }}%
                                                 </span>
                                             </div>
                                         </template>
@@ -212,25 +212,25 @@
                         <div class="break-all select-text">{{ currentItem.url }}</div>
 
                         <div class="font-semibold">{{ t('video_download.format') }}：</div>
-                        <div>{{ currentItem.format }}</div>
+                        <div>{{ currentItem.streams && currentItem.streams.length > 0 ? currentItem.streams[0].ext : 'N/A' }}</div>
 
                         <div class="font-semibold">{{ t('video_download.quality') }}：</div>
-                        <div>{{ currentItem.quality }}</div>
+                        <div>{{ currentItem.streams && currentItem.streams.length > 0 ? currentItem.streams[0].quality : 'N/A' }}</div>
 
                         <div class="font-semibold">{{ t('video_download.status') }}：</div>
                         <div>{{ currentItem.status }}</div>
 
                         <div class="font-semibold">{{ t('video_download.progress') }}：</div>
-                        <div>{{ Number(currentItem.progress).toFixed(2) }}%</div>
+                        <div>{{ isNaN(Number(currentItem.progress)) ? '0.00' : Number(currentItem.progress).toFixed(2) }}%</div>
 
                         <div class="font-semibold">{{ t('video_download.finished') }}：</div>
-                        <div>{{ currentItem.finished }}</div>
+                        <div>{{ currentItem.finishedParts }}</div>
 
                         <div class="font-semibold">{{ t('video_download.total') }}：</div>
-                        <div>{{ currentItem.total }}</div>
+                        <div>{{ currentItem.totalParts }}</div>
 
                         <div class="font-semibold">{{ t('video_download.size') }}：</div>
-                        <div>{{ formatFileSize(currentItem.size) }}</div>
+                        <div>{{ formatFileSize(currentItem.totalSize) }}</div>
 
                         <div class="font-semibold">{{ t('video_download.saved_path') }}：</div>
                         <div>{{ currentItem.savedPath }}</div>
@@ -255,10 +255,8 @@
 </template>
 
 <script setup>
-import { Get, GetFFMPEGVersion, CheckTask, DeleteRecord } from 'wailsjs/go/downloads/WorkQueue'
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
-import emitter from '@/utils/eventBus'
-import { EMITTER_EVENTS } from '@/consts/emitter'
+import { GetContent,StartDownload, GetAllTasks, CheckFFMPEG, DeleteRecord } from 'wailsjs/go/api/DownloadAPI'
 import useDownloadStore from '@/stores/download'
 import { storeToRefs } from "pinia";
 import YoutubeIcon from '@/components/icons/Youtube.vue';
@@ -308,18 +306,20 @@ watch(selectedQuality, () => {
 async function handleGet() {
     isLoading.value = true
     try {
-        const { data, success, msg } = await Get(url.value)
+        const { data, success, msg } = await GetContent(url.value)
         if (!success) {
             $message.error(msg)
             return
         }
 
         // Parse video data
-        const parsedData = JSON.parse(data)[0]
-        if (!parsedData) {
+        const responseData = JSON.parse(data)
+        if (!responseData) {
             $message.error(t('video_download.no_data'))
             return
         }
+
+        let parsedData = responseData.videos[0]
 
         // Extract basic information
         const videoInfo = {
@@ -386,41 +386,38 @@ async function handleGet() {
 
 const isDownloading = ref(false)
 async function download() {
-    // if downloading, return
-    if (isDownloading.value) return
-
     // check ffmpeg
-    const { success, msg } = await GetFFMPEGVersion()
+    const { success, msg } = await CheckFFMPEG()
     if (!success) {
         $message.error(msg)
         return
     }
 
-    // backend check
-    let id = videoData.value.info.id
-    const { data: checkId, success: checkSuccess, msg: checkMsg } = await CheckTask(id, selectedQuality.value.id, selectedCaption.value.id)
-    if (!checkSuccess) {
-        $message.error(checkMsg)
-        return
-    } else {
-        if (checkId) {
-            // means the task has downloaded, return new temp id to save db
-            id = checkId
-        }
+    // set total
+    let total = 0
+    if (selectedQuality.value.id) {
+        total++
+    }
+    if (selectedCaption.value.id) {
+        total++
     }
 
-    try {
-        isDownloading.value = true
-        emitter.emit(EMITTER_EVENTS.DOWNLOAD, {
-            id: id,
-            stream: selectedQuality.value.id,
-            caption: selectedCaption.value.id,
-        })
-    } finally {
-        setTimeout(() => {
-            downloadStore.setInstantData()
-        }, 500)
+    let reqBody = {
+        taskId: "",
+        contentId: videoData.value.info.id,
+        total: total,
+        stream: selectedQuality.value.id,
+        captions: selectedCaption.value.id ? [selectedCaption.value.id] : [],
+        danmakus: "",
     }
+
+    const { success: createSuccess, data: createData, msg: createMsg } = await StartDownload(reqBody)
+    if (!createSuccess) {
+        $message.error(createMsg)
+        return
+    }
+
+    isDownloading.value = true
 }
 
 const toDelete = ref(null)
@@ -520,8 +517,8 @@ const showDetailModal = (item) => {
 const copyItemInfo = () => {
     const info = `${t('video_download.title')}: ${currentItem.value.title}
 ${t('video_download.url')}: ${currentItem.value.url}
-${t('video_download.format')}: ${currentItem.value.format}
-${t('video_download.quality')}: ${currentItem.value.quality}
+${t('video_download.format')}: ${currentItem.streams && currentItem.streams.length > 0 ? currentItem.streams[0].ext : 'N/A'}
+${t('video_download.quality')}: ${currentItem.streams && currentItem.streams.length > 0 ? currentItem.streams[0].quality : 'N/A'}
 ${t('video_download.status')}: ${currentItem.value.status}
 ${t('video_download.progress')}: ${Number(currentItem.value.progress).toFixed(2)}%
 ${t('video_download.finished')}: ${currentItem.value.finished}

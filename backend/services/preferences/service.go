@@ -3,7 +3,7 @@ package preferences
 import (
 	"CanMe/backend/consts"
 	"CanMe/backend/pkg/specials/config"
-	innerinterfaces "CanMe/backend/services/innerInterfaces"
+	ii "CanMe/backend/services/innerinterfaces"
 	"CanMe/backend/storage"
 	"CanMe/backend/types"
 	"CanMe/backend/utils/coll"
@@ -24,7 +24,7 @@ type Service struct {
 	clientVersion string
 
 	ctx       context.Context
-	wsService innerinterfaces.WebSocketServiceInterface
+	wsService ii.WebSocketServiceInterface
 }
 
 var preferences *Service
@@ -42,7 +42,7 @@ func New() *Service {
 	return preferences
 }
 
-func (p *Service) RegisterServices(ctx context.Context, wsService innerinterfaces.WebSocketServiceInterface) {
+func (p *Service) RegisterServices(ctx context.Context, wsService ii.WebSocketServiceInterface) {
 	p.ctx = ctx
 	p.wsService = wsService
 }

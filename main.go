@@ -1,8 +1,11 @@
 package main
 
 import (
+	"CanMe/backend/api"
 	"CanMe/backend/consts"
-	"CanMe/backend/services/downloads"
+	"CanMe/backend/core/download"
+	"CanMe/backend/core/events"
+	"CanMe/backend/core/websockets"
 	"CanMe/backend/services/languages"
 	"CanMe/backend/services/llms"
 	"CanMe/backend/services/ollama"
@@ -10,13 +13,14 @@ import (
 	"CanMe/backend/services/subtitles"
 	"CanMe/backend/services/systems"
 	"CanMe/backend/services/trans"
-	"CanMe/backend/services/websockets"
 	"CanMe/backend/storage"
+	"CanMe/backend/storage/repository"
 	"context"
 	"embed"
 	"fmt"
 	"runtime"
 
+	_ "CanMe/backend/pkg/extractors/bilibili"
 	_ "CanMe/backend/pkg/extractors/youtube" // init youtube extractor
 
 	"github.com/wailsapp/wails/v2"
@@ -40,24 +44,30 @@ func main() {
 	preferencesService := preferences.New()
 	systemService := systems.New()
 
-	// websocket
-	websocketService := websockets.New()
-	websocketService.Start()
-
-	// instances
-	languageService := languages.New()
-	llmsService := llms.New()
-	ollamaService := ollama.New()
-	subtitlesService := subtitles.New()
-	transService := trans.New()
-	downloadsService := downloads.New()
-
 	// database
 	persistentStorage, err := storage.NewPersistentStorage()
 	if err != nil {
 		panic(err)
 	}
 	storage.SetGlobalPersistentStorage(persistentStorage)
+	repo := repository.NewDownloadRepository(persistentStorage.DBWithoutContext())
+
+	// services
+	events := events.NewEventBus()
+	dserv := download.NewService(events, repo)
+
+	// websocket
+	websocketService := websockets.New()
+	websocketService.Start()
+
+	// api
+	downloadAPI := api.NewDownloadAPI(dserv, events, websocketService)
+	// instances
+	languageService := languages.New()
+	llmsService := llms.New()
+	ollamaService := ollama.New()
+	subtitlesService := subtitles.New()
+	transService := trans.New()
 
 	// window
 	windowWidth, windowHeight, maximised := preferencesService.GetWindowSize()
@@ -100,9 +110,10 @@ func main() {
 			ollamaService.RegisterServices(ctx, websocketService)
 			languageService.RegisterService(ctx)
 			transService.Process(ctx, websocketService)
-			downloadsService.Process(ctx, websocketService)
-			websocketService.RegisterServices(ctx, transService, ollamaService, preferencesService, downloadsService)
+			websocketService.RegisterServices(ctx, transService, ollamaService, preferencesService)
 			persistentStorage.AutoMigrate(ctx)
+			dserv.Start(ctx)
+			downloadAPI.Subscribe(ctx)
 		},
 		OnDomReady: func(ctx context.Context) {
 			x, y := wailsRuntime.WindowGetPosition(ctx)
@@ -124,7 +135,7 @@ func main() {
 			subtitlesService,
 			websocketService,
 			transService,
-			downloadsService,
+			downloadAPI,
 		},
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarHiddenInset(),

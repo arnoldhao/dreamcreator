@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"CanMe/backend/consts"
 	"CanMe/backend/pkg/specials/proxy"
 	"CanMe/backend/types"
 )
@@ -38,7 +39,7 @@ func (s *Service) TestProxy(id string) (err error) {
 		{"Google", "https://www.google.com"},
 		{"YouTube", "https://www.youtube.com"},
 		{"Bilibili", "https://www.bilibili.com"},
-		{"ChatGPT", "https://chat.openai.com"},
+		{"ChatGPT", "https://www.chatgpt.com"},
 		{"GitHub", "https://github.com"},
 	}
 
@@ -70,43 +71,64 @@ func (s *Service) TestProxy(id string) (err error) {
 
 			req, err := http.NewRequestWithContext(ctx, "GET", site.URL, nil)
 			if err != nil {
-				s.wsService.CommonSendToClient(id, types.TestProxyResult{
-					ID:      id,
-					Done:    done,
-					URL:     site.URL,
-					Success: false,
-					Error:   "create request failed",
-				}.WSResponseMessage())
+				s.wsService.SendToClient(types.WSResponse{
+					Namespace: consts.NAMESPACE_PROXY,
+					Event:     consts.EVENT_PROXY_TEST_RESULT_ERROR,
+					Data: types.TestProxyResult{
+						ID:      id,
+						Done:    done,
+						URL:     site.URL,
+						Success: false,
+						Error:   err.Error(),
+					},
+				})
 				cancel()
 				continue
 			}
 
 			response, err := client.Do(req)
 			if err != nil {
-				s.wsService.CommonSendToClient(id, types.TestProxyResult{
-					ID:      id,
-					Done:    done,
-					URL:     site.URL,
-					Success: false,
-					Error:   "connection failed",
-				}.WSResponseMessage())
+				s.wsService.SendToClient(types.WSResponse{
+					Namespace: consts.NAMESPACE_PROXY,
+					Event:     consts.EVENT_PROXY_TEST_RESULT_ERROR,
+					Data: types.TestProxyResult{
+						ID:      id,
+						Done:    done,
+						URL:     site.URL,
+						Success: false,
+						Error:   "connection failed",
+					},
+				})
 				cancel()
 				continue
 			}
 
 			latency := time.Since(startTime).Milliseconds()
-			s.wsService.CommonSendToClient(id, types.TestProxyResult{
-				ID:      id,
-				Done:    done,
-				URL:     site.URL,
-				Success: response.StatusCode == http.StatusOK,
-				Latency: int(latency),
-				Error:   "",
-			}.WSResponseMessage())
+			s.wsService.SendToClient(types.WSResponse{
+				Namespace: consts.NAMESPACE_PROXY,
+				Event:     consts.EVENT_PROXY_TEST_RESULT,
+				Data: types.TestProxyResult{
+					ID:      id,
+					Done:    done,
+					URL:     site.URL,
+					Success: response.StatusCode == http.StatusOK,
+					Latency: int(latency),
+					Error:   "",
+				},
+			})
 
 			response.Body.Close()
 			cancel()
 		}
+		// send complated
+		s.wsService.SendToClient(types.WSResponse{
+			Namespace: consts.NAMESPACE_PROXY,
+			Event:     consts.EVENT_PROXY_TEST_RESULT_COMPLETED,
+			Data: types.TestProxyResult{
+				ID:    id,
+				Error: "",
+			},
+		})
 	}()
 
 	return

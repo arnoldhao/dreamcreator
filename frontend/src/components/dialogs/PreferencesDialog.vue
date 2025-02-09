@@ -84,6 +84,10 @@ const onTestProxy = async () => {
     return
   }
 
+  // empty testProxySites
+  commonStore.emptyTestProxySites()
+
+  // emit
   emitter.emit(EMITTER_EVENTS.TEST_PROXY, {
     id: 'test_proxy_request_id', // any id will do
   })

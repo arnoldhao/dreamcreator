@@ -13,7 +13,7 @@
 This project is for learning front-end and back-end development. The software may have various issues due to my limited skills. Your understanding is appreciated.
 
 ## Current Features
-### Version: Initial 0.0.3
+### Version: Initial 0.0.6
 - Export Capcut JSON subtitle files
 - Import SRT files directly
 - Manage Ollama model downloads
@@ -22,6 +22,7 @@ This project is for learning front-end and back-end development. The software ma
 - Multiple AI translation tasks at once
 - Support for proxy configuration
 - Support for downloading YouTube videos and subtitles
+- Support for downloading Bilibili videos (do not support login now)
 
 ## Roadmap
 ### Version: 0.1.X

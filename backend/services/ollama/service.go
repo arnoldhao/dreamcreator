@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	innerInterfaces "CanMe/backend/services/innerInterfaces"
+	ii "CanMe/backend/services/innerinterfaces"
 	"CanMe/backend/storage"
 	"CanMe/backend/types"
 	stringutil "CanMe/backend/utils/stringUtil"
@@ -18,7 +18,7 @@ import (
 type Service struct {
 	ctx       context.Context
 	ollama    *api.Client
-	wsService innerInterfaces.WebSocketServiceInterface
+	wsService ii.WebSocketServiceInterface
 }
 
 func New() *Service {
@@ -27,7 +27,7 @@ func New() *Service {
 
 func (s *Service) RegisterServices(
 	ctx context.Context,
-	wsService innerInterfaces.WebSocketServiceInterface,
+	wsService ii.WebSocketServiceInterface,
 ) {
 	s.ctx = ctx
 	s.wsService = wsService

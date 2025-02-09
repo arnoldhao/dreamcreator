@@ -2,6 +2,7 @@ package storage
 
 import (
 	"CanMe/backend/consts"
+	"CanMe/backend/models"
 	"context"
 	"log"
 	"path"
@@ -70,6 +71,20 @@ func (p *PersistentStorage) AutoMigrate(ctx context.Context) error {
 		return err
 	}
 
+	// migrate download task and part
+	err = p.db.WithContext(ctx).AutoMigrate(&models.DownloadTask{})
+	if err != nil {
+		return err
+	}
+	err = p.db.WithContext(ctx).AutoMigrate(&models.StreamPart{})
+	if err != nil {
+		return err
+	}
+	err = p.db.WithContext(ctx).AutoMigrate(&models.CommonPart{})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -92,6 +107,11 @@ func NewPersistentStorage() (*PersistentStorage, error) {
 	return &PersistentStorage{
 		db: db,
 	}, nil
+}
+
+// DB return a new query builder
+func (p *PersistentStorage) DBWithoutContext() *gorm.DB {
+	return p.db
 }
 
 // DB return a new query builder

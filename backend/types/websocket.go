@@ -125,3 +125,34 @@ func (s DownloadResponse) WSResponseMessage() string {
 	responseJSON, _ := json.Marshal(resp)
 	return string(responseJSON)
 }
+
+type TaskRequst struct {
+	TaskID    string   `json:"taskId"`
+	ContentID string   `json:"contentId"`
+	Total     int      `json:"total"`
+	Stream    int      `json:"stream"`
+	Captions  []string `json:"captions"`
+	Danmaku   bool     `json:"danmaku"`
+}
+
+type TaskResponseWS struct {
+	PartID   string            `json:"partId"`   // part uniq id
+	TaskID   string            `json:"taskId"`   // task uniq id
+	Type     string            `json:"type"`     // task type
+	Status   consts.PartStatus `json:"status"`   // task status
+	Speed    string            `json:"speed"`    // task speed
+	Progress float64           `json:"progress"` // task progress
+	Message  string            `json:"message"`  // task message
+}
+
+type WSRequest struct {
+	Namespace consts.WSNamespace        `json:"namespace"`
+	Event     consts.WSRequestEventType `json:"event" `
+	Data      any                       `json:"data"`
+}
+
+type WSResponse struct {
+	Namespace consts.WSNamespace         `json:"namespace"`
+	Event     consts.WSResponseEventType `json:"event" `
+	Data      any                        `json:"data"`
+}

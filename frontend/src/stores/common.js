@@ -17,6 +17,9 @@ const useCommonStore = defineStore('common', {
       } catch (error) {
         console.error('Failed to parse sites data:', error)
       }
+    },
+    emptyTestProxySites() {
+      this.testProxySites = []
     }
   }
 })

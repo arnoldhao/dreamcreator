@@ -50,6 +50,8 @@
       "test_results": "Test Results",
       "test_success": "Test Success",
       "test_failed": "Test Failed:",
+      "test_completed": "Test Completed",
+      "test_canceled": "Test Canceled",
       "status": "Status",
       "website": "Website",
       "latency": "Latency",
@@ -231,7 +233,10 @@
     "get_ollama_host_failed": "Get ollama host failed: {error}",
     "error_fetching_models": "No models found",
     "error_fetching_running_models": "No running models found",
-    "start_download_model": "Start download model: {model}"
+    "start_download_model": "Start download model: {model}",
+    "pull_model_completed": "Pull model completed",
+    "pull_model_failed": "Pull model failed: {error}",
+    "pull_model_cancelled": "Pull model cancelled"
   },
   "task": {
     "tasks": "Tasks",
@@ -322,5 +327,12 @@
     "error_info": "Error Info",
     "delete": "Delete",
     "delete_success": "Delete Success"
+  },
+  "translation": {
+    "translation_completed": "Translation completed",
+    "translation_failed": "Translation Failed: {error}",
+    "translation_cancelled": "Translation Cancelled",
+    "translate": "Translate",
+    "translation_processing": "Translation Processing"
   }
 }

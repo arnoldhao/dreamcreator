@@ -82,6 +82,7 @@ func (s *Service) Request(method, url string, body io.Reader, headers map[string
 	if _, ok := headers["Referer"]; !ok {
 		req.Header.Set("Referer", url)
 	}
+
 	if s.Cookie != "" {
 		// parse cookies in Netscape HTTP cookie format
 		cookies, _ := cookiemonster.ParseString(s.Cookie)

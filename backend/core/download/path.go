@@ -1,8 +1,7 @@
-package downloads
+package download
 
 import (
 	"CanMe/backend/pkg/specials/config"
-	"CanMe/backend/types"
 	stringutil "CanMe/backend/utils/stringUtil"
 	"fmt"
 	"os"
@@ -11,8 +10,18 @@ import (
 	"time"
 )
 
-func (wq *WorkQueue) captionFilePath(cached *types.ExtractorData, caption *types.ExtractorCaption) (string, error) {
-	filePath, err := wq.generateOutputFile(cached.Source, cached.Title, caption.Ext, caption.LanguageCode)
+type Path struct{}
+
+func NewPath() *Path {
+	return &Path{}
+}
+
+func (p *Path) SavedPath(source string) (string, error) {
+	return p.generateSourceDir(source)
+}
+
+func (p *Path) CaptionFilePath(source, title, ext, code string) (string, error) {
+	filePath, err := p.generateOutputFile(source, title, ext, code)
 	if err != nil {
 		return "", err
 	}
@@ -20,16 +29,16 @@ func (wq *WorkQueue) captionFilePath(cached *types.ExtractorData, caption *types
 	return filePath, nil
 }
 
-func (wq *WorkQueue) streamFilePath(source, title, quality, ext string) (string, error) {
+func (p *Path) StreamFilePath(source, title, ext, quality string) (string, error) {
 	resolution := ""
 	if p := strings.Split(quality, " ")[0]; p != "" {
 		resolution = p
 	}
-	return wq.generateOutputFile(source, title, ext, resolution)
+	return p.generateOutputFile(source, title, ext, resolution)
 }
 
-func (wq *WorkQueue) generateOutputFile(source, title string, ext string, adds ...string) (string, error) {
-	sourceDir, err := wq.generateSourceDir(source)
+func (p *Path) generateOutputFile(source, title string, ext string, adds ...string) (string, error) {
+	sourceDir, err := p.generateSourceDir(source)
 	if err != nil {
 		return "", err
 	}
@@ -62,7 +71,7 @@ func (wq *WorkQueue) generateOutputFile(source, title string, ext string, adds .
 	return filepath.Join(sourceDir, fmt.Sprintf("%s_%s", title, timeStamp)), nil
 }
 
-func (wq *WorkQueue) generateSourceDir(source string) (string, error) {
+func (p *Path) generateSourceDir(source string) (string, error) {
 	downloadDir := config.GetDownloadInstance().GetDownloadURLWithCanMe()
 	if downloadDir == "" {
 		return "", fmt.Errorf("download dir is empty")

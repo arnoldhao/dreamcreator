@@ -50,6 +50,8 @@
       "test_results": "测试结果",
       "test_success": "测试成功",
       "test_failed": "测试失败：",
+      "test_completed": "测试完成",
+      "test_canceled": "测试取消",
       "status": "状态",
       "website": "网站",
       "latency": "延迟",
@@ -231,7 +233,10 @@
     "get_ollama_host_failed": "获取 Ollama 主机失败：{error}",
     "error_fetching_models": "当前没有模型",
     "error_fetching_running_models": "当前没有运行中的模型",
-    "start_download_model": "开始下载模型：{model}"
+    "start_download_model": "开始下载模型：{model}",
+    "pull_model_completed": "下载成功",
+    "pull_model_failed": "下载失败：{error}",
+    "pull_model_cancelled": "下载已取消"
   },
   "task": {
     "tasks": "任务",
@@ -244,7 +249,7 @@
     "format_file": "格式化文件",
     "download_subtitles": "下载字幕",
     "file_saved_to": "文件已保存到：{path}",
-    "save_file_failed": "保存文件失败：",
+    "save_file_failed": "保存文件失败：{error}",
     "operation_cancelled": "操作已取消",
     "title_updated": "标题已更新",
     "title_update_failed": "更新标题失败：",
@@ -323,5 +328,12 @@
     "error_info": "错误信息",
     "delete": "删除",
     "delete_success": "删除成功"
+  },
+  "translation": {
+    "translation_completed": "翻译成功",
+    "translation_failed": "翻译失败：{error}",
+    "translation_cancelled": "翻译已取消",
+    "translate": "翻译",
+    "translation_processing": "翻译中"
   }
 }

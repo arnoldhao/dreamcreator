@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ListDownloaded } from 'wailsjs/go/downloads/WorkQueue'
+import { ListDownloaded} from 'wailsjs/go/api/DownloadAPI'
 
 const useDownloadStore = defineStore('download', {
     state: () => ({
@@ -26,7 +26,7 @@ const useDownloadStore = defineStore('download', {
             }
             
             this.instantData = this.downloadData.map(downloadItem => {
-                const streamItem = this.streamData.find(s => s.id === downloadItem.id)
+                const streamItem = this.streamData.find(s => s.id === downloadItem.taskId)
                 return streamItem ? { ...downloadItem, ...streamItem } : downloadItem
             })
         },

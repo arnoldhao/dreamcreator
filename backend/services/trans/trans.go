@@ -6,7 +6,7 @@ import (
 	"CanMe/backend/pkg/llms/ollama"
 	"CanMe/backend/pkg/llms/openailike"
 	"CanMe/backend/pkg/subs/others"
-	innerinterfaces "CanMe/backend/services/innerInterfaces"
+	ii "CanMe/backend/services/innerinterfaces"
 	"CanMe/backend/storage"
 	"CanMe/backend/types"
 	stringutil "CanMe/backend/utils/stringUtil"
@@ -26,7 +26,7 @@ type WorkQueue struct {
 	mutex sync.RWMutex
 
 	ctx        context.Context
-	wsService  innerinterfaces.WebSocketServiceInterface
+	wsService  ii.WebSocketServiceInterface
 	pending    chan *TranslationWorkQueue
 	processing map[string]*TranslationWorkQueue
 	completed  chan *TranslationWorkQueue
@@ -61,7 +61,7 @@ func New() *WorkQueue {
 }
 
 // Process run when service start
-func (wq *WorkQueue) Process(ctx context.Context, wsService innerinterfaces.WebSocketServiceInterface) {
+func (wq *WorkQueue) Process(ctx context.Context, wsService ii.WebSocketServiceInterface) {
 	wq.ctx = ctx
 	wq.wsService = wsService
 	go func() {
@@ -119,13 +119,13 @@ func (wq *WorkQueue) AddTranslation(id, originalSubId, lang string) (err error) 
 	originalSub := storage.Subtitles{}
 	err = originalSub.Read(wq.ctx, originalSubId)
 	if err != nil {
-		return fmt.Errorf("read original subtitle failed: " + err.Error())
+		return fmt.Errorf("read original subtitle failed: "+err.Error(), nil)
 	}
 
 	// unmarshal captions
 	var captions *astisub.Subtitles
 	if err = json.Unmarshal([]byte(originalSub.Captions), &captions); err != nil {
-		return fmt.Errorf("unmarshal captions failed: " + err.Error())
+		return fmt.Errorf("unmarshal captions failed: "+err.Error(), nil)
 	}
 
 	// initialize tranlation subtitle
@@ -174,6 +174,12 @@ func (wq *WorkQueue) CancelTranslation(key string) (resp types.JSResp) {
 	return
 }
 
+func (wq *WorkQueue) IsTranslationProcessing(key string) (resp types.JSResp) {
+	_, ok := wq.getProcessingInfo(key)
+	resp.Success = ok
+	return
+}
+
 func (wq *WorkQueue) handleTranslation(id string) (err error) {
 	// get processing info
 	info, ok := wq.getProcessingInfo(id)
@@ -205,12 +211,16 @@ func (wq *WorkQueue) handleTranslation(id string) (err error) {
 		// wss emit: 1.captions timestamp emit
 		progress := float64(i+1) / float64(oCapLen) * 100
 		timestamp := fmt.Sprintf("%d\n%s --> %s\n", i+1, timeutil.FormatDurationSRT(item.StartAt), timeutil.FormatDurationSRT(item.EndAt))
-		wq.wsService.SendToClient(id, types.TranslateResponse{
-			ID:       id,
-			Content:  timestamp,
-			Status:   string(storage.StatusRunning),
-			Progress: progress,
-		}.WSResponseMessage())
+		wq.wsService.SendToClient(types.WSResponse{
+			Namespace: consts.NAMESPACE_TRANSLATION,
+			Event:     consts.EVENT_TRANSLATION_PROGRESS,
+			Data: types.TranslateResponse{
+				ID:       id,
+				Content:  timestamp,
+				Status:   string(storage.StatusRunning),
+				Progress: progress,
+			},
+		})
 
 		// wss emit: 2.captions text
 		var captionText string
@@ -248,12 +258,16 @@ func (wq *WorkQueue) handleTranslation(id string) (err error) {
 					break
 				}
 
-				wq.wsService.SendToClient(id, types.TranslateResponse{
-					ID:       id,
-					Content:  text,
-					Status:   string(storage.StatusRunning),
-					Progress: progress,
-				}.WSResponseMessage())
+				wq.wsService.SendToClient(types.WSResponse{
+					Namespace: consts.NAMESPACE_TRANSLATION,
+					Event:     consts.EVENT_TRANSLATION_PROGRESS,
+					Data: types.TranslateResponse{
+						ID:       id,
+						Content:  text,
+						Status:   string(storage.StatusRunning),
+						Progress: progress,
+					},
+				})
 
 				// append text to captionText
 				captionText += text
@@ -261,12 +275,16 @@ func (wq *WorkQueue) handleTranslation(id string) (err error) {
 		}
 
 		// wss emit: 3.captions spaces
-		wq.wsService.SendToClient(id, types.TranslateResponse{
-			ID:       id,
-			Content:  "\n\n",
-			Status:   string(storage.StatusRunning),
-			Progress: progress,
-		}.WSResponseMessage())
+		wq.wsService.SendToClient(types.WSResponse{
+			Namespace: consts.NAMESPACE_TRANSLATION,
+			Event:     consts.EVENT_TRANSLATION_PROGRESS,
+			Data: types.TranslateResponse{
+				ID:       id,
+				Content:  "\n\n",
+				Status:   string(storage.StatusRunning),
+				Progress: progress,
+			},
+		})
 
 		// generate brief
 		if briefTimes < 3 {
@@ -286,11 +304,15 @@ func (wq *WorkQueue) handleTranslation(id string) (err error) {
 		}
 
 		// wss emit: 4.translation progress
-		wq.wsService.SendToClient(id, types.TranslateResponse{
-			ID:       id,
-			Status:   string(storage.StatusRunning),
-			Progress: progress,
-		}.WSResponseMessage())
+		wq.wsService.SendToClient(types.WSResponse{
+			Namespace: consts.NAMESPACE_TRANSLATION,
+			Event:     consts.EVENT_TRANSLATION_PROGRESS,
+			Data: types.TranslateResponse{
+				ID:       id,
+				Status:   string(storage.StatusRunning),
+				Progress: progress,
+			},
+		})
 
 		// if last item, push to completed queue
 		if i == oCapLen-1 {
@@ -367,40 +389,45 @@ func (wq *WorkQueue) handleCompleted(info *TranslationWorkQueue) (err error) {
 		}
 	}
 	// wss final status emit
-	var emitString string
+	var response types.TranslateResponse
+	var event consts.WSResponseEventType
 	switch info.TranslationStatus {
 	case storage.StatusCanceled: // emit cancel
-		emitString = types.TranslateResponse{
+		event = consts.EVENT_TRANSLATION_CANCELED
+		response = types.TranslateResponse{
 			ID:       info.SubtitleInfo.Key,
 			Status:   string(storage.StatusCanceled),
 			Progress: info.TranslationProgress,
 			Message:  "Task Canceled",
-		}.WSResponseMessage()
+		}
 	case storage.StatusCompleted: // emit complate
-		emitString = types.TranslateResponse{
+		event = consts.EVENT_TRANSLATION_COMPLETED
+		response = types.TranslateResponse{
 			ID:       info.SubtitleInfo.Key,
 			Status:   string(storage.StatusCompleted),
 			Progress: info.TranslationProgress,
 			Message:  "Task Completed",
-		}.WSResponseMessage()
+		}
 	case storage.StatusError: // emit error
-		emitString = types.TranslateResponse{
+		event = consts.EVENT_TRANSLATION_ERROR
+		response = types.TranslateResponse{
 			ID:       info.SubtitleInfo.Key,
 			Status:   string(storage.StatusError),
 			Progress: info.TranslationProgress,
 			Error:    true,
 			Message:  info.ActionDescription,
-		}.WSResponseMessage()
+		}
 	default:
 		runtime.LogError(info.ctx, "translation worker handle completed unknown status")
 		return
 	}
 
 	// wss emit
-	wq.wsService.SendToClient(info.SubtitleInfo.Key, emitString)
-
-	// remove from processing list
-	wq.wsService.RemoveTranslation(info.SubtitleInfo.Key)
+	wq.wsService.SendToClient(types.WSResponse{
+		Namespace: consts.NAMESPACE_TRANSLATION,
+		Event:     event,
+		Data:      response,
+	})
 
 	return
 }
@@ -409,7 +436,7 @@ func (wq *WorkQueue) currentModelClient() (client llms.Interface, cLLM, cModel s
 	currentModel := storage.CurrentModel{}
 	err = currentModel.Read(wq.ctx)
 	if err != nil {
-		return nil, "", "", fmt.Errorf("read current model failed: " + err.Error())
+		return nil, "", "", fmt.Errorf("read current model failed: "+err.Error(), nil)
 	}
 	cLLM = currentModel.LLMName
 	cModel = currentModel.ModelName
@@ -418,7 +445,7 @@ func (wq *WorkQueue) currentModelClient() (client llms.Interface, cLLM, cModel s
 		llm := storage.LLM{}
 		err = llm.Read(wq.ctx, cLLM)
 		if err != nil {
-			return nil, "", "", fmt.Errorf("read llm failed: " + err.Error())
+			return nil, "", "", fmt.Errorf("read llm failed: "+err.Error(), nil)
 		}
 		baseURL := llm.BaseURL
 		token := llm.APIKey

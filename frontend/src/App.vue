@@ -9,15 +9,20 @@ import { darkTheme, NButton, NSpace } from 'naive-ui'
 import { Environment, WindowSetDarkTheme, WindowSetLightTheme } from 'wailsjs/runtime/runtime.js'
 import { darkThemeOverrides, themeOverrides } from '@/utils/theme.js'
 import hljs from "highlight.js/lib/core"
+import { WSON } from '@/handlers/websockets.js'
 import { useTranslationEventHandlers } from '@/handlers/translation.js'
 import { useOllamaEventHandlers } from '@/handlers/ollama.js'
-import { useCommonEventHandlers } from '@/handlers/common.js'
+import { useProxyEventHandlers } from '@/handlers/proxy.js'
 import { useDownloadEventHandlers } from '@/handlers/download.js'
 import useLLMTabStore from '@/stores/llmtab.js'
-const { initEventHandlers } = useTranslationEventHandlers()
+import { useEventStoreHandler } from '@/handlers/EventHandler'
+
+const { connect } = WSON()
+const { initTranslateEventHandlers } = useTranslationEventHandlers()
 const { initOllamaEventHandlers } = useOllamaEventHandlers()
-const { initCommonEventHandlers } = useCommonEventHandlers()
+const { initProxyEventHandlers } = useProxyEventHandlers()
 const { initDownloadEventHandlers } = useDownloadEventHandlers()
+const { initEventHandlers } = useEventStoreHandler()
 const prefStore = usePreferencesStore()
 const i18n = useI18n()
 const initializing = ref(true)
@@ -79,12 +84,17 @@ onMounted(async () => {
     //       ),
     //   })
     // }
-    // initialize subtitle event handlers
+
+    // Event 
     initEventHandlers()
+    // websocket connect
+    connect()
+    // initialize subtitle event handlers
+    initTranslateEventHandlers()
     // initialize ollama event handlers
     initOllamaEventHandlers()
-    // initialize common event handlers
-    initCommonEventHandlers()
+    // initialize proxy event handlers
+    initProxyEventHandlers()
     // initialize download event handlers
     initDownloadEventHandlers()
     // initialize LLM

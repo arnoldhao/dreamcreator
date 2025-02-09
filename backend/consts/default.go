@@ -26,6 +26,61 @@ const TRANSLATION_WORK_QUEUE_MAX_SIZE = 100
 const DOWNLOADS_WORK_QUEUE_MAX_SIZE = 100
 const TEMP_EXTRACTOR_DATA_MAX_SIZE = 10
 
+// Websocket Namespaces
+type WSNamespace string
+
+const NAMESPACE_TRANSLATION WSNamespace = "translation"
+const NAMESPACE_DOWNLOAD WSNamespace = "download"
+const NAMESPACE_OLLAMA WSNamespace = "ollama"
+const NAMESPACE_CHAT WSNamespace = "chat"
+const NAMESPACE_PROXY WSNamespace = "proxy"
+
+// Websocket Request Events
+type WSRequestEventType string
+
+// Websocket Request Events:Translation
+const EVENT_TRANSLATION_START WSRequestEventType = "request_translation_start"
+const EVENT_TRANSLATION_CANCEL WSRequestEventType = "request_translation_cancel"
+
+// Websocket Request Events:Ollama
+const EVENT_OLLAMA_PULL WSRequestEventType = "request_ollama_pull"
+
+// Websocket Request Events:Download
+const EVENT_DOWNLOAD_START WSRequestEventType = "request_download_start"
+const EVENT_DOWNLOAD_CANCEL WSRequestEventType = "request_download_cancel"
+
+// Websocket Request Events:Chat
+// todo
+
+// Websocket Request Events:Proxy
+const EVENT_PROXY_TEST WSRequestEventType = "request_proxy_test"
+
+// Websocket Response Events
+type WSResponseEventType string
+
+// Websocket Response Events:Translation
+const EVENT_TRANSLATION_PROGRESS WSResponseEventType = "response_translation_progress"
+const EVENT_TRANSLATION_CANCELED WSResponseEventType = "response_translation_canceled"
+const EVENT_TRANSLATION_COMPLETED WSResponseEventType = "response_translation_completed"
+const EVENT_TRANSLATION_ERROR WSResponseEventType = "response_translation_error"
+
+// Websocket Response Events:Ollama
+const EVENT_OLLAMA_PULL_UPDATE WSResponseEventType = "response_ollama_pull_update"
+const EVENT_OLLAMA_PULL_CANCELED WSResponseEventType = "response_ollama_pull_canceled"
+const EVENT_OLLAMA_PULL_COMPLETED WSResponseEventType = "response_ollama_pull_completed"
+const EVENT_OLLAMA_PULL_ERROR WSResponseEventType = "response_ollama_pull_error"
+
+// Websocket Response Events:Download
+const EVENT_DOWNLOAD_PROGRESS WSResponseEventType = "response_download_progress"
+const EVENT_DOWNLOAD_COMPLETED WSResponseEventType = "response_download_completed"
+const EVENT_DOWNLOAD_ERROR WSResponseEventType = "response_download_error"
+
+// Websocket Response Events:Proxy
+const EVENT_PROXY_TEST_RESULT WSResponseEventType = "response_proxy_test_result"
+const EVENT_PROXY_TEST_RESULT_CANCEL WSResponseEventType = "response_proxy_test_cancel"
+const EVENT_PROXY_TEST_RESULT_COMPLETED WSResponseEventType = "response_proxy_test_completed"
+const EVENT_PROXY_TEST_RESULT_ERROR WSResponseEventType = "response_proxy_test_error"
+
 type WSRequestType string
 
 const REQUEST_TRANSLATION_START WSRequestType = "request_translation_start"   // backend watched ai translation start
@@ -79,6 +134,7 @@ type DownloadStatus string
 
 const (
 	// single task status
+	DownloadingCacheSaved         DownloadStatus = "Downloading Cache Saved"
 	DownloadStatusDownloading     DownloadStatus = "Downloading"
 	DownloadStatusDownloadSuccess DownloadStatus = "Video Download Success"
 	DownloadStatusDownloadFailed  DownloadStatus = "Video Download Failed"
@@ -99,3 +155,12 @@ const (
 )
 
 const LIST_DOWNLOADS_MAX_SIZE = 50
+
+type PartStatus string
+
+const (
+	PartStatusDownloading PartStatus = "Downloading"
+	PartStatusMerging     PartStatus = "Merging"
+	PartStatusFailed      PartStatus = "Failed"
+	PartStatusCompleted   PartStatus = "Completed"
+)

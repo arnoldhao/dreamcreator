@@ -1,61 +1,46 @@
-import { WS_EVENTS, WS_REQUEST_EVENTS } from '@/consts/wsEvents'
+import { WS_NAMESPACE, WS_REQUEST_EVENT, WS_RESPONSE_EVENT } from '@/consts/websockets'
 import { EMITTER_EVENTS } from '@/consts/emitter'
 import WebSocketService from '@/services/websocket'
 import emitter from '@/utils/eventBus'
 import useDownloadStore from '@/stores/download'
 
 export function useDownloadEventHandlers() {
-    const activeListeners = new Map()
     const downloadStore = useDownloadStore()
 
-    function setupEventListener(id, info) {
-        WebSocketService.connect(id)
-            .then(() => {
-                WebSocketService.addListener(id,
-                    WS_EVENTS.DOWNLOAD_UPDATE,
-                    (data) => handleDownloadUpdate(id, data));
-            })
-            .then(() => {
-                WebSocketService.send(id, {
-                    event: WS_REQUEST_EVENTS.REQUEST_DOWNLOAD,
-                    download: {
-                        ...info
-                    }
-                });
-            })
-            .catch((error) => {
-                console.error('Error in setupEventListener:', error);
-            });
+    function handleCallback(data) {
+        switch (data.event) {
+            case WS_RESPONSE_EVENT.EVENT_DOWNLOAD_PROGRESS:
+                handleDownloadUpdate(data.data)
+                break
+            case WS_RESPONSE_EVENT.EVENT_DOWNLOAD_COMPLETED:
+                handleDownloadUpdate(data.data)
+                break
+            case WS_RESPONSE_EVENT.EVENT_DOWNLOAD_ERROR:
+                handleDownloadUpdate(data.data)
+                break
+            default:
+                console.warn('Unknown event:', data.event)
+        }
     }
 
-    function handleDownloadUpdate(id, data) {
+    function downloadStart(info) {
+        WebSocketService.send(WS_NAMESPACE.DOWNLOAD, WS_REQUEST_EVENT.EVENT_DOWNLOAD_START, info)
+    }
+
+    function handleDownloadUpdate(innerData) {
         const newData = {
-            id: id,
-            ...data
+            ...innerData
         }
         downloadStore.setStreamData(newData)
     }
 
-    function removeDownloadEventListener(id) {
-        WebSocketService.removeListener(id, WS_EVENTS.DOWNLOAD_UPDATE);
-    }
-
-    function removeAllEventListeners() {
-        activeListeners.forEach((_, id) => {
-            removeDownloadEventListener(id)
-        })
-    }
-
     function initDownloadEventHandlers() {
-        emitter.on(EMITTER_EVENTS.DOWNLOAD, (info) => {
-            setupEventListener(info.id, info)
+        // add listener
+        WebSocketService.addListener(WS_NAMESPACE.DOWNLOAD, (data) => handleCallback(data))
+        // emit listen event
+        emitter.on(EMITTER_EVENTS.DOWNLOAD_START, (info) => {
+            downloadStart(info)
         })
-
-        // no need to remove event listeners
-        // onUnmounted(() => {
-        //     removeAllEventListeners()
-        //     emitter.off(WS_EVENTS.DOWNLOAD_UPDATE)
-        // })
     }
 
     return {

@@ -1,11 +1,44 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"CanMe/backend/consts"
 )
+
+type TaskRequest struct {
+	TaskID    string   `json:"taskId"`
+	ContentID string   `json:"contentId"`
+	Total     int      `json:"total"`
+	Stream    string   `json:"stream"`
+	Captions  []string `json:"captions"`
+	Danmaku   bool     `json:"danmaku"`
+}
+
+func (r *TaskRequest) Validate() error {
+	if r.ContentID == "" {
+		return errors.New("content_id is required")
+	}
+	if r.Total <= 0 {
+		return errors.New("total must be positive")
+	}
+	if r.Stream == "" {
+		return errors.New("stream must be specified")
+	}
+	return nil
+}
+
+type ContentResponse struct {
+	Videos []*ExtractorData `json:"videos"`
+	Total  int              `json:"total"`
+}
+
+type TaskResponse struct {
+	TaskID string `json:"taskId"`
+	Status string `json:"status"`
+}
 
 type DownloadTask struct {
 	ID          string                `json:"id" yaml:"id"`

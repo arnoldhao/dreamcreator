@@ -162,8 +162,6 @@ const useSuperTabStore = defineStore('supertab', {
                         $message.error(i18nGlobal.t('ai.cancel_failed'))
                     }
 
-                } else {
-                    console.warn(`Tab with id ${id} not found`);
                 }
             }
         },

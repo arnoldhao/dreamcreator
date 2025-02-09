@@ -1,51 +1,53 @@
-import { onUnmounted } from 'vue'
-import { WS_EVENTS, WS_REQUEST_EVENTS } from '@/consts/wsEvents'
+import { WS_NAMESPACE, WS_REQUEST_EVENT, WS_RESPONSE_EVENT } from '@/consts/websockets'
 import { EMITTER_EVENTS } from '@/consts/emitter'
 import WebSocketService from '@/services/websocket'
 import emitter from '@/utils/eventBus'
 import { useOllamaStore } from '@/stores/ollama'
+import { i18nGlobal } from "@/utils/i18n.js";
 
 export function useOllamaEventHandlers() {
-    const activeListeners = new Map()
     const ollamaStore = useOllamaStore()
 
-    function setupEventListener(id,model) {
-        WebSocketService.connect(id)
-            .then(() => {
-                WebSocketService.addListener(id,
-                    WS_EVENTS.OLLAMA_PULL_UPDATE,
-                    (data) => handleOllamaPullModel(id, data));
-            })
-            .then(() => {
-                WebSocketService.send(id, {
-                    event: WS_REQUEST_EVENTS.REQUEST_OLLAMA_PULL,
-                    ollama: {
-                        id: id,
-                        model: model,
-                    }
-                });
-            })
-            .catch((error) => {
-                console.error('Error in setupEventListener:', error);
-            });
+    function handleCallback(data) {
+        switch (data.event) {
+            case WS_RESPONSE_EVENT.EVENT_OLLAMA_PULL_UPDATE:
+                handleOllamaPullModel(data.data)
+                break
+            case WS_RESPONSE_EVENT.EVENT_OLLAMA_PULL_COMPLETED:
+                handleOllamaPullModel(data.data)
+                $message.success(i18nGlobal.t('ollama.pull_model_completed'))
+                break
+            case WS_RESPONSE_EVENT.EVENT_OLLAMA_PULL_CANCELED:
+                handleOllamaPullModel(data.data)
+                $message.success(i18nGlobal.t('ollama.pull_model_canceled'))
+                break
+            case WS_RESPONSE_EVENT.EVENT_OLLAMA_PULL_ERROR:
+                handleOllamaPullModel(data.data)
+                $message.error(i18nGlobal.t('ollama.pull_model_failed', { error: data.data.error }))
+                break
+            default:
+                console.warn('Unknown event:', data.event)
+        }
     }
 
-    function handleOllamaPullModel(id, data) {
-        const progress = calculateProgress(data.completed, data.total);
-        
+    function handleOllamaPullModel(innerData) {
+        const progress = calculateProgress(innerData.completed, innerData.total);
+
         ollamaStore.addOrUpdateDownload({
-            id: id,
-            status: data.status,
-            digest: data.digest,
-            total: data.total,
-            completed: data.completed,
+            id: innerData.id,
+            status: innerData.status,
+            digest: innerData.digest,
+            total: innerData.total,
+            completed: innerData.completed,
             progress: progress,
         })
+    }
 
-        // if data.status is success, then remove the event listener
-        if (data.status === 'success') {
-            removeEventListener(id)
-        }
+    function pullModel(info) {
+        WebSocketService.send(WS_NAMESPACE.OLLAMA, WS_REQUEST_EVENT.EVENT_OLLAMA_PULL, {
+            id: info.id,
+            model: info.model,
+        })
     }
 
     function calculateProgress(completed, total) {
@@ -55,26 +57,13 @@ export function useOllamaEventHandlers() {
         return Math.min(100, Math.max(0, Math.round((completed / total) * 100)));
     }
 
-    function removeEventListener(id) {
-        WebSocketService.removeListener(id, WS_EVENTS.OLLAMA_PULL_UPDATE);
-    }
-
-    function removeAllEventListeners() {
-        activeListeners.forEach((_, id) => {
-            removeEventListener(id)
-        })
-    }
-
     function initOllamaEventHandlers() {
+        // add listener
+        WebSocketService.addListener(WS_NAMESPACE.OLLAMA, (data) => handleCallback(data))
+        // emit listen event
         emitter.on(EMITTER_EVENTS.OLLAMA_PULL_MODEL, (info) => {
-            setupEventListener(info.id,info.model)
+            pullModel(info)
         })
-
-        // no need to remove event listeners
-        // onUnmounted(() => {
-        //     removeAllEventListeners()
-        //     emitter.off(WS_EVENTS.OLLAMA_PULL_UPDATE)
-        // })
     }
 
     return {
