@@ -83,7 +83,7 @@ const exThemeVars = computed(() => {
 .value-tab {
   --wails-draggable: none;
   position: relative;
-  border: 1px solid v-bind('exThemeVars.splitColor') !important;
+  border: 0.1px solid v-bind('exThemeVars.splitColor') !important;
 }
 
 .value-tab-active {

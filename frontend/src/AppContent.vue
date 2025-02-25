@@ -10,7 +10,6 @@ import usePreferencesStore from './stores/preferences.js'
 import ToolbarControlWidget from '@/components/common/ToolbarControlWidget.vue'
 import { EventsOn, WindowIsFullscreen, WindowIsMaximised, WindowToggleMaximise } from 'wailsjs/runtime/runtime.js'
 import { isMacOS, isWindows } from '@/utils/platform.js'
-import iconUrl from '@/assets/images/icon.png'
 import { extraTheme } from "@/utils/extra_theme.js";
 import ResizeableWrapper from "@/components/common/ResizeableWrapper.vue";
 import ContentValueTab from "@/components/content/ContentValueTab.vue";
@@ -54,7 +53,7 @@ const wrapperStyle = computed(() => {
   return hideRadius.value
     ? {}
     : {
-      border: `1px solid ${themeVars.value.borderColor}`,
+      border: `0.1px solid ${themeVars.value.borderColor}`,
       borderRadius: '10px',
     }
 })
@@ -153,13 +152,7 @@ function initializeTabs(tabName) {
           paddingLeft: `${logoPaddingLeft}px`,
         }">
           <n-space :size="3" :wrap="false" :wrap-item="false" align="center">
-            <n-avatar :size="32" :src="iconUrl" color="#0000" style="min-width: 32px" />
-            <div style="min-width: 68px; white-space: nowrap; font-weight: 800">CanMe</div>
-            <transition name="fade">
-              <n-text v-if="tabStore.nav === 'subtitle'" class="ellipsis" strong style="font-size: 13px">
-                - {{ tabStore.currentTabTitle }}
-              </n-text>
-            </transition>
+            <div style="min-width: 68px; white-space: nowrap; font-weight: 800; margin-left: 8px; text-transform: capitalize">{{ tabStore.nav }}</div>
           </n-space>
         </div>
         <!-- browser tabs -->
@@ -219,8 +212,7 @@ function initializeTabs(tabName) {
   color: v-bind('themeVars.textColorBase');
 
   #app-toolbar {
-    background-color: v-bind('exThemeVars.titleColor');
-    border-bottom: 1px solid v-bind('exThemeVars.splitColor');
+    background-color: v-bind('exThemeVars.uniFrameColor');
 
     &-title {
       padding-left: 10px;
@@ -242,7 +234,11 @@ function initializeTabs(tabName) {
     height: calc(100% - 60px);
 
     .content-area {
-      overflow: hidden;
+      border-top: v-bind('exThemeVars.splitColor') solid 0.1px;
+      border-left: v-bind('exThemeVars.splitColor') solid 0.1px;
+      border-top-left-radius: 8px; // 左上角圆角
+      display: flex;
+      overflow: hidden; // 确保子元素圆角裁剪 
     }
   }
 

@@ -33,7 +33,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:value'])
 
-const iconSize = computed(() => Math.floor(props.width * 0.45))
+const iconSize = computed(() => Math.floor(props.width * 0.35))
 
 const menuOptions = computed(() => {
   return [
@@ -164,9 +164,7 @@ const exThemeVars = computed(() => {
 
 <style lang="scss">
 #app-ribbon {
-  //height: 100vh;
-  border-right: v-bind('exThemeVars.splitColor') solid 1px;
-  background-color: v-bind('exThemeVars.ribbonColor');
+  background-color: v-bind('exThemeVars.uniFrameColor');
   box-sizing: border-box;
   color: v-bind('themeVars.textColor2');
   --wails-draggable: drag;
@@ -186,7 +184,6 @@ const exThemeVars = computed(() => {
       text-align: center;
       line-height: 1;
       color: v-bind('themeVars.textColor3');
-      //border-left: 5px solid #000;
       border-radius: v-bind('themeVars.borderRadius');
       padding: 8px 0;
       position: relative;
@@ -205,11 +202,14 @@ const exThemeVars = computed(() => {
           content: '';
           background-color: v-bind('themeVars.primaryColor');
         }
+
+        .n-icon {
+        transform: translateY(2px) scale(1.1); // hover放大效果
+    }
       }
     }
 
     .ribbon-item-active {
-      //background-color: v-bind('exThemeVars.ribbonActiveColor');
       color: v-bind('themeVars.primaryColor');
 
       &:hover {

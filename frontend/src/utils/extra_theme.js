@@ -15,6 +15,7 @@ export const extraLightTheme = {
     ribbonActiveColor: '#E3E3E3',
     sidebarColor: '#F2F2F2',
     splitColor: '#DADADA',
+    uniFrameColor: '#ffffff22',
 }
 
 /**
