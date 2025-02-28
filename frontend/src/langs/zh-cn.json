@@ -73,6 +73,7 @@
   },
   "dialogue": {
     "app_name": "CanMe",
+    "app_description": "人工智能字幕转换工具",
     "close_confirm": "关闭此标签页（{title}）？",
     "close_blank_deny": "空白标签页不能被关闭。",
     "upgrade": {
@@ -93,9 +94,14 @@
       "reject": "拒绝"
     },
     "about": {
-      "source": "源代码",
-      "website": "官方网站"
-    }
+      "github": "Github",
+      "official_website": "官方网站",
+      "source_code": "源代码",
+      "x": "x",
+      "turn_off_update_checking": "关闭检测更新",
+      "website": "查看",
+      "social_accounts": "社交账户"
+    } 
   },
   "menu": {
     "minimise": "最小化",
@@ -112,11 +118,21 @@
     "about": "关于"
   },
   "ribbon": {
-    "follow_x": "在 Twitter 上关注",
-    "github": "Github"
+    "subtitle": "字幕",
+    "ai": "人工智能",
+    "history": "历史记录",
+    "download": "视频下载",
+    "optimize": "优化",
+    "theme": "主题",
+    "settings": "设置"
+  },
+  "bottom": {
+    "settings": "设置",
+    "theme": "主题"
   },
   "ai": {
     "no_current_model_tip": "当前没有模型，请选择一个模型",
+    "page_title": "AI 配置",
     "page_title": "AI 配置",
     "translate": "翻译",
     "current_model": "当前模型",
@@ -194,7 +210,12 @@
     "clear_all": "清除全部",
     "cancel": "取消",
     "confirm_clear_history": "您确定要清除历史记录吗？",
-    "please_select_the_way_to_clear": "请选择清除方式"
+    "please_select_the_way_to_clear": "请选择清除方式",
+    "no_records": "没有记录",
+    "clear_confirm_title": "清除确认",
+    "clear_confirm_text": "选择你想要清除历史记录的方式:",
+    "clear_7days": "保留最后 7 天",
+    "clear_30days": "保留最后 30 天"
   },
   "subtitle": {
     "convert": "转换"
@@ -288,7 +309,7 @@
   },
   "video_download": {
     "page_title": "视频下载",
-    "url_placeholder": "请输入 YouTube 视频链接",
+    "url_placeholder": "请输入 Youtube/Bilibili 视频链接",
     "parse": "解析",
     "parsing": "解析中...",
     "format": "格式",
@@ -309,16 +330,29 @@
     "progress": "进度",
     "status": "状态",
     "dictionary": "字典",
+    "action": "操作",
+    "detail": "详情",
+    "downloading": "下载中...",
+    "basic_info": "基本信息",
+    "progress_info": "进度信息",
+    "download_info": "下载信息",
+    "time_info": "时间信息",
+    "path_info": "路径信息",
     "refresh": "刷新",
+    "average_speed": "平均速度",
+    "duration": "下载耗时",
+    "created_at": "创建时间",
     "download_failed": "下载失败",
     "no_tasks": "暂无下载任务",
     "error_detail": "错误详情",
     "copy": "复制",
     "close": "关闭",
     "detail_info": "详细信息",
+    "status_info": "状态信息",
     "copy_all": "复制全部",
     "finished": "已完成",
     "total": "总大小",
+    "parts_info": "分片信息",
     "url": "URL",
     "saved_path": "下载目录",
     "no_data": "没有数据",
@@ -335,5 +369,40 @@
     "translation_cancelled": "翻译已取消",
     "translate": "翻译",
     "translation_processing": "翻译中"
+  },
+  "settings": {
+    "model_provider": "模型服务",
+    "model_config": "模型配置",
+    "editor": {
+      "name": "编辑器",
+      "font": "字体",
+      "font_tip": "选择或输入字体名称",
+      "font_size": "字体大小",
+      "show_linenum": "显示行号",
+      "show_folding": "启用代码折叠",
+      "drop_text": "允许拖放文本",
+      "links": "支持链接"
+    },
+    "general": {
+      "name": "常规设置",
+      "theme": "主题",
+      "language":"语言",
+      "font": "字体",
+      "font_tip": "选择或输入字体名称",
+      "font_size": "字体大小",
+      "scan_size": "SCAN 默认大小",
+      "scan_size_tip": "SCAN/HSCAN/SSCAN/ZSCAN 的默认返回元素数量",
+      "proxy": "代理",
+      "proxy_address": "代理地址",
+      "download": "下载",
+      "download_directory": "目录"
+    },
+    "about": "关于我们"
+  },
+  "optimize": {
+    "subtitle": "字幕",
+    "ai": "AI",
+    "history": "历史记录",
+    "download": "下载视频"
   }
 }

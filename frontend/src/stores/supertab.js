@@ -9,7 +9,7 @@ import { EMITTER_EVENTS } from '../consts/emitter';
 
 const useSuperTabStore = defineStore('supertab', {
     state: () => ({
-        nav: 'subtitle',
+        nav: 'download',
         asideWidth: 300,
         tabList: [],
         activatedIndex: 0,  // current active index

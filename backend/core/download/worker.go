@@ -383,7 +383,7 @@ func (w *Worker) updateTask(update *models.ProgressReciver) {
 				stream.Status = string(update.Status)
 				stream.EndDownload = time.Now()
 				stream.Duration = int64(stream.EndDownload.Sub(stream.StartDownload).Microseconds())
-				stream.AverageSpeed = humanize.Bytes(uint64(stream.TotalSize/stream.Duration)*1000) + "/s"
+				stream.AverageSpeed = humanize.Bytes(uint64(stream.TotalSize/stream.Duration)*1000*1000) + "/s"
 				stream.FinalStatus = true
 				if update.Error != nil {
 					stream.Message = update.Error.Error()

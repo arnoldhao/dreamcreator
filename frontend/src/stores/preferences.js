@@ -117,7 +117,7 @@ const usePreferencesStore = defineStore('preferences', {
             }))
             options.splice(0, 0, {
                 value: 'auto',
-                label: 'preferences.general.system_lang',
+                label: 'Auto',
             })
             return options
         },

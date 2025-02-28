@@ -1,29 +1,62 @@
+<template>
+  <div class="menu h-full w-[48px] flex flex-col justify-between py-3" 
+    :class="prefStore.isDark ? 'bg-neutral-focus' : 'bg-base-100'"
+    :style="{
+      width: '48px',
+      minWidth: '48px',
+    }">
+    <!-- Main menu items -->
+    <div class="menu-items flex flex-col items-center pt-1 space-y-3">
+      <div v-for="(m, i) in menuOptions" :key="i" class="tooltip tooltip-right w-full" :data-tip="$t(m.label)">
+        <div
+          class="w-9 h-9 mx-auto flex items-center justify-center relative hover:bg-primary/10 rounded-full cursor-pointer"
+          :class="[
+            { 'active-item': props.value === m.key },
+            prefStore.isDark ? 'hover:bg-neutral' : 'hover:bg-base-200'
+          ]"
+          @click="emit('update:value', m.key)">
+          <v-icon :name="m.icon" class="w-5 h-5 transition-transform hover:scale-110"
+            :class="{ 'text-primary': props.value === m.key }" scale="1" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom menu items -->
+    <div class="menu-items flex flex-col items-center pb-1 space-y-3">
+      <div v-for="(m, i) in bottomMenuOptions" :key="i" class="tooltip tooltip-right w-full" :data-tip="$t(m.label)">
+        <div
+          class="w-9 h-9 mx-auto flex items-center justify-center relative hover:bg-primary/10 rounded-full cursor-pointer"
+          :class="[
+            { 'active-item': props.value === m.key },
+            prefStore.isDark ? 'hover:bg-neutral' : 'hover:bg-base-200'
+          ]"
+          @click="m.key === 'theme' ? handleThemeClick() : emit('update:value', m.key)">
+          <v-icon :name="m.icon" class="w-5 h-5 transition-transform hover:scale-110"
+            :class="{ 'text-primary': props.value === m.key }" scale="1" />
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
 <script setup>
-import {computed, ref} from 'vue'
-import {NIcon, useThemeVars} from 'naive-ui'
-import AIIcon from '@/components/icons/AI.vue'
-import IconButton from '@/components/common/IconButton.vue'
-import HistoryIcon from '@/components/icons/History.vue'
-import Config from '@/components/icons/Config.vue'
-import useDialogStore from 'stores/dialog.js'
-import Github from '@/components/icons/Github.vue'
-import {BrowserOpenURL} from 'wailsjs/runtime/runtime.js'
+import { computed } from 'vue'
 import usePreferencesStore from 'stores/preferences.js'
-import {useRender} from '@/utils/render.js'
-import Twitter from '@/components/icons/Twitter.vue'
-import {extraTheme} from "@/utils/extra_theme.js";
-import ServerIcon from "@/components/icons/Server.vue";
-import {Project} from "@/consts/global.js";
-import VideoDownloadIcon from '@/components/icons/VideoDownload.vue';
 
+const prefStore = usePreferencesStore()
 
-const themeVars = useThemeVars()
-const render = useRender()
+const handleThemeClick = () => {
+  // 切换主题
+  const currentTheme = prefStore.general.theme
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark'
+  prefStore.general.theme = newTheme
+  prefStore.savePreferences()
+}
 
 const props = defineProps({
   value: {
     type: String,
-    default: 'hello',
+    default: 'optimize',
   },
   width: {
     type: Number,
@@ -33,210 +66,66 @@ const props = defineProps({
 
 const emit = defineEmits(['update:value'])
 
-const iconSize = computed(() => Math.floor(props.width * 0.35))
-
 const menuOptions = computed(() => {
   return [
     {
-      label: 'menu.subtitle',
-      key: 'subtitle',
-      icon: ServerIcon,
-    },
-    {
-      label: 'menu.ai',
-      key: 'ai',
-      icon: AIIcon,
-    },
-    {
-      label: 'menu.history',
-      key: 'history',
-      icon: HistoryIcon,
-    },
-    {
-      label: 'menu.download',
+      label: 'ribbon.download',
       key: 'download',
-      icon: VideoDownloadIcon,
+      icon: 'ri-download-cloud-line',
     },
+    {
+      label: 'ribbon.history',
+      key: 'history',
+      icon: 'ri-history-line',
+    },
+    {
+      label: 'ribbon.optimize',
+      key: 'optimize',
+      icon: 'oi-rocket',
+    },
+    // {
+    //   label: 'menu.subtitle',
+    //   key: 'subtitle',
+    //   icon: 'md-subtitles',
+    // },
+    // {
+    //   label: 'menu.ai',
+    //   key: 'ai',
+    //   icon: 'la-robot-solid',
+    // },
   ]
 })
 
-const preferencesOptions = computed(() => {
+const themeIcon = computed(() => {
+  return prefStore.isDark === true ? 'ri-moon-line' : 'ri-sun-line'
+})
+
+const bottomMenuOptions = computed(() => {
   return [
     {
-      label: 'menu.preferences',
-      key: 'preferences',
-      icon: Config,
+      label: 'bottom.theme',
+      key: 'theme',
+      icon: themeIcon.value,
     },
     {
-      label: 'menu.check_update',
-      key: 'update',
-    },
-    {
-      type: 'divider',
-      key: 'd1',
-    },
-    {
-      label: 'menu.about',
-      key: 'about',
+      label: 'bottom.settings',
+      key: 'settings',
+      icon: 'ri-settings-3-line',
     },
   ]
-})
-
-const dialogStore = useDialogStore()
-const prefStore = usePreferencesStore()
-const onSelectPreferenceMenu = (key) => {
-  switch (key) {
-    case 'preferences':
-      dialogStore.openPreferencesDialog()
-      break
-    case 'update':
-      prefStore.checkForUpdate(true)
-      break
-    case 'about':
-      dialogStore.openAboutDialog()
-      break
-  }
-}
-
-const openX = () => {
-  BrowserOpenURL(Project.Twitter)
-}
-
-const openGithub = () => {
-  BrowserOpenURL(Project.Github)
-}
-
-const exThemeVars = computed(() => {
-  return extraTheme(prefStore.isDark)
 })
 </script>
 
-<template>
-  <div
-      id="app-ribbon"
-      :style="{
-            width: props.width + 'px',
-            minWidth: props.width + 'px',
-        }"
-      class="flex-box-v">
-    <div class="ribbon-wrapper flex-box-v">
-      <n-tooltip v-for="(m, i) in menuOptions" :key="i" :delay="2" :show-arrow="false" placement="right">
-        <template #trigger>
-          <div
-              v-show="m.show !== false"
-              :class="{ 'ribbon-item-active': props.value === m.key }"
-              class="ribbon-item clickable"
-              @click="emit('update:value', m.key)">
-            <n-icon :size="iconSize">
-              <component :is="m.icon" :stroke-width="3.5"/>
-            </n-icon>
-          </div>
-        </template>
-        {{ $t(m.label) }}
-      </n-tooltip>
-    </div>
-    <div class="flex-item-expand"></div>
-    <div class="nav-menu-item flex-box-v">
-      <n-dropdown
-          :options="preferencesOptions"
-          :render-icon="({ icon }) => render.renderIcon(icon)"
-          :render-label="({ label }) => render.renderLabel($t(label), { class: 'context-menu-item' })"
-          trigger="click"
-          @select="onSelectPreferenceMenu">
-        <icon-button :icon="Config" :size="iconSize" :stroke-width="3"/>
-      </n-dropdown>
-      <icon-button
-          :border="false"
-          :icon="Twitter"
-          :size="iconSize"
-          :tooltip-delay="100"
-          t-tooltip="ribbon.follow_x"
-          @click="openX"/>
-      <icon-button
-          :icon="Github"
-          :size="iconSize"
-          :tooltip-delay="100"
-          t-tooltip="ribbon.github"
-          @click="openGithub"/>
-    </div>
-  </div>
-</template>
+<style lang="scss" scoped>
+.menu {
+  height: 100%;
+}
 
-<style lang="scss">
-#app-ribbon {
-  background-color: v-bind('exThemeVars.uniFrameColor');
-  box-sizing: border-box;
-  color: v-bind('themeVars.textColor2');
-  --wails-draggable: drag;
+.active-item {
+  @apply text-primary bg-primary/20;
 
-  .ribbon-wrapper {
-    gap: 2px;
-    margin-top: 5px;
-    justify-content: center;
-    align-items: center;
-    box-sizing: border-box;
-    padding-right: 3px;
-    --wails-draggable: none;
-
-    .ribbon-item {
-      width: 100%;
-      height: 100%;
-      text-align: center;
-      line-height: 1;
-      color: v-bind('themeVars.textColor3');
-      border-radius: v-bind('themeVars.borderRadius');
-      padding: 8px 0;
-      position: relative;
-
-      &:hover {
-        background-color: rgba(0, 0, 0, 0.05);
-        color: v-bind('themeVars.primaryColor');
-
-        &:before {
-          position: absolute;
-          width: 3px;
-          left: 0;
-          top: 24%;
-          bottom: 24%;
-          border-radius: 9999px;
-          content: '';
-          background-color: v-bind('themeVars.primaryColor');
-        }
-
-        .n-icon {
-        transform: translateY(2px) scale(1.1); // hover放大效果
-    }
-      }
-    }
-
-    .ribbon-item-active {
-      color: v-bind('themeVars.primaryColor');
-
-      &:hover {
-        color: v-bind('themeVars.primaryColor') !important;
-      }
-
-      &:before {
-        position: absolute;
-        width: 3px;
-        left: 0;
-        top: 24%;
-        bottom: 24%;
-        border-radius: 9999px;
-        content: '';
-        background-color: v-bind('themeVars.primaryColor');
-      }
-    }
-  }
-
-  .nav-menu-item {
-    align-items: center;
-    padding: 10px 0 15px;
-    --wails-draggable: none;
-
-    button {
-      margin: 10px 0;
-    }
+  :global(.dark) & {
+    @apply bg-primary/10;
   }
 }
 </style>

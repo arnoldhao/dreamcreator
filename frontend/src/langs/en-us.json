@@ -73,6 +73,7 @@
   },
   "dialogue": {
     "app_name": "CanMe",
+    "app_description": "AI-Powered Subtitle Translation Tool.",
     "close_confirm": "Close this tab ({title})?",
     "close_blank_deny": "The blank tab cannot be closed.",
     "upgrade": {
@@ -93,8 +94,13 @@
       "reject": "Reject"
     },
     "about": {
-      "source": "Source Code",
-      "website": "Official Website"
+      "github": "github",
+      "official_website": "Official Website",
+      "source_code": "Source Code",
+      "x": "x",
+      "turn_off_update_checking": "Turn off update checking",
+      "website": "Website",
+      "social_accounts": "Social Accounts"
     }
   },
   "menu": {
@@ -112,8 +118,17 @@
     "about": "About"
   },
   "ribbon": {
-    "follow_x": "Follow On Twitter",
-    "github": "Github"
+    "subtitle": "Subtitle",
+    "ai": "AI",
+    "history": "History",
+    "download": "Download",
+    "theme": "theme",
+    "settings": "Settings",
+    "optimize": "Optimize"
+  },
+  "bottom": {
+    "settings": "Settings",
+    "theme": "Theme"
   },
   "ai": {
     "no_current_model_tip": "No current model, please select a model",
@@ -194,7 +209,12 @@
     "clear_all": "Clear All",
     "cancel": "Cancel",
     "confirm_clear_history": "Are you sure you want to clear the history?",
-    "please_select_the_way_to_clear": "Please select the way to clear"
+    "please_select_the_way_to_clear": "Please select the way to clear",
+    "no_records": "No records",
+    "clear_confirm_title": "Clear Confirm",
+    "clear_confirm_text": "Choose how you want to clear history:",
+    "clear_7days": "Keep Last 7 Days",
+    "clear_30days": "Keep Last 30 Days"
   },
   "subtitle": {
     "convert": "Convert"
@@ -288,7 +308,7 @@
   },
   "video_download": {
     "page_title": "Download Video",
-    "url_placeholder": "Please input YouTube video link",
+    "url_placeholder": "Please input Youtube/Bilibili video link",
     "parse": "Parse",
     "parsing": "Parsing...",
     "format": "Format",
@@ -308,16 +328,29 @@
     "progress": "Progress",
     "status": "Status",
     "dictionary": "Dictionary",
+    "action": "Action",
+    "detail": "Detail",
+    "downloading": "Downloading...",
+    "basic_info": "Basic Info",
+    "progress_info": "Progress Info",
+    "download_info": "Download Info",
+    "time_info": "Time Info",
+    "path_info": "Path Info",
     "refresh": "Refresh",
+    "average_speed": "Average Speed",
+    "duration": "Duration",
+    "created_at": "Create At",
     "download_failed": "Download Failed",
     "no_tasks": "No Tasks",
     "error_detail": "Error Detail",
     "copy": "Copy",
     "close": "Close",
     "detail_info": "Detail Info",
+    "status_info": "Status Info",
     "copy_all": "Copy All",
     "finished": "Finished",
     "total": "Total",
+    "parts_info": "Parts Info",
     "url": "URL",
     "saved_path": "Saved Path",
     "no_data": "No Data",
@@ -334,5 +367,40 @@
     "translation_cancelled": "Translation Cancelled",
     "translate": "Translate",
     "translation_processing": "Translation Processing"
+  },
+  "settings": {
+    "model_provider": "Model Provider",
+    "model_config": "Model Config",
+    "editor": {
+      "name": "Editor",
+      "font": "Font",
+      "font_tip": "Select or input font name",
+      "font_size": "Font Size",
+      "show_linenum": "Show Line Numbers",
+      "show_folding": "Enable Code Folding",
+      "drop_text": "Allow Drag & Drop Text",
+      "links": "Support Links"
+    },
+    "general": {
+      "name": "General",
+      "theme": "Theme",
+      "language": "Language",
+      "font": "Font",
+      "font_tip": "Select or input font name",
+      "font_size": "Font Size",
+      "scan_size": "Default Size for SCAN",
+      "scan_size_tip": "Default return number of elements for SCAN/HSCAN/SSCAN/ZSCAN",
+      "proxy": "Proxy",
+      "proxy_address": "Proxy Address",
+      "download": "Download",
+      "download_directory": "Directory"
+    },
+    "about": "About"
+  },
+  "optimize": {
+    "subtitle": "Subtitle",
+    "ai": "AI",
+    "history": "History",
+    "download": "Download"
   }
 }

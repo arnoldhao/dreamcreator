@@ -1,106 +1,142 @@
 <template>
-    <div v-bind="$attrs" class="flex flex-col h-full w-full">
-        <div class="card bg-base-100 shadow-xl flex flex-col w-full h-full">
-            <div class="card-body p-4 flex flex-col h-full w-full">
-                <!-- header content -->
-                <div class="flex-none">
-                    <div class="flex justify-between items-center mb-2">
-                        <button class="btn btn-ghost normal-case text-xl" @click="getAllSubtitles">
-                            <HistoryIcon class="w-6 h-6 mr-2" />
-                            {{ $t('history.history') }}
+    <div class="history-container rounded-tl-lg h-full w-full">
+        <div class="h-full w-full bg-base-200">
+            <div class="h-full p-6 overflow-y-auto">
+                <!-- 标题区域 -->
+                <div class="flex justify-between items-center mb-6">
+                    <div class="flex items-center">
+                        <v-icon name="ri-history-line" class="w-6 h-6 mr-3 text-primary"></v-icon>
+                        <span class="text-xl font-bold">{{ $t('history.history') }}</span>
+                    </div>
+                    <div class="space-x-3">
+                        <button class="btn btn-sm btn-primary btn-outline" @click="getAllSubtitles">
+                            <v-icon name="hi-refresh" class="h-4 w-4 mr-1"></v-icon>
+                            {{ $t('history.refresh') }}
                         </button>
+                        <button class="btn btn-sm btn-error btn-outline" @click="openClearModal">
+                            <v-icon name="ri-delete-bin-line" class="h-4 w-4 mr-1"></v-icon>
+                            {{ $t('history.clear') }}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 表格区域 -->
+                <div class="card bg-base-100 shadow-md overflow-hidden transition-all duration-200 hover:shadow-lg">
+                    <div class="card-body p-0 overflow-visible">
                         <div>
-                            <button class="btn btn-sm btn-outline mr-2" @click="getAllSubtitles">{{ $t('history.refresh')
-                                }}</button>
-                            <button class="btn btn-sm btn-outline" @click="openClearModal">{{ $t('history.clear')
-                                }}</button>
+                            <table class="table w-full table-fixed">
+                                <thead class="bg-base-300">
+                                    <tr>
+                                        <th class="w-1/5 font-bold table-header">{{ $t('history.file_name') }}</th>
+                                        <th class="w-1/3 font-bold table-header">{{ $t('history.content') }}</th>
+                                        <th class="w-1/8 font-bold table-header">{{ $t('history.language') }}</th>
+                                        <th class="w-1/8 font-bold table-header">{{ $t('history.model') }}</th>
+                                        <th class="w-1/8 font-bold table-header">{{ $t('history.action') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(row, index) in paginatedSubtitles" 
+                                        :key="index" 
+                                        class="hover:bg-base-200 transition-colors duration-150">
+                                        <td class="max-w-[200px] truncate font-medium" :title="row.FileName">{{ row.FileName }}</td>
+                                        <td class="max-w-[300px] truncate text-sm" :title="row.Brief">{{ row.Brief }}</td>
+                                        <td>
+                                            <span class="badge badge-sm text-xs font-medium max-w-full truncate bg-purple-100 text-purple-800" :title="row.Language">{{ row.Language }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-ghost badge-sm text-xs max-w-full truncate" :title="row.Models">{{ row.Models.length > 10 ? row.Models.slice(0, 10) + '...' : row.Models }}</span>
+                                        </td>
+                                        <td>
+                                            <div class="dropdown dropdown-end">
+                                                <label tabindex="0" class="btn btn-sm btn-ghost">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                                                    </svg>
+                                                </label>
+                                                <ul tabindex="0" class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box z-[100] w-40 dropdown-menu-fixed">
+                                                    <li>
+                                                        <a @click="handleEdit(row)" class="font-medium hover:text-primary transition-colors">
+                                                            {{ $t('history.edit') }}
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a @click="handleDownload(row)" class="font-medium hover:text-primary transition-colors">
+                                                            {{ $t('history.download') }}
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a @click="handleAITranslateWebSocket(row)" class="font-medium hover:text-primary transition-colors">
+                                                            {{ $t('history.translate_to_english') }}
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a @click="handleDelete(row)" class="text-error font-medium hover:text-error-dark transition-colors">
+                                                            {{ $t('history.delete') }}
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr v-if="!paginatedSubtitles || paginatedSubtitles.length === 0">
+                                        <td colspan="5" class="text-center py-8">
+                                            <div class="flex flex-col items-center justify-center text-base-content/50">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                                </svg>
+                                                <p>{{ $t('history.no_records') || 'No history records found' }}</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                    <p class="text-sm text-base-content/60 italic mb-2">{{ $t('history.converted_or_translated_files') }}
-                    </p>
                 </div>
 
-                <!-- table container -->
-                <div class="flex-grow overflow-auto">
-                    <table class="table table-zebra w-full table-fixed">
-                        <thead>
-                            <tr>
-                                <th class="whitespace-nowrap overflow-hidden text-ellipsis">{{ $t('history.file_name')
-                                    }}</th>
-                                <th class="whitespace-nowrap overflow-hidden text-ellipsis">{{ $t('history.content') }}
-                                </th>
-                                <th class="whitespace-nowrap overflow-hidden text-ellipsis">{{ $t('history.language') }}
-                                </th>
-                                <th class="whitespace-nowrap overflow-hidden text-ellipsis">{{ $t('history.model') }}
-                                </th>
-                                <th class="whitespace-nowrap overflow-hidden text-ellipsis">{{ $t('history.action') }}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="(row, index) in paginatedSubtitles" :key="index">
-                                <td class="max-w-[200px] truncate" :title="row.FileName">{{ row.FileName }}</td>
-                                <td class="max-w-[300px] truncate" :title="row.Brief">{{ row.Brief }}</td>
-                                <td><span class="badge badge-info">{{ row.Language }}</span></td>
-                                <td><span class="badge badge-ghost">{{ row.Models.length > 10 ? row.Models.slice(0,
-                                    10)
-                                    + '...' : row.Models }}</span></td>
-                                <td>
-                                    <div class="dropdown">
-                                        <label tabindex="0" class="btn btn-sm m-1">{{ $t('history.action')
-                                            }}</label>
-                                        <ul tabindex="0"
-                                            class="dropdown-content menu p-2 shadow bg-base-100 rounded-box z-50 whitespace-nowrap min-w-max">
-                                            <li><a @click="handleEdit(row)">{{ $t('history.edit') }}</a></li>
-                                            <li><a @click="handleDownload(row)">{{ $t('history.download') }}</a>
-                                            </li>
-                                            <li><a @click="handleAITranslateWebSocket(row)">{{
-                                                $t('history.translate_to_english') }}</a></li>
-                                            <li><a @click="handleDelete(row)">{{ $t('history.delete') }}</a></li>
-                                        </ul>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- pagination -->
-                <div class="flex-none mt-4">
-                    <!-- pagination -->
-                    <div class="pt-4">
-                        <div class="flex justify-center space-x-1">
-                            <button class="join-item btn" :disabled="currentPage === 1"
-                                @click="changePage(currentPage - 1)">«</button>
-                            <button class="join-item btn" v-for="page in totalPages" :key="page"
-                                :class="{ 'btn-active': page === currentPage }" @click="changePage(page)">
-                                {{ page }}
-                            </button>
-                            <button class="join-item btn" :disabled="currentPage === totalPages"
-                                @click="changePage(currentPage + 1)">»</button>
-                        </div>
+                <!-- 分页区域 -->
+                <div class="flex justify-center mt-6" v-if="allSubtitles.length > 0">
+                    <div class="join shadow">
+                        <button class="join-item btn" :class="{'btn-disabled': currentPage === 1}" @click="changePage(currentPage - 1)">
+                            <v-icon name="bi-chevron-left"></v-icon>
+                        </button>
+                        <button 
+                            v-for="page in totalPages" 
+                            :key="page" 
+                            class="join-item btn" 
+                            :class="{ 'btn-active': page === currentPage }" 
+                            @click="changePage(page)">
+                            {{ page }}
+                        </button>
+                        <button class="join-item btn" :class="{'btn-disabled': currentPage === totalPages}" @click="changePage(currentPage + 1)">
+                            <v-icon name="bi-chevron-right"></v-icon>
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- clear confirm modal -->
-        <div class="modal" :class="{ 'modal-open': isClearModalOpen }">
+        <!-- Clear History Modal -->
+        <div class="modal" :class="{'modal-open': isClearModalOpen}">
             <div class="modal-box">
-                <h3 class="font-bold text-lg">{{ $t('history.confirm_clear_history') }}</h3>
-                <p class="py-4">{{ $t('history.please_select_the_way_to_clear') }}</p>
-                <div class="flex justify-around my-4">
-                    <button class="btn btn-outline" @click="confirmClear(7)">{{ $t('history.keep_7_days_data')
-                        }}</button>
-                    <button class="btn btn-outline" @click="confirmClear(30)">{{ $t('history.keep_30_days_data')
-                        }}</button>
-                    <button class="btn btn-outline btn-error" @click="confirmClear(0)">{{ $t('history.clear_all')
-                        }}</button>
+                <h3 class="font-bold text-lg">{{ $t('history.clear_confirm_title') || 'Clear History' }}</h3>
+                <p class="py-4">{{ $t('history.clear_confirm_text') || 'Choose how you want to clear history:' }}</p>
+                <div class="flex flex-col gap-3 mt-2">
+                    <button @click="confirmClear(0)" class="btn btn-error">
+                        {{ $t('history.clear_all') || 'Clear All History' }}
+                    </button>
+                    <button @click="confirmClear(7)" class="btn btn-warning">
+                        {{ $t('history.clear_7days') || 'Keep Last 7 Days' }}
+                    </button>
+                    <button @click="confirmClear(30)" class="btn btn-info">
+                        {{ $t('history.clear_30days') || 'Keep Last 30 Days' }}
+                    </button>
                 </div>
                 <div class="modal-action">
-                    <button class="btn" @click="closeClearModal">{{ $t('history.cancel') }}</button>
+                    <button class="btn" @click="closeClearModal">{{ $t('common.cancel') || 'Cancel' }}</button>
                 </div>
             </div>
+            <div class="modal-backdrop" @click="closeClearModal"></div>
         </div>
     </div>
 </template>
@@ -109,9 +145,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { ListSubtitles, SaveSubtitles, DeleteSubtitles, DeleteSubtitleByKeepDays, DeleteAllSubtitles } from 'wailsjs/go/subtitles/Service';
 import useSuperTabStore from "stores/supertab.js";
-import HistoryIcon from '@/components/icons/History.vue';
 import { storeToRefs } from "pinia";
-import { useAttrs } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const tabStore = useSuperTabStore();
@@ -122,7 +156,7 @@ const allSubtitles = ref([]);
 
 // pagination
 const currentPage = ref(1);
-const pageSize = ref(15);
+const pageSize = ref(10);
 
 // calculate total pages
 const totalPages = computed(() => {
@@ -264,19 +298,82 @@ onMounted(() => {
     getAllSubtitles();
 });
 
-const attrs = useAttrs();
 
 </script>
 
 <style scoped>
-.card-body {
-    display: flex;
-    flex-direction: column;
+.history-container {
     height: 100%;
+    width: 100%;
+    min-width: 500px;
+    flex-shrink: 0;
+    overflow: hidden;
 }
 
-.flex-grow {
-    flex-grow: 1;
-    min-height: 0;
+/* Add smooth transitions */
+.card {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Add responsive table styles */
+@media (max-width: 768px) {
+    .table {
+        font-size: 0.85rem;
+    }
+}
+
+/* Add modal backdrop for better UX */
+.modal-backdrop {
+    background-color: rgba(0, 0, 0, 0.4);
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+}
+
+/* Add custom badge styling for language */
+.badge.bg-purple-100 {
+    background-color: rgba(147, 51, 234, 0.15);
+    color: rgba(107, 33, 168, 1);
+    border: 1px solid rgba(147, 51, 234, 0.3);
+}
+
+/* Improve table header contrast - using class instead of direct element selector */
+.table-header {
+    color: hsl(var(--p)); /* Use primary color for better visibility in all themes */
+    border-bottom: 2px solid rgba(147, 51, 234, 0.3); /* Subtle purple border */
+}
+
+thead.bg-base-300 th {
+    /* Remove the fixed color that doesn't work in dark mode */
+    /* color: rgba(31, 41, 55, 0.9); */ /* Dark text for better contrast */
+    border-bottom: 2px solid rgba(147, 51, 234, 0.3); /* Subtle purple border */
+}
+
+/* Fix dropdown menu positioning */
+.dropdown-menu-fixed {
+    position: fixed;
+    margin-top: 0;
+}
+
+/* Make sure the dropdown has high z-index and doesn't get clipped */
+.card-body {
+    overflow: visible !important;
+}
+
+.table-container {
+    overflow: visible;
+}
+
+.card {
+    overflow: visible !important;
+}
+
+/* Ensure table parent has proper overflow handling */
+.overflow-x-auto {
+    overflow-x: auto;
+    overflow-y: visible !important;
 }
 </style>

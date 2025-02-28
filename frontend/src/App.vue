@@ -107,7 +107,14 @@ onMounted(async () => {
 // watch theme and dynamically switch
 watch(
   () => prefStore.isDark,
-  (isDark) => (isDark ? WindowSetDarkTheme() : WindowSetLightTheme()),
+  (isDark) => {
+    // Set Wails window theme
+    isDark ? WindowSetDarkTheme() : WindowSetLightTheme()
+    
+    // Set DaisyUI theme
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
+  },
+  { immediate: true } // Apply immediately on component mount
 )
 
 // watch language and dynamically switch

@@ -11,6 +11,95 @@ import { setupDiscreteApi } from '@/utils/discrete.js'
 import usePreferencesStore from 'stores/preferences.js'
 import { loadEnvironment } from '@/utils/platform.js'
 import { setupMonaco } from '@/utils/monaco.js'
+import { OhVueIcon, addIcons } from 'oh-vue-icons'
+import { CoGithub, 
+    RiGlobalLine, 
+    CiX, 
+    RiCloudLine, 
+    HiCubeTransparent, 
+    RiSettings3Line, 
+    RiInformationLine, 
+    RiTvLine, 
+    MdSubtitles, 
+    LaRobotSolid, 
+    RiHistoryLine, 
+    RiDownloadCloudLine, 
+    RiMoonLine, 
+    RiSunLine, 
+    MdHdrauto, 
+    CoLanguage, 
+    OiFileDirectory,
+    CoFont,
+    RiFontSize,
+    MdEditnote,
+    BiUiChecks,
+    OiRocket,
+    HiRefresh,
+    RiDeleteBinLine,
+    BiChevronLeft,
+    BiChevronRight,
+    BiThreeDotsVertical,
+    RiLoader2Line,
+    MdContentcopy,
+    IoClose,
+    RiFolderOpenLine,
+    RiFileUnknowLine,
+    MdPending,
+    MdDownloading,
+    MdDownloaddone,
+    IoCloudDoneOutline,
+    MdRunningwitherrors,
+    MdFreecancellationOutlined,
+    IoTimerOutline,
+    MdClouddownload,
+    MdSpeed,
+    RiBilibiliLine,
+    RiYoutubeLine} from 'oh-vue-icons/icons'
+
+// Register the icon
+addIcons(CoGithub, 
+    RiGlobalLine, 
+    CiX, 
+    RiCloudLine, 
+    HiCubeTransparent, 
+    RiSettings3Line, 
+    RiInformationLine, 
+    RiTvLine, 
+    MdSubtitles, 
+    LaRobotSolid, 
+    RiHistoryLine, 
+    RiDownloadCloudLine, 
+    RiMoonLine, 
+    RiSunLine, 
+    MdHdrauto, 
+    CoLanguage, 
+    OiFileDirectory,
+    CoFont,
+    RiFontSize,
+    MdEditnote,
+    BiUiChecks,
+    OiRocket,
+    HiRefresh,
+    RiDeleteBinLine,
+    BiChevronLeft,
+    BiChevronRight,
+    BiThreeDotsVertical,
+    RiLoader2Line,
+    MdContentcopy,
+    IoClose,
+    RiFolderOpenLine,
+    RiFileUnknowLine,
+    MdPending,
+    MdDownloading,
+    MdDownloaddone,
+    IoCloudDoneOutline,
+    MdRunningwitherrors,
+    MdFreecancellationOutlined,
+    IoTimerOutline,
+    MdClouddownload,
+    MdSpeed,
+    RiBilibiliLine,
+    RiYoutubeLine)
 
 dayjs.extend(duration)
 dayjs.extend(relativeTime)
@@ -19,6 +108,9 @@ async function setupApp() {
     const app = createApp(App)
     app.use(i18n)
     app.use(createPinia())
+
+    // Register OhVueIcon component globally
+    app.component("v-icon", OhVueIcon);
 
     await loadEnvironment()
     setupMonaco()
@@ -35,7 +127,7 @@ async function setupApp() {
                     meta: 'Please see console output for more detail',
                 })
                 console.error(err)
-            } catch (e) {}
+            } catch (e) { }
         })
     }
     // app.config.warnHandler = (message) => {

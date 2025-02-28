@@ -13,7 +13,8 @@
 This project is for learning front-end and back-end development. The software may have various issues due to my limited skills. Your understanding is appreciated.
 
 ## Current Features
-### Version: Initial 0.0.6
+### Version: 0.0.8
+Current version has multiple exceptions. Please do not use it.
 - Export Capcut JSON subtitle files
 - Import SRT files directly
 - Manage Ollama model downloads
@@ -25,8 +26,15 @@ This project is for learning front-end and back-end development. The software ma
 - Support for downloading Bilibili videos (do not support login now)
 
 ## Roadmap
+### version: 0.0.9+
+- refactor model provider page into configuration
+- refactor model config page into configuration
+- refactor subtitle page
+- refactor download page
+- support for Bilibili login
+- support for importing BCut JSON subtitle files
+
 ### Version: 0.1.X
-- Export BCut JSON subtitle files
 - Edit AI-translated subtitles
 - Subtitle format validation
 - Display Ollama model download speed and add retry mechanism
