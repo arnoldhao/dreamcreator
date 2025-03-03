@@ -13,7 +13,7 @@
 This project is for learning front-end and back-end development. The software may have various issues due to my limited skills. Your understanding is appreciated.
 
 ## Current Features
-### Version: 0.0.8
+### Version: 0.0.9
 Current version has multiple exceptions. Please do not use it.
 - Export Capcut JSON subtitle files
 - Import SRT files directly
@@ -26,7 +26,7 @@ Current version has multiple exceptions. Please do not use it.
 - Support for downloading Bilibili videos (do not support login now)
 
 ## Roadmap
-### version: 0.0.9+
+### version: 0.0.10+
 - refactor model provider page into configuration
 - refactor model config page into configuration
 - refactor subtitle page

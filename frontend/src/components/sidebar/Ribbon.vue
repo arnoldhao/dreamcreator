@@ -9,7 +9,7 @@
     <div class="menu-items flex flex-col items-center pt-1 space-y-3">
       <div v-for="(m, i) in menuOptions" :key="i" class="tooltip tooltip-right w-full" :data-tip="$t(m.label)">
         <div
-          class="w-9 h-9 mx-auto flex items-center justify-center relative hover:bg-primary/10 rounded-full cursor-pointer"
+          class="w-full h-9 flex items-center justify-center relative hover:bg-primary/10 rounded-full cursor-pointer"
           :class="[
             { 'active-item': props.value === m.key },
             prefStore.isDark ? 'hover:bg-neutral' : 'hover:bg-base-200'
@@ -25,7 +25,7 @@
     <div class="menu-items flex flex-col items-center pb-1 space-y-3">
       <div v-for="(m, i) in bottomMenuOptions" :key="i" class="tooltip tooltip-right w-full" :data-tip="$t(m.label)">
         <div
-          class="w-9 h-9 mx-auto flex items-center justify-center relative hover:bg-primary/10 rounded-full cursor-pointer"
+          class="w-full h-9 flex items-center justify-center relative hover:bg-primary/10 rounded-full cursor-pointer"
           :class="[
             { 'active-item': props.value === m.key },
             prefStore.isDark ? 'hover:bg-neutral' : 'hover:bg-base-200'

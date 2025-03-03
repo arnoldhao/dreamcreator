@@ -10,7 +10,7 @@ const DEFAULT_LOAD_SIZE = 10000
 const DEFAULT_SCAN_SIZE = 3000
 
 const APP_NAME = "CanMe"
-const APP_VERSION = "0.0.8"
+const APP_VERSION = "0.0.9"
 const PREFERENCES_FILE_NAME = "preferences.yaml"
 const LLMS_FILE_NAME = "llms.yaml"
 

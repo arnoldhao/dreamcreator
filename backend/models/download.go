@@ -26,8 +26,90 @@ type DownloadTask struct {
 	SavedPath     string        `gorm:"type:varchar(255);not null" json:"savedPath"`
 	StreamParts   []*StreamPart `gorm:"foreignKey:TaskID;references:TaskID" json:"streams"`
 	CommonParts   []*CommonPart `gorm:"foreignKey:TaskID;references:TaskID" json:"commonParts"`
-	Status        string        `gorm:"type:varchar(36);not null" json:"status"`
+	Status        string        `gorm:"type:varchar(36);not null" json:"status"` // 已废弃，将在未来版本移除
 	Progress      float64       `gorm:"type:float;not null" json:"progress"`
+	// 0.0.9 new add, must set default or it will cause problem
+	TaskStatus       TaskStatus `gorm:"type:int;not null;default:0" json:"taskStatus"`          // 新的状态字段
+	TotalCurrentSize int64      `gorm:"type:bigint;not null;default:0" json:"totalCurrentSize"` // 当前下载的大小
+	StartTime        time.Time  `gorm:"type:datetime" json:"startTime"`                         // 任务开始时间
+	EstimatedEndTime time.Time  `gorm:"type:datetime" json:"estimatedEndTime"`                  // 预计完成时间
+	EndTime          time.Time  `gorm:"type:datetime" json:"endTime"`                           // 任务结束时间
+	DurationSeconds  int64      `gorm:"type:bigint;default:0" json:"durationSeconds"`           // 总耗时（秒）
+	CurrentSpeed     float64    `gorm:"type:float;default:0" json:"currentSpeed"`               // 当前速度(bytes/s)
+	SpeedString      string     `gorm:"type:varchar(36);default:''" json:"speedString"`         // 格式化的速度字符串
+	AverageSpeed     string     `gorm:"type:varchar(36);default:''" json:"averageSpeed"`        // 平均速度字符串
+	TimeRemaining    string     `gorm:"type:varchar(36);default:''" json:"timeRemaining"`       // 剩余时间字符串
+	IsProcessing     bool       `gorm:"-" json:"isProcessing"`                                  // 是否处理中
+}
+
+// TaskStatus 表示下载任务的状态
+type TaskStatus int
+
+const (
+	TaskStatusCreated        TaskStatus = iota // 0: 任务已创建
+	TaskStatusPending                          // 1: 等待下载
+	TaskStatusDownloading                      // 2: 正在下载
+	TaskStatusPaused                           // 3: 已暂停
+	TaskStatusMuxing                           // 4: 正在合并分片
+	TaskStatusMuxingSuccess                    // 5: 合并成功
+	TaskStatusMuxingFailed                     // 6: 合并失败
+	TaskStatusCompleted                        // 7: 下载完成
+	TaskStatusFailed                           // 8: 下载失败
+	TaskStatusPartialSuccess                   // 9: 部分分下下载成功
+	TaskStatusPartialFailed                    // 10: 部分分片下载失败
+	TaskStatusCancelled                        // 11: 已取消
+	TaskStatusUnknown                          // 12: 未知状态
+)
+
+// String 实现 Stringer 接口
+func (s TaskStatus) String() string {
+	switch s {
+	case TaskStatusCreated:
+		return "created"
+	case TaskStatusPending:
+		return "pending"
+	case TaskStatusDownloading:
+		return "downloading"
+	case TaskStatusPaused:
+		return "paused"
+	case TaskStatusMuxing:
+		return "muxing"
+	case TaskStatusMuxingSuccess:
+		return "muxing_success"
+	case TaskStatusMuxingFailed:
+		return "muxing_failed"
+	case TaskStatusCompleted:
+		return "completed"
+	case TaskStatusFailed:
+		return "failed"
+	case TaskStatusPartialSuccess:
+		return "partial_success"
+	case TaskStatusPartialFailed:
+		return "partial_failed"
+	case TaskStatusCancelled:
+		return "cancelled"
+	case TaskStatusUnknown:
+		return "unknown"
+	default:
+		return "unknown"
+	}
+}
+
+// IsProcessing 计算任务是否在进行中
+func (s TaskStatus) IsProcessing() bool {
+	switch s {
+	case TaskStatusPending,
+		TaskStatusDownloading,
+		TaskStatusPaused,
+		TaskStatusMuxing,
+		TaskStatusMuxingSuccess,
+		TaskStatusMuxingFailed,
+		TaskStatusPartialSuccess,
+		TaskStatusPartialFailed:
+		return true
+	default:
+		return false
+	}
 }
 
 // Validate
@@ -50,7 +132,44 @@ func (t *DownloadTask) Validate() error {
 	return nil
 }
 
-// GORM
+// BeforeSave GORM 钩子，同步状态字段
+func (t *DownloadTask) BeforeSave(tx *gorm.DB) error {
+	// 保持向后兼容，同时更新旧的 status 字段
+	t.Status = t.TaskStatus.String()
+	return nil
+}
+
+// AfterFind GORM 钩子，设置 IsProcessing
+func (t *DownloadTask) AfterFind(tx *gorm.DB) error {
+	t.calculateIsProcessing()
+	return nil
+}
+
+// calculateIsProcessing 计算任务是否在进行中
+func (t *DownloadTask) calculateIsProcessing() {
+	if t.TaskStatus.IsProcessing() {
+		t.IsProcessing = true
+	} else {
+		t.IsProcessing = false
+	}
+}
+
+// IsFinished 判断任务是否已结束
+func (t *DownloadTask) IsFinished() bool {
+	switch t.TaskStatus {
+	case TaskStatusCompleted, TaskStatusFailed, TaskStatusPartialFailed, TaskStatusMuxingFailed, TaskStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsSuccess 判断任务是否成功完成
+func (t *DownloadTask) IsSuccess() bool {
+	return t.TaskStatus == TaskStatusCompleted
+}
+
+// BeforeCreate GORM 钩子，验证任务
 func (t *DownloadTask) BeforeCreate(tx *gorm.DB) error {
 	if err := t.Validate(); err != nil {
 		return err
@@ -103,7 +222,7 @@ func (s *StreamPart) Validate() error {
 	return nil
 }
 
-// GORM
+// BeforeCreate GORM 钩子，验证分片
 func (s *StreamPart) BeforeCreate(tx *gorm.DB) error {
 	if err := s.Validate(); err != nil {
 		return err
@@ -112,11 +231,11 @@ func (s *StreamPart) BeforeCreate(tx *gorm.DB) error {
 }
 
 type ProgressReciver struct {
-	PartID string                `json:"partId"`
-	TaskID string                `json:"taskId"`
-	Status consts.DownloadStatus `json:"status"`
-	Added  int64                 `json:"added"`
-	Error  error                 `json:"err"`
+	PartID string     `json:"partId"`
+	TaskID string     `json:"taskId"`
+	Status TaskStatus `json:"status"`
+	Added  int64      `json:"added"`
+	Error  error      `json:"err"`
 }
 
 // UpdateTask

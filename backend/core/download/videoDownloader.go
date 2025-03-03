@@ -1,7 +1,6 @@
 package download
 
 import (
-	"CanMe/backend/consts"
 	"CanMe/backend/models"
 	"CanMe/backend/pkg/request"
 	"CanMe/backend/pkg/specials/chunk"
@@ -54,13 +53,13 @@ func (d *VideoDownloader) Download() error {
 	}
 
 	if err != nil {
-		update.Status = consts.DownloadStatusDownloadFailed
+		update.Status = models.TaskStatusPartialFailed
 		update.Error = err
 		d.update <- update
 		return err
 	}
 
-	update.Status = consts.DownloadStatusDownloadSuccess
+	update.Status = models.TaskStatusPartialSuccess
 	d.update <- update
 
 	return nil

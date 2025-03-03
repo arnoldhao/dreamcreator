@@ -137,12 +137,10 @@ func (s *Service) CreateTask(ctx context.Context, req *types.TaskRequest) (*type
 	}, nil
 }
 
-// CancelTask
 func (s *Service) CancelTask(taskID string) error {
 	return s.queue.CancelTask(taskID)
 }
 
-// GetTaskStatus
 func (s *Service) GetTaskStatus(ctx context.Context, taskID string) (*models.DownloadTask, error) {
 	if task, exists := s.queue.Get(taskID); exists {
 		return task, nil
@@ -166,6 +164,7 @@ func (s *Service) GetFFMPEGVersion(ctx context.Context) (version []byte, err err
 func (s *Service) DeleteRecord(ctx context.Context, id string) (err error) {
 	return s.repo.Delete(ctx, id)
 }
+
 func (s *Service) fillTaskDetails(req *types.TaskRequest) (task *models.DownloadTask, err error) {
 	// check params
 	if len(s.content) == 0 {
@@ -216,7 +215,7 @@ func (s *Service) fillTaskDetails(req *types.TaskRequest) (task *models.Download
 					AverageSpeed:  "",
 					CurrentSize:   0,
 					TotalSize:     part.Size, // total size
-					Status:        "pending",
+					Status:        models.TaskStatusPending.String(),
 					FinalStatus:   false,
 					Message:       "",
 					NeedMerge:     true,
@@ -242,7 +241,7 @@ func (s *Service) fillTaskDetails(req *types.TaskRequest) (task *models.Download
 				AverageSpeed:  "",
 				CurrentSize:   0,
 				TotalSize:     stream.Parts[0].Size, // total size
-				Status:        "pending",
+				Status:        models.TaskStatusPending.String(),
 				FinalStatus:   false,
 				Message:       "",
 				NeedMerge:     false,
@@ -313,21 +312,22 @@ func (s *Service) fillTaskDetails(req *types.TaskRequest) (task *models.Download
 
 	// initial task
 	task = &models.DownloadTask{
-		TaskID:        uuid.NewString(),
-		ContentID:     req.ContentID,
-		TotalSize:     totalSize,
-		TotalParts:    totalParts,
-		FinishedParts: 0,
-		Stream:        req.Stream,
-		Captions:      req.Captions,
-		Danmaku:       req.Danmaku,
-		Source:        s.content[0].Source,
-		URL:           s.content[0].URL,
-		Title:         s.content[0].Title,
-		SavedPath:     savedPath,
-		StreamParts:   streamParts,
-		CommonParts:   commonParts,
-		Status:        "pending",
+		TaskID:           uuid.NewString(),
+		ContentID:        req.ContentID,
+		TotalSize:        totalSize,
+		TotalCurrentSize: 0,
+		TotalParts:       totalParts,
+		FinishedParts:    0,
+		Stream:           req.Stream,
+		Captions:         req.Captions,
+		Danmaku:          req.Danmaku,
+		Source:           s.content[0].Source,
+		URL:              s.content[0].URL,
+		Title:            s.content[0].Title,
+		SavedPath:        savedPath,
+		StreamParts:      streamParts,
+		CommonParts:      commonParts,
+		TaskStatus:       models.TaskStatusPending,
 	}
 
 	// return

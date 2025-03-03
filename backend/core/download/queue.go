@@ -1,7 +1,6 @@
 package download
 
 import (
-	"CanMe/backend/consts"
 	"CanMe/backend/core/events"
 	"CanMe/backend/models"
 	"CanMe/backend/storage/repository"
@@ -21,7 +20,7 @@ type Queue struct {
 	mu           sync.RWMutex
 	ctx          context.Context
 	workers      map[string]*Worker
-	workerStatus chan map[string]consts.DownloadStatus
+	workerStatus chan map[string]models.TaskStatus
 	errChan      chan *models.TaskError
 	eventBus     events.EventBus
 	repo         repository.DownloadRepository
@@ -33,7 +32,7 @@ func NewQueue(eventBus events.EventBus, repo repository.DownloadRepository) *Que
 	return &Queue{
 		workers:      make(map[string]*Worker),
 		maxWorkers:   MaxWorkers,
-		workerStatus: make(chan map[string]consts.DownloadStatus, MaxWorkers),
+		workerStatus: make(chan map[string]models.TaskStatus, MaxWorkers),
 		errChan:      make(chan *models.TaskError, MaxWorkers),
 		eventBus:     eventBus,
 		repo:         repo,
@@ -77,7 +76,7 @@ func (q *Queue) Add(task *models.DownloadTask) error {
 		return ErrTaskExists
 	}
 
-	if task.Status != "pending" {
+	if task.TaskStatus != models.TaskStatusPending {
 		return ErrInvalidStatus
 	}
 
@@ -135,7 +134,7 @@ func (q *Queue) Remove(taskID string) {
 	delete(q.workers, taskID)
 }
 
-func (q *Queue) handleWorkerUpdate(status map[string]consts.DownloadStatus) error {
+func (q *Queue) handleWorkerUpdate(status map[string]models.TaskStatus) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -159,7 +158,7 @@ func (q *Queue) CancelTask(taskID string) error {
 	defer q.mu.Unlock()
 
 	if worker, exists := q.workers[taskID]; exists {
-		err := worker.Cancel(consts.DownloadStatusCanceled)
+		err := worker.Cancel(models.TaskStatusCancelled)
 		if err != nil {
 			return err
 		} else {

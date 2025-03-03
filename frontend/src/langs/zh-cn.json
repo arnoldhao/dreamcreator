@@ -63,7 +63,12 @@
       "protocal_socks5": "SOCKS5",
       "addr_required": "地址必填",
       "port_required": "端口必填",
-      "protocal_required": "协议必填"
+      "protocal_required": "协议必填",
+      "set_success": "代理设置成功",
+      "set_failed": "代理设置失败",
+      "disable_success": "代理已禁用",
+      "disable_failed": "禁用代理失败",
+      "error": "设置代理时发生错误"
     },
     "download": {
       "name": "下载",
@@ -132,7 +137,6 @@
   },
   "ai": {
     "no_current_model_tip": "当前没有模型，请选择一个模型",
-    "page_title": "AI 配置",
     "page_title": "AI 配置",
     "translate": "翻译",
     "current_model": "当前模型",
@@ -309,7 +313,7 @@
   },
   "video_download": {
     "page_title": "视频下载",
-    "url_placeholder": "请输入 Youtube/Bilibili 视频链接",
+    "url_placeholder": "请输入视频链接",
     "parse": "解析",
     "parsing": "解析中...",
     "format": "格式",
@@ -321,6 +325,7 @@
     "caption": "字幕",
     "select_caption": "选择字幕",
     "no_caption": "无字幕",
+    "new_task": "新建下载任务",
     "download": "下载",
     "tasks": "任务",
     "source": "来源",
@@ -331,7 +336,6 @@
     "status": "状态",
     "dictionary": "字典",
     "action": "操作",
-    "detail": "详情",
     "downloading": "下载中...",
     "basic_info": "基本信息",
     "progress_info": "进度信息",
@@ -353,15 +357,21 @@
     "finished": "已完成",
     "total": "总大小",
     "parts_info": "分片信息",
-    "url": "URL",
+    "url": "链接",
     "saved_path": "下载目录",
     "no_data": "没有数据",
     "file_name": "文件名",
+    "copy_url": "复制链接",
     "open_folder": "打开文件夹",
+    "detail": "详情",
+    "delete": "删除",
     "open_file": "打开文件",
     "error_info": "错误信息",
-    "delete": "删除",
-    "delete_success": "删除成功"
+    "delete_success": "删除成功",
+    "speed": "速度",
+    "eta": "剩余时间",
+    "start_time": "开始时间",
+    "end_time": "结束时间"
   },
   "translation": {
     "translation_completed": "翻译成功",

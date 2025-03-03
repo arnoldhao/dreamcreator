@@ -363,27 +363,45 @@ const usePreferencesStore = defineStore('preferences', {
         },
 
         async setProxy() {
-            if (this.proxy.enabled) {
-                if (isEmpty(this.proxy.addr)) {
-                    $message.error(i18nGlobal.t('preferences.proxy.addr_required'))
-                    return false
+            try {
+                if (this.proxy.enabled) {
+                    // 
+                    if (isEmpty(this.proxy.addr)) {
+                        $message.error(i18nGlobal.t('preferences.proxy.addr_required'))
+                        return false
+                    }
+                    if (this.proxy.port === 0) {
+                        $message.error(i18nGlobal.t('preferences.proxy.port_required'))
+                        return false
+                    }
+                    if (isEmpty(this.proxy.protocal)) {
+                        $message.error(i18nGlobal.t('preferences.proxy.protocal_required'))
+                        return false
+                    }
+
+                    // 
+                    const url = `${this.proxy.protocal}://${this.proxy.addr}:${this.proxy.port}`
+                    const { success, msg } = await SetProxy(url)
+                    if (!success) {
+                        $message.error(i18nGlobal.t('preferences.proxy.set_failed') + (msg ? `: ${msg}` : ''))
+                        return false
+                    }
+                    $message.success(i18nGlobal.t('preferences.proxy.set_success'))
+                    return true
+                } else {
+                    // 
+                    const { success, msg } = await SetProxy('')
+                    if (!success) {
+                        $message.error(i18nGlobal.t('preferences.proxy.disable_failed') + (msg ? `: ${msg}` : ''))
+                        return false
+                    }
+                    $message.success(i18nGlobal.t('preferences.proxy.disable_success'))
+                    return true
                 }
-                if (this.proxy.port === 0) {
-                    $message.error(i18nGlobal.t('preferences.proxy.port_required'))
-                    return false
-                }
-                if (isEmpty(this.proxy.protocal)) {
-                    $message.error(i18nGlobal.t('preferences.proxy.protocal_required'))
-                    return false
-                }
-                const url = this.proxy.protocal + '://' + this.proxy.addr + ':' + this.proxy.port
-                const { success, msg } = await SetProxy(url)
-                if (!success) {
-                    $message.error(i18nGlobal.t('preferences.proxy.test_failed') + msg)
-                }
-                return success === true
-            } else {
-                return true
+            } catch (error) {
+                console.error('Failed to set proxy:', error)
+                $message.error(i18nGlobal.t('preferences.proxy.error'))
+                return false
             }
         },
 

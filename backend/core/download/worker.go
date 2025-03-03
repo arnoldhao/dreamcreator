@@ -7,6 +7,8 @@ import (
 	"CanMe/backend/types"
 	"CanMe/backend/utils/poolUtil"
 	"context"
+	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -36,11 +38,11 @@ type Worker struct {
 	minSpeedThreshold  float64
 	speedSmoothFactor  float64
 	// reporter
-	errChan      chan *models.TaskError                // report to queue
-	workerStatus chan map[string]consts.DownloadStatus // report to queue
-	eventBus     events.EventBus                       // report to frontend
+	errChan      chan *models.TaskError            // report to queue
+	workerStatus chan map[string]models.TaskStatus // report to queue
+	eventBus     events.EventBus                   // report to frontend
 	// downloader
-	videos map[string]*VideoDownloader // downloader
+	videos sync.Map // downloader
 	// task cache
 	repo repository.DownloadRepository // local storage
 	task *models.DownloadTask          // models
@@ -52,24 +54,31 @@ type Worker struct {
 	// task cache config
 	autoSaveInterval time.Duration
 	saveInterval     time.Duration
+	// speedSamples 用于计算移动平均速度
+	speedSamples   []float64     // 保存最近的速度样本
+	lastSampleTime time.Time     // 上次采样时间
+	sampleInterval time.Duration // 采样间隔
+	maxSampleCount int           // 最大样本数
 }
 
 // NewWorker
 func NewWorker(ctx context.Context,
 	task *models.DownloadTask,
-	workerStatus chan map[string]consts.DownloadStatus,
+	workerStatus chan map[string]models.TaskStatus,
 	errChan chan *models.TaskError,
 	eventBus events.EventBus,
 	repo repository.DownloadRepository) *Worker {
 	ctx, cancel := context.WithCancel(ctx)
+	now := time.Now()
 	var totalSize int64
 	var streams []*models.StreamPart
 	for _, stream := range task.StreamParts {
-		stream.StartDownload = time.Now() // start time
+		stream.StartDownload = now // start time
 		streams = append(streams, stream)
 		totalSize += stream.TotalSize
 	}
 	task.StreamParts = streams
+	task.StartTime = now
 
 	worker := &Worker{
 		ctx:                  ctx,
@@ -86,13 +95,17 @@ func NewWorker(ctx context.Context,
 		errChan:              errChan,
 		eventBus:             eventBus,
 		update:               make(chan *models.ProgressReciver, 100),
-		videos:               make(map[string]*VideoDownloader),
+		videos:               sync.Map{},
 		repo:                 repo,
 		task:                 task,
 		updateCounts:         0,
 		lastSaved:            time.Now(),
 		autoSaveInterval:     30 * time.Second,
 		saveInterval:         1 * time.Second,
+		speedSamples:         make([]float64, 0, 30), // 保存30个样本
+		sampleInterval:       time.Second * 1,        // 每1秒采样一次
+		maxSampleCount:       30,                     // 最多保存30个样本
+		lastSampleTime:       time.Now(),
 	}
 
 	// save
@@ -100,10 +113,10 @@ func NewWorker(ctx context.Context,
 
 	// emit
 	worker.eventBus.Publish(consts.TopicDownloadSingle, types.DownloadResponse{
-		ID:       worker.task.TaskID,
-		Status:   consts.DownloadingCacheSaved,
-		DataType: types.ExtractorDataTypeVideo,
-		Total:    worker.task.TotalParts,
+		ID:         worker.task.TaskID,
+		TaskStatus: models.TaskStatusCreated,
+		DataType:   types.ExtractorDataTypeVideo,
+		Total:      worker.task.TotalParts,
 	})
 
 	// period save
@@ -113,12 +126,20 @@ func NewWorker(ctx context.Context,
 }
 
 // Cancel
-func (w *Worker) Cancel(status consts.DownloadStatus) error {
-	for _, v := range w.videos {
+func (w *Worker) Cancel(status models.TaskStatus) error {
+	var cancelErr error
+	w.videos.Range(func(key, value interface{}) bool {
+		v := value.(*VideoDownloader)
 		err := v.Cancel()
 		if err != nil {
-			return err
+			cancelErr = err
+			return false // 停止遍历
 		}
+		return true // 继续遍历
+	})
+
+	if cancelErr != nil {
+		return cancelErr
 	}
 
 	// save task
@@ -149,17 +170,20 @@ func (w *Worker) Download() error {
 	}
 
 	if len(w.task.StreamParts) == 1 {
-		w.videos[w.task.StreamParts[0].PartID] = NewVideoDownloader(w.ctx, w.task.URL, w.task.StreamParts[0], w.update)
+		w.videos.Store(w.task.StreamParts[0].PartID, NewVideoDownloader(w.ctx, w.task.URL, w.task.StreamParts[0], w.update))
 		go func() {
-			err := w.videos[w.task.StreamParts[0].PartID].Download()
-			w.task.FinishedParts++
-			if err != nil {
-				if w.task.FinishedParts == w.task.TotalParts {
-					w.task.Status = DownloadStatusFailed
-					// report to queue service
-					w.errChan <- &models.TaskError{
-						TaskID: w.task.TaskID,
-						Err:    err,
+			videoPart, ok := w.videos.Load(w.task.StreamParts[0].PartID)
+			if ok && videoPart != nil {
+				err := videoPart.(*VideoDownloader).Download()
+				if err != nil {
+					w.task.FinishedParts++
+					if w.task.FinishedParts == w.task.TotalParts {
+						w.task.TaskStatus = models.TaskStatusFailed
+						// report to queue service
+						w.errChan <- &models.TaskError{
+							TaskID: w.task.TaskID,
+							Err:    err,
+						}
 					}
 				}
 			}
@@ -179,14 +203,13 @@ func (w *Worker) Download() error {
 			}
 
 			// set video
-			w.videos[part.PartID] = NewVideoDownloader(w.ctx, w.task.URL, part, w.update)
-
+			w.videos.Store(part.PartID, NewVideoDownloader(w.ctx, w.task.URL, part, w.update))
 			// goruntine download
 			wg.Add() // Increment the WaitGroup counter
 			go func(part *models.StreamPart) {
 				defer wg.Done() // Decrement the WaitGroup counter
-				if videoPart := w.videos[part.PartID]; videoPart != nil {
-					err := w.videos[part.PartID].Download()
+				if videoPart, ok := w.videos.Load(part.PartID); ok && videoPart != nil {
+					err := videoPart.(*VideoDownloader).Download()
 					if err != nil {
 						lock.Lock()
 						errs = append(errs, err)
@@ -203,7 +226,7 @@ func (w *Worker) Download() error {
 			for _, err := range errs {
 				if err != nil {
 					if w.task.FinishedParts == w.task.TotalParts {
-						w.task.Status = DownloadStatusFailed
+						w.task.TaskStatus = models.TaskStatusFailed
 						// report to queue service
 						w.errChan <- &models.TaskError{
 							TaskID: w.task.TaskID,
@@ -213,37 +236,37 @@ func (w *Worker) Download() error {
 				}
 			}
 		} else {
-			w.updateTaskStatus(consts.DownloadStatusMuxing)
-			w.report(consts.DownloadStatusMuxing)
+			w.updateTaskStatus(models.TaskStatusMuxing)
+			w.report(models.TaskStatusMuxing)
 
 			// merge
 			err := w.mergeFiles(fileNames, finalFileName)
 			if err != nil {
 				// eventbus merge failed
-				w.updateTaskStatus(consts.DownloadStatusMuxFailed)
+				w.updateTaskStatus(models.TaskStatusMuxingFailed)
 				go func() {
-					w.workerStatus <- map[string]consts.DownloadStatus{
-						w.task.TaskID: consts.DownloadStatusMuxFailed,
+					w.workerStatus <- map[string]models.TaskStatus{
+						w.task.TaskID: models.TaskStatusMuxingFailed,
 					}
 				}()
 
 				// return
 				return err
 			} else {
-				w.updateTaskStatus(consts.DownloadStatusMuxSuccess)
-				w.report(consts.DownloadStatusMuxSuccess)
+				w.updateTaskStatus(models.TaskStatusMuxingSuccess)
+				w.report(models.TaskStatusMuxingSuccess)
 			}
 		}
 	}
 
 	// save task
-	w.updateTaskStatus(consts.DownloadStatusAllSuccess)
+	w.updateTaskStatus(models.TaskStatusCompleted)
 	w.SaveTask(true)
 
 	// report to queue to cancel worker
 	go func() {
-		w.workerStatus <- map[string]consts.DownloadStatus{
-			w.task.TaskID: consts.DownloadStatusAllSuccess,
+		w.workerStatus <- map[string]models.TaskStatus{
+			w.task.TaskID: models.TaskStatusCompleted,
 		}
 	}()
 
@@ -261,7 +284,6 @@ func (w *Worker) handleUpdate(update *models.ProgressReciver) error {
 				// use smooth
 				w.speed = w.speed*(1-w.speedSmoothFactor) +
 					instantSpeed*w.speedSmoothFactor
-
 			}
 		}
 
@@ -279,7 +301,7 @@ func (w *Worker) handleUpdate(update *models.ProgressReciver) error {
 			w.lastReportedProgress = currentProgress
 
 			// publish event
-			w.report(consts.DownloadStatusDownloading)
+			w.report(models.TaskStatusDownloading)
 		}
 	} else { // download status
 		// set task
@@ -323,7 +345,6 @@ func (w *Worker) SaveTask(force bool) {
 		if err := w.repo.Update(w.ctx, safeTask); err != nil {
 			runtime.LogErrorf(w.ctx, "Failed to save task %s: %v", w.task.TaskID, err)
 		}
-
 		w.lastSaved = time.Now()
 	}
 
@@ -340,18 +361,18 @@ func (w *Worker) mergeFiles(fileNames []string, finalFileName string) (err error
 	return runMuxParts(cmdrun.RunCommand(findFFmpeg(), cmd...), fileNames)
 }
 
-func (w *Worker) updateTaskStatus(status consts.DownloadStatus) {
+func (w *Worker) updateTaskStatus(status models.TaskStatus) {
 	// lock
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	// update progress
-	if status == consts.DownloadStatusMuxing {
+	if status == models.TaskStatusMuxing {
 		w.lastReportedProgress = 100.00
 		w.speed = 0
 	}
 
-	w.task.Status = string(status)
+	w.task.TaskStatus = status
 }
 
 func (w *Worker) updateTask(update *models.ProgressReciver) {
@@ -361,6 +382,8 @@ func (w *Worker) updateTask(update *models.ProgressReciver) {
 
 	// set task
 	newTask := w.task
+	now := time.Now()
+
 	var progress float64
 	if update.Added > 0 {
 		var streams []*models.StreamPart
@@ -368,20 +391,20 @@ func (w *Worker) updateTask(update *models.ProgressReciver) {
 			if stream.PartID == update.PartID {
 				stream.CurrentSize += update.Added
 				stream.Progress = float64(stream.CurrentSize) / float64(stream.TotalSize) * 100
-				stream.Status = string(update.Status)
+				stream.Status = update.Status.String()
 			}
 
 			progress += stream.Progress
 			streams = append(streams, stream)
 		}
 		newTask.StreamParts = streams
-		newTask.Status = string(update.Status)
+		newTask.TaskStatus = update.Status
 	} else {
 		var streams []*models.StreamPart
 		for _, stream := range w.task.StreamParts {
 			if stream.PartID == update.PartID {
-				stream.Status = string(update.Status)
-				stream.EndDownload = time.Now()
+				stream.Status = update.Status.String()
+				stream.EndDownload = now
 				stream.Duration = int64(stream.EndDownload.Sub(stream.StartDownload).Microseconds())
 				stream.AverageSpeed = humanize.Bytes(uint64(stream.TotalSize/stream.Duration)*1000*1000) + "/s"
 				stream.FinalStatus = true
@@ -395,7 +418,7 @@ func (w *Worker) updateTask(update *models.ProgressReciver) {
 		}
 
 		newTask.StreamParts = streams
-		newTask.Status = string(update.Status)
+		newTask.TaskStatus = update.Status
 	}
 
 	if len(w.task.StreamParts) == 0 {
@@ -403,22 +426,49 @@ func (w *Worker) updateTask(update *models.ProgressReciver) {
 	} else {
 		newTask.Progress = progress / float64(len(w.task.StreamParts))
 	}
+
+	// update task params
+	newTask.TotalCurrentSize = w.current.Load()
+	newTask.CurrentSpeed = w.speed
+	newTask.SpeedString = w.getSpeedString()
+
+	// 计算剩余时间
+	w.calculateTimeRemaining(newTask)
+
+	// calculate task final info
+	allDone := true
+	for _, stream := range newTask.StreamParts {
+		if !stream.FinalStatus {
+			allDone = false
+			break
+		}
+	}
+
+	if allDone {
+		newTask.EndTime = now
+		newTask.DurationSeconds = int64(newTask.EndTime.Sub(newTask.StartTime).Microseconds())
+		newTask.AverageSpeed = humanize.Bytes(uint64(newTask.TotalSize/newTask.DurationSeconds)*1000*1000) + "/s"
+	}
+
+	// update task
 	w.task = newTask
 }
 
-func (w *Worker) report(status consts.DownloadStatus) {
+func (w *Worker) report(status models.TaskStatus) {
 	// save
 	w.SaveTask(false)
 
 	// publish event
 	w.eventBus.Publish(consts.TopicDownloadProgress, types.DownloadResponse{
-		ID:       w.task.TaskID,
-		Status:   status,
-		DataType: types.ExtractorDataTypeVideo,
-		Total:    w.task.TotalParts,
-		Finished: w.task.FinishedParts,
-		Speed:    w.getSpeedString(),
-		Progress: w.lastReportedProgress,
+		ID:            w.task.TaskID,
+		TaskStatus:    status,
+		DataType:      types.ExtractorDataTypeVideo,
+		Total:         w.task.TotalParts,
+		Finished:      w.task.FinishedParts,
+		Progress:      w.lastReportedProgress,
+		SpeedString:   w.getSpeedString(),
+		TimeRemaining: w.task.TimeRemaining,
+		IsProcessing:  status.IsProcessing(),
 	})
 }
 
@@ -429,4 +479,81 @@ func (w *Worker) getSpeedString() string {
 	} else {
 		return humanize.Bytes(uint64(w.speed)) + "/s"
 	}
+}
+
+func (w *Worker) calculateMovingAverageSpeed(currentSpeed float64) float64 {
+	now := time.Now()
+
+	// 每隔sampleInterval采样一次
+	if now.Sub(w.lastSampleTime) >= w.sampleInterval {
+		w.speedSamples = append(w.speedSamples, currentSpeed)
+		if len(w.speedSamples) > w.maxSampleCount {
+			// 移除最旧的样本
+			w.speedSamples = w.speedSamples[1:]
+		}
+		w.lastSampleTime = now
+	}
+
+	// 计算移动平均速度
+	if len(w.speedSamples) == 0 {
+		return currentSpeed
+	}
+
+	var sum float64
+	for _, speed := range w.speedSamples {
+		sum += speed
+	}
+	return sum / float64(len(w.speedSamples))
+}
+
+func (w *Worker) calculateTimeRemaining(newTask *models.DownloadTask) {
+	if newTask.CurrentSpeed <= 0 {
+		return
+	}
+
+	// 计算移动平均速度
+	avgSpeed := w.calculateMovingAverageSpeed(newTask.CurrentSpeed)
+
+	// 如果有开始时间，使用基于进度的预估
+	if !newTask.StartTime.IsZero() {
+		elapsedTime := time.Since(newTask.StartTime).Seconds()
+		progress := float64(newTask.TotalCurrentSize) / float64(newTask.TotalSize)
+		if progress > 0 {
+			// 基于已完成进度预估总时间
+			estimatedTotalTime := elapsedTime / progress
+			remainingSeconds := estimatedTotalTime - elapsedTime
+
+			// 结合移动平均速度计算的剩余时间
+			remainingBytesBySpeed := float64(newTask.TotalSize-newTask.TotalCurrentSize) / avgSpeed
+
+			// 取两种方法的加权平均，随着进度增加，进度预估的权重增加
+			weightProgress := math.Min(progress*2, 0.8) // 进度预估的权重最高到0.8
+			weightSpeed := 1 - weightProgress
+
+			finalRemainingSeconds := remainingSeconds*weightProgress + remainingBytesBySpeed*weightSpeed
+
+			newTask.TimeRemaining = formatDuration(time.Duration(finalRemainingSeconds) * time.Second)
+			newTask.EstimatedEndTime = time.Now().Add(time.Duration(finalRemainingSeconds) * time.Second)
+		}
+	} else {
+		// 如果没有开始时间，仅使用移动平均速度
+		remainingBytes := newTask.TotalSize - newTask.TotalCurrentSize
+		remainingSeconds := float64(remainingBytes) / avgSpeed
+		newTask.TimeRemaining = formatDuration(time.Duration(remainingSeconds) * time.Second)
+		newTask.EstimatedEndTime = time.Now().Add(time.Duration(remainingSeconds) * time.Second)
+	}
+}
+
+// 格式化持续时间
+func formatDuration(d time.Duration) string {
+	hours := int(d.Hours())
+	minutes := int(d.Minutes()) % 60
+	seconds := int(d.Seconds()) % 60
+
+	if hours > 0 {
+		return fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
+	} else if minutes > 0 {
+		return fmt.Sprintf("%dm %ds", minutes, seconds)
+	}
+	return fmt.Sprintf("%ds", seconds)
 }

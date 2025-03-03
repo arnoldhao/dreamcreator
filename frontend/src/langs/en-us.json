@@ -63,7 +63,12 @@
       "protocal_socks5": "SOCKS5",
       "addr_required": "Address Required",
       "port_required": "Port Required",
-      "protocal_required": "Protocal Required"
+      "protocal_required": "Protocal Required",
+      "set_success": "Proxy set successfully",
+      "set_failed": "Failed to set proxy",
+      "disable_success": "Proxy disabled",
+      "disable_failed": "Failed to disable proxy",
+      "error": "Error occurred while setting proxy"
     },
     "download": {
       "name": "Download",
@@ -308,7 +313,7 @@
   },
   "video_download": {
     "page_title": "Download Video",
-    "url_placeholder": "Please input Youtube/Bilibili video link",
+    "url_placeholder": "Please input video link",
     "parse": "Parse",
     "parsing": "Parsing...",
     "format": "Format",
@@ -320,6 +325,7 @@
     "caption": "Caption",
     "select_caption": "Select Caption",
     "no_caption": "No Caption",
+    "new_task": "New Download Task",
     "download": "Download",
     "tasks": "Tasks",
     "source": "Source",
@@ -329,7 +335,6 @@
     "status": "Status",
     "dictionary": "Dictionary",
     "action": "Action",
-    "detail": "Detail",
     "downloading": "Downloading...",
     "basic_info": "Basic Info",
     "progress_info": "Progress Info",
@@ -355,11 +360,17 @@
     "saved_path": "Saved Path",
     "no_data": "No Data",
     "file_name": "File Name",
+    "copy_url": "Copy URL",
     "open_folder": "Open Folder",
+    "detail": "Detail",
+    "delete": "Delete",
     "open_file": "Open File",
     "error_info": "Error Info",
-    "delete": "Delete",
-    "delete_success": "Delete Success"
+    "delete_success": "Delete Success",
+    "speed": "Speed",
+    "eta": "ETA",
+    "start_time": "Start Time",
+    "end_time": "End Time"
   },
   "translation": {
     "translation_completed": "Translation completed",

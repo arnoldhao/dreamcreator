@@ -2,6 +2,7 @@ package types
 
 import (
 	"CanMe/backend/consts"
+	"CanMe/backend/models"
 	"encoding/json"
 )
 
@@ -106,14 +107,16 @@ type DownloadRequest struct {
 }
 
 type DownloadResponse struct {
-	ID       string                `json:"id"`       // all task uniq id
-	Status   consts.DownloadStatus `json:"status"`   // task status
-	Total    int64                 `json:"total"`    // total task count
-	Finished int64                 `json:"finished"` // finished task count
-	Speed    string                `json:"speed"`    // task speed
-	DataType ExtractorDataType     `json:"dataType"` // task data type
-	Progress float64               `json:"progress"` // task progress
-	Error    string                `json:"error"`    // task error
+	ID            string            `json:"id"`            // all task uniq id
+	TaskStatus    models.TaskStatus `json:"taskStatus"`    // task status
+	Total         int64             `json:"total"`         // total task count
+	Finished      int64             `json:"finished"`      // finished task count
+	DataType      ExtractorDataType `json:"dataType"`      // task data type
+	Progress      float64           `json:"progress"`      // task progress
+	SpeedString   string            `json:"speedString"`   // 格式化的速度字符串
+	TimeRemaining string            `json:"timeRemaining"` // 剩余时间字符串
+	IsProcessing  bool              `json:"isProcessing"`  // 是否处于处理中状态
+	Error         string            `json:"error"`         // task error
 }
 
 func (s DownloadResponse) WSResponseMessage() string {

@@ -3,7 +3,6 @@ package download
 import (
 	"io"
 
-	"CanMe/backend/consts"
 	"CanMe/backend/models"
 )
 
@@ -28,7 +27,7 @@ func (r *ProgressReader) Read(p []byte) (n int, err error) {
 		r.update <- &models.ProgressReciver{
 			PartID: r.part.PartID,
 			TaskID: r.part.TaskID,
-			Status: consts.DownloadStatusDownloading,
+			Status: models.TaskStatusDownloading,
 			Added:  int64(n),
 		}
 	}

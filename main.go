@@ -24,6 +24,7 @@ import (
 	_ "CanMe/backend/pkg/extractors/youtube" // init youtube extractor
 
 	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -92,15 +93,30 @@ func main() {
 		Height:                   windowHeight,
 		MinWidth:                 consts.MIN_WINDOW_WIDTH,
 		MinHeight:                consts.MIN_WINDOW_HEIGHT,
+		MaxWidth:                 4096,
+		MaxHeight:                2160,
+		DisableResize:            false,
+		Fullscreen:               false,
 		WindowStartState:         windowStartState,
 		Frameless:                !isMacOS,
+		AssetServer:              &assetserver.Options{Assets: assets},
+		BackgroundColour:         &options.RGBA{R: 255, G: 255, B: 255, A: 0},
 		Menu:                     appMenu,
 		EnableDefaultContextMenu: true,
-		AssetServer: &assetserver.Options{
-			Assets: assets,
+		Bind: []interface{}{
+			preferencesService,
+			languageService,
+			llmsService,
+			ollamaService,
+			systemService,
+			subtitlesService,
+			websocketService,
+			transService,
+			downloadAPI,
 		},
-		BackgroundColour: options.NewRGBA(255, 255, 255, 0),
-		StartHidden:      true,
+		Logger:             logger.NewDefaultLogger(),
+		LogLevel:           logger.INFO,
+		LogLevelProduction: logger.ERROR,
 		OnStartup: func(ctx context.Context) {
 			systemService.SetContext(ctx, consts.APP_VERSION)
 			preferencesService.RegisterServices(ctx, websocketService)
@@ -120,37 +136,30 @@ func main() {
 			wailsRuntime.WindowSetPosition(ctx, x, y)
 			wailsRuntime.WindowShow(ctx)
 		},
+		OnShutdown: func(ctx context.Context) {},
 		OnBeforeClose: func(ctx context.Context) (prevent bool) {
 			x, y := wailsRuntime.WindowGetPosition(ctx)
 			preferencesService.SaveWindowPosition(x, y)
 			return false
 		},
-		OnShutdown: func(ctx context.Context) {},
-		Bind: []interface{}{
-			preferencesService,
-			languageService,
-			llmsService,
-			ollamaService,
-			systemService,
-			subtitlesService,
-			websocketService,
-			transService,
-			downloadAPI,
+		Windows: &windows.Options{
+			WebviewIsTransparent:              false,
+			WindowIsTranslucent:               false,
+			DisableWindowIcon:                 false,
+			DisableFramelessWindowDecorations: false,
+			WebviewUserDataPath:               "",
+			Theme:                             windows.SystemDefault,
 		},
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarHiddenInset(),
 			About: &mac.AboutInfo{
 				Title:   fmt.Sprintf("%s %s", consts.APP_NAME, consts.APP_VERSION),
-				Message: "A modern lightweight cross-platform framework for developing desktop applications.\n\nCopyright © 2024",
+				Message: "A modern lightweight cross-platform framework for developing desktop applications.\n\nCopyright 2024",
 				Icon:    icon,
 			},
+			Appearance:           mac.DefaultAppearance,
 			WebviewIsTransparent: false,
 			WindowIsTranslucent:  false,
-		},
-		Windows: &windows.Options{
-			WebviewIsTransparent:              false,
-			WindowIsTranslucent:               false,
-			DisableFramelessWindowDecorations: false,
 		},
 		Linux: &linux.Options{
 			ProgramName:         consts.APP_NAME,

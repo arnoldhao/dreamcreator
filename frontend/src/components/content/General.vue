@@ -201,7 +201,6 @@ const onLanguageChange = async () => {
 }
 
 const onProxyChange = async () => {
-    await prefStore.setProxy()
     await prefStore.savePreferences()
 }
 

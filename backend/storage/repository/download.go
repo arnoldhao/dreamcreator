@@ -3,6 +3,7 @@ package repository
 import (
 	"CanMe/backend/models"
 	"context"
+	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -67,7 +68,46 @@ func (r *downloadRepository) Update(ctx context.Context, task *models.DownloadTa
 }
 
 func (r *downloadRepository) Delete(ctx context.Context, taskID string) error {
-	return r.db.WithContext(ctx).Select("StreamParts", "CommonParts").Delete(&models.DownloadTask{}, "task_id = ?", taskID).Error
+	tx := r.db.WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 先检查记录是否存在
+	var task models.DownloadTask
+	if err := tx.First(&task, "task_id = ?", taskID).Error; err != nil {
+		tx.Rollback()
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf("Task not found: %s", taskID)
+		}
+		return fmt.Errorf("Failed to get Task: %v", err)
+	}
+
+	// 删除关联的StreamParts
+	if err := tx.Where("task_id = ?", taskID).Delete(&models.StreamPart{}).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("Delete StreamParts failed: %v", err)
+	}
+
+	// 删除关联的CommonParts
+	if err := tx.Where("task_id = ?", taskID).Delete(&models.CommonPart{}).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("Delete CommonParts failed: %v", err)
+	}
+
+	// 删除主任务
+	if err := tx.Delete(&task).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("Fail to delete Task: %v", err)
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return fmt.Errorf("Commit tx failed: %v", err)
+	}
+
+	return nil
 }
 
 func (r *downloadRepository) ListTasks(ctx context.Context, offset, limit int) ([]*models.DownloadTask, error) {

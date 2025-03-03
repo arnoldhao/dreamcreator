@@ -130,6 +130,25 @@ func (p *PreferencesStorage) SetPreferences(pf *types.Preferences) error {
 	return p.savePreferences(pf)
 }
 
+// UpdateProxySettings updates proxy settings and applies them immediately
+func (p *PreferencesStorage) UpdateProxySettings(pf *types.Preferences) {
+	if pf.Proxy.Enabled {
+		if pf.Proxy.Addr != "" && pf.Proxy.Protocal != "" && pf.Proxy.Port != 0 {
+			url := fmt.Sprintf("%s://%s:%d", pf.Proxy.Protocal, pf.Proxy.Addr, pf.Proxy.Port)
+			err := proxy.GetInstance().SetProxy(url)
+			if err != nil {
+				log.Println("set proxy error:", err)
+			} else {
+				log.Println("set proxy success:", url)
+			}
+		}
+	} else {
+		// Disable proxy by setting it to nil
+		proxy.GetInstance().SetProxy("")
+		log.Println("proxy disabled")
+	}
+}
+
 // UpdatePreferences update values by key paths, the key path use "." to indicate multiple level
 func (p *PreferencesStorage) UpdatePreferences(values map[string]any) error {
 	p.mutex.Lock()
@@ -141,8 +160,14 @@ func (p *PreferencesStorage) UpdatePreferences(values map[string]any) error {
 			return err
 		}
 	}
-	log.Println("after save", pf)
 
+	// Update proxy settings immediately if proxy-related settings are changed
+	for path := range values {
+		if strings.HasPrefix(path, "proxy.") {
+			p.UpdateProxySettings(&pf)
+			break
+		}
+	}
 	return p.savePreferences(&pf)
 }
 

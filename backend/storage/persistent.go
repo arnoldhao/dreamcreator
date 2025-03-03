@@ -12,80 +12,21 @@ import (
 	"gorm.io/gorm"
 )
 
+// PersistentStorage
 type PersistentStorage struct {
 	db *gorm.DB
 }
 
-// global persistent storage
 var globalPersistentStorage *PersistentStorage
 
+// SetGlobalPersistentStorage
 func SetGlobalPersistentStorage(ps *PersistentStorage) {
 	globalPersistentStorage = ps
 }
 
+// GetGlobalPersistentStorage
 func GetGlobalPersistentStorage() *PersistentStorage {
 	return globalPersistentStorage
-}
-
-// db auto migrate
-func (p *PersistentStorage) AutoMigrate(ctx context.Context) error {
-	// migrate subtitles
-	err := p.db.WithContext(ctx).AutoMigrate(&Subtitles{})
-	if err != nil {
-		return err
-	}
-
-	// migrate language data
-	err = p.db.WithContext(ctx).AutoMigrate(&LanguageData{})
-	if err != nil {
-		return err
-	}
-
-	// migrate ollama
-	err = p.db.WithContext(ctx).AutoMigrate(&Ollama{})
-	if err != nil {
-		return err
-	}
-
-	// migrate llm
-	err = p.db.WithContext(ctx).AutoMigrate(&LLM{})
-	if err != nil {
-		return err
-	}
-
-	// migrate model
-	err = p.db.WithContext(ctx).AutoMigrate(&Model{})
-	if err != nil {
-		return err
-	}
-
-	// migrate current model
-	err = p.db.WithContext(ctx).AutoMigrate(&CurrentModel{})
-	if err != nil {
-		return err
-	}
-
-	// migrate downloads
-	err = p.db.WithContext(ctx).AutoMigrate(&Downloads{})
-	if err != nil {
-		return err
-	}
-
-	// migrate download task and part
-	err = p.db.WithContext(ctx).AutoMigrate(&models.DownloadTask{})
-	if err != nil {
-		return err
-	}
-	err = p.db.WithContext(ctx).AutoMigrate(&models.StreamPart{})
-	if err != nil {
-		return err
-	}
-	err = p.db.WithContext(ctx).AutoMigrate(&models.CommonPart{})
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // NewPersistentStorage create a new persistent storage
@@ -107,6 +48,26 @@ func NewPersistentStorage() (*PersistentStorage, error) {
 	return &PersistentStorage{
 		db: db,
 	}, nil
+}
+
+// db auto migrate
+func (p *PersistentStorage) AutoMigrate(ctx context.Context) error {
+	// 自动迁移所有模型
+	if err := p.db.WithContext(ctx).AutoMigrate(
+		&models.DownloadTask{},
+		&models.StreamPart{},
+		&models.CommonPart{},
+		&Subtitles{},
+		&LanguageData{},
+		&Ollama{},
+		&LLM{},
+		&Model{},
+		&CurrentModel{},
+		&Downloads{},
+	); err != nil {
+		return err
+	}
+	return nil
 }
 
 // DB return a new query builder

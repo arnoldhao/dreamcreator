@@ -49,7 +49,7 @@ func (api *DownloadAPI) Subscribe(ctx context.Context) {
 		if data, ok := event.Data.(types.DownloadResponse); ok {
 			runtime.EventsEmit(api.ctx, consts.TopicDownloadSingle, map[string]interface{}{
 				"taskId": data.ID,
-				"status": data.Status,
+				"status": data.TaskStatus.String(),
 			})
 		}
 	})
