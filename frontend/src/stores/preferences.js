@@ -348,6 +348,13 @@ const usePreferencesStore = defineStore('preferences', {
             const pf = pick(this, ['behavior', 'general', 'editor', 'cli', 'decoder', 'proxy', 'download'])
             const { success, msg } = await SetPreferences(pf)
             // proxy 
+            return success === true
+        },
+
+        async savePreferencesAndSetProxy() {
+            const pf = pick(this, ['behavior', 'general', 'editor', 'cli', 'decoder', 'proxy', 'download'])
+            const { success, msg } = await SetPreferences(pf)
+            // proxy 
             this.setProxy()
             return success === true
         },
@@ -446,45 +453,28 @@ const usePreferencesStore = defineStore('preferences', {
                         const notiRef = $notification.show({
                             title: i18nGlobal.t('dialogue.upgrade.title'),
                             content: i18nGlobal.t('dialogue.upgrade.new_version_tip', { ver: latest }),
-                            action: () =>
-                                h('div', { class: 'flex-box-h flex-item-expand' }, [
-                                    h(NSpace, { wrapItem: false }, () => [
-                                        h(
-                                            NButton,
-                                            {
-                                                size: 'small',
-                                                secondary: true,
-                                                onClick: () => {
-                                                    // skip this update
-                                                    this.general.skipVersion = latest
-                                                    this.savePreferences()
-                                                    notiRef.destroy()
-                                                },
-                                            },
-                                            () => i18nGlobal.t('dialogue.upgrade.skip'),
-                                        ),
-                                        h(
-                                            NButton,
-                                            {
-                                                size: 'small',
-                                                secondary: true,
-                                                onClick: notiRef.destroy,
-                                            },
-                                            () => i18nGlobal.t('dialogue.upgrade.later'),
-                                        ),
-                                        h(
-                                            NButton,
-                                            {
-                                                type: 'primary',
-                                                size: 'small',
-                                                secondary: true,
-                                                onClick: () => BrowserOpenURL(pageUrl),
-                                            },
-                                            () => i18nGlobal.t('dialogue.upgrade.download_now'),
-                                        ),
-                                    ]),
-                                ]),
-                            onPositiveClick: () => BrowserOpenURL(pageUrl),
+                            action: (destroy) => {
+                                // 使用 DaisyUI 组件代替 Naive UI 组件
+                                return h('div', { class: 'flex flex-row gap-2 mt-2' }, [
+                                    h('button', {
+                                        class: 'btn btn-sm btn-outline',
+                                        onClick: () => {
+                                            // skip this update
+                                            this.general.skipVersion = latest
+                                            this.savePreferences()
+                                            destroy()
+                                        }
+                                    }, i18nGlobal.t('dialogue.upgrade.skip')),
+                                    h('button', {
+                                        class: 'btn btn-sm btn-outline',
+                                        onClick: destroy
+                                    }, i18nGlobal.t('dialogue.upgrade.later')),
+                                    h('button', {
+                                        class: 'btn btn-sm btn-primary',
+                                        onClick: () => BrowserOpenURL(pageUrl)
+                                    }, i18nGlobal.t('dialogue.upgrade.download_now'))
+                                ])
+                            }
                         })
                         return
                     }
@@ -496,7 +486,7 @@ const usePreferencesStore = defineStore('preferences', {
             } finally {
                 nextTick().then(() => {
                     if (msgRef != null) {
-                        msgRef.destroy()
+                        msgRef.close()
                         msgRef = null
                     }
                 })

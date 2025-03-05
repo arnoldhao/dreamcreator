@@ -142,7 +142,7 @@ async function setupApp() {
                 const content = err.toString()
                 $notification.error(content, {
                     title: i18n.global.t('common.error'),
-                    meta: 'Please see console output for more detail',
+                    meta: i18n.global.t('message.console_tip'),
                 })
                 console.error(err)
             } catch (e) { }

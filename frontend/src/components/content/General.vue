@@ -201,7 +201,7 @@ const onLanguageChange = async () => {
 }
 
 const onProxyChange = async () => {
-    await prefStore.savePreferences()
+    await prefStore.savePreferencesAndSetProxy()
 }
 
 const onSelectDownloadDir = async () => {

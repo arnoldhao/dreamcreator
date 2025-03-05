@@ -39,19 +39,20 @@
                                                     <!-- URL输入区域 -->
                                                     <div class="flex items-center gap-6">
                                                         <div class="flex-1">
-                                                            <div class="text-xs text-base-content/70 mb-1">{{
-                                                                t('video_download.url') }}</div>
                                                             <div class="flex gap-2">
                                                                 <input type="text" v-model="url"
                                                                     :placeholder="t('video_download.url_placeholder')"
                                                                     class="input input-bordered flex-1" />
                                                                 <button @click="handleGet"
-                                                                    class="btn btn-primary w-[120px]"
+                                                                    class="btn btn-primary w-[140px]"
                                                                     :disabled="isLoading">
-                                                                    <v-icon v-if="isLoading" name="ri-loader-2-line"
-                                                                        class="animate-spin h-4 w-4 mr-1"></v-icon>
-                                                                    {{ isLoading ? t('video_download.parsing') :
-                                                                    t('video_download.parse') }}
+                                                                    <div class="flex items-center justify-center">
+                                                                        <v-icon v-if="isLoading" name="ri-loader-2-line"
+                                                                            class="animate-spin h-4 w-4 mr-1"></v-icon>
+                                                                        <span>{{ isLoading ? t('video_download.parsing')
+                                                                            :
+                                                                            t('video_download.parse') }}</span>
+                                                                    </div>
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -101,7 +102,7 @@
                                                                         :key="quality.id" :value="quality">
                                                                         {{ formatQuality(quality.quality) }} ({{
                                                                             (quality.size / 1024 /
-                                                                        1024).toFixed(2) }}MB)
+                                                                                1024).toFixed(2) }}MB)
                                                                     </option>
                                                                 </select>
                                                             </div>
@@ -126,14 +127,16 @@
                                                                 <div class="text-xs text-base-content/70 mb-1">&nbsp;
                                                                 </div>
                                                                 <button @click="download"
-                                                                    class="btn btn-primary w-[120px]"
+                                                                    class="btn btn-primary w-[140px]"
                                                                     :disabled="requestDownloading || !selectedQuality">
-                                                                    <v-icon v-if="requestDownloading"
-                                                                        name="ri-loader-2-line"
-                                                                        class="animate-spin h-4 w-4 mr-1"></v-icon>
-                                                                    {{ requestDownloading ?
-                                                                        t('video_download.downloading') :
-                                                                    t('video_download.download') }}
+                                                                    <div class="flex items-center justify-center">
+                                                                        <v-icon v-if="requestDownloading"
+                                                                            name="ri-loader-2-line"
+                                                                            class="animate-spin h-4 w-4 mr-1"></v-icon>
+                                                                        <span>{{ requestDownloading ?
+                                                                            t('video_download.downloading') :
+                                                                            t('video_download.download') }}</span>
+                                                                    </div>
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -196,7 +199,13 @@
                                                     <td class="text-center">{{ formatFileSize(item.totalSize) }}</td>
                                                     <!-- 状态 -->
                                                     <td class="text-center">
-                                                        <v-icon :name="statusIcon[item.taskStatus] || 'ri-file-unknow-line'" class="w-4 h-4" />
+                                                        <button class="w-4 h-4 cursor-pointer tooltip"
+                                                            :data-tip="t('video_download.view_status')"
+                                                            @click.stop="showStatusDetail(item)">
+                                                            <v-icon
+                                                                :name="statusIcon[item.taskStatus] || 'ri-file-unknow-line'"
+                                                                class="w-4 h-4" />
+                                                        </button>
                                                     </td>
                                                     <!-- 操作 -->
                                                     <td>
@@ -300,7 +309,7 @@
                                                                             </div>
                                                                             <button class="btn btn-ghost btn-xs tooltip"
                                                                                 :data-tip="t('video_download.copy_url')"
-                                                                                @click.stop="copyToClipboard(item.url)">
+                                                                                @click.stop="copyText(item.url, 'url')">
                                                                                 <v-icon name="md-contentcopy"
                                                                                     class="w-3.5 h-3.5" />
                                                                             </button>
@@ -315,7 +324,7 @@
                                                                         <div class="text-xs text-base-content/70 mb-1">
                                                                             {{
                                                                                 t('video_download.quality') }}</div>
-                                                                        <div class="text-sm font-medium truncate"
+                                                                        <div class="text-sm font-medium truncate max-w-[200px]"
                                                                             :title="item.streams?.[0]?.quality">
                                                                             {{ item.streams?.[0]?.quality || 'N/A' }}
                                                                         </div>
@@ -434,8 +443,7 @@
                                         }}</span>
                                     <span>{{ detailItem?.source }}</span>
                                 </div>
-                                <div
-                                    class="flex items-center justify-between p-2 pl-4 border-l border-base-300">
+                                <div class="flex items-center justify-between p-2 pl-4 border-l border-base-300">
                                     <span class="text-base-content/70">{{ t('video_download.format')
                                         }}</span>
                                     <span>{{ detailItem.streams && detailItem.streams.length > 0 ?
@@ -449,13 +457,13 @@
                                 <div class="flex items-center justify-between p-2 pr-4">
                                     <span class="text-base-content/70">{{ t('video_download.quality')
                                         }}</span>
-                                    <span>{{ detailItem.streams && detailItem.streams.length > 0 ?
-                                        detailItem.streams[0].quality
-                                        :
+                                    <span class="font-medium truncate max-w-[200px]"
+                                        :title="detailItem.streams && detailItem.streams.length > 0 ? detailItem.streams[0].quality : 'N/A'">{{
+                                            detailItem.streams && detailItem.streams.length > 0 ?
+                                        detailItem.streams[0].quality :
                                         'N/A' }}</span>
                                 </div>
-                                <div
-                                    class="flex items-center justify-between p-2 pl-4 border-l border-base-300">
+                                <div class="flex items-center justify-between p-2 pl-4 border-l border-base-300">
                                     <span class="text-base-content/70">{{ t('video_download.size') }}</span>
                                     <span>{{ formatFileSize(detailItem?.totalSize) }}</span>
                                 </div>
@@ -473,11 +481,14 @@
                             <div class="grid grid-cols-2 divide-x">
                                 <div class="flex items-center justify-between p-2">
                                     <span class="text-base-content/70">{{ t('video_download.start_time') }}</span>
-                                    <span class="font-medium">{{ detailItem?.startTime ? new Date(detailItem.startTime).toLocaleString() : '-' }}</span>
+                                    <span class="font-medium">{{ detailItem?.startTime ? new
+                                        Date(detailItem.startTime).toLocaleString() : '-' }}</span>
                                 </div>
                                 <div class="flex items-center justify-between p-2">
                                     <span class="text-base-content/70 ml-2">{{ t('video_download.end_time') }}</span>
-                                    <span class="font-medium">{{ detailItem?.endTime && !isZeroTime(detailItem.endTime) ? new Date(detailItem.endTime).toLocaleString() : '-' }}</span>
+                                    <span class="font-medium">{{ detailItem?.endTime && !isZeroTime(detailItem.endTime)
+                                        ? new
+                                            Date(detailItem.endTime).toLocaleString() : '-' }}</span>
                                 </div>
                             </div>
                             <li class="divider-thin my-1"></li>
@@ -488,7 +499,8 @@
                                 </div>
                                 <div class="flex items-center justify-between p-2">
                                     <span class="text-base-content/70 ml-2">{{ t('video_download.duration') }}</span>
-                                    <span class="font-medium">{{ detailItem?.durationSeconds ? formatDuration(detailItem.durationSeconds) : '-' }}</span>
+                                    <span class="font-medium">{{ detailItem?.durationSeconds ?
+                                        formatDuration(detailItem.durationSeconds) : '-' }}</span>
                                 </div>
                             </div>
                             <li class="divider-thin my-1"></li>
@@ -499,12 +511,16 @@
                                     <span>{{ detailItem?.finishedParts || '-' }}/{{ detailItem?.totalParts || '-'
                                         }}</span>
                                 </div>
-                                <div
-                                    class="flex items-center justify-between p-2 pl-4 border-l border-base-300">
+                                <div class="flex items-center justify-between p-2 pl-4 border-l border-base-300">
                                     <span class="text-base-content/70">{{ t('video_download.status')
                                         }}</span>
                                     <span>
-                                        <v-icon :name="statusIcon[detailItem?.taskStatus] || 'ri-file-unknow-line'" class="w-4 h-4" />
+                                        <button class="btn btn-ghost btn-xs p-0"
+                                            @click.stop="showStatusDetail(detailItem)">
+                                            <v-icon :name="statusIcon[detailItem?.taskStatus] || 'ri-file-unknow-line'"
+                                                class="w-4 h-4" :title="getTaskStatusText(detailItem?.taskStatus)" />
+                                        </button>
+                                        {{ getTaskStatusText(detailItem?.taskStatus) }}
                                     </span>
                                 </div>
                             </div>
@@ -517,8 +533,7 @@
                                         <span class="font-medium text-right truncate max-w-[400px]">{{
                                             detailItem?.savedPath
                                         }}</span>
-                                        <button v-if="actionStates.folder"
-                                            class="btn btn-ghost btn-xs tooltip"
+                                        <button v-if="actionStates.folder" class="btn btn-ghost btn-xs tooltip"
                                             :data-tip="t('video_download.open_folder')"
                                             @click="openFolder(detailItem.savedPath)">
                                             <v-icon name="ri-folder-open-line" class="w-3 h-3"></v-icon>
@@ -543,6 +558,146 @@
                             </div>
                         </div>
                     </ul>
+
+                    <div class="modal-action">
+                        <button class="btn" @click="detailModal = false">{{ t('common.close') }}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 状态详情模态框 -->
+        <input type="checkbox" id="modal-status" class="modal-toggle" v-model="statusModal" />
+        <div class="modal" @click.self="statusModal = false">
+            <div class="modal-box max-w-3xl bg-base-200 py-4">
+                <div class="space-y-4">
+                    <!-- 基本状态信息 -->
+                    <ul class="menu p-2 rounded-lg border-2 border-base-300 bg-base-100">
+                        <div class="flex items-center p-2 pl-4 rounded-lg bg-base-100">
+                            <h2 class="font-semibold text-base-content">{{ t('video_download.status_detail') || '状态详情'
+                            }}</h2>
+                        </div>
+                        <li class="divider-thin"></li>
+                        <div class="p-4 rounded-lg bg-base-100">
+                            <div class="flex items-center justify-between p-2">
+                                <span class="text-base-content/70">{{ t('video_download.title') }}</span>
+                                <span class="font-medium text-right truncate max-w-[400px]">{{ statusItem?.title
+                                }}</span>
+                            </div>
+                            <li class="divider-thin my-1"></li>
+                            <div class="flex items-center justify-between p-2">
+                                <span class="text-base-content/70">{{ t('video_download.status') }}</span>
+                                <div class="flex items-center gap-2">
+                                    <v-icon :name="statusIcon[statusItem?.taskStatus] || 'ri-file-unknow-line'"
+                                        class="w-4 h-4" />
+                                    <span class="font-medium">{{ getTaskStatusText(statusItem?.taskStatus) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </ul>
+
+                    <!-- 流信息 -->
+                    <ul v-if="statusItem?.streams && statusItem.streams.length > 0"
+                        class="menu p-2 rounded-lg border-2 border-base-300 bg-base-100">
+                        <div class="flex items-center p-2 pl-4 rounded-lg bg-base-100">
+                            <h2 class="font-semibold text-base-content">{{ t('video_download.stream_parts') }}</h2>
+                        </div>
+                        <li class="divider-thin"></li>
+                        <div class="p-4 rounded-lg bg-base-100">
+                            <div v-for="(stream, index) in statusItem.streams" :key="stream.partId" class="mb-4">
+                                <div class="flex items-center justify-between p-2 bg-base-200 rounded-lg">
+                                    <span class="font-medium">{{ t('video_download.stream') }} #{{ index + 1 }}</span>
+                                    <div class="badge" :class="stream.finalStatus ? 'badge-success' : 'badge-error'">
+                                        {{ stream.status }}
+                                    </div>
+                                </div>
+                                <div class="p-2 mt-2">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div class="flex items-center justify-between p-2">
+                                            <span class="text-base-content/70">{{ t('video_download.name') }}</span>
+                                            <span class="font-medium">{{ stream.name }}</span>
+                                        </div>
+                                        <div class="flex items-center justify-between p-2">
+                                            <span class="text-base-content/70">{{ t('video_download.quality') }}</span>
+                                            <span class="font-medium truncate max-w-[200px]" :title="stream.quality">{{
+                                                stream.quality }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div class="flex items-center justify-between p-2">
+                                            <span class="text-base-content/70">{{ t('video_download.format') }}</span>
+                                            <span class="font-medium">{{ stream.ext }}</span>
+                                        </div>
+                                        <div class="flex items-center justify-between p-2">
+                                            <span class="text-base-content/70">{{ t('video_download.size') }}</span>
+                                            <span class="font-medium">{{ formatFileSize(stream.totalSize) }}</span>
+                                        </div>
+                                    </div>
+                                    <!-- 流信息的消息显示 -->
+                                    <div class="p-2 mt-2 bg-base-200 rounded-lg">
+                                        <div class="text-base-content/70 mb-1">{{ t('video_download.message') }}</div>
+                                        <div class="overflow-y-auto max-h-[150px]">
+                                            <p v-if="stream.message" class="text-sm break-all whitespace-normal"
+                                                style="word-break: break-word; white-space: pre-line;">{{ stream.message
+                                                }}</p>
+                                            <p v-else class="text-sm text-base-content/50 italic">{{
+                                                t('video_download.no_message') || '无信息' }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <li v-if="index < statusItem.streams.length - 1" class="divider-thin my-2"></li>
+                            </div>
+                        </div>
+                    </ul>
+
+                    <!-- 通用部分信息 -->
+                    <ul v-if="statusItem?.commonParts && statusItem.commonParts.length > 0"
+                        class="menu p-2 rounded-lg border-2 border-base-300 bg-base-100">
+                        <div class="flex items-center p-2 pl-4 rounded-lg bg-base-100">
+                            <h2 class="font-semibold text-base-content">{{ t('video_download.common_parts') }}</h2>
+                        </div>
+                        <li class="divider-thin"></li>
+                        <div class="p-4 rounded-lg bg-base-100">
+                            <div v-for="(part, index) in statusItem.commonParts" :key="part.partId" class="mb-4">
+                                <div class="flex items-center justify-between p-2 bg-base-200 rounded-lg">
+                                    <span class="font-medium">{{ part.type === 'caption' ? (t('video_download.caption'))
+                                        :
+                                        part.type }}</span>
+                                    <div class="badge" :class="part.finalStatus ? 'badge-success' : 'badge-error'">
+                                        {{ part.status }}
+                                    </div>
+                                </div>
+                                <div class="p-2 mt-2">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div class="flex items-center justify-between p-2">
+                                            <span class="text-base-content/70">{{ t('video_download.name') }}</span>
+                                            <span class="font-medium">{{ part.name }}</span>
+                                        </div>
+                                        <div class="flex items-center justify-between p-2">
+                                            <span class="text-base-content/70">{{ t('video_download.format') }}</span>
+                                            <span class="font-medium">{{ part.ext }}</span>
+                                        </div>
+                                    </div>
+                                    <!-- 通用部分的消息显示 -->
+                                    <div class="p-2 mt-2 bg-base-200 rounded-lg">
+                                        <div class="text-base-content/70 mb-1">{{ t('video_download.message') }}</div>
+                                        <div class="overflow-y-auto max-h-[150px]">
+                                            <p v-if="part.message" class="text-sm break-all whitespace-normal"
+                                                style="word-break: break-word; white-space: pre-line;">{{ part.message
+                                                }}</p>
+                                            <p v-else class="text-sm text-base-content/50 italic">{{
+                                                t('video_download.no_message') || '无信息' }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <li v-if="index < statusItem.commonParts.length - 1" class="divider-thin my-2"></li>
+                            </div>
+                        </div>
+                    </ul>
+
+                    <div class="modal-action">
+                        <button class="btn" @click="statusModal = false">{{ t('common.close') }}</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -576,6 +731,9 @@ const actionStates = ref({
     url: true,
     folder: true
 })
+
+const statusModal = ref(false)
+const statusItem = ref({})
 
 // 展开状态管理
 const expandedState = ref(new Map()) // taskId -> { type: 'auto' | 'manual' }
@@ -615,7 +773,7 @@ async function handleGet() {
     try {
         const { data, success, msg } = await GetContent(url.value)
         if (!success) {
-            $message.error(msg)
+            $dialog.error(msg)
             return
         }
 
@@ -686,7 +844,7 @@ async function handleGet() {
                 }
             })
         } else {
-            $message.error(t('video_download.no_caption'))
+            $message.warning(t('video_download.no_caption'))
         }
 
         // Set video data
@@ -786,8 +944,28 @@ const statusIcon = {
     8: "md-runningwitherrors", // 8: 下载失败 MdRunningwitherrors
     9: "md-filedownloadoff", // 9: 部分分下下载成功 MdFiledownloadoff
     10: "md-filedownloadoff", // 10: 部分分片下载失败 MdFiledownloadoff
-    11: "md-freecancellationoutlined", // 11: 已取消 MdFreecancellation 
+    11: "md-freecancellation", // 11: 已取消 MdFreecancellation 
     12: "ri-file-unknow-line", // 12: 未知状态
+}
+
+const getTaskStatusText = (status) => {
+    const statusMap = {
+        0: "task_created",
+        1: "waiting_download",
+        2: "downloading",
+        3: "paused",
+        4: "merging",
+        5: "merge_success",
+        6: "merge_failed",
+        7: "download_completed",
+        8: "download_failed",
+        9: "partial_success",
+        10: "partial_failed",
+        11: "cancelled",
+        12: "unknown_status",
+    }
+    const key = statusMap[status]
+    return key ? t(`video_download.status_${key}`) : t('video_download.unknown')
 }
 
 // 监听数据变化
@@ -896,10 +1074,16 @@ const showDetail = (item) => {
     }
 }
 
+const showStatusDetail = (item) => {
+    statusItem.value = item
+    statusModal.value = true
+}
+
 const copyText = (text, type) => {
     if (text) {
         navigator.clipboard.writeText(text)
-        actionStates.value[type] = false
+        // actionStates.value[type] = false
+        $message.success(t('video_download.copy_success'))
     }
 }
 

@@ -370,7 +370,32 @@
     "speed": "Speed",
     "eta": "ETA",
     "start_time": "Start Time",
-    "end_time": "End Time"
+    "end_time": "End Time",
+    "copy_success": "Copy Success",
+    "view_status": "View Status",
+    "status_detail": "Status Detail",
+    "stream_parts": "Stream Info",
+    "stream": "Stream",
+    "name": "Name",
+    "message": "Message",
+    "common_parts": "Common Parts",
+    "captions": "Captions",
+    "danmaku": "Danmaku",
+    "unknown": "Unknown",
+    "no_message": "No Message",
+    "status_task_created": "Created",
+    "status_waiting_download": "Waiting",
+    "status_downloading": "Downloading",
+    "status_paused": "Paused",
+    "status_merging": "Merging",
+    "status_merge_success": "Merge Success",
+    "status_merge_failed": "Merge Failed",
+    "status_download_completed": "Completed",
+    "status_download_failed": "Failed",
+    "status_partial_success": "Partial Success",
+    "status_partial_failed": "Partial Failed",
+    "status_cancelled": "Cancelled",
+    "status_unknown_status": "Unknown"
   },
   "translation": {
     "translation_completed": "Translation completed",
@@ -413,5 +438,13 @@
     "ai": "AI",
     "history": "History",
     "download": "Download"
+  },
+  "message": {
+    "copy": "Copy",
+    "copy_content": "Copy Content",
+    "copy_success": "Copy Success",
+    "copy_failed": "Copy Failed",
+    "copy_all": "Copy All",
+    "console_tip": "Please see console output for more detail"
   }
 }

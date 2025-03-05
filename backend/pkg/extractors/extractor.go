@@ -118,9 +118,17 @@ func Extract(rawURL string, option types.ExtractorOptions) ([]*types.ExtractorDa
 		return nil, errors.Wrapf(err, "failed to extract from %s", processedURL)
 	}
 
-	// Fill up stream data
-	for _, video := range videos {
-		video.FillUpStreamsData()
+	// check data error
+	if len(videos) > 0 {
+		for _, video := range videos {
+			if video.Err != nil {
+				return nil, errors.Wrapf(video.Err, "failed to extract from %s", processedURL)
+			} else {
+				video.FillUpStreamsData()
+			}
+		}
+	} else {
+		return nil, errors.Wrapf(ErrInvalidURL, "current url: %s do not have any video data", processedURL)
 	}
 
 	return videos, nil

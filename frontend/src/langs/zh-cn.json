@@ -371,7 +371,32 @@
     "speed": "速度",
     "eta": "剩余时间",
     "start_time": "开始时间",
-    "end_time": "结束时间"
+    "end_time": "结束时间",
+    "copy_success": "复制成功",
+    "view_status": "查看状态详情",
+    "status_detail": "状态详情",
+    "stream_parts": "流分片",
+    "stream": "流",
+    "name": "名称",
+    "message": "消息",
+    "common_parts": "公共分片",
+    "captions": "字幕",
+    "danmaku": "弹幕",
+    "unknown": "未知",
+    "no_message": "无信息",
+    "status_task_created": "已创建",
+    "status_waiting_download": "等待下载",
+    "status_downloading": "正在下载",
+    "status_paused": "已暂停",
+    "status_merging": "正在合并分片",
+    "status_merge_success": "合并成功",
+    "status_merge_failed": "合并失败",
+    "status_download_completed": "下载完成",
+    "status_download_failed": "下载失败",
+    "status_partial_success": "部分下载成功",
+    "status_partial_failed": "部分下载失败",
+    "status_cancelled": "已取消",
+    "status_unknown_status": "未知状态"
   },
   "translation": {
     "translation_completed": "翻译成功",
@@ -414,5 +439,13 @@
     "ai": "AI",
     "history": "历史记录",
     "download": "下载视频"
+  },
+  "message": {
+    "copy": "复制",
+    "copy_content": "复制内容",
+    "copy_success": "复制成功",
+    "copy_failed": "复制失败",
+    "copy_all": "一键复制",
+    "console_tip": "请看控制台输出"
   }
 }

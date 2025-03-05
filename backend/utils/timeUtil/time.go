@@ -1,6 +1,7 @@
 package timeUtil
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -32,8 +33,22 @@ func ParseBilibiliSubtitle(i float32) (d time.Duration, err error) {
 	return parseDuration(fmt.Sprintf("%f", i), ".", 3)
 }
 
-func ParseYoutubeTranscript(i string) (d time.Duration, err error) {
-	return parseDuration(i, ".", 3)
+func ParseYoutubeTranscript(i ...string) (d time.Duration, err error) {
+	var totalSeconds float64
+	for _, s := range i {
+		if strings.Contains(s, ":") {
+			return 0, errors.New("invalid time format")
+		}
+
+		seconds, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse %s as seconds: %w", i, err)
+		}
+
+		totalSeconds += seconds
+	}
+
+	return time.Duration(totalSeconds * float64(time.Second)), nil
 }
 
 func formatDurationCapcut(i string) (d time.Duration, err error) {

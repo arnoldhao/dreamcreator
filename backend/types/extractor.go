@@ -68,6 +68,13 @@ const (
 
 // FillUpStreamsData fills up some data automatically.
 func (d *ExtractorData) FillUpStreamsData() {
+	if d.Streams == nil || len(d.Streams) == 0 {
+		return
+	}
+
+	// 用于存储需要删除的 stream ID
+	streamsToRemove := []string{}
+
 	for id, stream := range d.Streams {
 		// fill up ID
 		stream.ID = id
@@ -96,6 +103,16 @@ func (d *ExtractorData) FillUpStreamsData() {
 			size += part.Size
 		}
 		stream.Size = size
+
+		// 如果 size 为 0，将该 stream 添加到待删除列表
+		if size == 0 {
+			streamsToRemove = append(streamsToRemove, id)
+		}
+	}
+
+	// 从 d.Streams 中删除 size 为 0 的 stream
+	for _, id := range streamsToRemove {
+		delete(d.Streams, id)
 	}
 }
 

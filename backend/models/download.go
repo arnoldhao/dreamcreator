@@ -2,12 +2,48 @@ package models
 
 import (
 	"CanMe/backend/consts"
+	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"time"
 
+	"github.com/asticode/go-astisub"
 	"github.com/dustin/go-humanize"
 	"gorm.io/gorm"
 )
+
+// StringArray 是一个自定义类型，用于处理字符串数组和数据库 TEXT 类型之间的转换
+type StringArray []string
+
+// Scan 实现 sql.Scanner 接口，用于从数据库读取数据
+func (a *StringArray) Scan(value interface{}) error {
+	if value == nil {
+		*a = StringArray{}
+		return nil
+	}
+
+	bytes, ok := value.([]byte)
+	if !ok {
+		return nil
+	}
+
+	// 如果是空字符串，返回空数组
+	if len(bytes) == 0 {
+		*a = StringArray{}
+		return nil
+	}
+
+	// 尝试解析为 JSON 数组
+	return json.Unmarshal(bytes, a)
+}
+
+// Value 实现 driver.Valuer 接口，用于将数据写入数据库
+func (a StringArray) Value() (driver.Value, error) {
+	if len(a) == 0 {
+		return nil, nil
+	}
+	return json.Marshal(a)
+}
 
 // DownloadTask
 type DownloadTask struct {
@@ -18,7 +54,7 @@ type DownloadTask struct {
 	TotalParts    int64         `gorm:"type:bigint;not null" json:"totalParts"`
 	FinishedParts int64         `gorm:"type:bigint;not null" json:"finishedParts"`
 	Stream        string        `gorm:"type:text;not null" json:"stream"`
-	Captions      []string      `gorm:"type:text" json:"captions"`
+	Captions      StringArray   `gorm:"type:text" json:"captions"`
 	Danmaku       bool          `gorm:"type:boolean" json:"danmaku"`
 	Source        string        `gorm:"type:varchar(36);not null" json:"source"`
 	URL           string        `gorm:"type:varchar(255);not null" json:"url"`
@@ -39,7 +75,9 @@ type DownloadTask struct {
 	SpeedString      string     `gorm:"type:varchar(36);default:''" json:"speedString"`         // 格式化的速度字符串
 	AverageSpeed     string     `gorm:"type:varchar(36);default:''" json:"averageSpeed"`        // 平均速度字符串
 	TimeRemaining    string     `gorm:"type:varchar(36);default:''" json:"timeRemaining"`       // 剩余时间字符串
-	IsProcessing     bool       `gorm:"-" json:"isProcessing"`                                  // 是否处理中
+	IsProcessing     bool       `gorm:"-" json:"isProcessing"`
+	// 0.0.10 new add
+	CaptionsTransform func([]byte) (*astisub.Subtitles, error) `gorm:"-" json:"-"` // 字幕转换函数
 }
 
 // TaskStatus 表示下载任务的状态
@@ -104,8 +142,7 @@ func (s TaskStatus) IsProcessing() bool {
 		TaskStatusMuxing,
 		TaskStatusMuxingSuccess,
 		TaskStatusMuxingFailed,
-		TaskStatusPartialSuccess,
-		TaskStatusPartialFailed:
+		TaskStatusPartialSuccess:
 		return true
 	default:
 		return false

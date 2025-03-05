@@ -3,6 +3,7 @@ package download
 import (
 	"CanMe/backend/consts"
 	"CanMe/backend/models"
+	"CanMe/backend/pkg/request"
 	"CanMe/backend/pkg/specials/cmdrun"
 	"CanMe/backend/types"
 	"CanMe/backend/utils/poolUtil"
@@ -16,6 +17,7 @@ import (
 	"CanMe/backend/core/events"
 	"CanMe/backend/storage/repository"
 
+	"github.com/asticode/go-astisub"
 	"github.com/dustin/go-humanize"
 	"github.com/mohae/deepcopy"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -143,7 +145,7 @@ func (w *Worker) Cancel(status models.TaskStatus) error {
 	}
 
 	// save task
-	w.report(status)
+	w.SaveTask(true)
 
 	w.cancel()
 	return nil
@@ -190,6 +192,32 @@ func (w *Worker) Download() error {
 		}()
 	}
 
+	// download captions
+	var captions, danmaku []*models.CommonPart
+	if commons := w.task.CommonParts; len(commons) > 0 {
+		for _, common := range commons {
+			if common.Type == "caption" {
+				captions = append(captions, common)
+			} else if common.Type == "danmaku" {
+				danmaku = append(danmaku, common)
+			}
+		}
+	}
+
+	if len(captions) > 0 {
+		for _, caption := range captions {
+			captionErr := w.downloadCaptions(caption, w.task.CaptionsTransform)
+			w.updateCommonsStatus(caption.PartID, models.TaskStatusCompleted, captionErr)
+			w.task.FinishedParts++
+		}
+	}
+
+	if len(danmaku) > 0 {
+		//  todo
+	}
+
+	taskFinalStatus := models.TaskStatusCompleted
+
 	if len(w.task.StreamParts) > 1 {
 		wg := poolUtil.NewWaitGroupPool(len(w.task.StreamParts)) // todo caculate max
 		lock := sync.Mutex{}
@@ -221,7 +249,7 @@ func (w *Worker) Download() error {
 
 		wg.Wait()
 
-		w.task.FinishedParts = int64(len(w.task.StreamParts))
+		w.task.FinishedParts += int64(len(w.task.StreamParts))
 		if len(errs) > 0 {
 			for _, err := range errs {
 				if err != nil {
@@ -233,6 +261,7 @@ func (w *Worker) Download() error {
 							Err:    err,
 						}
 					}
+					taskFinalStatus = models.TaskStatusFailed
 				}
 			}
 		} else {
@@ -260,15 +289,39 @@ func (w *Worker) Download() error {
 	}
 
 	// save task
-	w.updateTaskStatus(models.TaskStatusCompleted)
+	w.updateTaskStatus(taskFinalStatus)
+	w.report(taskFinalStatus)
 	w.SaveTask(true)
 
 	// report to queue to cancel worker
 	go func() {
 		w.workerStatus <- map[string]models.TaskStatus{
-			w.task.TaskID: models.TaskStatusCompleted,
+			w.task.TaskID: taskFinalStatus,
 		}
 	}()
+
+	return nil
+}
+
+func (w *Worker) downloadCaptions(part *models.CommonPart, transform func([]byte) (*astisub.Subtitles, error)) error {
+	// download
+	fileName := part.FileName
+	url := part.URL
+
+	srtByte, err := request.FastNew().GetByte(url, "", nil)
+	if err != nil {
+		return fmt.Errorf("failed to download caption: %v", err)
+	}
+
+	subtitles, err := transform(srtByte)
+	if err != nil {
+		return fmt.Errorf("failed to parse caption: %v", err)
+	}
+
+	err = subtitles.Write(fileName)
+	if err != nil {
+		return fmt.Errorf("failed to write caption: %v", err)
+	}
 
 	return nil
 }
@@ -373,6 +426,27 @@ func (w *Worker) updateTaskStatus(status models.TaskStatus) {
 	}
 
 	w.task.TaskStatus = status
+}
+
+func (w *Worker) updateCommonsStatus(id string, status models.TaskStatus, err error) {
+	// lock
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	var commons []*models.CommonPart
+	for _, common := range w.task.CommonParts {
+		if common.PartID == id {
+			common.Status = status.String()
+			common.FinalStatus = true
+			if err != nil {
+				runtime.LogErrorf(w.ctx, "download common part %s error: %v", id, err)
+				common.Message = err.Error()
+			}
+		}
+		commons = append(commons, common)
+	}
+
+	w.task.CommonParts = commons
 }
 
 func (w *Worker) updateTask(update *models.ProgressReciver) {

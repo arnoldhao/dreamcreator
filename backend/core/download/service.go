@@ -9,7 +9,6 @@ import (
 	"CanMe/backend/types"
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"sync"
 
@@ -50,7 +49,7 @@ func (s *Service) GetContent(url string) (*types.ContentResponse, error) {
 
 	videos, err := extractors.Extract(url, types.ExtractorOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("extract content: %w", err)
+		return nil, err
 	}
 
 	if len(videos) < 1 {
@@ -107,16 +106,16 @@ func (s *Service) CreateTask(ctx context.Context, req *types.TaskRequest) (*type
 			break
 		}
 	}
-	s.contentMu.RUnlock()
 
 	if targetContent == nil {
 		return nil, ErrContentNotFound
 	}
 
-	task, err := s.fillTaskDetails(req)
+	task, err := s.fillTaskDetails(req, targetContent)
 	if err != nil {
 		return nil, err
 	}
+	s.contentMu.RUnlock()
 
 	if err := s.repo.Create(ctx, task); err != nil {
 		return nil, err
@@ -165,18 +164,18 @@ func (s *Service) DeleteRecord(ctx context.Context, id string) (err error) {
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *Service) fillTaskDetails(req *types.TaskRequest) (task *models.DownloadTask, err error) {
+func (s *Service) fillTaskDetails(req *types.TaskRequest, content *types.ExtractorData) (task *models.DownloadTask, err error) {
 	// check params
-	if len(s.content) == 0 {
+	if content == nil {
 		return nil, errors.New("no content found")
 	}
 
-	if req.ContentID != s.content[0].ID {
+	if req.ContentID != content.ID {
 		return nil, errors.New("content ID mismatch")
 	}
 
 	// generate params
-	savedPath, err := s.path.SavedPath(s.content[0].Source)
+	savedPath, err := s.path.SavedPath(content.Source)
 	if err != nil {
 		return nil, err
 	}
@@ -186,10 +185,10 @@ func (s *Service) fillTaskDetails(req *types.TaskRequest) (task *models.Download
 	streamParts := []*models.StreamPart{}
 	commonParts := []*models.CommonPart{}
 	// stream path
-	if stream, ok := s.content[0].Streams[req.Stream]; ok {
+	if stream, ok := content.Streams[req.Stream]; ok {
 		// stream file name
-		fileName, err := s.path.StreamFilePath(s.content[0].Source,
-			s.content[0].Title,
+		fileName, err := s.path.StreamFilePath(content.Source,
+			content.Title,
 			stream.Ext,
 			stream.Quality)
 		if err != nil {
@@ -258,10 +257,10 @@ func (s *Service) fillTaskDetails(req *types.TaskRequest) (task *models.Download
 	// captions path
 	if len(req.Captions) > 0 {
 		for _, lang := range req.Captions {
-			if caption, ok := s.content[0].Captions[lang]; ok {
+			if caption, ok := content.Captions[lang]; ok {
 				// caption file name
-				fileName, err := s.path.CaptionFilePath(s.content[0].Source,
-					s.content[0].Title,
+				fileName, err := s.path.CaptionFilePath(content.Source,
+					content.Title,
 					DefaultCaptionExt,
 					caption.LanguageCode)
 				if err != nil {
@@ -270,7 +269,7 @@ func (s *Service) fillTaskDetails(req *types.TaskRequest) (task *models.Download
 
 				// part
 				commonParts = append(commonParts, &models.CommonPart{
-					PartID:      caption.LanguageCode,
+					PartID:      uuid.NewString(),
 					TaskID:      req.TaskID,
 					ContentID:   req.ContentID,
 					Name:        "caption",
@@ -290,9 +289,9 @@ func (s *Service) fillTaskDetails(req *types.TaskRequest) (task *models.Download
 
 	// danmaku path
 	if req.Danmaku {
-		if danmaku := s.content[0].Danmakus[req.Stream]; danmaku != nil {
+		if danmaku := content.Danmakus[req.Stream]; danmaku != nil {
 			commonParts = append(commonParts, &models.CommonPart{
-				PartID:      danmaku.ID,
+				PartID:      uuid.NewString(),
 				TaskID:      req.TaskID,
 				ContentID:   req.ContentID,
 				Name:        "danmaku",
@@ -312,22 +311,23 @@ func (s *Service) fillTaskDetails(req *types.TaskRequest) (task *models.Download
 
 	// initial task
 	task = &models.DownloadTask{
-		TaskID:           uuid.NewString(),
-		ContentID:        req.ContentID,
-		TotalSize:        totalSize,
-		TotalCurrentSize: 0,
-		TotalParts:       totalParts,
-		FinishedParts:    0,
-		Stream:           req.Stream,
-		Captions:         req.Captions,
-		Danmaku:          req.Danmaku,
-		Source:           s.content[0].Source,
-		URL:              s.content[0].URL,
-		Title:            s.content[0].Title,
-		SavedPath:        savedPath,
-		StreamParts:      streamParts,
-		CommonParts:      commonParts,
-		TaskStatus:       models.TaskStatusPending,
+		TaskID:            uuid.NewString(),
+		ContentID:         req.ContentID,
+		TotalSize:         totalSize,
+		TotalCurrentSize:  0,
+		TotalParts:        totalParts,
+		FinishedParts:     0,
+		Stream:            req.Stream,
+		Captions:          models.StringArray(req.Captions),
+		Danmaku:           req.Danmaku,
+		Source:            content.Source,
+		URL:               content.URL,
+		Title:             content.Title,
+		SavedPath:         savedPath,
+		StreamParts:       streamParts,
+		CommonParts:       commonParts,
+		TaskStatus:        models.TaskStatusPending,
+		CaptionsTransform: content.CaptionsTransform,
 	}
 
 	// return

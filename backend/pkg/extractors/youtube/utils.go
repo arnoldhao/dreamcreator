@@ -25,7 +25,7 @@ func ParseCaptions(body []byte) (*astisub.Subtitles, error) {
 				err = fmt.Errorf("ParseYoutubeTranscript: line %d: parsing srt duration %s failed: %w", idx, t.Start, err)
 				return nil, err
 			}
-			if st.EndAt, err = timeUtil.ParseYoutubeTranscript(t.Start + t.Dur); err != nil {
+			if st.EndAt, err = timeUtil.ParseYoutubeTranscript(t.Start, t.Dur); err != nil {
 				err = fmt.Errorf("ParseYoutubeTranscript: line %d: parsing srt duration %s failed: %w", idx, t.Start+t.Dur, err)
 				return nil, err
 			}
