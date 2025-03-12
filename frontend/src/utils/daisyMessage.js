@@ -44,12 +44,28 @@ const ToastComponent = {
       h('div', {
         class: getToastClass(props.type),
         style: {
-          marginBottom: '38px'
+          marginBottom: '38px',
+          padding: '0.5rem 1rem', // 减小内边距
+          maxWidth: '300px',       // 限制最大宽度
+          fontSize: '0.875rem',    // 减小字体大小
+          transform: 'scale(0.9)' // 整体缩小
         }
       }, [
         // 添加图标
-        h('div', {}, [
-          getIconForType(props.type)
+        h('div', {
+          style: {
+            display: 'flex',
+            alignItems: 'center'
+          }
+        }, [
+          h('div', {
+            style: {
+              transform: 'scale(0.8)', // 缩小图标
+              marginRight: '0.5rem'
+            }
+          }, [
+            getIconForType(props.type)
+          ])
         ]),
         // 添加内容
         h('span', { class: 'whitespace-pre-wrap break-words' }, props.content)

@@ -1,6 +1,6 @@
 <template>
   <div class="settings-container rounded-tl-lg">
-    <!-- 左侧菜单 -->
+    <!-- Left menu -->
     <div class="settings-menu h-full bg-base-200 rounded-tl-lg border-r border-base-300">
         <div class="h-full p-2">
             <ul class="menu p-1 bg-base-100 h-full">
@@ -18,7 +18,7 @@
         </div>
     </div>
     
-    <!-- 右侧内容区 -->
+    <!-- Right Content -->
     <div class="h-full bg-base-200 settings-content">
       <component class="h-full p-2" :is="currentComponent" />
     </div>
@@ -28,10 +28,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import usePreferencesStore from '@/stores/preferences.js'
-import ModelProvider from '@/components/content/ModelProvider.vue'
-import ModelConfig from '@/components/content/ModelConfig.vue'
 import General from '@/components/content/General.vue'
-import Editor from '@/components/content/Editor.vue'
 import About from '@/components/content/About.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -40,29 +37,23 @@ const { t } = useI18n()
 const prefStore = usePreferencesStore()
 
 const menuItems = computed(() => [
-    // { key: 'model-provider', icon: 'ri-cloud-line', label: t('settings.model_provider') },
-    // { key: 'model-config', icon: 'hi-cube-transparent', label: t('settings.model_config') },
     { key: 'general', icon: 'ri-settings-3-line', label: t('settings.general.name') },
-    { key: 'editor', icon: 'md-editnote', label: t('settings.editor.name') },
     { key: 'about', icon: 'ri-information-line', label: t('settings.about') }
 ])
 
-// 当前选中的页面
+// Current selected page
 const currentPage = ref('general')
 const handleCurrentPage = (key) => {
     currentPage.value = key
 }
 
-// 组件映射表
+// Component mapping table
 const componentMap = {
-  // 'model-provider': ModelProvider,
-  // 'model-config': ModelConfig,
   'general': General,
-  'editor': Editor,
   'about': About
 }
 
-// 计算当前应该显示的组件
+// Calculate the component to display
 const currentComponent = computed(() => componentMap[currentPage.value])
 </script>
 

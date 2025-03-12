@@ -1,106 +1,39 @@
-import { merge } from 'lodash'
+// DaisyUI 主题变量
+// 这个文件现在用于定义 DaisyUI 的主题变量和辅助函数
 
-/**
- *
- * @type import('naive-ui').GlobalThemeOverrides
- */
-export const themeOverrides = {
-    common: {
-        primaryColor: '#D33A31',
-        primaryColorHover: '#FF6B6B',
-        primaryColorPressed: '#D5271C',
-        primaryColorSuppl: '#FF6B6B',
-        borderRadius: '4px',
-        borderRadiusSmall: '3px',
-        heightMedium: '32px',
-        lineHeight: 1.5,
-        scrollbarWidth: '8px',
-        tabColor: '#FFFFFF',
-    },
-    Button: {
-        heightMedium: '32px',
-        paddingSmall: '0 8px',
-        paddingMedium: '0 12px',
-    },
-    Tag: {
-        borderRadius: '4px',
-        heightLarge: '32px',
-    },
-    Input: {
-        heightMedium: '32px',
-    },
-    Tabs: {
-        tabGapSmallCard: '2px',
-        tabGapMediumCard: '2px',
-        tabGapLargeCard: '2px',
-        tabFontWeightActive: 450,
-    },
-    Tree: {
-        nodeWrapperPadding: '0 3px',
-    },
-    Card: {
-        colorEmbedded: '#FAFAFA',
-    },
-    Form: {
-        labelFontSizeTopSmall: '12px',
-        labelFontSizeTopMedium: '13px',
-        labelFontSizeTopLarge: '13px',
-        labelHeightSmall: '18px',
-        labelHeightMedium: '18px',
-        labelHeightLarge: '18px',
-        labelPaddingVertical: '0 0 5px 2px',
-        feedbackHeightSmall: '18px',
-        feedbackHeightMedium: '18px',
-        feedbackHeightLarge: '20px',
-        feedbackFontSizeSmall: '11px',
-        feedbackFontSizeMedium: '12px',
-        feedbackFontSizeLarge: '12px',
-        labelTextColor: 'rgb(113,120,128)',
-        labelFontWeight: '450',
-    },
-    Radio: {
-        buttonColorActive: '#D13B37',
-        buttonTextColorActive: '#FFF',
-    },
-    DataTable: {
-        thPaddingSmall: '6px 8px',
-        tdPaddingSmall: '6px 8px',
-    },
-    Dropdown: {
-        borderRadius: '5px',
-        optionIconSizeMedium: '18px',
-        padding: '6px 2px',
-        optionColorHover: '#D33A31',
-        optionTextColorHover: '#FFF',
-        optionHeightMedium: '28px',
-    },
-    Divider: {
-        color: '#AAAAAB',
-    },
+// 主题颜色
+export const themeColors = {
+  primary: '#2196f3',
+  primaryHover: '#64b5f6',
+  primaryPressed: '#1a237e',
+  primarySuppl: '#64b5f6',
 }
 
-/**
- *
- * @type import('naive-ui').GlobalThemeOverrides
- */
-const _darkThemeOverrides = {
-    common: {
-        bodyColor: '#1E1E1E',
-        tabColor: '#1E1E1E',
-        borderColor: '#515151',
-    },
-    Tree: {
-        nodeTextColor: '#CECED0',
-    },
-    Card: {
-        colorEmbedded: '#212121',
-    },
-    Dropdown: {
-        color: '#272727',
-    },
-    Popover: {
-        color: '#2C2C32',
-    },
+// 应用主题变量到根元素
+export function applyThemeVariables(isDark) {
+  const root = document.documentElement;
+  
+  // 设置基础变量
+  root.style.setProperty('--primary', themeColors.primary);
+  root.style.setProperty('--primary-hover', themeColors.primaryHover);
+  
+  // 根据主题设置其他变量
+  if (isDark) {
+    root.style.setProperty('--body-bg', '#1E1E1E');
+    root.style.setProperty('--border-color', '#515151');
+    root.style.setProperty('--card-bg', '#212121');
+    root.style.setProperty('--dropdown-bg', '#272727');
+    root.style.setProperty('--text-color', '#CECED0');
+  } else {
+    root.style.setProperty('--body-bg', '#FFFFFF');
+    root.style.setProperty('--border-color', '#EAEAEA');
+    root.style.setProperty('--card-bg', '#FAFAFA');
+    root.style.setProperty('--dropdown-bg', '#FFFFFF');
+    root.style.setProperty('--text-color', '#333333');
+  }
 }
 
-export const darkThemeOverrides = merge({}, themeOverrides, _darkThemeOverrides)
+// 辅助函数 - 获取主题变量
+export function getThemeVariable(name, defaultValue = '') {
+  return getComputedStyle(document.documentElement).getPropertyValue(name) || defaultValue;
+}

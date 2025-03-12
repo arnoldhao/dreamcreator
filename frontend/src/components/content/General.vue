@@ -15,7 +15,7 @@
                         <v-icon name="ri-moon-line" class="h-4 w-4 text-base-content" />
                         <h2 class="text-base-content">{{ $t('settings.general.theme') }}</h2>
                     </div>
-                    <div class="join w-[9.5rem]">
+                    <div class="join w-[10rem]">
                         <button v-for="option in prefStore.themeOption"
                                 :key="option.value"
                                 class="btn btn-sm join-item min-w-[3rem] border-base-300"
@@ -36,7 +36,7 @@
                         <v-icon name="co-language" class="h-4 w-4 text-base-content" />
                         <h2 class="text-base-content">{{ $t('settings.general.language') }}</h2>
                     </div>
-                    <select class="select select-sm select-bordered w-[9.5rem] text-right"
+                    <select class="select select-sm select-bordered w-[10rem]"
                             v-model="prefStore.general.language"
                             @change="onLanguageChange">
                         <option v-for="option in prefStore.langOption" 
@@ -47,68 +47,7 @@
                     </select>
                 </div>
                 <li class="divider-thin"></li>
-
-                <!-- Font -->
-                <div class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
-                    <div class="flex items-center gap-2">
-                        <v-icon name="co-font" class="h-4 w-4 text-base-content" />
-                        <h2 class="text-base-content">{{ $t('settings.general.font') }}</h2>
-                    </div>
-                    <select class="select select-sm select-bordered w-[9.5rem] text-right"
-                            v-model="prefStore.general.font"
-                            @change="prefStore.savePreferences()"
-                            :title="$t('settings.general.font_tip')">
-                        <option v-for="option in prefStore.fontOption" 
-                                :key="option.value" 
-                                :value="option.value">
-                            {{ option.label }}
-                        </option>
-                    </select>
-                </div>
-                <li class="divider-thin"></li>
-
-                <!-- Font Size -->
-                <div class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
-                    <div class="flex items-center gap-2">
-                        <v-icon name="ri-font-size" class="h-4 w-4 text-base-content" />
-                        <h2 class="text-base-content">{{ $t('settings.general.font_size') }}</h2>
-                    </div>
-                    <div class="join w-[9.5rem]">
-                        <button class="btn btn-sm join-item w-8" 
-                                @click="prefStore.general.fontSize = Math.max(8, prefStore.general.fontSize - 1); prefStore.savePreferences()">
-                            -
-                        </button>
-                        <input type="text" 
-                               class="input input-sm input-bordered join-item w-24 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                               v-model="prefStore.general.fontSize"
-                               @change="prefStore.savePreferences()"
-                               pattern="[0-9]*"
-                               inputmode="numeric" />
-                        <button class="btn btn-sm join-item w-8"
-                                @click="prefStore.general.fontSize = Math.min(32, prefStore.general.fontSize + 1); prefStore.savePreferences()">
-                            +
-                        </button>
-                    </div>
-                </div>
-                <li class="divider-thin"></li>
-
-                <!-- Scan Size -->
-                <div class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
-                    <div class="flex items-center gap-2">
-                        <v-icon name="ri-font-size" class="h-4 w-4 text-base-content" />
-                        <h2 class="text-base-content">{{ $t('settings.general.scan_size') }}</h2>
-                    </div>
-                    <input type="number" 
-                           class="input input-sm input-bordered w-[9.5rem] text-right"
-                           v-model="prefStore.general.scanSize"
-                           @change="prefStore.savePreferences()"
-                           :title="$t('settings.general.scan_size_tip')"
-                           min="100"
-                           max="10000"
-                           step="100" />
-                </div>
-                <li class="divider-thin"></li>
-
+                
                 <!-- Proxy-->
                 <div class="flex flex-col gap-2 p-2 pl-4 rounded-lg bg-base-100">
                     <div class="flex items-center justify-between">
@@ -116,37 +55,26 @@
                             <v-icon name="ri-global-line" class="h-4 w-4 text-base-content" />
                             <h2 class="text-base-content">{{ $t('settings.general.proxy') }}</h2>
                         </div>
-                        <input type="checkbox" 
-                               class="toggle toggle-sm toggle-primary"
-                               v-model="prefStore.proxy.enabled"
-                               @change="onProxyChange" />
+                        <select class="select select-sm select-bordered w-[10rem]"
+                                v-model="prefStore.proxy.type"
+                                @change="onProxyChange">
+                            <option value="none">{{ $t('settings.general.proxy_none') }}</option>
+                            <option value="system">{{ $t('settings.general.proxy_system') }}</option>
+                            <option value="manual">{{ $t('settings.general.proxy_manual') }}</option>
+                        </select>
                     </div>
-                    <template v-if="prefStore.proxy.enabled">
+                    <template v-if="prefStore.proxy.type === 'manual'">
                         <li class="divider-thin"></li>
                         <div class="flex items-center">
                             <div class="flex items-center gap-2 w-32">
-                                <v-icon name="ri-settings-3-line" class="h-4 w-4 text-base-content" />
+                                <v-icon name="ri-global-line" class="h-4 w-4 text-base-content" />
                                 <span class="text-sm text-base-content">{{ $t('settings.general.proxy_address') }}</span>
                             </div>
                             <div class="flex items-center gap-2 justify-end flex-1">
-                                <select class="select select-sm select-bordered w-[9.5rem] text-right"
-                                        v-model="prefStore.proxy.protocal"
-                                        @change="onProxyChange">
-                                    <option v-for="option in prefStore.protocalOption" 
-                                            :key="option.value" 
-                                            :value="option.value">
-                                        {{ $t(option.label) }}
-                                    </option>
-                                </select>
                                 <input type="text" 
-                                       class="input input-sm input-bordered w-[9.5rem] text-right" 
-                                       v-model="prefStore.proxy.addr"
-                                       placeholder="127.0.0.1"
-                                       @change="onProxyChange" />
-                                <input type="text" 
-                                       class="input input-sm input-bordered w-[9.5rem] text-right" 
-                                       v-model="prefStore.proxy.port"
-                                       placeholder="1080"
+                                       class="input input-sm input-bordered w-[10rem] text-left" 
+                                       v-model="proxyAddress"
+                                       placeholder="http://127.0.0.1:7890"
                                        @change="onProxyChange" />
                             </div>
                         </div>
@@ -182,18 +110,82 @@
                     </div>
                 </div>
             </ul>
+
+            <!-- Config and Cache Path Menu-->
+            <ul class="menu p-2 rounded-lg border-2 border-base-300 bg-base-100">
+                <div class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-semibold text-base-content">{{ $t('settings.general.saved_path') }}</h2>
+                    </div>
+                </div>
+                <li class="divider-thin"></li>
+
+                <!-- Config Path -->
+                <div class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
+                    <div class="flex items-center gap-2">
+                        <v-icon name="oi-file-directory" class="h-4 w-4 text-base-content" />
+                        <h2 class="text-base-content">{{ $t('settings.general.config_path') }}</h2>
+                    </div>
+                    <div class="join items-center">
+                        <span class="text-sm text-base-content/60 w-[17rem] text-right truncate mr-2">
+                            {{ prefPath }}
+                        </span>
+                        <button class="btn btn-sm btn-ghost btn-square" 
+                                @click="openDirectory(prefPath)">
+                            <v-icon name="oi-file-directory" class="h-4 w-4 text-base-content/60" />
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cache Path -->
+                <div class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
+                    <div class="flex items-center gap-2">
+                        <v-icon name="oi-file-directory" class="h-4 w-4 text-base-content" />
+                        <h2 class="text-base-content">{{ $t('settings.general.data_path') }}</h2>
+                    </div>
+                    <div class="join items-center">
+                        <span class="text-sm text-base-content/60 w-[17rem] text-right truncate mr-2">
+                            {{ taskDbPath }}
+                        </span>
+                        <button class="btn btn-sm btn-ghost btn-square" 
+                                @click="openDirectory(taskDbPath)">
+                            <v-icon name="oi-file-directory" class="h-4 w-4 text-base-content/60" />
+                        </button>
+                    </div>
+                </div>
+            </ul>
         </div>
     </div>
 </template>
 
 <script setup>
-import { OpenDirectoryDialog } from 'wailsjs/go/systems/Service'
-import { computed } from 'vue'
+import { OpenDirectoryDialog, OpenDirectory } from 'wailsjs/go/systems/Service'
+import { GetPreferencesPath, GetTaskDbPath } from 'wailsjs/go/api/PathsAPI'
+import { computed, ref, watch, onMounted } from 'vue'
 import usePreferencesStore from '@/stores/preferences.js'
 import { useI18n } from 'vue-i18n'
 
 const prefStore = usePreferencesStore()
 const { t, locale } = useI18n()
+
+// proxy address
+const proxyAddress = ref('')
+
+// proxy address format validation function
+const isValidProxyAddress = (address) => {
+  // check if it matches protocol://host:port format
+  const regex = /^(http|https|socks5):\/\/[a-zA-Z0-9.-]+:[0-9]+$/
+  return regex.test(address)
+}
+
+// watch proxy address
+watch(() => prefStore.proxy, (newVal) => {
+  if (newVal.proxy_address) {
+    proxyAddress.value = newVal.proxy_address
+  } else {
+    proxyAddress.value = ''
+  }
+}, { immediate: true, deep: true })
 
 const onLanguageChange = async () => {
     await prefStore.savePreferences()
@@ -201,14 +193,34 @@ const onLanguageChange = async () => {
 }
 
 const onProxyChange = async () => {
-    await prefStore.savePreferencesAndSetProxy()
+    // if manual mode but no proxy address is provided, do not apply settings
+    if (prefStore.proxy.type === 'manual' && !proxyAddress.value.trim()) {
+        return
+    }
+    
+    // if manual mode, check proxy address format
+    if (prefStore.proxy.type === 'manual' && !isValidProxyAddress(proxyAddress.value)) {
+        $message.error(t('settings.general.proxy_address_err'))
+        return
+    }
+    
+    // update proxy configuration
+    if (prefStore.proxy.type === 'manual') {
+        // only store complete proxy address
+        prefStore.proxy.proxy_address = proxyAddress.value
+    }
+    
+    // for none and system mode, or manual mode with proxy address, apply settings
+    await prefStore.setProxyConfig()
 }
 
 const onSelectDownloadDir = async () => {
     const { success, data, msg } = await OpenDirectoryDialog(downloadDir.value)
     if (success && data?.path && data.path.trim() !== '') {
-        prefStore.updateDownloadDir(data.path)
-        await prefStore.savePreferences()
+        // update store directory value
+        prefStore.download.dir = data.path
+        // call new API to send config to backend
+        await prefStore.SetDownloadConfig()
     } else if (msg) {
         $message.error(msg)
     }
@@ -216,6 +228,48 @@ const onSelectDownloadDir = async () => {
 
 const downloadDir = computed(() => {
     return prefStore.download?.dir || ""
+})
+
+const prefPath = ref('')
+const taskDbPath = ref('')
+
+const getPreferencesPath = async () => {
+    try{
+        const response =  await GetPreferencesPath()
+        if (response.success) {
+            prefPath.value = response.data
+        } else {
+            $message.error(response.msg)
+            return null
+        }
+    } catch (error) {
+        console.error('Failed to get preferences path:', error)
+        return null
+    }
+}
+
+const getTaskDbPath = async () => {
+    try{
+        const response =  await GetTaskDbPath()
+        if (response.success) {
+            taskDbPath.value = response.data
+        } else {
+            $message.error(response.msg)
+            return null
+        }
+    } catch (error) {
+        console.error('Failed to get task db path:', error)
+        return null
+    }
+}
+
+const openDirectory = async (path) => {
+  OpenDirectory(path)
+}
+
+onMounted(() => {
+    getPreferencesPath()
+    getTaskDbPath()
 })
 </script>
 

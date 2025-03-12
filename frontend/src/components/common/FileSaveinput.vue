@@ -3,44 +3,57 @@ import { SaveFile } from 'wailsjs/go/services/systemService.js'
 import { get } from 'lodash'
 
 const props = defineProps({
-    value: String,
+    modelValue: String,
     placeholder: String,
     disabled: Boolean,
     defaultPath: String,
 })
 
-const emit = defineEmits(['update:value'])
+const emit = defineEmits(['update:modelValue'])
 
 const onInput = (val) => {
-    emit('update:value', val)
+    emit('update:modelValue', val)
 }
 
 const onClear = () => {
-    emit('update:value', '')
+    emit('update:modelValue', '')
 }
 
 const handleSaveFile = async () => {
     const { success, data } = await SaveFile(null, props.defaultPath, ['csv'])
     if (success) {
         const path = get(data, 'path', '')
-        emit('update:value', path)
+        emit('update:modelValue', path)
     } else {
-        emit('update:value', '')
+        emit('update:modelValue', '')
     }
 }
 </script>
 
 <template>
-    <n-input-group>
-        <n-input
-            :disabled="props.disabled"
-            :placeholder="placeholder"
-            :value="props.value"
-            clearable
-            @clear="onClear"
-            @input="onInput" />
-        <n-button :disabled="props.disabled" :focusable="false" @click="handleSaveFile">...</n-button>
-    </n-input-group>
-</template>
+    <div class="join w-full">
+      <input 
+        type="text" 
+        class="input input-bordered join-item w-full" 
+        :disabled="props.disabled"
+        :placeholder="props.placeholder"
+        :title="modelValue"
+        :value="modelValue"
+        @input="e => onInput(e.target.value)" />
+      <button 
+        class="btn join-item" 
+        :disabled="props.disabled" 
+        @click="handleSaveFile">
+        ...
+      </button>
+      <button 
+        v-if="modelValue" 
+        class="btn join-item" 
+        :disabled="props.disabled" 
+        @click="onClear">
+        <i class="ri-close-line"></i>
+      </button>
+    </div>
+  </template>
 
 <style lang="scss" scoped></style>

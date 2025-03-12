@@ -7,7 +7,7 @@
     }">
     <!-- Main menu items -->
     <div class="menu-items flex flex-col items-center pt-1 space-y-3">
-      <div v-for="(m, i) in menuOptions" :key="i" class="tooltip tooltip-right w-full" :data-tip="$t(m.label)">
+      <div v-for="(m, i) in navStore.menuOptions" :key="i" class="tooltip tooltip-right w-full" :data-tip="$t(m.label)">
         <div
           class="w-full h-9 flex items-center justify-center relative hover:bg-primary/10 rounded-full cursor-pointer"
           :class="[
@@ -23,7 +23,7 @@
 
     <!-- Bottom menu items -->
     <div class="menu-items flex flex-col items-center pb-1 space-y-3">
-      <div v-for="(m, i) in bottomMenuOptions" :key="i" class="tooltip tooltip-right w-full" :data-tip="$t(m.label)">
+      <div v-for="(m, i) in navStore.bottomMenuOptions" :key="i" class="tooltip tooltip-right w-full" :data-tip="$t(m.label)">
         <div
           class="w-full h-9 flex items-center justify-center relative hover:bg-primary/10 rounded-full cursor-pointer"
           :class="[
@@ -40,10 +40,12 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import usePreferencesStore from 'stores/preferences.js'
+import useNavStore from 'stores/nav.js'
 
 const prefStore = usePreferencesStore()
+const navStore = useNavStore()
 
 const handleThemeClick = () => {
   // 切换主题
@@ -56,7 +58,7 @@ const handleThemeClick = () => {
 const props = defineProps({
   value: {
     type: String,
-    default: 'optimize',
+    default: 'download',
   },
   width: {
     type: Number,
@@ -66,54 +68,10 @@ const props = defineProps({
 
 const emit = defineEmits(['update:value'])
 
-const menuOptions = computed(() => {
-  return [
-    {
-      label: 'ribbon.download',
-      key: 'download',
-      icon: 'ri-download-cloud-line',
-    },
-    {
-      label: 'ribbon.history',
-      key: 'history',
-      icon: 'ri-history-line',
-    },
-    {
-      label: 'ribbon.optimize',
-      key: 'optimize',
-      icon: 'oi-rocket',
-    },
-    // {
-    //   label: 'menu.subtitle',
-    //   key: 'subtitle',
-    //   icon: 'md-subtitles',
-    // },
-    // {
-    //   label: 'menu.ai',
-    //   key: 'ai',
-    //   icon: 'la-robot-solid',
-    // },
-  ]
-})
-
-const themeIcon = computed(() => {
-  return prefStore.isDark === true ? 'ri-moon-line' : 'ri-sun-line'
-})
-
-const bottomMenuOptions = computed(() => {
-  return [
-    {
-      label: 'bottom.theme',
-      key: 'theme',
-      icon: themeIcon.value,
-    },
-    {
-      label: 'bottom.settings',
-      key: 'settings',
-      icon: 'ri-settings-3-line',
-    },
-  ]
-})
+// 监听主题变化，更新主题图标
+watch(() => prefStore.isDark, (isDark) => {
+  navStore.updateThemeIcon(isDark)
+}, { immediate: true })
 </script>
 
 <style lang="scss" scoped>

@@ -3,25 +3,17 @@ package main
 import (
 	"CanMe/backend/api"
 	"CanMe/backend/consts"
-	"CanMe/backend/core/download"
+	"CanMe/backend/core/downtasks"
 	"CanMe/backend/core/events"
-	"CanMe/backend/core/websockets"
-	"CanMe/backend/services/languages"
-	"CanMe/backend/services/llms"
-	"CanMe/backend/services/ollama"
+	"CanMe/backend/pkg/downinfo"
+	"CanMe/backend/pkg/proxy"
+	"CanMe/backend/pkg/websockets"
 	"CanMe/backend/services/preferences"
-	"CanMe/backend/services/subtitles"
 	"CanMe/backend/services/systems"
-	"CanMe/backend/services/trans"
-	"CanMe/backend/storage"
-	"CanMe/backend/storage/repository"
 	"context"
 	"embed"
 	"fmt"
 	"runtime"
-
-	_ "CanMe/backend/pkg/extractors/bilibili"
-	_ "CanMe/backend/pkg/extractors/youtube" // init youtube extractor
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/logger"
@@ -41,34 +33,33 @@ var assets embed.FS
 var icon []byte
 
 func main() {
-	// frameworks
+	// Frameworks
 	preferencesService := preferences.New()
 	systemService := systems.New()
 
-	// database
-	persistentStorage, err := storage.NewPersistentStorage()
-	if err != nil {
-		panic(err)
-	}
-	storage.SetGlobalPersistentStorage(persistentStorage)
-	repo := repository.NewDownloadRepository(persistentStorage.DBWithoutContext())
+	// Packages
+	// # Proxy
+	proxyClient := proxy.NewClient(proxy.DefaultConfig())
+	// # Download
+	downloadClient := downinfo.NewClient(downinfo.DefaultConfig())
+	preferencesService.SetPackageClients(proxyClient, downloadClient)
 
-	// services
+	// Services
+	// # Events
 	events := events.NewEventBus()
-	dserv := download.NewService(events, repo)
+	// # Downtasks
+	dtService := downtasks.NewService(events, proxyClient, downloadClient)
 
-	// websocket
+	// Packages
+	// # Websocket
 	websocketService := websockets.New()
 	websocketService.Start()
 
-	// api
-	downloadAPI := api.NewDownloadAPI(dserv, events, websocketService)
-	// instances
-	languageService := languages.New()
-	llmsService := llms.New()
-	ollamaService := ollama.New()
-	subtitlesService := subtitles.New()
-	transService := trans.New()
+	// API
+	// # Downtasks API
+	dtAPI := api.NewDowntasksAPI(dtService, events, websocketService)
+	// # Paths API
+	pathsAPI := api.NewPathsAPI(preferencesService, dtService)
 
 	// window
 	windowWidth, windowHeight, maximised := preferencesService.GetWindowSize()
@@ -87,7 +78,7 @@ func main() {
 	}
 
 	// Create application with options
-	err = wails.Run(&options.App{
+	err := wails.Run(&options.App{
 		Title:                    consts.APP_NAME,
 		Width:                    windowWidth,
 		Height:                   windowHeight,
@@ -104,39 +95,41 @@ func main() {
 		Menu:                     appMenu,
 		EnableDefaultContextMenu: true,
 		Bind: []interface{}{
+			// Framworks
 			preferencesService,
-			languageService,
-			llmsService,
-			ollamaService,
 			systemService,
-			subtitlesService,
+			// Packages
 			websocketService,
-			transService,
-			downloadAPI,
+			// APIs
+			dtAPI,
+			pathsAPI,
 		},
 		Logger:             logger.NewDefaultLogger(),
 		LogLevel:           logger.INFO,
 		LogLevelProduction: logger.ERROR,
 		OnStartup: func(ctx context.Context) {
+			// Frameworks
+			preferencesService.SetContext(ctx)
 			systemService.SetContext(ctx, consts.APP_VERSION)
-			preferencesService.RegisterServices(ctx, websocketService)
-			languageService.RegisterService(ctx)
-			llmsService.RegisterServices(ctx)
-			subtitlesService.SetContext(ctx)
-			ollamaService.RegisterServices(ctx, websocketService)
-			languageService.RegisterService(ctx)
-			transService.Process(ctx, websocketService)
-			websocketService.RegisterServices(ctx, transService, ollamaService, preferencesService)
-			persistentStorage.AutoMigrate(ctx)
-			dserv.Start(ctx)
-			downloadAPI.Subscribe(ctx)
+			// Packages
+			websocketService.SetContext(ctx)
+			// Services
+			dtService.SetContext(ctx)
+			// APIs
+			dtAPI.Subscribe(ctx)
+			pathsAPI.Subscribe(ctx)
 		},
 		OnDomReady: func(ctx context.Context) {
 			x, y := wailsRuntime.WindowGetPosition(ctx)
 			wailsRuntime.WindowSetPosition(ctx, x, y)
 			wailsRuntime.WindowShow(ctx)
 		},
-		OnShutdown: func(ctx context.Context) {},
+		OnShutdown: func(ctx context.Context) {
+			// 关闭下载任务服务
+			if err := dtService.Close(); err != nil {
+				wailsRuntime.LogErrorf(ctx, "Error closing downtasks service: %v", err)
+			}
+		},
 		OnBeforeClose: func(ctx context.Context) (prevent bool) {
 			x, y := wailsRuntime.WindowGetPosition(ctx)
 			preferencesService.SaveWindowPosition(x, y)
@@ -154,7 +147,7 @@ func main() {
 			TitleBar: mac.TitleBarHiddenInset(),
 			About: &mac.AboutInfo{
 				Title:   fmt.Sprintf("%s %s", consts.APP_NAME, consts.APP_VERSION),
-				Message: "A modern lightweight cross-platform framework for developing desktop applications.\n\nCopyright 2024",
+				Message: consts.APP_DESC,
 				Icon:    icon,
 			},
 			Appearance:           mac.DefaultAppearance,

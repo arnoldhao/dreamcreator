@@ -56,7 +56,7 @@ const onCheckUpdateChange = () => {
                         <div class="space-y-2">
                             <h1 class="text-2xl font-semibold text-base-content">{{ $t('dialogue.app_name') }}</h1>
                             <p class="mb-2 text-base-content">{{ $t('dialogue.app_description') }}</p>
-                            <div class="badge badge-primary badge-outline">v{{ version }}</div>
+                            <div class="badge badge-primary badge-outline">{{ version }}</div>
                         </div>
                     </div>
                     <button class="btn btn-sm border-1 border-base-300 font-normal text-base-content"

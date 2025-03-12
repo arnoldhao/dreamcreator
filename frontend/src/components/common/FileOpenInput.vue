@@ -29,17 +29,29 @@ const handleSelectFile = async () => {
 </script>
 
 <template>
-    <n-input-group>
-        <n-input
-            :disabled="props.disabled"
-            :placeholder="placeholder"
-            :title="modelValue"
-            :value="modelValue"
-            clearable
-            @clear="onClear"
-            @input="onInput" />
-        <n-button :disabled="props.disabled" :focusable="false" @click="handleSelectFile">...</n-button>
-    </n-input-group>
-</template>
+    <div class="join w-full">
+      <input 
+        type="text" 
+        class="input input-bordered join-item w-full" 
+        :disabled="props.disabled"
+        :placeholder="placeholder"
+        :title="modelValue"
+        :value="modelValue"
+        @input="e => onInput(e.target.value)" />
+      <button 
+        class="btn join-item" 
+        :disabled="props.disabled" 
+        @click="handleSelectFile">
+        ...
+      </button>
+      <button 
+        v-if="modelValue" 
+        class="btn join-item" 
+        :disabled="props.disabled" 
+        @click="onClear">
+        <i class="ri-close-line"></i>
+      </button>
+    </div>
+  </template>
 
 <style lang="scss" scoped></style>

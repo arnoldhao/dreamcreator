@@ -2,18 +2,12 @@ package storage
 
 import (
 	"CanMe/backend/consts"
-	"CanMe/backend/pkg/specials/proxy"
 	"CanMe/backend/types"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"sync"
-
-	"CanMe/backend/pkg/specials/config"
 
 	"gopkg.in/yaml.v3"
 )
@@ -55,32 +49,9 @@ func (p *PreferencesStorage) GetPreferences() (ret types.Preferences) {
 	defer p.mutex.Unlock()
 
 	ret = p.getPreferences()
-	if ret.General.ScanSize <= 0 {
-		ret.General.ScanSize = consts.DEFAULT_SCAN_SIZE
-	}
-	ret.Behavior.AsideWidth = max(ret.Behavior.AsideWidth, consts.DEFAULT_ASIDE_WIDTH)
 	ret.Behavior.WindowWidth = max(ret.Behavior.WindowWidth, consts.MIN_WINDOW_WIDTH)
 	ret.Behavior.WindowHeight = max(ret.Behavior.WindowHeight, consts.MIN_WINDOW_HEIGHT)
 
-	// set proxy
-	if ret.Proxy.Enabled {
-		if ret.Proxy.Addr != "" && ret.Proxy.Protocal != "" && ret.Proxy.Port != 0 {
-			url := fmt.Sprintf("%s://%s:%d", ret.Proxy.Protocal, ret.Proxy.Addr, ret.Proxy.Port)
-			err := proxy.GetInstance().SetProxy(url)
-			if err != nil {
-				log.Println("set proxy error:", err)
-			} else {
-				log.Println("set proxy success:", url)
-			}
-		}
-	}
-
-	// set download dir
-	if ret.Download.Dir == "" {
-		ret.Download.Dir = p.getDefaultDownloadDir()
-	} else {
-		config.GetDownloadInstance().SetDownloadURL(ret.Download.Dir)
-	}
 	return
 }
 
@@ -130,25 +101,6 @@ func (p *PreferencesStorage) SetPreferences(pf *types.Preferences) error {
 	return p.savePreferences(pf)
 }
 
-// UpdateProxySettings updates proxy settings and applies them immediately
-func (p *PreferencesStorage) UpdateProxySettings(pf *types.Preferences) {
-	if pf.Proxy.Enabled {
-		if pf.Proxy.Addr != "" && pf.Proxy.Protocal != "" && pf.Proxy.Port != 0 {
-			url := fmt.Sprintf("%s://%s:%d", pf.Proxy.Protocal, pf.Proxy.Addr, pf.Proxy.Port)
-			err := proxy.GetInstance().SetProxy(url)
-			if err != nil {
-				log.Println("set proxy error:", err)
-			} else {
-				log.Println("set proxy success:", url)
-			}
-		}
-	} else {
-		// Disable proxy by setting it to nil
-		proxy.GetInstance().SetProxy("")
-		log.Println("proxy disabled")
-	}
-}
-
 // UpdatePreferences update values by key paths, the key path use "." to indicate multiple level
 func (p *PreferencesStorage) UpdatePreferences(values map[string]any) error {
 	p.mutex.Lock()
@@ -161,13 +113,6 @@ func (p *PreferencesStorage) UpdatePreferences(values map[string]any) error {
 		}
 	}
 
-	// Update proxy settings immediately if proxy-related settings are changed
-	for path := range values {
-		if strings.HasPrefix(path, "proxy.") {
-			p.UpdateProxySettings(&pf)
-			break
-		}
-	}
 	return p.savePreferences(&pf)
 }
 
@@ -180,30 +125,6 @@ func (p *PreferencesStorage) RestoreDefault() types.Preferences {
 	return pf
 }
 
-func (p *PreferencesStorage) getDefaultDownloadDir() string {
-	var downloadDir string
-
-	switch runtime.GOOS {
-	case "windows":
-		// Windows: %USERPROFILE%\Downloads
-		downloadDir = filepath.Join(os.Getenv("USERPROFILE"), "Downloads")
-	case "darwin":
-		// macOS: ~/Downloads
-		homeDir, _ := os.UserHomeDir()
-		downloadDir = filepath.Join(homeDir, "Downloads")
-	case "linux":
-		// Linux: ~/Downloads
-		homeDir, _ := os.UserHomeDir()
-		downloadDir = filepath.Join(homeDir, "Downloads")
-	default:
-		// default
-		downloadDir = "Downloads"
-	}
-
-	// make sure dir exists
-	if _, err := os.Stat(downloadDir); os.IsNotExist(err) {
-		os.MkdirAll(downloadDir, 0755)
-	}
-
-	return downloadDir
+func (p *PreferencesStorage) ConfigPath() string {
+	return p.storage.ConfPath
 }

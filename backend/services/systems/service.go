@@ -4,7 +4,7 @@ import (
 	"CanMe/backend/consts"
 	"CanMe/backend/services/preferences"
 	"CanMe/backend/types"
-	"CanMe/backend/utils/sliceUtil"
+	"CanMe/backend/utils"
 	"context"
 	"runtime"
 	"sync"
@@ -89,7 +89,7 @@ func (s *Service) OpenDirectory(path string) {
 
 // SelectFile open file dialog to select a file
 func (s *Service) SelectFile(title string, extensions []string) (resp types.JSResp) {
-	filters := sliceUtil.Map(extensions, func(i int) wailsRuntime.FileFilter {
+	filters := utils.SliceMap(extensions, func(i int) wailsRuntime.FileFilter {
 		return wailsRuntime.FileFilter{
 			Pattern: "*." + extensions[i],
 		}
@@ -112,7 +112,7 @@ func (s *Service) SelectFile(title string, extensions []string) (resp types.JSRe
 
 // SaveFile open file dialog to save a file
 func (s *Service) SaveFile(title string, defaultName string, extensions []string) (resp types.JSResp) {
-	filters := sliceUtil.Map(extensions, func(i int) wailsRuntime.FileFilter {
+	filters := utils.SliceMap(extensions, func(i int) wailsRuntime.FileFilter {
 		return wailsRuntime.FileFilter{
 			Pattern: "*." + extensions[i],
 		}

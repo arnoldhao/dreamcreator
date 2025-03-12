@@ -1,52 +1,73 @@
 <div align="center">
-<a href="https://github.com/arnoldhao/canme/"><img src="build/appicon.png" width="120"/></a>
+<a href="https://github.com/arnoldhao/canme/"><img src="build/appicon.png" width="150"/></a>
 </div>
+
 <h1 align="center">CanMe</h1>
-<h4 align="center"><strong>English</strong> | <a href="https://github.com/arnoldhao/canme/blob/main/README_zh.md">
-简体中文</a> </h4>
-<div align="center">
 
-<strong>An AI-powered subtitle conversion tool. Support for downloading YouTube videos and subtitles，Convert Capcut subtitles to SubRip (SRT) format and translate subtitles to any language. Available for Mac and Windows.</strong>
+<p align="center">
+  <strong>English</strong> |
+  <a href="/README_zh.md"><strong>简体中文</strong></a>
+</p>
+
+<div align="center">
+  <img src="https://img.shields.io/github/v/tag/arnoldhao/canme?label=version" alt="Version" />
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey" alt="Platform" />
+  <img src="https://img.shields.io/badge/tech-Go%20%7C%20Vue3-green" alt="Tech" />
 </div>
 
-## Learning Project
-This project is for learning front-end and back-end development. The software may have various issues due to my limited skills. Your understanding is appreciated.
+<p align="center">
+  <strong>CanMe is a comprehensive multilingual video download manager with a fluid user experience and powerful content processing capabilities.</strong>
+</p>
 
-## Current Features
-### Version: 0.0.10
-Current version has multiple exceptions. Please do not use it.
-- Export Capcut JSON subtitle files
-- Import SRT files directly
-- Manage Ollama model downloads
-- Support local Ollama models and remote OpenAI-like API calls
-- Manage history
-- Multiple AI translation tasks at once
-- Support for proxy configuration
-- Support for downloading YouTube videos and subtitles
-- Support for downloading Bilibili videos (do not support login now)
+<p align="center">
+  <strong>Built on <a href="https://github.com/yt-dlp/yt-dlp">yt-dlp</a>, supporting multiple video platforms with real-time download progress and multilingual interface.</strong>
+</p>
 
-## Roadmap
-### version: 0.0.11+
-- refactor model provider page into configuration
-- refactor model config page into configuration
-- refactor subtitle page
-- refactor download page
-- support for Bilibili login
-- support for importing BCut JSON subtitle files
+<div align="center">
+  <img src="images/ui_en.png" width="80%" alt="CanMe UI" />
+</div>
 
-### Version: 0.1.X
-- Edit AI-translated subtitles
-- Subtitle format validation
-- Display Ollama model download speed and add retry mechanism
+<br/>
 
-### Version: 0.2.X
-- AI Chat
-- ChatGPT API proxy
+## ✨ Key Features
 
-### Version: 0.3.X
-- ~~support for directly importing YouTube subtitles (YouTube video and subtitle download already supported)~~
-- Import Bilibili subtitles directly
+- 🎬 **Powerful Video Downloads** - Support for content from various video platforms
+- 📝 **Subtitle Extraction** - Automatically download associated video subtitles
+- 🔄 **Real-time Progress** - Intuitive display of download status and progress
+- 🌐 **Multilingual Support** - Complete English and Chinese interfaces
+- 💻 **Cross-platform Compatibility** - Support for Windows and macOS systems
 
-### Version: Future
-- Pipeline (YouTube -> Bilibili)
-- AI foundation (e.g., IELTS essay grading)
+## 🚀 Project Information
+
+> This project aims to explore front-end and back-end development technologies by providing a complete solution for a real-world application scenario. As a personal learning project, the software may have some areas for improvement, your understanding is appreciated.
+
+## 📋 Current Version
+
+### ✅ Updates
+- 🔄 Refactored download module using yt-dlp as the core download engine
+- 🎨 New UI design based on Vue3 + TailwindCSS + DaisyUI
+- 🧹 Optimized code structure and removed redundant features
+
+### ⚠️ Requirements
+- 🔧 **Dependencies**: `ffmpeg` needs to be installed separately
+- 🌐 **Network**: Stable internet connection required for the first use to download essential `go-ytdlp` components
+
+### ❗ Known Issues
+- When downloading YouTube videos with subtitles simultaneously, the progress indicator may not update, but downloads will complete successfully
+- The current version does not support pausing downloads, this feature will be added in upcoming versions
+
+## 🔮 Future Plans
+
+### Short-term Goals
+- ⛓️ **Download Pipeline**
+  - 🤖 Support for AI API integration
+  - 🔄 AI-based subtitle translation
+  - 📺 Subtitle embedding functionality
+
+### Long-term Goals
+- 🧠 **AI Enhanced Features**
+  - 💬 Intelligent conversation assistant
+  - 📝 Language learning tools (e.g., IELTS essay review)
+  - 📊 Content analysis and recommendations
+
+<p align="center">© 2025 <a href="https://github.com/arnoldhao">Arnold Hao</a>. All rights reserved.</p>

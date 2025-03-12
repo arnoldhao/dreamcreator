@@ -2,20 +2,17 @@ package preferences
 
 import (
 	"CanMe/backend/consts"
-	"CanMe/backend/pkg/specials/config"
-	ii "CanMe/backend/services/innerinterfaces"
+	"CanMe/backend/pkg/downinfo"
+	"CanMe/backend/pkg/proxy"
 	"CanMe/backend/storage"
 	"CanMe/backend/types"
-	"CanMe/backend/utils/coll"
 	"context"
 	"encoding/json"
 	"net/http"
 	"os"
-	"sort"
 	"strings"
 	"sync"
 
-	"github.com/adrg/sysfont"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -23,8 +20,9 @@ type Service struct {
 	pref          *storage.PreferencesStorage
 	clientVersion string
 
-	ctx       context.Context
-	wsService ii.WebSocketServiceInterface
+	ctx            context.Context
+	proxyClient    *proxy.Client
+	downloadClient *downinfo.Client
 }
 
 var preferences *Service
@@ -36,15 +34,36 @@ func New() *Service {
 			preferences = &Service{
 				pref:          storage.NewPreferences(),
 				clientVersion: consts.APP_VERSION,
+				proxyClient:   nil,
 			}
 		})
 	}
 	return preferences
 }
 
-func (p *Service) RegisterServices(ctx context.Context, wsService ii.WebSocketServiceInterface) {
+func (p *Service) SetPackageClients(proxyClient *proxy.Client, downloadClient *downinfo.Client) {
+	// proxy
+	p.proxyClient = proxyClient
+	p.OnProxyChanged(func(config *proxy.Config) {
+		p.proxyClient.SetConfig(config)
+	})
+
+	// 初始化代理配置
+	p.CheckAndUpdateProxy()
+
+	// download info
+	p.downloadClient = downloadClient
+	p.OnDownloadInfoChanged(func(config *downinfo.Config) {
+		p.downloadClient.SetConfig(config)
+	})
+
+	// 初始化下载配置
+	p.CheckAndUpdateDownloadInfo()
+
+}
+
+func (p *Service) SetContext(ctx context.Context) {
 	p.ctx = ctx
-	p.wsService = wsService
 }
 
 func (p *Service) GetPreferences() (resp types.JSResp) {
@@ -80,33 +99,6 @@ func (p *Service) RestorePreferences() (resp types.JSResp) {
 	defaultPref := p.pref.RestoreDefault()
 	resp.Data = map[string]any{
 		"pref": defaultPref,
-	}
-	resp.Success = true
-	return
-}
-
-type FontItem struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
-}
-
-func (p *Service) GetFontList() (resp types.JSResp) {
-	finder := sysfont.NewFinder(nil)
-	fontSet := coll.NewSet[string]()
-	var fontList []FontItem
-	for _, font := range finder.List() {
-		if len(font.Family) > 0 && !strings.HasPrefix(font.Family, ".") && fontSet.Add(font.Family) {
-			fontList = append(fontList, FontItem{
-				Name: font.Family,
-				Path: font.Filename,
-			})
-		}
-	}
-	sort.Slice(fontList, func(i, j int) bool {
-		return fontList[i].Name < fontList[j].Name
-	})
-	resp.Data = map[string]any{
-		"fonts": fontList,
 	}
 	resp.Success = true
 	return
@@ -192,15 +184,6 @@ func (p *Service) SaveWindowPosition(x, y int) {
 	}
 }
 
-func (p *Service) GetScanSize() int {
-	data := p.pref.GetPreferences()
-	size := data.General.ScanSize
-	if size <= 0 {
-		size = consts.DEFAULT_SCAN_SIZE
-	}
-	return size
-}
-
 type latestRelease struct {
 	Name    string `json:"name"`
 	TagName string `json:"tag_name"`
@@ -246,6 +229,8 @@ func (p *Service) UpdateGlobalConfig() {
 	// set download dir
 	downloadDir := p.pref.GetPreferences().Download.Dir
 	if len(downloadDir) > 0 {
-		config.GetDownloadInstance().SetDownloadURL(downloadDir)
+		if p.downloadClient != nil {
+			p.downloadClient.SetDir(downloadDir)
+		}
 	}
 }

@@ -10,7 +10,7 @@ type Event struct {
 }
 
 type EventBus interface {
-	Publish(topic string, data interface{})
+	Broadcast(topic string, data interface{})
 	Subscribe(topic string, handler func(Event))
 	Unsubscribe(topic string, handler func(Event))
 }
@@ -26,7 +26,7 @@ func NewEventBus() EventBus {
 	}
 }
 
-func (eb *eventBus) Publish(topic string, data interface{}) {
+func (eb *eventBus) Broadcast(topic string, data interface{}) {
 	eb.mu.RLock()
 	defer eb.mu.RUnlock()
 

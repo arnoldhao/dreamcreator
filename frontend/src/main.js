@@ -3,124 +3,60 @@ import { createApp, nextTick } from 'vue'
 import App from './App.vue'
 import './index.css'
 import './styles/style.scss'
-import dayjs from 'dayjs'
-import duration from 'dayjs/plugin/duration'
-import relativeTime from 'dayjs/plugin/relativeTime'
 import { i18n } from '@/utils/i18n.js'
 import { setupDiscreteApi } from '@/utils/discrete.js'
 import usePreferencesStore from 'stores/preferences.js'
 import { loadEnvironment } from '@/utils/platform.js'
-import { setupMonaco } from '@/utils/monaco.js'
 import { OhVueIcon, addIcons } from 'oh-vue-icons'
-import { CoGithub, 
-    RiGlobalLine, 
-    CiX, 
-    RiCloudLine, 
-    HiCubeTransparent, 
-    RiSettings3Line, 
-    RiInformationLine, 
-    RiTvLine, 
-    MdSubtitles, 
-    LaRobotSolid, 
-    RiHistoryLine, 
-    RiDownloadCloudLine, 
-    RiMoonLine, 
-    RiSunLine, 
-    MdHdrauto, 
-    CoLanguage, 
-    OiFileDirectory,
-    CoFont,
-    RiFontSize,
-    MdEditnote,
-    BiUiChecks,
-    OiRocket,
-    HiRefresh,
-    RiDeleteBinLine,
-    BiChevronLeft,
-    BiChevronRight,
-    BiThreeDotsVertical,
-    RiLoader2Line,
-    MdContentcopy,
-    IoClose,
-    RiFolderOpenLine,
-    RiFileUnknowLine,
-    MdTask,
-    MdPending,
-    MdDownloading,
-    MdDownloaddone,
-    MdPause,
-    BiPuzzle,
-    BiPuzzleFill,
-    CoPuzzle,
-    IoCloudDoneOutline,
-    MdRunningwitherrors,
-    MdFiledownloadoff,
-    MdFreecancellation,
-    MdFreecancellationOutlined,
-    IoTimerOutline,
-    MdClouddownload,
-    MdSpeed,
-    RiBilibiliLine,
-    RiYoutubeLine,
-    RiVideoLine,
-    BiInbox} from 'oh-vue-icons/icons'
 
-// Register the icon
-addIcons(CoGithub, 
-    RiGlobalLine, 
-    CiX, 
-    RiCloudLine, 
-    HiCubeTransparent, 
-    RiSettings3Line, 
-    RiInformationLine, 
-    RiTvLine, 
-    MdSubtitles, 
-    LaRobotSolid, 
-    RiHistoryLine, 
-    RiDownloadCloudLine, 
-    RiMoonLine, 
-    RiSunLine, 
-    MdHdrauto, 
-    CoLanguage, 
-    OiFileDirectory,
-    CoFont,
-    RiFontSize,
-    MdEditnote,
-    BiUiChecks,
-    OiRocket,
-    HiRefresh,
-    RiDeleteBinLine,
-    BiChevronLeft,
-    BiChevronRight,
-    BiThreeDotsVertical,
-    RiLoader2Line,
-    MdContentcopy,
-    IoClose,
-    RiFolderOpenLine,
-    RiFileUnknowLine,
-    MdTask,
-    MdPending,
-    MdDownloading,
-    MdPause,
-    MdDownloaddone,
-    BiPuzzle,
-    BiPuzzleFill,
-    CoPuzzle,
-    IoCloudDoneOutline,
-    MdRunningwitherrors,
-    MdFiledownloadoff,
-    MdFreecancellation,
-    MdFreecancellationOutlined,
-    IoTimerOutline,
-    MdClouddownload,
-    MdSpeed,
-    RiBilibiliLine,
-    RiYoutubeLine,
-    RiVideoLine,
-    BiInbox)
+// 导入所有图标包
+import * as AiIcons from 'oh-vue-icons/icons/ai'
+import * as BiIcons from 'oh-vue-icons/icons/bi'
+import * as CoIcons from 'oh-vue-icons/icons/co'
+import * as CiIcons from 'oh-vue-icons/icons/ci'
+import * as FaIcons from 'oh-vue-icons/icons/fa'
+import * as FcIcons from 'oh-vue-icons/icons/fc'
+import * as FiIcons from 'oh-vue-icons/icons/fi'
+import * as GiIcons from 'oh-vue-icons/icons/gi'
+import * as HiIcons from 'oh-vue-icons/icons/hi'
+import * as IoIcons from 'oh-vue-icons/icons/io'
+import * as LaIcons from 'oh-vue-icons/icons/la'
+import * as MdIcons from 'oh-vue-icons/icons/md'
+import * as OiIcons from 'oh-vue-icons/icons/oi'
+import * as PiIcons from 'oh-vue-icons/icons/pi'
+import * as PrIcons from 'oh-vue-icons/icons/pr'
+import * as PxIcons from 'oh-vue-icons/icons/px'
+import * as RiIcons from 'oh-vue-icons/icons/ri'
+import * as SiIcons from 'oh-vue-icons/icons/si'
+import * as ViIcons from 'oh-vue-icons/icons/vi'
+import * as WiIcons from 'oh-vue-icons/icons/wi'
 
-dayjs.extend(duration)
-dayjs.extend(relativeTime)
+// 合并所有图标
+const allIcons = Object.values({
+  ...AiIcons,
+  ...BiIcons,
+  ...CoIcons,
+  ...CiIcons,
+  ...FaIcons,
+  ...FcIcons,
+  ...FiIcons,
+  ...GiIcons,
+  ...HiIcons,
+  ...IoIcons,
+  ...LaIcons,
+  ...MdIcons,
+  ...OiIcons,
+  ...PiIcons,
+  ...PrIcons,
+  ...PxIcons,
+  ...RiIcons,
+  ...SiIcons,
+  ...ViIcons,
+  ...WiIcons
+})
+
+// 注册所有图标
+addIcons(...allIcons)
 
 async function setupApp() {
     const app = createApp(App)
@@ -131,12 +67,10 @@ async function setupApp() {
     app.component("v-icon", OhVueIcon);
 
     await loadEnvironment()
-    setupMonaco()
     const prefStore = usePreferencesStore()
     await prefStore.loadPreferences()
     await setupDiscreteApi()
     app.config.errorHandler = (err, instance, info) => {
-        // TODO: add "send error message to author" later
         nextTick().then(() => {
             try {
                 const content = err.toString()
@@ -148,9 +82,7 @@ async function setupApp() {
             } catch (e) { }
         })
     }
-    // app.config.warnHandler = (message) => {
-    //     console.warn(message)
-    // }
+
     app.mount('#app')
 }
 
