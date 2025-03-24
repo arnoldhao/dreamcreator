@@ -1,20 +1,41 @@
 <template>
-  <dialog :open="showModal" class="modal">
-    <div class="modal-box w-11/12 max-w-3xl bg-base-100">
+  <dialog :open="showModal" :class="['modal', { 'modal-open': showModal }]">
+    <div class="modal-box w-11/12 max-w-3xl bg-base-100 overflow-visible">
       <h3 class="font-bold text-lg flex items-center">
         <v-icon name="ri-download-cloud-line" class="w-5 h-5 mr-2 text-primary"></v-icon>
         {{ $t('download.new_task') }}
       </h3>
+      <div v-if="!dependenciesReady" class="py-8">
+        <div class="flex flex-col items-center gap-6">
+          <!-- 警告图标和文字 -->
+          <div class="flex flex-col items-center gap-2">
+            <v-icon name="ri-error-warning-line" class="w-12 h-12 text-warning"></v-icon>
+            <p class="text-lg font-medium text-base-content">{{ $t('download.dependencies_not_ready') }}</p>
+            <p class="text-sm text-base-content/60">{{ $t('download.dependencies_not_ready_desc') }}</p>
+          </div>
+          <!-- 操作按钮 -->
+          <div class="flex items-center gap-2">
+            <button class="btn btn-primary  btn-sm" @click="gotoDependency()">
+              <v-icon name="ri-tools-line" class="w-4 h-4 mr-1"></v-icon>
+              {{ $t('download.manage_dependencies') }}
+            </button>
+            <button class="btn  btn-sm" @click="checkDependencies()">
+              <v-icon name="ri-refresh-line" class="w-4 h-4 mr-1"></v-icon>
+              {{ $t('common.refresh') }}
+            </button>
+          </div>
+          <!-- 取消按钮 -->
+          <button class="btn btn-ghost btn-sm" @click="closeModal">{{ $t('common.cancel') }}</button>
+        </div>
+      </div>
+      <div v-else>
       <div class="py-4">
         <form class="flex flex-col gap-4">
           <!-- URL area -->
           <div class="form-control w-full">
-            <label class="label">
-              <span class="label-text">{{ $t('download.video_url') }}</span>
-            </label>
             <div class="flex gap-2">
-              <input type="text" v-model="url" :placeholder="$t('download.video_url_placeholder')" class="input input-bordered flex-1" />
-              <button @click="handleParse" class="btn btn-primary w-[140px]" :disabled="isLoading">
+              <input type="text" v-model="url" :placeholder="$t('download.video_url_placeholder')" class="input input-bordered flex-1 input-sm" />
+              <button @click="handleParse" class="btn btn-primary btn-sm" :disabled="isLoading">
                 <div class="flex items-center justify-center">
                   <v-icon v-if="isLoading" name="ri-loader-2-line" class="animate-spin h-4 w-4 mr-1"></v-icon>
                   <span>{{ isLoading ? $t('download.parsing') : $t('download.parse') }}</span>
@@ -30,10 +51,15 @@
             <!-- Video title and preview information -->
             <div class="flex items-center gap-4">
               <div class="w-32 h-20 bg-base-200 rounded-lg overflow-hidden flex-shrink-0">
-                <img v-if="videoData.thumbnail" :src="videoData.thumbnail" class="w-full h-full object-cover"
-                  :alt="$t('download.thumbnail')" />
-                <div v-else class="w-full h-full flex items-center justify-center text-base-content/30">
-                  <v-icon name="ri-image-line" class="w-8 h-8"></v-icon>
+                <template v-if="!thumbnailLoadError && videoData?.thumbnail">
+                  <img :src="videoData.thumbnail" 
+                    class="w-full h-full object-cover"
+                    :alt="$t('download.thumbnail')" 
+                    @error="handleThumbnailError" />
+                </template>
+                <div v-else class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
+                  <v-icon name="ri-video-line" class="w-8 h-8 mb-1"></v-icon>
+                  <span class="text-xs">{{ $t('download.thumbnail') }}</span>
                 </div>
               </div>
               <div class="flex-1">
@@ -51,7 +77,7 @@
                   <label class="label">
                     <span class="label-text">{{ $t('download.video_quality') }}</span>
                   </label>
-                  <select v-model="selectedQuality" class="select select-bordered w-full">
+                  <select v-model="selectedQuality" class="select select-bordered w-full select-sm">
                     <option disabled value="">{{ $t('download.select_video_quality') }}</option>
                     <template v-for="quality in formatQualities(videoData?.formats || [])"
                       :key="quality.id || quality.format_id">
@@ -72,8 +98,8 @@
                     <span class="label-text">{{ $t('download.subtitle_language') }}</span>
                   </label>
                   <div class="dropdown w-full">
-                    <div tabindex="0" role="button" 
-                      class="select select-bordered w-full flex items-center justify-between"
+                   <div tabindex="0" role="button" 
+                      class="select select-bordered w-full flex items-center justify-between select-sm"
                       @click="showSubtitleDropdown = !showSubtitleDropdown">
                       <span v-if="selectedSubtitles.length === 0" class="text-base-content/50">{{ $t('download.no_subtitles') }}</span>
                       <span v-else>{{ $t('download.selected') }} {{ selectedSubtitles.length }} {{ $t('download.subtitles') }}</span>
@@ -98,7 +124,7 @@
               <label class="label">
                 <span class="label-text">{{ $t('download.pipeline') }}</span>
               </label>
-              <div class="bg-base-200 p-4 rounded-lg">
+              <div class="bg-base-200 p-2 rounded-lg">
                 <div class="flex items-center">
                   <template v-for="(step, index) in pipelineSteps" :key="index">
                     <!-- Step arrow -->
@@ -110,13 +136,13 @@
                     <!-- Step content -->
                     <div class="flex-1 flex items-center">
                       <div
-                        :class="[step.bg, 'w-8 h-8 rounded-full flex items-center justify-center text-white relative group']">
+                        :class="[step.bg, 'w-6 h-6 rounded-full flex items-center justify-center text-white relative group']">
                         <v-icon :name="step.icon"
                           class="w-4 h-4 absolute opacity-0 group-hover:opacity-100 transition-opacity"></v-icon>
                         <span class="group-hover:opacity-0 transition-opacity">{{ step.number }}</span>
                       </div>
-                      <div class="ml-3">
-                        <div class="font-medium">{{ step.title }}</div>
+                      <div class="ml-2">
+                        <div class="font-medium text-sm">{{ step.title }}</div>
                         <div class="text-xs text-base-content/70">{{ step.desc }}</div>
                       </div>
                     </div>
@@ -127,45 +153,46 @@
           </template>
         </form>
       </div>
-      <div v-if="ffmpegInstalled" class="modal-action">
-        <button class="btn" @click="closeModal">{{ $t('common.cancel') }}</button>
-        <button class="btn btn-primary" @click="startDownload" :disabled="!canDownload">{{ $t('common.start') }}</button>
+      <div class="modal-action">
+        <button class="btn btn-sm" @click="closeModal">{{ $t('common.cancel') }}</button>
+        <button class="btn btn-primary btn-sm" @click="startDownload" :disabled="!canDownload">{{ $t('common.start') }}</button>
       </div>
-      <div v-else class="modal-action flex items-center justify-center">
-        <button class="btn btn-error" @click="checkFFMPEG">{{ $t('download.ffmpeg_not_installed') }}</button>
-      </div>
+    </div>
     </div>
   </dialog>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { useI18n } from 'vue-i18n'
 import { GetContent, Download } from 'wailsjs/go/api/DowntasksAPI'
-import { GetFFMPEGPath } from 'wailsjs/go/api/PathsAPI'
+import { DependenciesReady } from 'wailsjs/go/api/PathsAPI'
+import useNavStore from '@/stores/nav.js'
+import useSettingsStore from '@/stores/settings'
+import { useI18n } from 'vue-i18n'
+import { useLoggerStore } from '@/stores/logger'
 
 // i18n
 const { t } = useI18n()
 
-const props = defineProps({
-  show: Boolean,
-})
+// logger
+const logger = useLoggerStore()
 
-const ffmpegInstalled = ref(false)
+// 添加缩略图加载状态
+const thumbnailLoadError = ref(false)
 
-const checkFFMPEG = async () => {
-  try {
-    const response = await GetFFMPEGPath()
-    if (response.success) {
-      ffmpegInstalled.value = true
-    }
-  } catch (error) {
-    $message.error(error.message)
-  }
+// handle thumbnail error
+const handleThumbnailError = (e) => {
+  // mark thumbnail load error
+  logger.error('Thumbnail load error', videoData.value?.thumbnail)
+  
+  thumbnailLoadError.value = true
 }
 
-onMounted(() => {
-  checkFFMPEG()
+const settingsStore = useSettingsStore()
+const navStore = useNavStore()
+
+const props = defineProps({
+  show: Boolean,
 })
 
 const emit = defineEmits(['update:show', 'download-started'])
@@ -175,6 +202,38 @@ const showModal = computed({
   set: (value) => emit('update:show', value)
 })
 
+const dependenciesReady = ref(false)
+
+const checkDependencies = async () => {
+  try {
+    const response = await DependenciesReady()
+    if (response.success) {
+      dependenciesReady.value = true
+    } else {
+      $message.warning(response.msg)
+    }
+  } catch (error) {
+    $message.error(error.message)
+  }
+}
+
+const gotoDependency = () => {
+  navStore.setNav('settings')
+  settingsStore.setPage('dependency')
+}
+
+// Watch modal visibility
+watch(() => showModal.value, (newValue) => {
+  if (newValue) {
+    // Modal opened
+    checkDependencies()
+  } else {
+    // Modal closed, reset form
+    resetForm()
+  }
+})
+
+
 // Form data
 const url = ref('')
 const isLoading = ref(false)
@@ -183,7 +242,6 @@ const selectedQuality = ref(null)
 const selectedSubtitles = ref([])
 const translateTo = ref('')
 const subtitleStyle = ref('default')
-const thumbnailError = ref(false)
 const showSubtitleDropdown = ref(false)
 
 // Whether can start download
@@ -342,12 +400,6 @@ const formatFileSize = (size) => {
   return `${fileSize.toFixed(2)} ${units[i]}`
 }
 
-// 处理缩略图链接，将 http 转换为 https
-const ensureHttps = (url) => {
-  if (!url) return ''
-  return url.replace(/^http:/, 'https:')
-}
-
 // Calculate pipeline steps
 const pipelineSteps = computed(() => {
   const steps = []
@@ -424,7 +476,7 @@ const handleParse = async () => {
         title: data.title,
         author: data.uploader || data.channel || data.extractor,
         duration: formatDuration(data.duration),
-        thumbnail: ensureHttps(data.thumbnail),
+        thumbnail: data.thumbnail ? (data.thumbnail.startsWith('http:') ? data.thumbnail.replace('http:', 'https:') : data.thumbnail) : '',
         formats: data.formats,
         subtitles: formatSubtitles(data.subtitles)
       }
@@ -530,15 +582,9 @@ const resetForm = () => {
   selectedSubtitles.value = []
   translateTo.value = ''
   subtitleStyle.value = 'default'
-  thumbnailError.value = false
+  thumbnailLoadError.value = false
 }
 
-// Watch modal visibility
-watch(() => showModal.value, (newValue) => {
-  if (!newValue) {
-    resetForm()
-  }
-})
 </script>
 
 <style scoped>

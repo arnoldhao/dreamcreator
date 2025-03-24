@@ -127,3 +127,10 @@ func (t *DtTaskStatus) UpdateFromProgress(progress *DtProgress) {
 		t.Error = progress.Error
 	}
 }
+
+type SoftwareInfo struct {
+	Available bool   `json:"available"`
+	Path      string `json:"path"`
+	ExecPath  string `json:"execPath"`
+	Version   string `json:"version"`
+}

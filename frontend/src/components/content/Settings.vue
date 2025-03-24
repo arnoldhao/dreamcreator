@@ -27,34 +27,37 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import usePreferencesStore from '@/stores/preferences.js'
+import useSettingsStore from '@/stores/settings'
 import General from '@/components/content/General.vue'
+import Dependency from '@/components/content/Dependency.vue'
 import About from '@/components/content/About.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-const prefStore = usePreferencesStore()
+const settingsStore = useSettingsStore()
 
 const menuItems = computed(() => [
     { key: 'general', icon: 'ri-settings-3-line', label: t('settings.general.name') },
+    { key: 'dependency', icon: 'oi-package-dependencies', label: t('settings.dependency.name') },
     { key: 'about', icon: 'ri-information-line', label: t('settings.about') }
 ])
 
 // Current selected page
-const currentPage = ref('general')
+const currentPage = computed(() => settingsStore.currentPage)
 const handleCurrentPage = (key) => {
-    currentPage.value = key
+    settingsStore.setPage(key)
 }
 
 // Component mapping table
 const componentMap = {
   'general': General,
+  'dependency': Dependency,
   'about': About
 }
 
 // Calculate the component to display
-const currentComponent = computed(() => componentMap[currentPage.value])
+const currentComponent = computed(() => componentMap[currentPage.value || 'general'])
 </script>
 
 <style scoped>

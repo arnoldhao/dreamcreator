@@ -9,8 +9,10 @@ import (
 	"net/http"
 	"time"
 
+	"CanMe/backend/pkg/logger"
+
 	"github.com/gorilla/websocket"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"go.uber.org/zap"
 )
 
 type Service struct {
@@ -51,7 +53,8 @@ func (s *Service) Start() {
 	go func() {
 		err := http.ListenAndServe(":34444", nil)
 		if err != nil {
-			runtime.LogErrorf(s.ctx, "WebSocket server error: %v", err)
+			logger.Error("WebSocket server error", zap.Error(err))
+			return
 		}
 	}()
 }
@@ -64,7 +67,7 @@ func (s *Service) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		runtime.LogErrorf(s.ctx, "Failed to upgrade connection: %v", err)
+		logger.Error("Failed to upgrade connection", zap.Error(err))
 		return
 	}
 
@@ -82,20 +85,25 @@ func (s *Service) readPump(id string, conn *websocket.Conn) {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				runtime.LogErrorf(s.ctx, "error: %v", err)
+				logger.Error("WebSocket error", zap.Error(err))
 			}
 			break
 		}
 		var msg types.WSRequest
 		if err := json.Unmarshal(message, &msg); err != nil {
-			runtime.LogErrorf(s.ctx, "Failed to parse message from %s: %v", id, err)
+			logger.Error("Failed to parse message",
+				zap.String("id", id),
+				zap.Error(err))
 			continue
 		}
 
 		// switch Namespace
 		switch consts.WSNamespace(msg.Namespace) {
 		default:
-			runtime.LogErrorf(s.ctx, "Unexpected namespace from %s: %s", id, msg.Namespace)
+			logger.Error("Unexpected namespace",
+				zap.String("id", id),
+				zap.String("namespace", string(msg.Namespace)))
+			continue
 		}
 	}
 }
@@ -119,25 +127,34 @@ func (s *Service) writePump(id string, conn *websocket.Conn) {
 			// 处理消息...
 			w, err := conn.NextWriter(websocket.TextMessage)
 			if err != nil {
-				runtime.LogErrorf(s.ctx, "Failed to get next writer: %v, %v", id, err)
-				return
+				logger.Error("Failed to get next writer",
+					zap.String("id", id),
+					zap.Error(err))
+				continue
 			}
 
 			msg, err := json.Marshal(message)
 			if err != nil {
-				runtime.LogErrorf(s.ctx, "Failed to marshal message: %v, %v", id, err)
-				return
+				logger.Error("Failed to marshal message",
+					zap.String("id", id),
+					zap.Error(err))
+				continue
 			}
 
 			w.Write(msg)
 			if err := w.Close(); err != nil {
-				runtime.LogErrorf(s.ctx, "Failed to close writer: %v, %v", id, err)
+				logger.Error("Failed to close writer",
+					zap.String("id", id),
+					zap.Error(err))
 				return
 			}
 
 		case <-ticker.C:
 			// 发送 ping 消息
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				logger.Error("Failed to send ping message",
+					zap.String("id", id),
+					zap.Error(err))
 				return
 			}
 		}

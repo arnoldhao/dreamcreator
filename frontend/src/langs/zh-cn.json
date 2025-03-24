@@ -16,7 +16,9 @@
     "copy": "复制",
     "copy_success": "复制成功",
     "copy_failed": "复制失败",
-    "start": "开始"
+    "start": "开始",
+    "info": "信息",
+    "refresh": "刷新"
   },
   "dialogue": {
     "app_name": "CanMe",
@@ -87,14 +89,28 @@
       "links": "支持链接"
     },
     "general": {
-      "name": "常规设置",
+      "name": "通用设置",
       "theme": "主题",
-      "language":"语言",
+      "language": "语言",
       "font": "字体",
       "font_tip": "选择或输入字体名称",
       "font_size": "字体大小",
       "scan_size": "SCAN 默认大小",
       "scan_size_tip": "SCAN/HSCAN/SSCAN/ZSCAN 的默认返回元素数量",
+      "log": "日志设置",
+      "log_level": "日志级别",
+      "log_output": "日志输出",
+      "log_console": "控制台",
+      "log_file": "文件",
+      "log_dir": "日志目录",
+      "log_settings": "文件设置",
+      "log_max_size": "文件大小",
+      "log_max_age": "保留天数",
+      "log_max_backups": "保留文件数",
+      "log_compress": "压缩旧文件",
+      "days": "天",
+      "files": "个",
+      "log_days": "天",
       "proxy": "代理",
       "proxy_none": "不使用代理",
       "proxy_system": "使用系统代理",
@@ -114,7 +130,22 @@
       "config_path": "配置路径",
       "data_path": "数据路径"
     },
-    "about": "关于我们"
+    "about": "关于我们",
+    "dependency": {
+      "name": "依赖",
+      "ffmpeg": "FFmpeg",
+      "ytdlp": "YT-DLP",
+      "status": "状态",
+      "path": "目录",
+      "version": "版本",
+      "install":"安装",
+      "installed":"已安装",
+      "refresh":"刷新",
+      "install_success":"安装成功",
+      "install_failed":"安装失败",
+      "install_ffmpeg":"安装FFmpeg",
+      "install_ffmpeg_desc":"请先自行安装FFmpeg，然后重新打开软件"
+    }
   },
   "message": {
     "copy": "复制",
@@ -206,6 +237,8 @@
     "complete": "完成",
     "complete_desc": "处理完成并保存",
     "parse_failed": "解析失败",
-    "ffmpeg_not_installed": "FFMPEG未安装，请安装后点击刷新"
+    "dependencies_not_ready": "依赖未就绪",
+    "dependencies_not_ready_desc": "需要安装 yt-dlp 和 ffmpeg 才能继续, 点击下方按钮进行管理。",
+    "manage_dependencies": "管理依赖"
   }
 }

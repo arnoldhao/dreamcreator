@@ -16,7 +16,9 @@
     "copy": "Copy",
     "copy_success": "Copy Success",
     "copy_failed": "Copy Failed",
-    "start": "Start"
+    "start": "Start",
+    "info": "Info",
+    "refresh": "Refresh"
   },
   "dialogue": {
     "app_name": "CanMe",
@@ -41,7 +43,7 @@
       "reject": "Reject"
     },
     "about": {
-      "github": "github",
+      "github": "Github",
       "official_website": "Official Website",
       "source_code": "Source Code",
       "x": "x",
@@ -95,6 +97,21 @@
       "font_size": "Font Size",
       "scan_size": "Default Size for SCAN",
       "scan_size_tip": "Default return number of elements for SCAN/HSCAN/SSCAN/ZSCAN",
+      "download_dir": "Download Directory",
+      "log": "Log Settings",
+      "log_level": "Log Level",
+      "log_output": "Log Output",
+      "log_console": "Console",
+      "log_file": "File",
+      "log_dir": "Log Directory",
+      "log_settings": "File Settings",
+      "log_max_size": "File Size",
+      "log_max_age": "Keep Days",
+      "log_max_backups": "Keep Files",
+      "log_compress": "Compress Old Files",
+      "days": "days",
+      "files": "files",
+      "log_days": "Days",
       "proxy": "Proxy",
       "proxy_none": "None",
       "proxy_system": "System",
@@ -114,7 +131,22 @@
       "config_path": "Config Path",
       "data_path": "Data Path"
     },
-    "about": "About"
+    "about": "About",
+    "dependency": {
+      "name": "Dependency",
+      "ffmpeg": "FFmpeg",
+      "ytdlp": "YT-DLP",
+      "status": "Status",
+      "path": "Path",
+      "version": "Version",
+      "install":"Install",
+      "installed":"Installed",
+      "refresh":"Refresh",
+      "install_success":"Install Success",
+      "install_failed":"Install Failed",
+      "install_ffmpeg":"Install FFmpeg",
+      "install_ffmpeg_desc":"Please install FFmpeg first, then restart the software"
+    }
   },
   "message": {
     "copy": "Copy",
@@ -206,6 +238,8 @@
     "complete": "Complete",
     "complete_desc": "Processing completed and saved",
     "parse_failed": "Parse failed",
-    "ffmpeg_not_installed": "FFMPEG not installed, please install it first then click refresh"
+    "dependencies_not_ready": "Dependencies Not Ready",
+    "dependencies_not_ready_desc": "yt-dlp and ffmpeg are required to continue, Click the button below to manage.",
+    "manage_dependencies": "Manage Dependencies"
   }
 }

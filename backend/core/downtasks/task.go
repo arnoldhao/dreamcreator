@@ -1,6 +1,7 @@
 package downtasks
 
 import (
+	"CanMe/backend/pkg/logger"
 	"CanMe/backend/storage"
 	"CanMe/backend/types"
 	"context"
@@ -10,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"go.uber.org/zap"
 )
 
 // TaskManager 管理视频处理任务
@@ -26,7 +27,7 @@ func NewTaskManager(ctx context.Context) *TaskManager {
 	// 初始化 BoltDB 存储
 	boltStorage, err := storage.NewBoltTaskStorage()
 	if err != nil {
-		runtime.LogErrorf(ctx, "Failed to initialize task storage: %v", err)
+		logger.Error("Failed to initialize task storage", zap.Error(err))
 		// 即使存储初始化失败，我们仍然可以使用内存存储继续运行
 	}
 
@@ -52,7 +53,7 @@ func (tm *TaskManager) loadTasksFromStorage() {
 
 	tasks, err := tm.storage.ListTasks()
 	if err != nil {
-		runtime.LogErrorf(tm.ctx, "Failed to load tasks from storage: %v", err)
+		logger.Error("Failed to load tasks from storage", zap.Error(err))
 		return
 	}
 
@@ -63,7 +64,7 @@ func (tm *TaskManager) loadTasksFromStorage() {
 		tm.tasks[task.ID] = task
 	}
 
-	runtime.LogDebugf(tm.ctx, "Loaded %d tasks from storage", len(tasks))
+	logger.Debug("Tasks loaded from storage", zap.Int("count", len(tasks)))
 }
 
 func (tm *TaskManager) Path() string {
@@ -112,7 +113,9 @@ func (tm *TaskManager) CreateTask(id string) *types.DtTaskStatus {
 	// 如果存储可用，保存到存储中
 	if tm.storage != nil {
 		if err := tm.storage.SaveTask(task); err != nil {
-			runtime.LogErrorf(tm.ctx, "Failed to save task %s to storage: %v", id, err)
+			logger.Error("Failed to save task",
+				zap.String("id", id),
+				zap.Error(err))
 		}
 	}
 
@@ -130,7 +133,9 @@ func (tm *TaskManager) UpdateTask(task *types.DtTaskStatus) {
 	// 如果存储可用，保存到存储中
 	if tm.storage != nil {
 		if err := tm.storage.SaveTask(task); err != nil {
-			runtime.LogErrorf(tm.ctx, "Failed to update task %s in storage: %v", task.ID, err)
+			logger.Error("Failed to update task",
+				zap.String("id", task.ID),
+				zap.Error(err))
 		}
 	}
 }
@@ -169,7 +174,9 @@ func (tm *TaskManager) DeleteTask(id string) error {
 	// 如果存储可用，从存储中删除任务
 	if tm.storage != nil {
 		if err := tm.storage.DeleteTask(id); err != nil {
-			runtime.LogErrorf(tm.ctx, "Failed to delete task %s from storage: %v", id, err)
+			logger.Error("Failed to delete task",
+				zap.String("id", id),
+				zap.Error(err))
 			return err
 		}
 	}

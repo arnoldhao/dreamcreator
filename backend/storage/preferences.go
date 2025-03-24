@@ -2,6 +2,7 @@ package storage
 
 import (
 	"CanMe/backend/consts"
+	"CanMe/backend/pkg/logger"
 	"CanMe/backend/types"
 	"fmt"
 	"log"
@@ -40,6 +41,12 @@ func (p *PreferencesStorage) getPreferences() (ret types.Preferences) {
 		ret = p.DefaultPreferences()
 		return
 	}
+
+	// 如果 logger 配置为空，使用默认配置
+	if reflect.DeepEqual(ret.Logger, logger.Config{}) {
+		ret.Logger = *logger.DefaultConfig()
+	}
+
 	return
 }
 

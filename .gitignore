@@ -47,3 +47,6 @@ npm-debug.log*
 
 # test coverage report
 coverage/
+
+# bash script
+*.sh

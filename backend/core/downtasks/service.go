@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -67,8 +66,58 @@ func (s *Service) DeleteTask(id string) error {
 	return s.taskManager.DeleteTask(id)
 }
 
-func (s *Service) GetFFMPEGPath() (string, error) {
-	return exec.LookPath("ffmpeg")
+func (s *Service) GetFFMPEGPath() (*types.SoftwareInfo, error) {
+	available, path, execPath, err := ffmpegAvailable()
+	if err != nil {
+		return nil, err
+	}
+
+	var version string
+	if available {
+		version, err = ffmpegVersion(execPath, false)
+		if err != nil {
+			version = "unknown"
+		}
+	}
+
+	return &types.SoftwareInfo{
+		Available: available,
+		Path:      path,
+		ExecPath:  execPath,
+		Version:   version,
+	}, nil
+}
+
+func (s *Service) GetFFMPEGVersion() (string, error) {
+	_, _, execPath, err := ffmpegAvailable()
+	if err != nil {
+		return "", err
+	}
+
+	version, err := ffmpegVersion(execPath, true)
+	if err != nil {
+		return "", err
+	}
+
+	return version, nil
+}
+
+func (s *Service) GetYTDLPPath() (*types.SoftwareInfo, error) {
+	available, path, execPath, err := ytdlpAvailable()
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.SoftwareInfo{
+		Available: available,
+		Path:      path,
+		ExecPath:  execPath,
+		Version:   consts.YTDLP_VERSION,
+	}, nil
+}
+
+func (s *Service) InstallYTDLP() (string, error) {
+	return s.getYtdlpPath()
 }
 
 func (s *Service) newCommand() (*ytdlp.Command, error) {
@@ -83,18 +132,26 @@ func (s *Service) newCommand() (*ytdlp.Command, error) {
 
 	// yt-dlp mustinstall
 	if !s.ytdlpInstalled {
-		ytdlp.MustInstall(s.ctx, nil)
+		path, err := s.getYtdlpPath()
+		if err != nil {
+			return nil, err
+		}
 		s.ytdlpInstalled = true
+		dl.SetExecutable(path)
 	}
 
 	// ffmpeg
-	ffmpegPath, err := exec.LookPath("ffmpeg")
+	available, path, execPath, err := ffmpegAvailable()
 	if err != nil {
 		return nil, err
 	}
 
+	if !available {
+		return nil, fmt.Errorf("ffmpeg not found in cache directory: %s", path)
+	}
+
 	// set ffmpeg
-	dl.FFmpegLocation(ffmpegPath)
+	dl.FFmpegLocation(execPath)
 
 	return dl, nil
 }

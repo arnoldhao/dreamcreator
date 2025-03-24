@@ -9,6 +9,7 @@ export function useDt() {
     // 注册回调函数
     const progressCallbacks = []
     const singleCallbacks = []
+    const installingCallbacks = []
 
     function handleCallback(data) {
         switch (data.event) {
@@ -17,6 +18,9 @@ export function useDt() {
                 break
             case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_SINGLE:
                 handleSingle(data.data)
+                break
+            case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_INSTALLING:
+                handleInstalling(data.data)
                 break
             default:
                 console.warn('Unknown event:', data.event)
@@ -46,6 +50,17 @@ export function useDt() {
                 callback(innerData)
             } catch (error) {
                 console.error('Error in single callback:', error)
+            }
+        })
+    }
+
+    function handleInstalling(innerData) {
+        // 调用所有注册的安装回调函数
+        installingCallbacks.forEach(callback => {
+            try {
+                callback(innerData)
+            } catch (error) {
+                console.error('Error in installing callback:', error)
             }
         })
     }
@@ -81,10 +96,24 @@ export function useDt() {
         }
     }
 
+    // 注册安装回调
+    function onInstalling(callback) {
+        if (typeof callback === 'function') {
+            installingCallbacks.push(callback)
+        }
+        return () => {
+            const index = installingCallbacks.indexOf(callback)
+            if (index !== -1) {
+                installingCallbacks.splice(index, 1)
+            }
+        }
+    }
+
     return {
         initDt,
         onProgress,
         onSingle,
+        onInstalling,
         taskProgressMap
     }
 }

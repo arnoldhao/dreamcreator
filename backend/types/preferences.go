@@ -3,6 +3,7 @@ package types
 import (
 	"CanMe/backend/consts"
 	"CanMe/backend/pkg/downinfo"
+	"CanMe/backend/pkg/logger"
 	"CanMe/backend/pkg/proxy"
 )
 
@@ -11,6 +12,7 @@ type Preferences struct {
 	General  PreferencesGeneral  `json:"general" yaml:"general"`
 	Proxy    proxy.Config        `json:"proxy" yaml:"proxy"`
 	Download downinfo.Config     `json:"download" yaml:"download"`
+	Logger   logger.Config       `json:"logger" yaml:"logger"`
 }
 
 func NewPreferences() Preferences {
@@ -30,6 +32,7 @@ func NewPreferences() Preferences {
 		Download: downinfo.Config{
 			Dir: downinfo.GetDefaultDownloadDir(),
 		},
+		Logger: *logger.DefaultConfig(),
 	}
 }
 

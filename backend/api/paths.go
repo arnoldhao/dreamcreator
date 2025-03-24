@@ -5,6 +5,7 @@ import (
 	"CanMe/backend/services/preferences"
 	"CanMe/backend/types"
 	"context"
+	"encoding/json"
 )
 
 type PathsAPI struct {
@@ -33,9 +34,60 @@ func (api *PathsAPI) GetTaskDbPath() (resp *types.JSResp) {
 }
 
 func (api *PathsAPI) GetFFMPEGPath() (resp *types.JSResp) {
-	path, err := api.dts.GetFFMPEGPath()
+	content, err := api.dts.GetFFMPEGPath()
 	if err != nil {
-		return &types.JSResp{Success: false, Data: err.Error()}
+		return &types.JSResp{Msg: err.Error()}
 	}
-	return &types.JSResp{Success: true, Data: path}
+
+	contentString, err := json.Marshal(content)
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+
+	return &types.JSResp{Success: true, Data: string(contentString)}
+}
+
+func (api *PathsAPI) GetYTDLPPath() (resp *types.JSResp) {
+	content, err := api.dts.GetYTDLPPath()
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+
+	contentString, err := json.Marshal(content)
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+
+	return &types.JSResp{Success: true, Data: string(contentString)}
+}
+
+func (api *PathsAPI) DependenciesReady() (resp *types.JSResp) {
+	ffmpeg, err := api.dts.GetFFMPEGPath()
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+
+	if !ffmpeg.Available {
+		return &types.JSResp{Msg: "FFMPEG is not installed"}
+	}
+
+	ytdlp, err := api.dts.GetYTDLPPath()
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+
+	if !ytdlp.Available {
+		return &types.JSResp{Msg: "YTDLP is not installed"}
+	}
+
+	return &types.JSResp{Success: true}
+}
+
+func (api *PathsAPI) GetFFMPEGVersion() (resp *types.JSResp) {
+	version, err := api.dts.GetFFMPEGVersion()
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+
+	return &types.JSResp{Success: true, Data: version}
 }

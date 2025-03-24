@@ -3,17 +3,21 @@ package preferences
 import (
 	"CanMe/backend/consts"
 	"CanMe/backend/pkg/downinfo"
+	"CanMe/backend/pkg/logger"
 	"CanMe/backend/pkg/proxy"
 	"CanMe/backend/storage"
 	"CanMe/backend/types"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"go.uber.org/zap"
 )
 
 type Service struct {
@@ -36,6 +40,15 @@ func New() *Service {
 				clientVersion: consts.APP_VERSION,
 				proxyClient:   nil,
 			}
+
+			// 初始化日志系统
+			pref := preferences.pref.GetPreferences()
+			if err := logger.InitLogger(&pref.Logger); err != nil {
+				fmt.Printf("初始化日志系统失败: %v\n", err)
+			}
+
+			// 初始化其他全局配置
+			preferences.updateDownloadConfig()
 		})
 	}
 	return preferences
@@ -225,12 +238,45 @@ func (p *Service) UpdateEnv() {
 	}
 }
 
-func (p *Service) UpdateGlobalConfig() {
-	// set download dir
-	downloadDir := p.pref.GetPreferences().Download.Dir
+func (p *Service) updateDownloadConfig() {
+	pref := p.pref.GetPreferences()
+	downloadDir := pref.Download.Dir
 	if len(downloadDir) > 0 {
 		if p.downloadClient != nil {
 			p.downloadClient.SetDir(downloadDir)
 		}
 	}
+}
+
+// UpdateGlobalConfig 更新全局配置（不包括日志配置）
+func (p *Service) UpdateGlobalConfig() {
+	p.updateDownloadConfig()
+}
+
+// SetLoggerConfig 更新日志配置
+func (p *Service) SetLoggerConfig(config logger.Config) (resp types.JSResp) {
+	// 检查配置是否真的变化了
+	pref := p.pref.GetPreferences()
+	if reflect.DeepEqual(pref.Logger, config) {
+		resp.Success = true
+		return
+	}
+
+	// 保存新配置
+	pref.Logger = config
+	err := p.pref.SetPreferences(&pref)
+	if err != nil {
+		resp.Msg = err.Error()
+		return
+	}
+
+	// 重新初始化日志系统
+	if err := logger.InitLogger(&config); err != nil {
+		logger.Error("Failed to update logger config", zap.Error(err))
+		resp.Msg = err.Error()
+		return
+	}
+
+	resp.Success = true
+	return
 }

@@ -51,7 +51,9 @@ const onCheckUpdateChange = () => {
                 <div class="flex items-center justify-between p-4 rounded-lg bg-base-100">
                     <div class="flex items-center gap-4">
                         <div class="avatar">
-                            <img :src="iconUrl" alt="logo" class="about-logo" />
+                            <div class="w-24 rounded-xl">
+                                <img :src="iconUrl" alt="logo" />
+                            </div>
                         </div>
                         <div class="space-y-2">
                             <h1 class="text-2xl font-semibold text-base-content">{{ $t('dialogue.app_name') }}</h1>
@@ -140,11 +142,6 @@ const onCheckUpdateChange = () => {
     &:hover {
         text-decoration: underline;
     }
-}
-
-.about-logo {
-    width: 72px;
-    height: 72px;
 }
 
 .card {

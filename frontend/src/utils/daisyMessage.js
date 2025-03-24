@@ -45,30 +45,33 @@ const ToastComponent = {
         class: getToastClass(props.type),
         style: {
           marginBottom: '38px',
-          padding: '0.5rem 1rem', // 减小内边距
-          maxWidth: '300px',       // 限制最大宽度
-          fontSize: '0.875rem',    // 减小字体大小
-          transform: 'scale(0.9)' // 整体缩小
+          padding: '0.5rem 1rem',
+          maxWidth: '300px',
+          fontSize: '0.875rem',
+          transform: 'scale(0.9)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem'
         }
       }, [
-        // 添加图标
+        // 图标
         h('div', {
           style: {
-            display: 'flex',
-            alignItems: 'center'
+            flexShrink: 0,
+            transform: 'scale(0.8)'
           }
         }, [
-          h('div', {
-            style: {
-              transform: 'scale(0.8)', // 缩小图标
-              marginRight: '0.5rem'
-            }
-          }, [
-            getIconForType(props.type)
-          ])
+          getIconForType(props.type)
         ]),
-        // 添加内容
-        h('span', { class: 'whitespace-pre-wrap break-words' }, props.content)
+        // 内容
+        h('span', { 
+          style: {
+            flex: '1',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }
+        }, props.content)
       ])
     ])
   }

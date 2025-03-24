@@ -8,3 +8,7 @@ const (
 	TaskStatusFailed    = "failed"
 	TaskStatusCancelled = "cancelled"
 )
+
+const (
+	YTDLP_VERSION = "2025.02.19"
+)

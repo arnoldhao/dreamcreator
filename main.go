@@ -6,6 +6,7 @@ import (
 	"CanMe/backend/core/downtasks"
 	"CanMe/backend/core/events"
 	"CanMe/backend/pkg/downinfo"
+	"CanMe/backend/pkg/logger"
 	"CanMe/backend/pkg/proxy"
 	"CanMe/backend/pkg/websockets"
 	"CanMe/backend/services/preferences"
@@ -14,9 +15,9 @@ import (
 	"embed"
 	"fmt"
 	"runtime"
+	"time"
 
 	"github.com/wailsapp/wails/v2"
-	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -24,6 +25,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"go.uber.org/zap"
 )
 
 //go:embed all:frontend/dist
@@ -36,6 +38,10 @@ func main() {
 	// Frameworks
 	preferencesService := preferences.New()
 	systemService := systems.New()
+
+	// log
+	defer logger.GetLogger().Sync()
+	logger.GetLogger().Info("CanMe Start!", zap.Time("now", time.Now()))
 
 	// Packages
 	// # Proxy
@@ -104,9 +110,7 @@ func main() {
 			dtAPI,
 			pathsAPI,
 		},
-		Logger:             logger.NewDefaultLogger(),
-		LogLevel:           logger.INFO,
-		LogLevelProduction: logger.ERROR,
+		Logger: logger.NewWailsLogger(),
 		OnStartup: func(ctx context.Context) {
 			// Frameworks
 			preferencesService.SetContext(ctx)
@@ -127,7 +131,7 @@ func main() {
 		OnShutdown: func(ctx context.Context) {
 			// 关闭下载任务服务
 			if err := dtService.Close(); err != nil {
-				wailsRuntime.LogErrorf(ctx, "Error closing downtasks service: %v", err)
+				logger.GetLogger().Error("Error closing downtasks service", zap.Error(err))
 			}
 		},
 		OnBeforeClose: func(ctx context.Context) (prevent bool) {

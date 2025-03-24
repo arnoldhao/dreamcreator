@@ -8,6 +8,7 @@ import {
     SetPreferences,
     SetProxyConfig,
     SetDownloadConfig,
+    SetLoggerConfig,
 } from 'wailsjs/go/preferences/Service.js'
 import { BrowserOpenURL } from 'wailsjs/runtime/runtime.js'
 import { i18nGlobal } from '@/utils/i18n.js'
@@ -69,6 +70,21 @@ const usePreferencesStore = defineStore('preferences', {
         buildInDecoder: [],
         decoder: [],
         lastPref: {},
+        logger: {}, 
+        dependencies: {
+            ytdlp: {
+                installing: false,
+                installProgress: '',
+                installed: false,
+                path: '',
+                version: ''
+            },
+            ffmpeg: {
+                installed: false,
+                path: '',
+                version: ''
+            }
+        }
     }),
     getters: {
         getSeparator() {
@@ -168,7 +184,7 @@ const usePreferencesStore = defineStore('preferences', {
          * @returns {Promise<boolean>}
          */
         async savePreferences() {
-            const pf = pick(this, ['behavior', 'general', 'proxy', 'download'])
+            const pf = pick(this, ['behavior', 'general', 'proxy', 'download', 'logger']) 
             const { success, msg } = await SetPreferences(pf)
             // proxy 
             return success === true
@@ -240,6 +256,33 @@ const usePreferencesStore = defineStore('preferences', {
             } catch (error) {
                 console.error('Failed to set download directory:', error)
                 $message.error(i18nGlobal.t('settings.general.download_dir_set_failed'))
+                return false
+            }
+        },
+
+        /**
+         * 更新日志配置
+         * @param {Object} config 日志配置
+         * @returns {Promise<boolean>}
+         */
+        async setLoggerConfig(config) {
+            try {
+                // 更新 store 中的配置
+                this.logger = {
+                    ...this.logger,
+                    ...config
+                }
+
+                // 保存到后端
+                const { success, msg } = await SetLoggerConfig(config)
+                if (!success) {
+                    $message.error(msg || '保存日志配置失败')
+                    return false
+                }
+                return true
+            } catch (error) {
+                console.error('保存日志配置失败:', error)
+                $message.error('保存日志配置失败')
                 return false
             }
         },

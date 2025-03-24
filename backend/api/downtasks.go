@@ -50,6 +50,17 @@ func (api *DowntasksAPI) Subscribe(ctx context.Context) {
 			})
 		}
 	})
+
+	api.eventBus.Subscribe(consts.TopicDowntasksInstalling, func(event events.Event) {
+		// WebSocket Logic:report current installing status to client
+		if data, ok := event.Data.(*types.DtProgress); ok {
+			api.ws.SendToClient(types.WSResponse{
+				Namespace: consts.NAMESPACE_DOWNTASKS,
+				Event:     consts.EVENT_DOWNTASKS_INSTALLING,
+				Data:      data,
+			})
+		}
+	})
 }
 
 func (api *DowntasksAPI) GetContent(url string) (resp *types.JSResp) {
@@ -113,4 +124,14 @@ func (api *DowntasksAPI) DeleteTask(id string) (resp *types.JSResp) {
 	}
 
 	return &types.JSResp{Success: true}
+}
+
+func (api *DowntasksAPI) InstallYTDLP() (resp *types.JSResp) {
+	// install
+	path, err := api.service.InstallYTDLP()
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+
+	return &types.JSResp{Success: true, Data: path}
 }

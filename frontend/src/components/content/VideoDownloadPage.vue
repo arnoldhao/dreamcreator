@@ -27,10 +27,14 @@
             <!-- task brief -->
             <div class="flex items-center mb-3">
               <div class="w-14 h-9 bg-base-200 rounded overflow-hidden flex-shrink-0 mr-3">
-                <img v-if="activeTask.thumbnail" :src="activeTask.thumbnail" class="w-full h-full object-cover"
-                  alt="{{ $t('download.thumbnail') }}" />
-                <div v-else class="w-full h-full flex items-center justify-center text-base-content/30">
-                  <v-icon name="ri-image-line" class="w-5 h-5"></v-icon>
+                <template v-if="!thumbnailLoadError && activeTask.thumbnail">
+                  <img :src="activeTask.thumbnail" 
+                    class="w-full h-full object-cover"
+                    :alt="$t('download.thumbnail')" 
+                    @error="handleThumbnailError" />
+                </template>
+                <div v-else class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
+                  <v-icon name="ri-video-line" class="w-5 h-5 mb-1"></v-icon>
                 </div>
               </div>
               <div class="flex-1">
@@ -210,17 +214,20 @@
           <div v-for="task in filteredTasks" :key="task.id"
             class="card bg-base-100 shadow-md border border-base-200 hover:shadow-lg transition-shadow duration-200"
             :class="{ 'border-primary/30 bg-primary/5': task.id === activeTask?.id }">
-            <div class="card-body p-2.5 cursor-pointer" @click="switchActiveTask(task.id)">
+            <div class="card-body p-2.5 cursor-pointer" @click="switchActiveTask(task)">
               <div class="flex items-center">
                 <!-- task information -->
                 <div class="w-12 h-8 bg-base-200 rounded-md overflow-hidden flex-shrink-0 mr-2.5">
-                  <img v-if="task.thumbnail" :src="task.thumbnail" class="w-full h-full object-cover"
-                    alt="{{ $t('download.thumbnail') }}" />
-                  <div v-else class="w-full h-full flex items-center justify-center text-base-content/30">
-                    <v-icon name="ri-image-line" class="w-4 h-4"></v-icon>
-                  </div>
+                  <template v-if="!task.thumbnailLoadError && task.thumbnail">
+                    <img :src="task.thumbnail" 
+                      class="w-full h-full object-cover"
+                      :alt="$t('download.thumbnail')" 
+                      @error="handleTaskThumbnailError" />
+                  </template>
+                    <div v-else class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
+                      <v-icon name="ri-video-line" class="w-5 h-5 mb-1"></v-icon>
+                    </div>
                 </div>
-
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center">
                     <div class="font-medium text-sm truncate mr-2">{{ task.title }}</div>
@@ -294,7 +301,7 @@
         </div>
 
         <!-- Filtered empty state -->
-        <div v-else-if="filteredTasks.length === 0" class="card bg-base-100 shadow-md border border-base-200">
+        <div v-else-if="filteredTasks.length === 0 && tasks.length > 0" class="card bg-base-100 shadow-md border border-base-200">
           <div class="card-body p-6 flex flex-col items-center justify-center">
             <v-icon name="ri-inbox-line" class="w-12 h-12 text-base-content/20 mb-3"></v-icon>
             <h3 class="text-base font-medium mb-1.5">{{ $t('download.no_filter_results') }}</h3>
@@ -335,10 +342,14 @@
           <!-- task title and thumbnail -->
           <div class="flex items-start space-x-4">
             <div class="w-20 h-14 bg-base-200 rounded overflow-hidden flex-shrink-0">
-              <img v-if="selectedTask.thumbnail" :src="selectedTask.thumbnail" class="w-full h-full object-cover"
-                :alt="$t('download.thumbnail')" />
-              <div v-else class="w-full h-full flex items-center justify-center text-base-content/30">
-                <v-icon name="ri-image-line" class="w-6 h-6"></v-icon>
+              <template v-if="!selectedThumbnailLoadError && selectedTask.thumbnail">
+                <img :src="selectedTask.thumbnail" 
+                  class="w-full h-full object-cover"
+                  :alt="$t('download.thumbnail')" 
+                  @error="handleSelectedThumbnailError" />
+              </template>
+              <div v-else class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
+                <v-icon name="ri-video-line" class="w-8 h-8 mb-1"></v-icon>
               </div>
             </div>
             <div class="flex-1">
@@ -570,9 +581,12 @@ import { ListTasks, DeleteTask } from 'wailsjs/go/api/DowntasksAPI'
 import { OpenDirectory } from 'wailsjs/go/systems/Service'
 import { useDt } from '@/handlers/downtasks'
 import VideoDownloadModal from '@/components/modal/VideoDownloadModal.vue'
+import { useLoggerStore } from '@/stores/logger'
 
 // i18n
 const { t } = useI18n()
+// logger
+const logger = useLoggerStore()
 
 // base
 const tasks = ref([])
@@ -718,6 +732,9 @@ const refreshTasks = async () => {
             ? task.translateTo
             : t('download.none_content'),
           subtitleStyle: task.subtitleStyle || t('download.none_content'),
+
+          // additional info
+          thumbnailLoadError: false,
         }
       })
     } else {
@@ -988,7 +1005,18 @@ const getFileTypeLabel = (filePath) => {
 // get file name (remove path)
 const getFileName = (filePath) => {
   if (!filePath) return ''
-  return filePath.split('/').pop()
+  
+  // 统一处理路径分隔符（Windows 和 Unix）
+  const normalizedPath = filePath.replace(/\\/g, '/')
+  const fileName = normalizedPath.split('/').pop()
+  
+  try {
+    // 尝试解码可能的 URL 编码
+    return decodeURIComponent(fileName)
+  } catch (e) {
+    // 如果解码失败，返回原始文件名
+    return fileName
+  }
 }
 
 // copy to clipboard
@@ -1002,6 +1030,33 @@ const copyToClipboard = (toCopy) => {
     .catch(err => {
       $message.error(t('common.copy_failed'), err)
     })
+}
+
+// 添加缩略图加载状态
+const thumbnailLoadError = ref(false)
+const selectedThumbnailLoadError = ref(false)
+
+// handle thumbnail error
+const handleThumbnailError = (e) => {
+  // mark thumbnail load error
+  logger.error('Thumbnail load error', activeTask.value?.thumbnail)
+  
+  thumbnailLoadError.value = true
+}
+
+const handleTaskThumbnailError = (task) => {
+  // mark thumbnail load error
+  logger.error('Thumbnail load error', task.value?.thumbnail)
+  
+  task.thumbnailLoadError = true
+}
+
+// handle selected thumbnail error
+const handleSelectedThumbnailError = (e) => {
+  // mark thumbnail load error
+  logger.error('Thumbnail load error', selectedTask.value?.thumbnail)
+  
+  selectedThumbnailLoadError.value = true
 }
 
 // lifecycle hooks
@@ -1051,13 +1106,22 @@ const updateTaskFromProgress = (progress) => {
 const activeTaskId = ref(null)
 
 // switch current displayed active task
-const switchActiveTask = (taskId) => {
-  activeTaskId.value = taskId
+const switchActiveTask = (task) => {
+  activeTaskId.value = task.id
+  // reset task thumbnail load error
+  task.thumbnailLoadError = false
 }
 
 watch(activeTaskId, (newId) => {
   if (newId) {
     refreshTasks()
+    thumbnailLoadError.value = false
+  }
+})
+
+watch(selectedTaskId, (newId) => {
+  if (newId) {
+    selectedThumbnailLoadError.value = false
   }
 })
 
