@@ -213,11 +213,18 @@ func (s *Service) checkYTDLP() (config types.SoftwareInfo, err error) {
 			return softinfo, err
 		}
 
+		name := fmt.Sprintf("yt-dlp.%s", consts.YTDLP_VERSION)
 		softinfo.Path = dir
-		softinfo.ExecPath = filepath.Join(dir, "yt-dlp") // include dir and file
+		softinfo.ExecPath = filepath.Join(dir, name) // include dir and file
 		if runtime.GOOS == "windows" {
 			softinfo.ExecPath += ".exe"
 		}
+	}
+
+	// update to support yt-dlp version
+	if !strings.Contains(softinfo.ExecPath, "yt-dlp.") {
+		name := fmt.Sprintf("yt-dlp.%s", consts.YTDLP_VERSION)
+		softinfo.ExecPath = filepath.Join(softinfo.Path, name)
 	}
 
 	// Check if file exists
@@ -225,6 +232,7 @@ func (s *Service) checkYTDLP() (config types.SoftwareInfo, err error) {
 	info, err := os.Stat(execPath)
 	if err != nil {
 		// save config and return
+		softinfo.Available = false
 		s.pref.SetYTDLP(softinfo)
 		return softinfo, fmt.Errorf("yt-dlp not found in cache directory: %s", execPath)
 	}
@@ -256,24 +264,19 @@ func (s *Service) checkFFMpeg() (config types.SoftwareInfo, err error) {
 	if softinfo.Path == "" || softinfo.ExecPath == "" {
 		// if not exsited, check system
 		if runtime.GOOS == "windows" {
-			// Windows/macOS: manually check PATH to avoid command window flash and sandbox issues
+			// Windows: manually check PATH to avoid command window flash and sandbox issues
 			pathEnv := os.Getenv("PATH")
 			paths := strings.Split(pathEnv, string(os.PathListSeparator))
-			execName := "ffmpeg"
-			if runtime.GOOS == "windows" {
-				execName = "ffmpeg.exe"
-			}
+			execName := "ffmpeg.exe"
 			for _, p := range paths {
 				execPath := filepath.Join(p, execName)
 				if info, err := os.Stat(execPath); err == nil && !info.IsDir() {
-					if info.Mode()&0111 != 0 {
-						// save config and return
-						softinfo.Path = filepath.Dir(execPath)
-						softinfo.ExecPath = execPath
-						softinfo.Available = true
-						s.pref.SetFFMpeg(softinfo)
-						return softinfo, nil
-					}
+					// save config and return
+					softinfo.Path = filepath.Dir(execPath)
+					softinfo.ExecPath = execPath
+					softinfo.Available = true
+					s.pref.SetFFMpeg(softinfo)
+					return softinfo, nil
 				}
 			}
 		} else if runtime.GOOS == "darwin" {
@@ -297,6 +300,7 @@ func (s *Service) checkFFMpeg() (config types.SoftwareInfo, err error) {
 	info, err := os.Stat(execPath)
 	if err != nil {
 		// save config and return
+		softinfo.Available = false
 		s.pref.SetFFMpeg(softinfo)
 		return softinfo, fmt.Errorf("ffmpeg not found in cache directory: %s", execPath)
 	}

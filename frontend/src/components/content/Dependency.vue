@@ -42,13 +42,13 @@ const installYtdlp = async () => {
         const response = await InstallYTDLP()
         if (response.success) {
             await ytdlpStatus()
-            $message.success(t('dependency.install_success'))
+            $message.success(t('settings.dependency.install_success'))
         } else {
             $message.error(response.msg)
         }
     } catch (error) {
         console.error('Install ytdlp failed:', error)
-        $message.error(t('dependency.install_failed'))
+        $message.error(t('settings.dependency.install_failed'))
     } finally {
         prefStore.dependencies.ytdlp.installing = false
     }

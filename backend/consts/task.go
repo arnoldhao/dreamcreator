@@ -10,5 +10,5 @@ const (
 )
 
 const (
-	YTDLP_VERSION = "2025.02.19"
+	YTDLP_VERSION = "2025.03.25"
 )
