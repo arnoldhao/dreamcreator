@@ -280,3 +280,50 @@ func (p *Service) SetLoggerConfig(config logger.Config) (resp types.JSResp) {
 	resp.Success = true
 	return
 }
+
+func (p *Service) GetDependencies() types.Dependencies {
+	pref := p.pref.GetPreferences()
+	return pref.Dependencies
+}
+
+func (p *Service) SetDependfencies(depends types.Dependencies) error {
+	pref := p.pref.GetPreferences()
+	pref.Dependencies = depends
+	err := p.pref.SetPreferences(&pref)
+	if err != nil {
+		logger.Error("Failed to update dependencies", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (p *Service) GetDependsYTDLP() types.SoftwareInfo {
+	depends := p.GetDependencies()
+	if y := depends.YTDLP; y != (types.SoftwareInfo{}) {
+		return y
+	}
+
+	return types.SoftwareInfo{}
+}
+
+func (p *Service) GetDependsFFMpeg() types.SoftwareInfo {
+	depends := p.GetDependencies()
+	if y := depends.FFMpeg; y != (types.SoftwareInfo{}) {
+		return y
+	}
+
+	return types.SoftwareInfo{}
+}
+
+func (p *Service) SetYTDLP(ytdlp types.SoftwareInfo) error {
+	depends := p.GetDependencies()
+	depends.YTDLP = ytdlp
+	return p.SetDependfencies(depends)
+}
+
+func (p *Service) SetFFMpeg(ffmpeg types.SoftwareInfo) error {
+	depends := p.GetDependencies()
+	depends.FFMpeg = ffmpeg
+	return p.SetDependfencies(depends)
+}

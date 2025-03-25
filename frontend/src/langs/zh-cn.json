@@ -144,7 +144,8 @@
       "install_success":"安装成功",
       "install_failed":"安装失败",
       "install_ffmpeg":"安装FFmpeg",
-      "install_ffmpeg_desc":"请先自行安装FFmpeg，然后重新打开软件"
+      "install_ffmpeg_desc":"请先自行安装FFmpeg，然后重新打开软件",
+      "check":"检查"
     }
   },
   "message": {

@@ -145,7 +145,8 @@
       "install_success":"Install Success",
       "install_failed":"Install Failed",
       "install_ffmpeg":"Install FFmpeg",
-      "install_ffmpeg_desc":"Please install FFmpeg first, then restart the software"
+      "install_ffmpeg_desc":"Please install FFmpeg first, then restart the software",
+      "check": "Check"
     }
   },
   "message": {

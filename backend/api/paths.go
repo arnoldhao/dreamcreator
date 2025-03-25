@@ -68,7 +68,7 @@ func (api *PathsAPI) DependenciesReady() (resp *types.JSResp) {
 	}
 
 	if !ffmpeg.Available {
-		return &types.JSResp{Msg: "FFMPEG is not installed"}
+		return &types.JSResp{Msg: "FFMpeg is not avaliable"}
 	}
 
 	ytdlp, err := api.dts.GetYTDLPPath()
@@ -77,17 +77,26 @@ func (api *PathsAPI) DependenciesReady() (resp *types.JSResp) {
 	}
 
 	if !ytdlp.Available {
-		return &types.JSResp{Msg: "YTDLP is not installed"}
+		return &types.JSResp{Msg: "YTDLP is not avaliable"}
 	}
 
 	return &types.JSResp{Success: true}
 }
 
-func (api *PathsAPI) GetFFMPEGVersion() (resp *types.JSResp) {
-	version, err := api.dts.GetFFMPEGVersion()
+func (api *PathsAPI) SetFFMpegExecPath(execPath string) (resp *types.JSResp) {
+	if execPath == "" {
+		return &types.JSResp{Msg: "execPath is empty"}
+	}
+
+	content, err := api.dts.SetFFMpegPath(execPath)
 	if err != nil {
 		return &types.JSResp{Msg: err.Error()}
 	}
 
-	return &types.JSResp{Success: true, Data: version}
+	contentString, err := json.Marshal(content)
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+
+	return &types.JSResp{Success: true, Data: string(contentString)}
 }

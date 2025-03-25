@@ -54,7 +54,7 @@ func main() {
 	// # Events
 	events := events.NewEventBus()
 	// # Downtasks
-	dtService := downtasks.NewService(events, proxyClient, downloadClient)
+	dtService := downtasks.NewService(events, proxyClient, downloadClient, preferencesService)
 
 	// Packages
 	// # Websocket

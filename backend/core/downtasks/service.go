@@ -5,6 +5,7 @@ import (
 	"CanMe/backend/core/events"
 	"CanMe/backend/pkg/downinfo"
 	"CanMe/backend/pkg/proxy"
+	"CanMe/backend/services/preferences"
 	"CanMe/backend/types"
 	"context"
 	"fmt"
@@ -32,16 +33,21 @@ type Service struct {
 	proxyClient *proxy.Client
 	// download
 	downloadClient *downinfo.Client
+	// pref
+	pref *preferences.Service
 	// yt-dlp
 	ytdlpInstalled bool // 标记 yt-dlp 是否已安装
+	// ffmpeg exec path
+	ffmpegExecPath string
 }
 
-func NewService(eventBus events.EventBus, proxyClient *proxy.Client, downloadClient *downinfo.Client) *Service {
+func NewService(eventBus events.EventBus, proxyClient *proxy.Client, downloadClient *downinfo.Client, pref *preferences.Service) *Service {
 	s := &Service{
 		taskManager:    nil,
 		eventBus:       eventBus,
 		proxyClient:    proxyClient,
 		downloadClient: downloadClient,
+		pref:           pref,
 		ytdlpInstalled: false,
 	}
 
@@ -66,54 +72,16 @@ func (s *Service) DeleteTask(id string) error {
 	return s.taskManager.DeleteTask(id)
 }
 
-func (s *Service) GetFFMPEGPath() (*types.SoftwareInfo, error) {
-	available, path, execPath, err := ffmpegAvailable()
-	if err != nil {
-		return nil, err
-	}
-
-	var version string
-	if available {
-		version, err = ffmpegVersion(execPath, false)
-		if err != nil {
-			version = "unknown"
-		}
-	}
-
-	return &types.SoftwareInfo{
-		Available: available,
-		Path:      path,
-		ExecPath:  execPath,
-		Version:   version,
-	}, nil
+func (s *Service) GetFFMPEGPath() (types.SoftwareInfo, error) {
+	return s.checkFFMpeg()
 }
 
-func (s *Service) GetFFMPEGVersion() (string, error) {
-	_, _, execPath, err := ffmpegAvailable()
-	if err != nil {
-		return "", err
-	}
-
-	version, err := ffmpegVersion(execPath, true)
-	if err != nil {
-		return "", err
-	}
-
-	return version, nil
+func (s *Service) SetFFMpegPath(execPath string) (types.SoftwareInfo, error) {
+	return s.setFFMpeg(execPath)
 }
 
-func (s *Service) GetYTDLPPath() (*types.SoftwareInfo, error) {
-	available, path, execPath, err := ytdlpAvailable()
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.SoftwareInfo{
-		Available: available,
-		Path:      path,
-		ExecPath:  execPath,
-		Version:   consts.YTDLP_VERSION,
-	}, nil
+func (s *Service) GetYTDLPPath() (types.SoftwareInfo, error) {
+	return s.checkYTDLP()
 }
 
 func (s *Service) InstallYTDLP() (string, error) {
@@ -141,17 +109,17 @@ func (s *Service) newCommand() (*ytdlp.Command, error) {
 	}
 
 	// ffmpeg
-	available, path, execPath, err := ffmpegAvailable()
+	ffinfo, err := s.checkFFMpeg()
 	if err != nil {
 		return nil, err
 	}
 
-	if !available {
-		return nil, fmt.Errorf("ffmpeg not found in cache directory: %s", path)
+	if !ffinfo.Available {
+		return nil, fmt.Errorf("ffmpeg is not avaliable in new command function")
 	}
 
 	// set ffmpeg
-	dl.FFmpegLocation(execPath)
+	dl.FFmpegLocation(ffinfo.ExecPath)
 
 	return dl, nil
 }

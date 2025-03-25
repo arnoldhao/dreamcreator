@@ -30,20 +30,20 @@ func (s *Service) getYtdlpPath() (string, error) {
 	}
 
 	// check ytdlp
-	available, path, execPath, err := ytdlpAvailable()
+	softinfo, err := s.checkYTDLP()
 	if err != nil {
 		logger.Error("Failed to check ytdlp", zap.Error(err))
 	}
 
 	// log info: directory/execPath
 	logger.Info("ytdlp check result",
-		zap.String("directory", path),
-		zap.String("execPath", execPath),
-		zap.Bool("available", available))
+		zap.String("directory", softinfo.Path),
+		zap.String("execPath", softinfo.ExecPath),
+		zap.Bool("available", softinfo.Available))
 
 	// if installed, return
-	if available {
-		return execPath, nil
+	if softinfo.Available {
+		return softinfo.ExecPath, nil
 	}
 
 	// report to event bus, begin to install
@@ -53,7 +53,7 @@ func (s *Service) getYtdlpPath() (string, error) {
 	})
 
 	// makesure directory exists
-	if err := os.MkdirAll(path, 0o755); err != nil {
+	if err := os.MkdirAll(softinfo.Path, 0o755); err != nil {
 		return "", fmt.Errorf("Create directory failed: %w", err)
 	}
 
@@ -91,7 +91,7 @@ func (s *Service) getYtdlpPath() (string, error) {
 	}
 
 	// create temp file
-	tmpFile, err := os.CreateTemp(path, "yt-dlp-*")
+	tmpFile, err := os.CreateTemp(softinfo.Path, "yt-dlp-*")
 	// log info: temp file
 	logger.Info("ytdlp temp file created", zap.String("path", tmpFile.Name()))
 
@@ -148,12 +148,12 @@ func (s *Service) getYtdlpPath() (string, error) {
 	// log info: move to final location
 	logger.Info("ytdlp moving to final location",
 		zap.String("from", tmpFile.Name()),
-		zap.String("to", execPath))
+		zap.String("to", softinfo.ExecPath))
 
 	// move to final location
-	if err := os.Rename(tmpFile.Name(), execPath); err != nil {
+	if err := os.Rename(tmpFile.Name(), softinfo.ExecPath); err != nil {
 		// if rename failed (maybe because file already exists), try copy
-		if err := copyFile(tmpFile.Name(), execPath); err != nil {
+		if err := copyFile(tmpFile.Name(), softinfo.ExecPath); err != nil {
 			return "", fmt.Errorf("Move file failed: %w", err)
 		}
 	}
@@ -164,9 +164,9 @@ func (s *Service) getYtdlpPath() (string, error) {
 	})
 
 	// log info: installed
-	logger.Info("ytdlp installation completed", zap.String("path", execPath))
+	logger.Info("ytdlp installation completed", zap.String("path", softinfo.ExecPath))
 
-	return execPath, nil
+	return softinfo.ExecPath, nil
 }
 
 // copyFile
@@ -203,54 +203,162 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-func ytdlpAvailable() (available bool, path, execPath string, err error) {
-	// first check system PATH
-	if runtime.GOOS == "windows" {
-		// Windows: manually check PATH to avoid command window flash
-		pathEnv := os.Getenv("PATH")
-		paths := strings.Split(pathEnv, string(os.PathListSeparator))
-		for _, p := range paths {
-			exe := filepath.Join(p, "yt-dlp.exe")
-			if info, err := os.Stat(exe); err == nil && !info.IsDir() {
-				return true, p, exe, nil
-			}
+func (s *Service) checkYTDLP() (config types.SoftwareInfo, err error) {
+	softinfo := s.pref.GetDependsYTDLP()
+	if softinfo.Path == "" || softinfo.ExecPath == "" {
+		// if not exsited, check system
+		dir, err := os.UserCacheDir()
+		dir = filepath.Join(dir, "go-ytdlp")
+		if err != nil {
+			return softinfo, err
 		}
-	} else {
-		// Unix-like systems: use LookPath
-		if execPath, err := exec.LookPath("yt-dlp"); err == nil {
-			return true, filepath.Dir(execPath), execPath, nil
+
+		softinfo.Path = dir
+		softinfo.ExecPath = filepath.Join(dir, "yt-dlp") // include dir and file
+		if runtime.GOOS == "windows" {
+			softinfo.ExecPath += ".exe"
 		}
-	}
-
-	// if not found, check cache
-	dir, err := os.UserCacheDir()
-	dir = filepath.Join(dir, "go-ytdlp")
-	execPath = filepath.Join(dir, "yt-dlp") // include dir and file
-	if runtime.GOOS == "windows" {
-		execPath += ".exe"
-	}
-
-	if err != nil {
-		return false, dir, execPath, fmt.Errorf("Fail to get cached directory: %w", err)
 	}
 
 	// Check if file exists
+	execPath := softinfo.ExecPath
 	info, err := os.Stat(execPath)
 	if err != nil {
-		return false, dir, execPath, fmt.Errorf("yt-dlp not found in cache directory: %s", execPath)
+		// save config and return
+		s.pref.SetYTDLP(softinfo)
+		return softinfo, fmt.Errorf("yt-dlp not found in cache directory: %s", execPath)
 	}
 
 	// Windows: check file exists
 	if runtime.GOOS == "windows" {
-		return true, dir, execPath, nil
+		// save config and return
+		softinfo.Available = true
+		s.pref.SetYTDLP(softinfo)
+		return softinfo, nil
 	}
 
 	// Unix: check executable permission
 	if info.Mode()&0111 != 0 {
-		return true, dir, execPath, nil
+		// save config and return
+		softinfo.Available = true
+		s.pref.SetYTDLP(softinfo)
+		return softinfo, nil
+	} else {
+		softinfo.Available = false
+		// save config and return
+		s.pref.SetYTDLP(softinfo)
+		return softinfo, fmt.Errorf("yt-dlp exists but not executable: %s", execPath)
+	}
+}
+
+func (s *Service) checkFFMpeg() (config types.SoftwareInfo, err error) {
+	softinfo := s.pref.GetDependsFFMpeg()
+	if softinfo.Path == "" || softinfo.ExecPath == "" {
+		// if not exsited, check system
+		if runtime.GOOS == "windows" {
+			// Windows/macOS: manually check PATH to avoid command window flash and sandbox issues
+			pathEnv := os.Getenv("PATH")
+			paths := strings.Split(pathEnv, string(os.PathListSeparator))
+			execName := "ffmpeg"
+			if runtime.GOOS == "windows" {
+				execName = "ffmpeg.exe"
+			}
+			for _, p := range paths {
+				execPath := filepath.Join(p, execName)
+				if info, err := os.Stat(execPath); err == nil && !info.IsDir() {
+					if info.Mode()&0111 != 0 {
+						// save config and return
+						softinfo.Path = filepath.Dir(execPath)
+						softinfo.ExecPath = execPath
+						softinfo.Available = true
+						s.pref.SetFFMpeg(softinfo)
+						return softinfo, nil
+					}
+				}
+			}
+		} else if runtime.GOOS == "darwin" {
+			// macOS security policy: can't get PATH, return directly
+			return softinfo, fmt.Errorf("ffmpeg's execPath is not set, please set it and retry.")
+		} else {
+			// Other Unix-like systems: use LookPath
+			if execPath, err := exec.LookPath("ffmpeg"); err == nil {
+				// save config and return
+				softinfo.Path = filepath.Dir(execPath)
+				softinfo.ExecPath = execPath
+				softinfo.Available = true
+				s.pref.SetFFMpeg(softinfo)
+				return softinfo, nil
+			}
+		}
 	}
 
-	return false, dir, execPath, fmt.Errorf("yt-dlp exists but not executable: %s", execPath)
+	// Check if file exists
+	execPath := softinfo.ExecPath
+	info, err := os.Stat(execPath)
+	if err != nil {
+		// save config and return
+		s.pref.SetFFMpeg(softinfo)
+		return softinfo, fmt.Errorf("ffmpeg not found in cache directory: %s", execPath)
+	}
+
+	// Windows: check file exists
+	if runtime.GOOS == "windows" {
+		// save config and return
+		softinfo.Available = true
+		s.pref.SetFFMpeg(softinfo)
+		return softinfo, nil
+	}
+
+	// Unix: check executable permission
+	if info.Mode()&0111 != 0 {
+		// save config and return
+		softinfo.Available = true
+		s.pref.SetFFMpeg(softinfo)
+		return softinfo, nil
+	} else {
+		softinfo.Available = false
+		// save config and return
+		s.pref.SetFFMpeg(softinfo)
+		return softinfo, fmt.Errorf("ffmpeg exists but not executable: %s", execPath)
+	}
+}
+
+func (s *Service) setFFMpeg(execPath string) (types.SoftwareInfo, error) {
+	softinfo := s.pref.GetDependsFFMpeg()
+	// only avalibale in macOs
+	if runtime.GOOS != "darwin" {
+		return softinfo, fmt.Errorf("this operation is only alowed in darwin")
+	}
+
+	// handle execPath
+	if execPath == "" {
+		return softinfo, fmt.Errorf("request execPath is empty")
+	}
+
+	// trim file name
+	dir := filepath.Dir(execPath)
+	execPath = filepath.Join(dir, "ffmpeg")
+	info, err := os.Stat(execPath)
+	if err != nil {
+		// save config and return
+		s.pref.SetFFMpeg(softinfo)
+		return softinfo, fmt.Errorf("ffmpeg not found in cache directory: %s", execPath)
+	}
+
+	// Unix: check executable permission
+	if info.Mode()&0111 != 0 {
+		// save config and return
+		softinfo.Path = dir
+		softinfo.ExecPath = execPath
+		softinfo.Available = true
+		s.pref.SetFFMpeg(softinfo)
+		return softinfo, nil
+	} else {
+		softinfo.Available = false
+		// save config and return
+		s.pref.SetFFMpeg(softinfo)
+		return softinfo, fmt.Errorf("ffmpeg exists but not executable: %s", execPath)
+	}
 }
 
 func releaseName() (filename string, err error) {
@@ -274,53 +382,4 @@ func releaseName() (filename string, err error) {
 	}
 
 	return
-}
-
-func ffmpegAvailable() (available bool, path, execPath string, err error) {
-	// first check system PATH
-	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
-		// Windows/macOS: manually check PATH to avoid command window flash and sandbox issues
-		pathEnv := os.Getenv("PATH")
-		paths := strings.Split(pathEnv, string(os.PathListSeparator))
-		execName := "ffmpeg"
-		if runtime.GOOS == "windows" {
-			execName = "ffmpeg.exe"
-		}
-		for _, p := range paths {
-			exe := filepath.Join(p, execName)
-			if info, err := os.Stat(exe); err == nil && !info.IsDir() {
-				if runtime.GOOS != "windows" {
-					// Check if the file is executable on Unix-like systems
-					if info.Mode()&0111 != 0 {
-						return true, p, exe, nil
-					}
-				} else {
-					return true, p, exe, nil
-				}
-			}
-		}
-	} else {
-		// Other Unix-like systems: use LookPath
-		if execPath, err := exec.LookPath("ffmpeg"); err == nil {
-			return true, filepath.Dir(execPath), execPath, nil
-		}
-	}
-
-	// do not manage ffmpeg right now
-	return false, "", "", fmt.Errorf("ffmpeg not found in system PATH")
-}
-
-func ffmpegVersion(execPath string, force bool) (string, error) {
-	// default return click to check in windows, because exec command calling will flash command window
-	if runtime.GOOS == "windows" && !force {
-		return "click to check", nil
-	}
-
-	cmd := exec.Command(execPath, "-version")
-	output, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("Get ffmpeg version failed: %w", err)
-	}
-
-	return string(output), nil
 }

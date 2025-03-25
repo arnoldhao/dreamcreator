@@ -1,9 +1,9 @@
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { InstallYTDLP } from 'wailsjs/go/api/DowntasksAPI'
-import { GetYTDLPPath, GetFFMPEGPath, GetFFMPEGVersion } from 'wailsjs/go/api/PathsAPI'
+import { GetYTDLPPath, GetFFMPEGPath, SetFFMpegExecPath } from 'wailsjs/go/api/PathsAPI'
 import { useDt } from '@/handlers/downtasks'
-import { OpenDirectory } from 'wailsjs/go/systems/Service'
+import { Info, OpenDirectory } from 'wailsjs/go/systems/Service'
 import { useI18n } from 'vue-i18n'
 import usePreferencesStore from '@/stores/preferences'
 
@@ -37,7 +37,7 @@ const installYtdlp = async () => {
     if (prefStore.dependencies.ytdlp.installing) return
     prefStore.dependencies.ytdlp.installing = true
     prefStore.dependencies.ytdlp.installProgress = ''
-    
+
     try {
         const response = await InstallYTDLP()
         if (response.success) {
@@ -62,7 +62,6 @@ const ffmpegStatus = async () => {
             if (data.available) {
                 prefStore.dependencies.ffmpeg.installed = true
                 prefStore.dependencies.ffmpeg.path = data.path
-                prefStore.dependencies.ffmpeg.version = data.version
             } else {
                 prefStore.dependencies.ffmpeg.installed = false
             }
@@ -73,19 +72,6 @@ const ffmpegStatus = async () => {
     } catch (error) {
         prefStore.dependencies.ffmpeg.installed = false
         $message.error('Get ffmpeg status failed:', error)
-    }
-}
-
-const ffmpegVersion = async () => {
-    try {
-        const response = await GetFFMPEGVersion()
-        if (response.success) {
-            prefStore.dependencies.ffmpeg.version = response.data
-        } else {
-            $message.warning(response.msg)
-        }
-    } catch (error) {
-        $message.error('Get ffmpeg version failed:', error)
     }
 }
 
@@ -100,15 +86,46 @@ const openDirectory = async (path) => {
     OpenDirectory(path)
 }
 
-const showFFMPEGVersion = async () => {
-    await ffmpegVersion()
-    $dialog.info({
-        content: prefStore.dependencies.ffmpeg.version
-    })
+const ffmpegExecPath = ref('')
+const inputFFMPEGPath = async () => {
+    try {
+        const response = await SetFFMpegExecPath(ffmpegExecPath.value)
+        if (response.success) {
+            const data = JSON.parse(response.data)
+            if (data.available) {
+                prefStore.dependencies.ffmpeg.installed = true
+                prefStore.dependencies.ffmpeg.path = data.path
+                $message.success("Set FFMpeg success")
+            } else {
+                prefStore.dependencies.ffmpeg.installed = false
+                $message.error("Set FFMpeg failed, message:", data.msg)
+            }
+        } else {
+            prefStore.dependencies.ffmpeg.installed = false
+            $message.warning(response.msg)
+        }
+    } catch (error) {
+        prefStore.dependencies.ffmpeg.installed = false
+        $message.error('Set FFMpeg failed, catched error:', error)
+    }
+
+}
+
+
+const currentOS = ref('')
+const getOS = async () => {
+    const response = await Info()
+    if (response.success) {
+        currentOS.value = response.data.os
+    } else {
+        $message.warning(response.msg)
+    }
+
 }
 
 // lifecycle hooks
 onMounted(() => {
+    getOS()
     ytdlpStatus()
     ffmpegStatus()
 
@@ -150,7 +167,8 @@ onMounted(() => {
                     </div>
                     <div v-else>
                         <div class="flex items-center gap-2 justify-end">
-                            <span v-if="prefStore.dependencies.ytdlp.installProgress" class="text-sm text-base-content/60">
+                            <span v-if="prefStore.dependencies.ytdlp.installProgress"
+                                class="text-sm text-base-content/60">
                                 {{ prefStore.dependencies.ytdlp.installProgress }}
                             </span>
                             <button @click="installYtdlp()" :disabled="prefStore.dependencies.ytdlp.installing"
@@ -170,7 +188,8 @@ onMounted(() => {
                             <span class="text-sm text-base-content/60 w-[17rem] text-right truncate mr-2">
                                 {{ prefStore.dependencies.ytdlp.path }}
                             </span>
-                            <button class="btn btn-sm btn-ghost btn-square" @click="openDirectory(prefStore.dependencies.ytdlp.path)">
+                            <button class="btn btn-sm btn-ghost btn-square"
+                                @click="openDirectory(prefStore.dependencies.ytdlp.path)">
                                 <v-icon name="oi-file-directory" class="h-4 w-4 text-base-content/60" />
                             </button>
                         </div>
@@ -185,9 +204,6 @@ onMounted(() => {
                             <span class="text-sm text-base-content/60 w-[17rem] text-right truncate mr-2">
                                 {{ prefStore.dependencies.ytdlp.version }}
                             </span>
-                            <button class="btn btn-sm btn-ghost btn-square" @click="openDialog(prefStore.dependencies.ytdlp.version)">
-                                <v-icon name="si-codereview" class="h-4 w-4 text-base-content/60" />
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -205,8 +221,8 @@ onMounted(() => {
                     <div v-else>
                         <div class="flex items-center gap-2 justify-end">
                             <button @click="ffmpegStatus()"
-                            class="btn btn-sm border-1 border-base-300 font-normal text-base-content">{{
-                                $t('settings.dependency.refresh') }}</button>
+                                class="btn btn-sm border-1 border-base-300 font-normal text-base-content">{{
+                                    $t('settings.dependency.refresh') }}</button>
                             <button @click="installFFMPEG()"
                                 class="btn btn-sm border-1 border-base-300 font-normal text-base-content">{{
                                     $t('settings.dependency.install') }}</button>
@@ -224,24 +240,31 @@ onMounted(() => {
                             <span class="text-sm text-base-content/60 w-[17rem] text-right truncate mr-2">
                                 {{ prefStore.dependencies.ffmpeg.path }}
                             </span>
-                            <button class="btn btn-sm btn-ghost btn-square" @click="openDirectory(prefStore.dependencies.ffmpeg.path)">
+                            <button class="btn btn-sm btn-ghost btn-square"
+                                @click="openDirectory(prefStore.dependencies.ffmpeg.path)">
                                 <v-icon name="oi-file-directory" class="h-4 w-4 text-base-content/60" />
                             </button>
                         </div>
                     </div>
-                    <li class="divider-thin"></li>
-                    <div class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
-                        <div class="flex items-center gap-2">
-                            <v-icon name="oi-versions" class="h-4 w-4 text-base-content" />
-                            <h2 class="text-base-content">{{ $t('settings.dependency.version') }}</h2>
-                        </div>
-                        <div class="join items-center">
-                            <span class="text-sm text-base-content/60 w-[17rem] text-right truncate mr-2">
-                                {{ prefStore.dependencies.ffmpeg.version }}
-                            </span>
-                            <button class="btn btn-sm btn-ghost btn-square" @click="showFFMPEGVersion()">
-                                <v-icon name="si-codereview" class="h-4 w-4 text-base-content/60" />
-                            </button>
+                </div>
+                <div v-else>
+                    <div v-if="currentOS == 'darwin'">
+                        <li class="divider-thin"></li>
+                        <div class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
+                            <div class="flex items-center gap-2">
+                                <v-icon name="oi-file-directory" class="h-4 w-4 text-base-content" />
+                                <h2 class="text-base-content">{{ $t('settings.dependency.path') }}</h2>
+                            </div>
+                            <div class="join">
+                                <div>
+                                    <label class="input join-item input-sm">
+                                        <input type="text" placeholder="/usr/local/bin/ffmpeg" v-model="ffmpegExecPath"
+                                            required />
+                                    </label>
+                                </div>
+                                <button class="btn btn-neutral btn-sm join-item" @click="inputFFMPEGPath()">{{
+                                    $t('settings.dependency.check') }}</button>
+                            </div>
                         </div>
                     </div>
                 </div>
