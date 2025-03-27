@@ -85,7 +85,15 @@ func (s *Service) GetYTDLPPath() (types.SoftwareInfo, error) {
 }
 
 func (s *Service) InstallYTDLP() (string, error) {
-	return s.getYtdlpPath()
+	return s.getYtdlpPath(YtdlpConfig{Latest: false})
+}
+
+func (s *Service) CheckYTDLPUpdate() (types.SoftwareInfo, error) {
+	return s.checkYTDLPUpdate()
+}
+
+func (s *Service) UpdateYTDLP() (string, error) {
+	return s.getYtdlpPath(YtdlpConfig{Latest: true})
 }
 
 func (s *Service) newCommand() (*ytdlp.Command, error) {
@@ -100,7 +108,7 @@ func (s *Service) newCommand() (*ytdlp.Command, error) {
 
 	// yt-dlp mustinstall
 	if !s.ytdlpInstalled {
-		path, err := s.getYtdlpPath()
+		path, err := s.getYtdlpPath(YtdlpConfig{Latest: false})
 		if err != nil {
 			return nil, err
 		}

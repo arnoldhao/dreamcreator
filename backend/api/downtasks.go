@@ -135,3 +135,28 @@ func (api *DowntasksAPI) InstallYTDLP() (resp *types.JSResp) {
 
 	return &types.JSResp{Success: true, Data: path}
 }
+
+func (api *DowntasksAPI) CheckYTDLPUpdate() (resp *types.JSResp) {
+	// check
+	info, err := api.service.CheckYTDLPUpdate()
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+
+	infoString, err := json.Marshal(info)
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+
+	return &types.JSResp{Success: true, Data: string(infoString)}
+}
+
+func (api *DowntasksAPI) UpdateYTDLP() (resp *types.JSResp) {
+	// install
+	path, err := api.service.UpdateYTDLP()
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+
+	return &types.JSResp{Success: true, Data: path}
+}

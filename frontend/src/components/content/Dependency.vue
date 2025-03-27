@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
-import { InstallYTDLP } from 'wailsjs/go/api/DowntasksAPI'
+import { InstallYTDLP, CheckYTDLPUpdate, UpdateYTDLP } from 'wailsjs/go/api/DowntasksAPI'
 import { GetYTDLPPath, GetFFMPEGPath, SetFFMpegExecPath } from 'wailsjs/go/api/PathsAPI'
 import { useDt } from '@/handlers/downtasks'
 import { Info, OpenDirectory } from 'wailsjs/go/systems/Service'
@@ -19,7 +19,10 @@ const ytdlpStatus = async () => {
             if (data.available) {
                 prefStore.dependencies.ytdlp.installed = true
                 prefStore.dependencies.ytdlp.path = data.path
+                prefStore.dependencies.ytdlp.execPath = data.execPath
                 prefStore.dependencies.ytdlp.version = data.version
+                // check update
+                await checkYTDLPUpdate()
             } else {
                 prefStore.dependencies.ytdlp.installed = false
             }
@@ -51,6 +54,26 @@ const installYtdlp = async () => {
         $message.error(t('settings.dependency.install_failed'))
     } finally {
         prefStore.dependencies.ytdlp.installing = false
+    }
+}
+
+const updateYtdlp = async () => {
+    if (prefStore.dependencies.ytdlp.updating) return
+    prefStore.dependencies.ytdlp.updating = true
+    prefStore.dependencies.ytdlp.updateProgress = ''
+    try {
+        const response = await UpdateYTDLP()
+        if (response.success) {
+            await ytdlpStatus()
+            $message.success(t('settings.dependency.update_success'))
+        } else {
+            $message.error(response.msg)
+        }
+    } catch (error) {
+        console.error('Update ytdlp failed:', error)
+        $message.error(t('settings.dependency.update_failed'))
+    } finally {
+        prefStore.dependencies.ytdlp.updating = false
     }
 }
 
@@ -123,22 +146,53 @@ const getOS = async () => {
 
 }
 
+const ytdlpNeedUpdate = ref(false)
+const checkYTDLPUpdate = async () => {
+    const response = await CheckYTDLPUpdate()
+    if (response.success) {
+        const data = JSON.parse(response.data)
+        // update preferences
+        prefStore.dependencies.ytdlp.updated = true
+        prefStore.dependencies.ytdlp.latestVersion = data.latestVersion
+        prefStore.dependencies.ytdlp.needUpdate = data.needUpdate
+        // update ytdlpNeedUpdate
+        if (data.needUpdate) {
+            ytdlpNeedUpdate.value = true
+        } else {
+            ytdlpNeedUpdate.value = false
+        }
+    } else {
+        $message.warning(response.msg)
+    }
+}
+
 // lifecycle hooks
 onMounted(() => {
+    // get current os
     getOS()
+    // get ytdlp status
     ytdlpStatus()
+    // get ffmpeg status
     ffmpegStatus()
+    // check ytdlp update
+    checkYTDLPUpdate()
 
     // init WebSocket handler
     initDt()
 
     // register installing callback
     const unsubscribeInstalling = onInstalling((progress) => {
+        console.log("ytdlp installing", progress, "stage", progress.stage)
         if (progress.stage == "installing") {
             prefStore.dependencies.ytdlp.installProgress = progress.percentage.toFixed(2) + '%'
         } else if (progress.stage == "installed") {
             prefStore.dependencies.ytdlp.installProgress = ''
             ytdlpStatus()
+        } else if (progress.stage == "updating") {
+            prefStore.dependencies.ytdlp.updateProgress = progress.percentage.toFixed(2) + '%'
+        } else if (progress.stage == "updated") {
+            prefStore.dependencies.ytdlp.updateProgress = ''
+            ytdlpStatus()   
         } else {
             prefStore.dependencies.ytdlp.installProgress = ''
             $message.error("unknown stage: " + progress.stage)
@@ -204,6 +258,41 @@ onMounted(() => {
                             <span class="text-sm text-base-content/60 w-[17rem] text-right truncate mr-2">
                                 {{ prefStore.dependencies.ytdlp.version }}
                             </span>
+                        </div>
+                    </div>
+                    <div v-if="prefStore.dependencies.ytdlp.needUpdate">
+                        <li class="divider-thin"></li>
+                        <div v-if="prefStore.dependencies.ytdlp.updating">
+                            <div class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
+                                <div class="flex items-center gap-2">
+                                    <v-icon name="oi-versions" class="h-4 w-4 text-base-content" />
+                                    <h2 class="text-base-content">{{ $t('settings.dependency.updating') }}</h2>
+                                </div>
+                                <div class="join items-center">
+                                    <span class="text-sm text-base-content/60 w-[17rem] text-right truncate mr-2">
+                                        {{ prefStore.dependencies.ytdlp.latestVersion }}
+                                    </span>
+                                    <span v-if="prefStore.dependencies.ytdlp.updateProgress"
+                                        class="text-sm text-base-content/60">
+                                        {{ prefStore.dependencies.ytdlp.updateProgress }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div v-else class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
+                            <div class="flex items-center gap-2">
+                                <v-icon name="oi-versions" class="h-4 w-4 text-base-content" />
+                                <h2 class="text-base-content">{{ $t('settings.dependency.latest_version') }}</h2>
+                            </div>
+                            <div class="join items-center">
+                                <span class="text-sm text-base-content/60 w-[17rem] text-right truncate mr-2">
+                                    {{ prefStore.dependencies.ytdlp.latestVersion }}
+                                </span>
+                                <button class="btn btn-sm border-1 border-base-300 font-normal text-base-content"
+                                    @click="updateYtdlp()">
+                                    {{ $t('settings.dependency.update') }}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

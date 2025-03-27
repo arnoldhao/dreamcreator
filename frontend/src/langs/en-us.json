@@ -138,7 +138,7 @@
       "ytdlp": "YT-DLP",
       "status": "Status",
       "path": "Path",
-      "version": "Version",
+      "version": "Current Version",
       "install":"Install",
       "installed":"Installed",
       "refresh":"Refresh",
@@ -146,7 +146,12 @@
       "install_failed":"Install Failed",
       "install_ffmpeg":"Install FFmpeg",
       "install_ffmpeg_desc":"Please install FFmpeg first, then restart the software",
-      "check": "Check"
+      "check": "Check",
+      "latest_version": "Latest Version",
+      "update": "Update",
+      "updating": "Updating",
+      "update_success":"Update Success",
+      "update_failed":"Update Failed"
     }
   },
   "message": {

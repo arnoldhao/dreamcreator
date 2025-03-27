@@ -1,6 +1,7 @@
 package downtasks
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"CanMe/backend/consts"
 	"CanMe/backend/pkg/logger"
 	"CanMe/backend/types"
+	"CanMe/backend/utils"
 
 	"go.uber.org/zap"
 )
@@ -21,12 +23,14 @@ import (
 type YtdlpConfig struct {
 	Version string
 	BaseURL string
+	Latest  bool
 }
 
 // getYtdlpPath get or install yt-dlp
-func (s *Service) getYtdlpPath() (string, error) {
-	config := YtdlpConfig{
-		Version: consts.YTDLP_VERSION,
+func (s *Service) getYtdlpPath(config YtdlpConfig) (string, error) {
+	// default config
+	if config.Version == "" {
+		config.Version = consts.YTDLP_VERSION
 	}
 
 	// check ytdlp
@@ -35,32 +39,56 @@ func (s *Service) getYtdlpPath() (string, error) {
 		logger.Error("Failed to check ytdlp", zap.Error(err))
 	}
 
-	// log info: directory/execPath
-	logger.Info("ytdlp check result",
-		zap.String("directory", softinfo.Path),
-		zap.String("execPath", softinfo.ExecPath),
-		zap.Bool("available", softinfo.Available))
-
-	// if installed, return
-	if softinfo.Available {
+	// if installed and do not need update, return
+	if softinfo.Available && !config.Latest {
 		return softinfo.ExecPath, nil
 	}
 
-	// report to event bus, begin to install
-	s.eventBus.Broadcast(consts.TopicDowntasksInstalling, &types.DtProgress{
-		Stage:     "installing",
-		StageInfo: "0%",
-	})
+	// event stage
+	processStage := types.DtStageInstalling
+	finalStage := types.DtStageInstalled
 
-	// makesure directory exists
-	if err := os.MkdirAll(softinfo.Path, 0o755); err != nil {
-		return "", fmt.Errorf("Create directory failed: %w", err)
+	// if need update
+	if config.Latest {
+		// check update
+		softinfo, err = s.checkYTDLPUpdate()
+		if err != nil {
+			logger.Error("Failed to check ytdlp update", zap.Error(err))
+			return "", err
+		}
+
+		if softinfo.LatestVersion != "" && softinfo.NeedUpdate {
+			config.Version = softinfo.LatestVersion
+			softinfo.ExecPath = filepath.Join(softinfo.Path, fmt.Sprintf("yt-dlp.%s", config.Version))
+			// event stage
+			processStage = types.DtStageUpdating
+			finalStage = types.DtStageUpdated
+		} else {
+			return softinfo.ExecPath, fmt.Errorf("ytdlp is already the latest version")
+		}
 	}
 
 	// build download url
 	baseURL := config.BaseURL
 	if baseURL == "" {
 		baseURL = "https://gh-proxy.com/github.com/yt-dlp/yt-dlp/releases/download/" + config.Version
+	}
+
+	// log info: directory/execPath
+	logger.Info("ytdlp check result",
+		zap.String("directory", softinfo.Path),
+		zap.String("execPath", softinfo.ExecPath),
+		zap.Bool("available", softinfo.Available))
+
+	// report to event bus, begin to install
+	s.eventBus.Broadcast(consts.TopicDowntasksInstalling, &types.DtProgress{
+		Stage:     processStage,
+		StageInfo: "0%",
+	})
+
+	// makesure directory exists
+	if err := os.MkdirAll(softinfo.Path, 0o755); err != nil {
+		return "", fmt.Errorf("Create directory failed: %w", err)
 	}
 
 	// get yt-dlp repo release name
@@ -120,7 +148,7 @@ func (s *Service) getYtdlpPath() (string, error) {
 				progress := int(float64(downloaded) / float64(totalSize) * 100)
 				if progress > lastProgress {
 					s.eventBus.Broadcast(consts.TopicDowntasksInstalling, &types.DtProgress{
-						Stage:      "installing",
+						Stage:      processStage,
 						Percentage: float64(progress),
 					})
 					lastProgress = progress
@@ -159,14 +187,25 @@ func (s *Service) getYtdlpPath() (string, error) {
 	}
 
 	s.eventBus.Broadcast(consts.TopicDowntasksInstalling, &types.DtProgress{
-		Stage:      "installed",
+		Stage:      finalStage,
 		Percentage: float64(100),
 	})
 
-	// log info: installed
-	logger.Info("ytdlp installation completed", zap.String("path", softinfo.ExecPath))
+	// save config
+	newinfo := types.SoftwareInfo{
+		Path:          softinfo.Path,
+		ExecPath:      softinfo.ExecPath,
+		Available:     true,
+		Version:       config.Version,
+		LatestVersion: config.Version,
+		NeedUpdate:    false,
+	}
+	s.pref.SetYTDLP(newinfo)
 
-	return softinfo.ExecPath, nil
+	// log info: installed
+	logger.Info("ytdlp installation completed", zap.String("path", newinfo.ExecPath))
+
+	return newinfo.ExecPath, nil
 }
 
 // copyFile
@@ -386,4 +425,59 @@ func releaseName() (filename string, err error) {
 	}
 
 	return
+}
+
+type latestRelease struct {
+	Name    string `json:"name"`
+	TagName string `json:"tag_name"`
+	Url     string `json:"url"`
+	HtmlUrl string `json:"html_url"`
+}
+
+func (s *Service) checkYTDLPUpdate() (types.SoftwareInfo, error) {
+	info := s.pref.GetDependsYTDLP()
+	// request latest version
+	httpClient := s.proxyClient.HTTPClient()
+	res, err := httpClient.Get(consts.YTDLP_CHECK_UPDATE_URL)
+	if err != nil {
+		return info, fmt.Errorf("failed to check yt-dlp update: %s", err.Error())
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return info, fmt.Errorf("failed to check yt-dlp update: %s", res.Status)
+	}
+
+	var respObj latestRelease
+	err = json.NewDecoder(res.Body).Decode(&respObj)
+	if err != nil {
+		return info, fmt.Errorf("failed to parse yt-dlp update response: %s", err.Error())
+	}
+
+	info.LatestVersion = respObj.TagName
+	if info.Version == "" {
+		info.NeedUpdate = true
+		return info, nil
+	}
+
+	if info.LatestVersion == "" {
+		info.NeedUpdate = false
+		return info, nil
+	}
+
+	// compare with current version
+	current, err := utils.ParseVersion(info.Version)
+	if err != nil {
+		return info, fmt.Errorf("failed to parse yt-dlp version: %s", err.Error())
+	}
+	latest, err := utils.ParseVersion(info.LatestVersion)
+	if err != nil {
+		return info, fmt.Errorf("failed to parse yt-dlp latest version: %s", err.Error())
+	}
+	if current.Compare(latest) < 0 {
+		info.NeedUpdate = true
+	} else {
+		info.NeedUpdate = false
+	}
+
+	return info, nil
 }

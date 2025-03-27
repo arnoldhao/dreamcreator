@@ -384,11 +384,7 @@
           <!-- base info card -->
           <div v-if="activeTab === 'info' && selectedTask" class="space-y-4">
             <div class="card bg-base-200">
-              <div class="card-body p-4">
-                <h4 class="card-title text-sm mb-3">
-                  <v-icon name="ri-information-line" class="w-4 h-4 mr-2"></v-icon>
-                  {{ $t('download.task_info') }}
-                </h4>
+              <div class="card-body p-4 ">
                 <div class="grid grid-cols-2 gap-3 text-xs">
                   <div>
                     <div class="text-xs text-base-content/70">{{ $t('download.source') }}</div>
@@ -423,10 +419,6 @@
           <div v-if="activeTab === 'download' && selectedTask" class="space-y-4">
             <div class="card bg-base-200">
               <div class="card-body p-4">
-                <h4 class="card-title text-sm mb-3">
-                  <v-icon name="ri-download-cloud-line" class="w-4 h-4 mr-2"></v-icon>
-                  {{ $t('download.download_info') }}
-                </h4>
                 <div class="grid grid-cols-2 gap-3 text-xs">
                   <div>
                     <div class="text-xs text-base-content/70">{{ $t('download.speed') }}</div>
@@ -456,10 +448,6 @@
           <div v-if="activeTab === 'settings' && selectedTask" class="space-y-4">
             <div class="card bg-base-200">
               <div class="card-body p-4">
-                <h4 class="card-title text-sm mb-3">
-                  <v-icon name="ri-settings-3-line" class="w-4 h-4 mr-2"></v-icon>
-                  {{ $t('download.download_settings') }}
-                </h4>
                 <div class="grid grid-cols-2 gap-3 text-xs">
                   <div>
                     <div class="text-xs text-base-content/70">{{ $t('download.resolution') }}</div>
@@ -486,10 +474,6 @@
           <div v-if="activeTab === 'output' && selectedTask" class="space-y-4">
             <div class="card bg-base-200">
               <div class="card-body p-4">
-                <h4 class="card-title text-sm mb-3">
-                  <v-icon name="ri-file-list-line" class="w-4 h-4 mr-2"></v-icon>
-                  {{ $t('download.output_files') }}
-                </h4>
                 <div class="p-3 bg-base-300/50 rounded-lg flex items-center justify-between mb-3">
                   <div class="text-xs text-base-content/70">
                     <v-icon name="ri-folder-line" class="w-3.5 h-3.5 mr-1"></v-icon>
@@ -1174,10 +1158,10 @@ const filteredStages = (task) => {
   @apply transition-all duration-200;
 }
 
-.card:hover {
+/* .card:hover {
   @apply shadow-md;
   transform: translateY(-1px);
-}
+} */
 
 /* define text size variables */
 :root {

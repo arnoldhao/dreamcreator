@@ -110,7 +110,6 @@
             <ul class="menu p-2 rounded-lg border-2 border-base-300 bg-base-100">
                 <div class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
                     <div class="flex items-center gap-2">
-                        <v-icon name="ri-file-text-line" class="h-4 w-4 text-base-content" />
                         <h2 class="font-semibold text-base-content">{{ $t('settings.general.log') }}</h2>
                     </div>
                 </div>

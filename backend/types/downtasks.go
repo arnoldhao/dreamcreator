@@ -33,6 +33,10 @@ const (
 	DtStageCompleted    DtTaskStage = "completed"    // 处理完成
 	DtStageFailed       DtTaskStage = "failed"       // 处理失败
 	DtStageCancelled    DtTaskStage = "cancelled"    // 处理取消
+	DtStageInstalling   DtTaskStage = "installing"   // 安装阶段
+	DtStageInstalled    DtTaskStage = "installed"    // 安装完成
+	DtStageUpdating     DtTaskStage = "updating"     // 更新阶段
+	DtStageUpdated      DtTaskStage = "updated"      // 更新完成
 )
 
 // DtProgress 表示处理进度信息
@@ -129,8 +133,10 @@ func (t *DtTaskStatus) UpdateFromProgress(progress *DtProgress) {
 }
 
 type SoftwareInfo struct {
-	Available bool   `json:"available"`
-	Path      string `json:"path"`
-	ExecPath  string `json:"execPath"`
-	Version   string `json:"version"`
+	Available     bool   `json:"available"`
+	Path          string `json:"path"`
+	ExecPath      string `json:"execPath"`
+	Version       string `json:"version"`
+	LatestVersion string `json:"latestVersion"`
+	NeedUpdate    bool   `json:"needUpdate"`
 }

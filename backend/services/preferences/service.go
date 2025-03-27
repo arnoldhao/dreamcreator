@@ -206,7 +206,7 @@ type latestRelease struct {
 
 func (p *Service) CheckForUpdate() (resp types.JSResp) {
 	// request latest version
-	res, err := http.Get(consts.CHECK_UPDATE_URL)
+	res, err := p.proxyClient.HTTPClient().Get(consts.CHECK_UPDATE_URL)
 	if err != nil || res.StatusCode != http.StatusOK {
 		resp.Msg = "network error"
 		return

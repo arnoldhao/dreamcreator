@@ -73,16 +73,27 @@ const usePreferencesStore = defineStore('preferences', {
         logger: {}, 
         dependencies: {
             ytdlp: {
+                // additional properties, only enabled in frontend
                 installing: false,
                 installProgress: '',
                 installed: false,
+                updating: false,
+                updateProgress: '',
+                updated: false,
+                // properties from backend
                 path: '',
-                version: ''
+                execPath: '',
+                version: '',
+                latestVersion: '',
+                needUpdate: false,
             },
             ffmpeg: {
                 installed: false,
                 path: '',
-                version: ''
+                execPath: '',
+                version: '',
+                latestVersion: '',
+                needUpdate: false,
             }
         }
     }),
