@@ -8,7 +8,7 @@ on:
       tag:
         description: 'Version tag'
         required: true
-        default: '0.1.4'
+        default: '0.1.5'
 
 jobs:
   release:

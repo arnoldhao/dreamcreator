@@ -3,8 +3,20 @@
     <div class="modal-box w-11/12 max-w-3xl bg-base-100 overflow-visible">
       <h3 class="font-bold text-lg flex items-center">
         <v-icon name="ri-download-cloud-line" class="w-5 h-5 mr-2 text-primary"></v-icon>
-        {{ $t('download.new_task') }}
+        {{ mode === 'quick' ? $t('download.quick_task') : $t('download.new_task') }}
       </h3>
+
+      <!-- 模式切换按钮 -->
+      <div class="tabs tabs-boxed bg-base-200 p-1 mt-2">
+        <button class="tab flex-1" :class="{ 'tab-active': mode === 'custom' }" @click="mode = 'custom'">
+          {{ $t('download.custom_mode') }}
+        </button>
+        <button class="tab flex-1" :class="{ 'tab-active': mode === 'quick' }" @click="mode = 'quick'">
+          {{ $t('download.quick_mode') }}
+        </button>
+      </div>
+
+      <!-- 依赖管理 -->
       <div v-if="!dependenciesReady" class="py-8">
         <div class="flex flex-col items-center gap-6">
           <!-- 警告图标和文字 -->
@@ -28,143 +40,188 @@
           <button class="btn btn-ghost btn-sm" @click="closeModal">{{ $t('common.cancel') }}</button>
         </div>
       </div>
+
       <div v-else>
-      <div class="py-4">
-        <form class="flex flex-col gap-4">
-          <!-- URL area -->
-          <div class="form-control w-full">
-            <div class="flex gap-2">
-              <input type="text" v-model="url" :placeholder="$t('download.video_url_placeholder')" class="input input-bordered flex-1 input-sm" />
-              <button @click="handleParse" class="btn btn-primary btn-sm" :disabled="isLoading">
-                <div class="flex items-center justify-center">
-                  <v-icon v-if="isLoading" name="ri-loader-2-line" class="animate-spin h-4 w-4 mr-1"></v-icon>
-                  <span>{{ isLoading ? $t('download.parsing') : $t('download.parse') }}</span>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <!-- Parse result area -->
-          <template v-if="videoData?.title">
-            <div class="divider"></div>
-
-            <!-- Video title and preview information -->
-            <div class="flex items-center gap-4">
-              <div class="w-32 h-20 bg-base-200 rounded-lg overflow-hidden flex-shrink-0">
-                <template v-if="!thumbnailLoadError && videoData?.thumbnail">
-                  <img :src="videoData.thumbnail" 
-                    class="w-full h-full object-cover"
-                    :alt="$t('download.thumbnail')" 
-                    @error="handleThumbnailError" />
-                </template>
-                <div v-else class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
-                  <v-icon name="ri-video-line" class="w-8 h-8 mb-1"></v-icon>
-                  <span class="text-xs">{{ $t('download.thumbnail') }}</span>
-                </div>
-              </div>
-              <div class="flex-1">
-                <div class="text-base font-medium">{{ videoData.title }}</div>
-                <div class="text-sm text-base-content/70 mt-1">{{ videoData.duration }} · {{ videoData.author }}</div>
+        <!-- 自定义下载模式 -->
+        <div v-if="mode === 'custom'" class="py-4">
+          <form class="flex flex-col gap-4">
+            <!-- URL area -->
+            <div class="form-control w-full">
+              <div class="flex gap-2">
+                <input type="text" v-model="url" :placeholder="$t('download.video_url_placeholder')"
+                  class="input input-bordered flex-1 input-sm" />
+                <button @click="handleParse" class="btn btn-primary btn-sm" :disabled="isLoading">
+                  <div class="flex items-center justify-center">
+                    <v-icon v-if="isLoading" name="ri-loader-2-line" class="animate-spin h-4 w-4 mr-1"></v-icon>
+                    <span>{{ isLoading ? $t('download.parsing') : $t('download.parse') }}</span>
+                  </div>
+                </button>
               </div>
             </div>
 
-            <!-- download options -->
-            <div class="space-y-4 mt-2">
-              <!-- video and subtitle selection (main options) -->
-              <div class="grid grid-cols-2 gap-4">
-                <!-- video quality selection -->
-                <div class="form-control w-full">
-                  <label class="label">
-                    <span class="label-text">{{ $t('download.video_quality') }}</span>
-                  </label>
-                  <select v-model="selectedQuality" class="select select-bordered w-full select-sm">
-                    <option disabled value="">{{ $t('download.select_video_quality') }}</option>
-                    <template v-for="quality in formatQualities(videoData?.formats || [])"
-                      :key="quality.id || quality.format_id">
-                      <option v-if="quality.isHeader" disabled
-                        class="!bg-base-200 !text-base-content/70 !font-semibold !py-2 !my-1 !border-t !border-base-300">
-                        ▾ {{ quality.label }}
-                      </option>
-                      <option v-else :value="quality"  class="label-text-alt text-base-content/70">
-                        {{ quality.label }}
-                      </option>
-                    </template>
-                  </select>
-                </div>
+            <!-- Parse result area -->
+            <template v-if="videoData?.title">
+              <div class="divider"></div>
 
-                <!-- subtitle language selection (multi-select) -->
-                <div class="form-control w-full">
-                  <label class="label">
-                    <span class="label-text">{{ $t('download.subtitle_language') }}</span>
-                  </label>
-                  <div class="dropdown w-full">
-                   <div tabindex="0" role="button" 
-                      class="select select-bordered w-full flex items-center justify-between select-sm"
-                      @click="showSubtitleDropdown = !showSubtitleDropdown">
-                      <span v-if="selectedSubtitles.length === 0" class="text-base-content/50">{{ $t('download.no_subtitles') }}</span>
-                      <span v-else>{{ $t('download.selected') }} {{ selectedSubtitles.length }} {{ $t('download.subtitles') }}</span>
-                      <v-icon name="ri-arrow-down-s-line" class="w-4 h-4"></v-icon>
-                    </div>
-                    <div v-if="showSubtitleDropdown" tabindex="0"
-                      class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-full max-h-60 overflow-y-auto">
-                      <div v-for="subtitle in videoData.subtitles" :key="subtitle.value.lang"
-                        class="p-2 hover:bg-base-200 rounded cursor-pointer flex items-center"
-                        @click.stop="toggleSubtitle(subtitle.value)">
-                        <input type="checkbox" :checked="isSubtitleSelected(subtitle.value)" class="checkbox checkbox-sm mr-2" />
-                        <span>{{ subtitle.label }}</span>
+              <!-- Video title and preview information -->
+              <div class="flex items-center gap-4">
+                <div class="w-32 h-20 bg-base-200 rounded-lg overflow-hidden flex-shrink-0">
+                  <template v-if="!thumbnailLoadError && videoData?.thumbnail">
+                    <img :src="videoData.thumbnail" class="w-full h-full object-cover" :alt="$t('download.thumbnail')"
+                      @error="handleThumbnailError" />
+                  </template>
+                  <div v-else
+                    class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
+                    <v-icon name="ri-video-line" class="w-8 h-8 mb-1"></v-icon>
+                    <span class="text-xs">{{ $t('download.thumbnail') }}</span>
+                  </div>
+                </div>
+                <div class="flex-1">
+                  <div class="text-base font-medium">{{ videoData.title }}</div>
+                  <div class="text-sm text-base-content/70 mt-1">{{ videoData.duration }} · {{ videoData.author }}</div>
+                </div>
+              </div>
+
+              <!-- download options -->
+              <div class="space-y-4 mt-2">
+                <!-- video and subtitle selection (main options) -->
+                <div class="grid grid-cols-2 gap-4">
+                  <!-- video quality selection -->
+                  <div class="form-control w-full">
+                    <label class="label">
+                      <span class="label-text">{{ $t('download.video_quality') }}</span>
+                    </label>
+                    <select v-model="selectedQuality" class="select select-bordered w-full select-sm">
+                      <option disabled value="">{{ $t('download.select_video_quality') }}</option>
+                      <template v-for="quality in formatQualities(videoData?.formats || [])"
+                        :key="quality.id || quality.format_id">
+                        <option v-if="quality.isHeader" disabled
+                          class="!bg-base-200 !text-base-content/70 !font-semibold !py-2 !my-1 !border-t !border-base-300">
+                          ▾ {{ quality.label }}
+                        </option>
+                        <option v-else :value="quality" class="label-text-alt text-base-content/70">
+                          {{ quality.label }}
+                        </option>
+                      </template>
+                    </select>
+                  </div>
+
+                  <!-- subtitle language selection (multi-select) -->
+                  <div class="form-control w-full">
+                    <label class="label">
+                      <span class="label-text">{{ $t('download.subtitle_language') }}</span>
+                    </label>
+                    <div class="dropdown w-full">
+                      <div tabindex="0" role="button"
+                        class="select select-bordered w-full flex items-center justify-between select-sm"
+                        @click="showSubtitleDropdown = !showSubtitleDropdown">
+                        <span v-if="selectedSubtitles.length === 0" class="text-base-content/50">{{
+    $t('download.no_subtitles')
+  }}</span>
+                        <span v-else>{{ $t('download.selected') }} {{ selectedSubtitles.length }} {{
+    $t('download.subtitles')
+  }}</span>
+                        <v-icon name="ri-arrow-down-s-line" class="w-4 h-4"></v-icon>
+                      </div>
+                      <div v-if="showSubtitleDropdown" tabindex="0"
+                        class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-full max-h-60 overflow-y-auto">
+                        <div v-for="subtitle in videoData.subtitles" :key="subtitle.value.lang"
+                          class="p-2 hover:bg-base-200 rounded cursor-pointer flex items-center"
+                          @click.stop="toggleSubtitle(subtitle.value)">
+                          <input type="checkbox" :checked="isSubtitleSelected(subtitle.value)"
+                            class="checkbox checkbox-sm mr-2" />
+                          <span>{{ subtitle.label }}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <!-- Pipeline Options -->
-            <div class="mt-4">
-              <label class="label">
-                <span class="label-text">{{ $t('download.pipeline') }}</span>
-              </label>
-              <div class="bg-base-200 p-2 rounded-lg">
-                <div class="flex items-center">
-                  <template v-for="(step, index) in pipelineSteps" :key="index">
-                    <!-- Step arrow -->
-                    <template v-if="index > 0">
-                      <div class="flex-none mx-2">
-                        <v-icon name="ri-arrow-right-line" class="w-5 h-5 text-base-content/50"></v-icon>
+              <!-- Pipeline Options -->
+              <div class="mt-4">
+                <label class="label">
+                  <span class="label-text">{{ $t('download.pipeline') }}</span>
+                </label>
+                <div class="bg-base-200 p-2 rounded-lg">
+                  <div class="flex items-center">
+                    <template v-for="(step, index) in pipelineSteps" :key="index">
+                      <!-- Step arrow -->
+                      <template v-if="index > 0">
+                        <div class="flex-none mx-2">
+                          <v-icon name="ri-arrow-right-line" class="w-5 h-5 text-base-content/50"></v-icon>
+                        </div>
+                      </template>
+                      <!-- Step content -->
+                      <div class="flex-1 flex items-center">
+                        <div
+                          :class="[step.bg, 'w-6 h-6 rounded-full flex items-center justify-center text-white relative group']">
+                          <v-icon :name="step.icon"
+                            class="w-4 h-4 absolute opacity-0 group-hover:opacity-100 transition-opacity"></v-icon>
+                          <span class="group-hover:opacity-0 transition-opacity">{{ step.number }}</span>
+                        </div>
+                        <div class="ml-2">
+                          <div class="font-medium text-sm">{{ step.title }}</div>
+                          <div class="text-xs text-base-content/70">{{ step.desc }}</div>
+                        </div>
                       </div>
                     </template>
-                    <!-- Step content -->
-                    <div class="flex-1 flex items-center">
-                      <div
-                        :class="[step.bg, 'w-6 h-6 rounded-full flex items-center justify-center text-white relative group']">
-                        <v-icon :name="step.icon"
-                          class="w-4 h-4 absolute opacity-0 group-hover:opacity-100 transition-opacity"></v-icon>
-                        <span class="group-hover:opacity-0 transition-opacity">{{ step.number }}</span>
-                      </div>
-                      <div class="ml-2">
-                        <div class="font-medium text-sm">{{ step.title }}</div>
-                        <div class="text-xs text-base-content/70">{{ step.desc }}</div>
-                      </div>
-                    </div>
-                  </template>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </form>
+        </div>
+
+        <div v-if="mode === 'quick'" class="py-4">
+          <form class="flex flex-col gap-4" @submit.prevent>
+            <!-- URL area -->
+            <div class="form-control w-full">
+              <div class="flex gap-2">
+                <input type="text" v-model="url" :placeholder="$t('download.video_url_placeholder')"
+                  class="input input-bordered flex-1 input-sm" />
+                <div class="flex space-x-2">
+                  <select v-model="video" class="select select-bordered select-sm w-full max-w-xs">
+                    <option v-for="item in videoItems" :key="item.key" :value="item.key">
+                      {{ item.label }}
+                    </option>
+                  </select>
+
+                  <select v-model="bestCaption" class="select select-bordered select-sm w-full max-w-xs">
+                    <option v-for="item in captionItems" :key="item.key" :value="item.key">
+                      {{ item.label }}
+                    </option>
+                  </select>
                 </div>
               </div>
             </div>
-          </template>
-        </form>
+          </form>
+        </div>
+
+        <!-- 开始/取消按钮 -->
+        <!-- 自定义模式 -->
+        <div v-if="mode === 'custom'" class="modal-action">
+          <button class="btn btn-sm" @click="closeModal">{{ $t('common.cancel') }}</button>
+          <button class="btn btn-primary btn-sm" @click="startCustomDownload" :disabled="!canDownload">{{
+    $t('common.start')
+  }}</button>
+        </div>
+        <!-- 快速下载模式 -->
+        <div v-if="mode === 'quick'" class="modal-action">
+          <button class="btn btn-sm" @click="closeModal">{{ $t('common.cancel') }}</button>
+          <button class="btn btn-primary btn-sm" @click="startQuickDownload" :disabled="!quickModeDownEnabled">{{
+            $t('common.start')
+            }}</button>
+        </div>
+
       </div>
-      <div class="modal-action">
-        <button class="btn btn-sm" @click="closeModal">{{ $t('common.cancel') }}</button>
-        <button class="btn btn-primary btn-sm" @click="startDownload" :disabled="!canDownload">{{ $t('common.start') }}</button>
-      </div>
-    </div>
     </div>
   </dialog>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { GetContent, Download } from 'wailsjs/go/api/DowntasksAPI'
+import { GetContent, Download, QuickDownload } from 'wailsjs/go/api/DowntasksAPI'
 import { DependenciesReady } from 'wailsjs/go/api/PathsAPI'
 import useNavStore from '@/stores/nav.js'
 import useSettingsStore from '@/stores/settings'
@@ -184,7 +241,7 @@ const thumbnailLoadError = ref(false)
 const handleThumbnailError = (e) => {
   // mark thumbnail load error
   logger.error('Thumbnail load error', videoData.value?.thumbnail)
-  
+
   thumbnailLoadError.value = true
 }
 
@@ -193,7 +250,15 @@ const navStore = useNavStore()
 
 const props = defineProps({
   show: Boolean,
+  initialMode: {
+    type: String,
+    default: 'custom',
+    validator: (value) => ['custom', 'quick'].includes(value)
+  }
 })
+
+// 模式切换
+const mode = ref(props.initialMode)
 
 const emit = defineEmits(['update:show', 'download-started'])
 
@@ -236,6 +301,8 @@ watch(() => showModal.value, (newValue) => {
 
 // Form data
 const url = ref('')
+
+// custom mode data
 const isLoading = ref(false)
 const videoData = ref(null)
 const selectedQuality = ref(null)
@@ -243,6 +310,18 @@ const selectedSubtitles = ref([])
 const translateTo = ref('')
 const subtitleStyle = ref('default')
 const showSubtitleDropdown = ref(false)
+
+// quick mode data
+const video = ref('best')
+const bestCaption = ref(false)
+const videoItems = computed(() => [
+  { key: 'best', label: t('download.best_quality') },
+  { key: 'bestaudio', label: t('download.best_audio') },
+])
+const captionItems = computed(() => [
+  { key: false, label: t('download.no_caption') },
+  { key: true, label: t('download.best_caption') },
+])
 
 // Whether can start download
 const canDownload = computed(() => {
@@ -521,7 +600,7 @@ const formatDuration = (seconds) => {
 }
 
 // Start download
-const startDownload = async () => {
+const startCustomDownload = async () => {
   if (!canDownload.value) return
 
   try {
@@ -558,13 +637,55 @@ const startDownload = async () => {
     } else {
       $dialog.error({
         title: t('download.download_failed'),
-        content: response.error,
+        content: response.msg,
       })
     }
   } catch (error) {
     $dialog.error({
       title: t('download.download_failed'),
       content: error.message,
+    })
+  }
+}
+
+const quickModeDownEnabled = computed(() => {
+  return url.value !== '' && video.value !== '' && bestCaption.value !== null
+})
+
+// Start download
+const startQuickDownload = async () => {
+  if (!quickModeDownEnabled.value) return
+
+  try {
+    // Prepare download parameters
+    const downloadParams = {
+      url: url.value,
+      video: video.value,
+      bestCaption: bestCaption.value
+    }
+
+    const response = await QuickDownload(downloadParams)
+
+    if (response.success) {
+      // 触发下载开始事件
+      emit('download-started', {
+        url: url.value,
+        video: video.value,
+        bestCaption: bestCaption.value,
+        createdAt: new Date().toISOString()
+      })
+      // Close modal
+      closeModal()
+    } else {
+      $dialog.error({
+        title: t('download.download_failed'),
+        content: response.msg,
+      })
+    }
+  } catch (error) {
+    $dialog.error({
+      title: t('download.download_failed'),
+      content: error.message || t('common.unknown_error'),
     })
   }
 }
@@ -577,12 +698,17 @@ const closeModal = () => {
 // Reset form
 const resetForm = () => {
   url.value = ''
-  videoData.value = null
-  selectedQuality.value = null
-  selectedSubtitles.value = []
-  translateTo.value = ''
-  subtitleStyle.value = 'default'
-  thumbnailLoadError.value = false
+  if (mode.value === 'quick') {
+    video.value = 'best'
+    bestCaption.value = false
+  } else {
+    videoData.value = null
+    selectedQuality.value = null
+    selectedSubtitles.value = []
+    translateTo.value = ''
+    subtitleStyle.value = 'default'
+    thumbnailLoadError.value = false
+  }
 }
 
 </script>

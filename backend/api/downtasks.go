@@ -8,8 +8,6 @@ import (
 	"CanMe/backend/types"
 	"context"
 	"encoding/json"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type DowntasksAPI struct {
@@ -42,11 +40,12 @@ func (api *DowntasksAPI) Subscribe(ctx context.Context) {
 		}
 	})
 
-	api.eventBus.Subscribe(consts.TopicDowntasksSingle, func(event events.Event) {
-		if data, ok := event.Data.(*types.DtProgress); ok {
-			runtime.EventsEmit(api.ctx, string(consts.EVENT_DOWNTASKS_SINGLE), map[string]interface{}{
-				"taskId": data.ID,
-				"status": data.Stage,
+	api.eventBus.Subscribe(consts.TopicDowntasksSignal, func(event events.Event) {
+		if data, ok := event.Data.(*types.DTSignal); ok {
+			api.ws.SendToClient(types.WSResponse{
+				Namespace: consts.NAMESPACE_DOWNTASKS,
+				Event:     consts.EVENT_DOWNTASKS_SIGNAL,
+				Data:      data,
 			})
 		}
 	})
@@ -89,6 +88,33 @@ func (api *DowntasksAPI) Download(request *types.DtDownloadRequest) (resp *types
 
 	// download
 	content, err := api.service.Download(request)
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+
+	contentString, err := json.Marshal(content)
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+
+	return &types.JSResp{Success: true, Data: string(contentString)}
+}
+
+func (api *DowntasksAPI) QuickDownload(request *types.DtQuickDownloadRequest) (resp *types.JSResp) {
+	// params check
+	if request.URL == "" {
+		return &types.JSResp{Msg: "URL is required"}
+	}
+
+	if request.Video == "" {
+		return &types.JSResp{Msg: "Video is required"}
+	}
+
+	// define type
+	request.Type = consts.TASK_TYPE_QUICK
+
+	// download
+	content, err := api.service.QuickDownload(request)
 	if err != nil {
 		return &types.JSResp{Msg: err.Error()}
 	}

@@ -35,8 +35,6 @@ type Service struct {
 	downloadClient *downinfo.Client
 	// pref
 	pref *preferences.Service
-	// yt-dlp
-	ytdlpInstalled bool // 标记 yt-dlp 是否已安装
 	// ffmpeg exec path
 	ffmpegExecPath string
 }
@@ -48,7 +46,6 @@ func NewService(eventBus events.EventBus, proxyClient *proxy.Client, downloadCli
 		proxyClient:    proxyClient,
 		downloadClient: downloadClient,
 		pref:           pref,
-		ytdlpInstalled: false,
 	}
 
 	return s
@@ -96,7 +93,7 @@ func (s *Service) UpdateYTDLP() (string, error) {
 	return s.getYtdlpPath(YtdlpConfig{Latest: true})
 }
 
-func (s *Service) newCommand() (*ytdlp.Command, error) {
+func (s *Service) newCommand(enbaledFFMpeg bool) (*ytdlp.Command, error) {
 	// new
 	dl := ytdlp.New()
 
@@ -107,27 +104,26 @@ func (s *Service) newCommand() (*ytdlp.Command, error) {
 	}
 
 	// yt-dlp mustinstall
-	if !s.ytdlpInstalled {
-		path, err := s.getYtdlpPath(YtdlpConfig{Latest: false})
-		if err != nil {
-			return nil, err
-		}
-		s.ytdlpInstalled = true
-		dl.SetExecutable(path)
-	}
-
-	// ffmpeg
-	ffinfo, err := s.checkFFMpeg()
+	path, err := s.getYtdlpPath(YtdlpConfig{Latest: false})
 	if err != nil {
 		return nil, err
 	}
+	dl.SetExecutable(path)
 
-	if !ffinfo.Available {
-		return nil, fmt.Errorf("ffmpeg is not avaliable in new command function")
+	// ffmpeg
+	if enbaledFFMpeg {
+		ffinfo, err := s.checkFFMpeg()
+		if err != nil {
+			return nil, err
+		}
+
+		if !ffinfo.Available {
+			return nil, fmt.Errorf("ffmpeg is not available in new command function")
+		}
+
+		// set ffmpeg
+		dl.FFmpegLocation(ffinfo.ExecPath)
 	}
-
-	// set ffmpeg
-	dl.FFmpegLocation(ffinfo.ExecPath)
 
 	return dl, nil
 }
@@ -135,7 +131,7 @@ func (s *Service) newCommand() (*ytdlp.Command, error) {
 // ParseURL 从 YouTube 获取视频内容信息
 func (s *Service) ParseURL(url string) (*ytdlp.ExtractedInfo, error) {
 	// 创建 yt-dlp 命令构建器
-	dl, err := s.newCommand()
+	dl, err := s.newCommand(false)
 	if err != nil {
 		return nil, err
 	}
@@ -173,6 +169,8 @@ func (s *Service) getVideoMetadata(url string) (*ytdlp.ExtractedInfo, error) {
 	return s.ParseURL(url)
 }
 
+type InfoChan chan *types.FillTaskInfo
+
 // ProgressChan is a channel for receiving download progress updates
 type ProgressChan chan *types.DtProgress
 
@@ -181,6 +179,8 @@ func (s *Service) Download(request *types.DtDownloadRequest) (*types.DtDownloadR
 	// 创建新任务
 	taskID := uuid.New().String()
 	task := s.taskManager.CreateTask(taskID)
+
+	task.Type = consts.TASK_TYPE_CUSTOM
 
 	// 尝试从缓存获取元数据
 	metadata, err := s.getVideoMetadata(request.URL)
@@ -255,11 +255,73 @@ func (s *Service) Download(request *types.DtDownloadRequest) (*types.DtDownloadR
 		Status: types.DtStageDownloading,
 	}
 
+	// initial task info channel
+	infoChan := make(InfoChan, 1)
+
 	// 初始化进度通道
 	progressChan := make(ProgressChan, 100)
 
 	// 启动处理流程
-	go s.processTask(task, request, progressChan)
+	go s.processTask(task, &types.DownloadVideoRequest{
+		Type:          task.Type,
+		URL:           request.URL,
+		FormatID:      request.FormatID,
+		DownloadSubs:  request.DownloadSubs,
+		SubLangs:      request.SubLangs,
+		SubFormat:     request.SubFormat,
+		TranslateTo:   request.TranslateTo,
+		SubtitleStyle: request.SubtitleStyle,
+	}, infoChan, progressChan)
+
+	// start info monitor
+	go s.fillTaskInfo(infoChan)
+
+	// 启动进度监控
+	go s.monitorProgress(progressChan)
+
+	return resp, nil
+}
+
+// QuickDownload 快速下载视频
+func (s *Service) QuickDownload(request *types.DtQuickDownloadRequest) (*types.DtQuickDownloadResponse, error) {
+	// 创建新任务
+	taskID := uuid.New().String()
+	task := s.taskManager.CreateTask(taskID)
+
+	task.Type = request.Type
+	task.URL = request.URL
+	task.Stage = types.DtStageDownloading
+	task.Percentage = 0
+
+	// define output dir, quick / mcp
+	outputDir, err := s.downDir(request.Type)
+	if err == nil {
+		task.OutputDir = outputDir
+	}
+
+	s.taskManager.UpdateTask(task)
+
+	resp := &types.DtQuickDownloadResponse{
+		ID:     taskID,
+		Status: types.DtStageDownloading,
+	}
+
+	// initial task info channel
+	infoChan := make(InfoChan, 1)
+
+	// 初始化进度通道
+	progressChan := make(ProgressChan, 100)
+
+	// 启动处理流程
+	go s.processTask(task, &types.DownloadVideoRequest{
+		Type:        request.Type,
+		URL:         request.URL,
+		Video:       request.Video,
+		BestCaption: request.BestCaption,
+	}, infoChan, progressChan)
+
+	// start info monitor
+	go s.fillTaskInfo(infoChan)
 
 	// 启动进度监控
 	go s.monitorProgress(progressChan)
@@ -283,11 +345,11 @@ func (s *Service) getCachedMetadata(url string) (*ytdlp.ExtractedInfo, bool) {
 }
 
 // processTask 处理任务的主流程
-func (s *Service) processTask(task *types.DtTaskStatus, request *types.DtDownloadRequest, progressChan ProgressChan) {
+func (s *Service) processTask(task *types.DtTaskStatus, request *types.DownloadVideoRequest, infoChan InfoChan, progressChan ProgressChan) {
 	defer close(progressChan)
 
 	// 第一阶段：下载视频
-	err := s.downloadVideo(task, request, progressChan)
+	err := s.downloadVideo(task, request, infoChan, progressChan)
 	if err != nil {
 		s.handleTaskError(task, err, progressChan)
 		return
@@ -295,57 +357,60 @@ func (s *Service) processTask(task *types.DtTaskStatus, request *types.DtDownloa
 	s.taskManager.UpdateTask(task)
 
 	// 第二阶段：翻译字幕（如果需要）
-	if request.DownloadSubs && request.TranslateTo != "" {
-		task.Stage = types.DtStageTranslating
-		s.taskManager.UpdateTask(task)
+	if request.Type == consts.TASK_TYPE_CUSTOM {
+		if request.DownloadSubs && request.TranslateTo != "" {
+			task.Stage = types.DtStageTranslating
+			s.taskManager.UpdateTask(task)
 
-		// 发送阶段变更通知
-		progressChan <- &types.DtProgress{
-			ID:         task.ID,
-			Stage:      types.DtStageTranslating,
-			Percentage: 0,
-			StageInfo:  "Start translating subtitles",
+			// 发送阶段变更通知
+			progressChan <- &types.DtProgress{
+				ID:         task.ID,
+				Type:       task.Type,
+				Stage:      types.DtStageTranslating,
+				Percentage: 0,
+				StageInfo:  "Start translating subtitles",
+			}
+
+			subtitleFile, err := s.translateSubtitles(task, progressChan)
+			if err != nil {
+				s.handleTaskError(task, err, progressChan)
+				return
+			}
+			task.TranslatedSubs = append(task.TranslatedSubs, subtitleFile)
+			// add to all files
+			task.AllFiles = append(task.AllFiles, subtitleFile)
+			s.taskManager.UpdateTask(task)
+		} else {
+			task.TranslatedSubs = []string{}
 		}
 
-		subtitleFile, err := s.translateSubtitles(task, progressChan)
-		if err != nil {
-			s.handleTaskError(task, err, progressChan)
-			return
+		// 第三阶段：嵌入字幕（如果需要）
+		if request.DownloadSubs && request.TranslateTo != "" {
+			task.Stage = types.DtStageEmbedding
+			s.taskManager.UpdateTask(task)
+
+			// 发送阶段变更通知
+			progressChan <- &types.DtProgress{
+				ID:         task.ID,
+				Type:       task.Type,
+				Stage:      types.DtStageEmbedding,
+				Percentage: 0,
+				StageInfo:  "Start embedding subtitles",
+			}
+
+			embeddedVideo, err := s.embedSubtitles(task, progressChan)
+			if err != nil {
+				s.handleTaskError(task, err, progressChan)
+				return
+			}
+			task.EmbeddedVideoFiles = append(task.EmbeddedVideoFiles, embeddedVideo)
+			// add to all files
+			task.AllFiles = append(task.AllFiles, embeddedVideo)
+			s.taskManager.UpdateTask(task)
+		} else {
+			task.EmbeddedVideoFiles = []string{}
 		}
-		task.TranslatedSubs = append(task.TranslatedSubs, subtitleFile)
-		// add to all files
-		task.AllFiles = append(task.AllFiles, subtitleFile)
-		s.taskManager.UpdateTask(task)
-	} else {
-		task.TranslatedSubs = []string{}
 	}
-
-	// 第三阶段：嵌入字幕（如果需要）
-	if request.DownloadSubs && request.TranslateTo != "" {
-		task.Stage = types.DtStageEmbedding
-		s.taskManager.UpdateTask(task)
-
-		// 发送阶段变更通知
-		progressChan <- &types.DtProgress{
-			ID:         task.ID,
-			Stage:      types.DtStageEmbedding,
-			Percentage: 0,
-			StageInfo:  "Start embedding subtitles",
-		}
-
-		embeddedVideo, err := s.embedSubtitles(task, progressChan)
-		if err != nil {
-			s.handleTaskError(task, err, progressChan)
-			return
-		}
-		task.EmbeddedVideoFiles = append(task.EmbeddedVideoFiles, embeddedVideo)
-		// add to all files
-		task.AllFiles = append(task.AllFiles, embeddedVideo)
-		s.taskManager.UpdateTask(task)
-	} else {
-		task.EmbeddedVideoFiles = []string{}
-	}
-
 	// 完成所有处理
 	task.Stage = types.DtStageCompleted
 	s.taskManager.UpdateTask(task)
@@ -353,6 +418,7 @@ func (s *Service) processTask(task *types.DtTaskStatus, request *types.DtDownloa
 	// 发送完成通知
 	progressChan <- &types.DtProgress{
 		ID:         task.ID,
+		Type:       task.Type,
 		Stage:      types.DtStageCompleted,
 		Percentage: 100,
 		StageInfo:  "Processing completed",
@@ -367,6 +433,7 @@ func (s *Service) handleTaskError(task *types.DtTaskStatus, err error, progressC
 
 	progressChan <- &types.DtProgress{
 		ID:         task.ID,
+		Type:       task.Type,
 		Stage:      types.DtStageFailed,
 		Error:      err.Error(),
 		Percentage: 0,
@@ -375,102 +442,126 @@ func (s *Service) handleTaskError(task *types.DtTaskStatus, err error, progressC
 }
 
 // downloadVideo 实现视频下载阶段
-func (s *Service) downloadVideo(task *types.DtTaskStatus, request *types.DtDownloadRequest, progressChan ProgressChan) error {
+func (s *Service) downloadVideo(task *types.DtTaskStatus, request *types.DownloadVideoRequest, infoChan InfoChan, progressChan ProgressChan) error {
 	// 发送阶段开始通知
 	progressChan <- &types.DtProgress{
 		ID:         task.ID,
+		Type:       task.Type,
 		Stage:      types.DtStageDownloading,
 		Percentage: 0,
 		StageInfo:  "Start downloading video",
 	}
 
-	dl, err := s.newCommand()
+	dl, err := s.newCommand(true)
 	if err != nil {
 		s.handleTaskError(task, err, progressChan)
 		return err
 	}
 
-	dlDir, err := s.downDir(task.Extractor)
-	if err != nil {
-		s.handleTaskError(task, err, progressChan)
-		return err
-	}
+	if task.Type == "custom" {
+		metadata, err := s.getVideoMetadata(request.URL)
+		if err != nil {
+			s.handleTaskError(task, err, progressChan)
+			return err
+		}
 
-	metadata, err := s.getVideoMetadata(request.URL)
-	if err != nil {
-		s.handleTaskError(task, err, progressChan)
-		return err
-	}
-
-	// 检查请求的 format_id 是否存在 VCodec 且不存在 ACodes的情况，这种需要增加 bestaudio
-	var videoExt string
-	if request.FormatID != "" {
-		needAudio := false
-		for _, format := range metadata.Formats {
-			if format.FormatID != nil && *format.FormatID == request.FormatID {
-				if format.VCodec != nil && *format.VCodec != "none" {
-					if format.ACodec == nil || *format.ACodec == "none" {
-						needAudio = true
+		// 检查请求的 format_id 是否存在 VCodec 且不存在 ACodes的情况，这种需要增加 bestaudio
+		var videoExt string
+		if request.FormatID != "" {
+			needAudio := false
+			for _, format := range metadata.Formats {
+				if format.FormatID != nil && *format.FormatID == request.FormatID {
+					if format.VCodec != nil && *format.VCodec != "none" {
+						if format.ACodec == nil || *format.ACodec == "none" {
+							needAudio = true
+						}
 					}
-				}
 
-				if format.Extension != nil {
-					videoExt = *format.Extension
+					if format.Extension != nil {
+						videoExt = *format.Extension
+					}
+					break
 				}
-				break
 			}
-		}
 
-		if needAudio {
-			if videoExt == "mp4" {
-				// MP4 视频，使用 M4A 音频
-				dl.Format(request.FormatID + "+bestaudio[ext=m4a]")
-				dl.MergeOutputFormat("mp4")
-			} else if videoExt == "webm" {
-				// WebM 视频，使用 WebM 音频
-				dl.Format(request.FormatID + "+bestaudio[ext=webm]")
-				dl.MergeOutputFormat("webm")
+			if needAudio {
+				if videoExt == "mp4" {
+					// MP4 视频，使用 M4A 音频
+					dl.Format(request.FormatID + "+bestaudio[ext=m4a]")
+					dl.MergeOutputFormat("mp4")
+				} else if videoExt == "webm" {
+					// WebM 视频，使用 WebM 音频
+					dl.Format(request.FormatID + "+bestaudio[ext=webm]")
+					dl.MergeOutputFormat("webm")
+				} else {
+					// 其他情况，让 yt-dlp 自行决定
+					dl.Format(request.FormatID + "+bestaudio")
+					// 保持原来的设置
+					dl.MergeOutputFormat("mp4/webm")
+				}
 			} else {
-				// 其他情况，让 yt-dlp 自行决定
-				dl.Format(request.FormatID + "+bestaudio")
-				// 保持原来的设置
-				dl.MergeOutputFormat("mp4/webm")
+				dl.Format(request.FormatID)
 			}
 		} else {
-			dl.Format(request.FormatID)
+			dl.UnsetFormat()
 		}
-	} else {
-		dl.Format("best")
+
+		if request.DownloadSubs {
+			dl.WriteSubs() // 启用字幕下载
+
+			// 如果指定了字幕语言
+			if len(request.SubLangs) > 0 {
+				dl.SubLangs(strings.Join(request.SubLangs, ","))
+			} else {
+				dl.SubLangs("all") // 下载所有可用字幕
+			}
+
+			// 如果指定了字幕格式
+			if request.SubFormat != "" {
+				dl.SubFormat(request.SubFormat)
+			} else {
+				dl.SubFormat("best") // 使用最佳字幕格式
+			}
+		}
+
+	} else { // if type == quick || mcp
+		// format
+		if request.Video != "" {
+			switch request.Video {
+			case "best":
+				dl.UnsetFormat()
+			default:
+				dl.Format(request.Video)
+			}
+		}
+
+		// caption
+		if request.BestCaption {
+			dl.SubFormat("best")
+		}
 	}
 
-	if request.DownloadSubs {
-		dl.WriteSubs() // 启用字幕下载
-
-		// 如果指定了字幕语言
-		if len(request.SubLangs) > 0 {
-			dl.SubLangs(strings.Join(request.SubLangs, ","))
-		} else {
-			dl.SubLangs("all") // 下载所有可用字幕
-		}
-
-		// 如果指定了字幕格式
-		if request.SubFormat != "" {
-			dl.SubFormat(request.SubFormat)
-		} else {
-			dl.SubFormat("best") // 使用最佳字幕格式
-		}
-	}
-
-	dl.SetWorkDir(dlDir).
+	// 设置工作目录和输出文件
+	dl.SetWorkDir(task.OutputDir).
 		NoPlaylist().
 		NoOverwrites().
 		Output("%(title)s_%(height)sp_%(fps)dfps.%(ext)s")
 
+	var once sync.Once
+
 	// 设置进度回调
 	dl.ProgressFunc(time.Second, func(update ytdlp.ProgressUpdate) {
+		once.Do(func() {
+			infoChan <- &types.FillTaskInfo{
+				ID:   task.ID,
+				Info: update.Info,
+			}
+		})
+
 		// todo:解决为什么同时下载字幕的YouTube视频，会仅推送下载字幕update，而不推送下载视频update
 		progress := &types.DtProgress{
 			ID:            task.ID,
+			Type:          task.Type,
 			Stage:         types.DtStageDownloading,
 			Percentage:    update.Percent(),
 			Speed:         fmt.Sprintf("%.2f MB/s", float64(update.DownloadedBytes)/update.Duration().Seconds()/1024/1024),
@@ -502,6 +593,66 @@ func (s *Service) downloadVideo(task *types.DtTaskStatus, request *types.DtDownl
 	s.parseYtdlpOutput(task, result)
 
 	return nil
+}
+
+func (s *Service) fillTaskInfo(infoChan InfoChan) {
+	for taskInfo := range infoChan {
+		if taskInfo == nil {
+			continue
+		}
+
+		task := s.taskManager.GetTask(taskInfo.ID)
+		if task != nil {
+			// core metadata
+			task.Extractor = *taskInfo.Info.Extractor
+			task.Title = *taskInfo.Info.Title
+			task.Thumbnail = *taskInfo.Info.Thumbnail
+
+			// 兼容Bilibili番剧
+			if taskInfo.Info.Uploader != nil {
+				task.Uploader = *taskInfo.Info.Uploader
+			} else if taskInfo.Info.Series != nil {
+				task.Uploader = *taskInfo.Info.Series
+			} else {
+				task.Uploader = *taskInfo.Info.Extractor // default
+			}
+			task.Duration = *taskInfo.Info.Duration
+
+			if task.Format == "" {
+				// format extension
+				task.Format = taskInfo.Info.Extension
+
+				// file size
+				if taskInfo.Info.FileSizeApprox != nil {
+					task.FileSize = int64(*taskInfo.Info.FileSizeApprox)
+				} else if taskInfo.Info.FileSize != nil {
+					task.FileSize = int64(*taskInfo.Info.FileSize)
+				} else {
+					task.FileSize = 0
+				}
+
+				// quality
+				if taskInfo.Info.Resolution != nil {
+					task.Resolution = *taskInfo.Info.Resolution
+				} else if taskInfo.Info.Height != nil && taskInfo.Info.Width != nil {
+					task.Resolution = fmt.Sprintf("%v x %v", *taskInfo.Info.Width, *taskInfo.Info.Height)
+				} else {
+					task.Resolution = "Unknown"
+				}
+
+				// update
+				s.taskManager.UpdateTask(task)
+
+				// refresh
+				s.eventBus.Broadcast(consts.TopicDowntasksSignal, &types.DTSignal{
+					ID:      task.ID,
+					Type:    task.Type,
+					Stage:   task.Stage,
+					Refresh: true,
+				})
+			}
+		}
+	}
 }
 
 // parseYtdlpOutput 解析yt-dlp的输出结果，提取最终保存的文件信息
@@ -561,6 +712,14 @@ func (s *Service) parseYtdlpOutput(task *types.DtTaskStatus, result *ytdlp.Resul
 	task.AllFiles = append(task.AllFiles, task.AllDownloadedFiles...)
 	// 更新任务
 	s.taskManager.UpdateTask(task)
+
+	// refresh
+	s.eventBus.Broadcast(consts.TopicDowntasksSignal, &types.DTSignal{
+		ID:      task.ID,
+		Type:    task.Type,
+		Stage:   task.Stage,
+		Refresh: true,
+	})
 }
 
 // translateSubtitles 实现字幕翻译阶段

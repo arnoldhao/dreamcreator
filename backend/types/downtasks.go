@@ -2,6 +2,8 @@ package types
 
 import (
 	"time"
+
+	"github.com/lrstanley/go-ytdlp"
 )
 
 type DtDownloadRequest struct {
@@ -20,6 +22,36 @@ type DtDownloadRequest struct {
 type DtDownloadResponse struct {
 	ID     string      `json:"id"`
 	Status DtTaskStage `json:"status"`
+}
+
+type DtQuickDownloadRequest struct {
+	URL         string `json:"url"`
+	Video       string `json:"video"`
+	BestCaption bool   `json:"bestCaption"`
+	Type        string `json:"type"`
+}
+
+type DtQuickDownloadResponse struct {
+	ID     string      `json:"id"`
+	Status DtTaskStage `json:"status"`
+}
+
+type DownloadVideoRequest struct {
+	// type
+	Type string `json:"type"`
+
+	URL string `json:"url"`
+	// best options
+	Video       string `json:"video"`
+	BestCaption bool   `json:"bestCaption"`
+	// custom options
+	FormatID     string   `json:"formatId"`
+	DownloadSubs bool     `json:"downloadSubs"`
+	SubLangs     []string `json:"subLangs"`  // 例如 ["en", "zh-CN"]
+	SubFormat    string   `json:"subFormat"` // 例如 "srt", "vtt", "best"
+	// translate options
+	TranslateTo   string `json:"translateTo"`
+	SubtitleStyle string `json:"subtitleStyle"`
 }
 
 // DtTaskStage 定义处理阶段
@@ -44,6 +76,9 @@ type DtProgress struct {
 	// 基础信息
 	ID string `json:"id"`
 
+	// type
+	Type string `json:"type"`
+
 	// 状态
 	Stage     DtTaskStage `json:"stage"`               // 当前处理阶段
 	StageInfo string      `json:"stageInfo,omitempty"` // 当前阶段的额外信息
@@ -61,6 +96,9 @@ type DtProgress struct {
 type DtTaskStatus struct {
 	// 基础信息
 	ID string `json:"id"`
+
+	// type
+	Type string `json:"type"` // custom, quick, mcp
 
 	// 请求信息
 	DownloadSubs  bool     `json:"downloadSubs"`
@@ -139,4 +177,16 @@ type SoftwareInfo struct {
 	Version       string `json:"version"`
 	LatestVersion string `json:"latestVersion"`
 	NeedUpdate    bool   `json:"needUpdate"`
+}
+
+type FillTaskInfo struct {
+	ID   string               `json:"id"`
+	Info *ytdlp.ExtractedInfo `json:"info"`
+}
+
+type DTSignal struct {
+	ID      string      `json:"id"`
+	Type    string      `json:"type"`
+	Stage   DtTaskStage `json:"stage"` // 当前处理阶段
+	Refresh bool        `json:"refresh"`
 }

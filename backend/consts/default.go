@@ -3,7 +3,7 @@ package consts
 // App Info
 const APP_NAME = "CanMe"
 const APP_DESC = "CanMe is a comprehensive multilingual video download manager with a fluid user experience and powerful content processing capabilities.\n\nCopyright 2025"
-const APP_VERSION = "0.1.4"
+const APP_VERSION = "0.1.5"
 const BBOLT_DB_NAME = "canme.db"
 
 // App Config File
@@ -20,6 +20,13 @@ const CHECK_UPDATE_URL = "https://api.github.com/repos/arnoldhao/canme/releases/
 
 // YTDLP Version
 const (
-	YTDLP_VERSION          = "2025.03.25"
+	YTDLP_VERSION          = "2025.03.26"
 	YTDLP_CHECK_UPDATE_URL = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
+)
+
+// Task
+const (
+	TASK_TYPE_CUSTOM = "custom"
+	TASK_TYPE_QUICK  = "quick"
+	TASK_TYPE_MCP    = "mcp"
 )

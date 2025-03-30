@@ -2,13 +2,12 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { InstallYTDLP, CheckYTDLPUpdate, UpdateYTDLP } from 'wailsjs/go/api/DowntasksAPI'
 import { GetYTDLPPath, GetFFMPEGPath, SetFFMpegExecPath } from 'wailsjs/go/api/PathsAPI'
-import { useDt } from '@/handlers/downtasks'
+import { useDtStore } from '@/handlers/downtasks'
 import { Info, OpenDirectory } from 'wailsjs/go/systems/Service'
 import { useI18n } from 'vue-i18n'
 import usePreferencesStore from '@/stores/preferences'
 
 const { t } = useI18n()
-const { initDt, onInstalling } = useDt()
 const prefStore = usePreferencesStore()
 
 const ytdlpStatus = async () => {
@@ -166,6 +165,23 @@ const checkYTDLPUpdate = async () => {
     }
 }
 
+const handleInstalling = (progress) => {
+    if (progress.stage == "installing") {
+        prefStore.dependencies.ytdlp.installProgress = progress.percentage.toFixed(2) + '%'
+    } else if (progress.stage == "installed") {
+        prefStore.dependencies.ytdlp.installProgress = ''
+        ytdlpStatus()
+    } else if (progress.stage == "updating") {
+        prefStore.dependencies.ytdlp.updateProgress = progress.percentage.toFixed(2) + '%'
+    } else if (progress.stage == "updated") {
+        prefStore.dependencies.ytdlp.updateProgress = ''
+        ytdlpStatus()   
+    } else {
+        prefStore.dependencies.ytdlp.installProgress = ''
+        $message.error("unknown stage: " + progress.stage)
+    }
+}
+
 // lifecycle hooks
 onMounted(() => {
     // get current os
@@ -177,31 +193,13 @@ onMounted(() => {
     // check ytdlp update
     checkYTDLPUpdate()
 
-    // init WebSocket handler
-    initDt()
-
-    // register installing callback
-    const unsubscribeInstalling = onInstalling((progress) => {
-        console.log("ytdlp installing", progress, "stage", progress.stage)
-        if (progress.stage == "installing") {
-            prefStore.dependencies.ytdlp.installProgress = progress.percentage.toFixed(2) + '%'
-        } else if (progress.stage == "installed") {
-            prefStore.dependencies.ytdlp.installProgress = ''
-            ytdlpStatus()
-        } else if (progress.stage == "updating") {
-            prefStore.dependencies.ytdlp.updateProgress = progress.percentage.toFixed(2) + '%'
-        } else if (progress.stage == "updated") {
-            prefStore.dependencies.ytdlp.updateProgress = ''
-            ytdlpStatus()   
-        } else {
-            prefStore.dependencies.ytdlp.installProgress = ''
-            $message.error("unknown stage: " + progress.stage)
-        }
-    })
+    // ws
+    const dtStore = useDtStore()
+    dtStore.registerInstallingCallback(handleInstalling)
 
     // cleanup function
     onUnmounted(() => {
-        unsubscribeInstalling()
+        dtStore.unregisterInstallingCallback(handleInstalling)
     })
 })
 

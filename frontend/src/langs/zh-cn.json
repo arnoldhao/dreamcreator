@@ -18,7 +18,9 @@
     "copy_failed": "复制失败",
     "start": "开始",
     "info": "信息",
-    "refresh": "刷新"
+    "refresh": "刷新",
+    "unknown_duration": "未知时长",
+    "unknown_size": "未知大小"
   },
   "dialogue": {
     "app_name": "CanMe",
@@ -164,6 +166,7 @@
   "download": {
     "title": "视频下载",
     "new_task": "新建任务", 
+    "quick_task": "快速任务",
     "brief": "简介",
     "thumbnail": "缩略图",
     "progress": "进度",
@@ -245,6 +248,12 @@
     "parse_failed": "解析失败",
     "dependencies_not_ready": "依赖未就绪",
     "dependencies_not_ready_desc": "需要安装 yt-dlp 和 ffmpeg 才能继续, 点击下方按钮进行管理。",
-    "manage_dependencies": "管理依赖"
+    "manage_dependencies": "管理依赖",
+    "best_quality": "最佳品质",
+    "best_audio": "最佳音频",
+    "best_caption": "最佳字幕",
+    "no_caption": "无字幕",
+    "custom_mode": "自定义下载",
+    "quick_mode": "快速下载"
   }
 }

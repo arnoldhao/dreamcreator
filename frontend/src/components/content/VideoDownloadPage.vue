@@ -28,12 +28,11 @@
             <div class="flex items-center mb-3">
               <div class="w-14 h-9 bg-base-200 rounded overflow-hidden flex-shrink-0 mr-3">
                 <template v-if="!thumbnailLoadError && activeTask.thumbnail">
-                  <img :src="activeTask.thumbnail" 
-                    class="w-full h-full object-cover"
-                    :alt="$t('download.thumbnail')" 
+                  <img :src="activeTask.thumbnail" class="w-full h-full object-cover" :alt="$t('download.thumbnail')"
                     @error="handleThumbnailError" />
                 </template>
-                <div v-else class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
+                <div v-else
+                  class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
                   <v-icon name="ri-video-line" class="w-5 h-5 mb-1"></v-icon>
                 </div>
               </div>
@@ -147,7 +146,7 @@
                       <div v-if="activeTask.estimatedTime" class="flex items-center ml-2">
                         <v-icon name="ri-time-line" class="w-3 h-3 mr-1 text-primary/70"></v-icon>
                         <span class="font-medium">{{ $t('download.estimated_time') }}:</span> {{
-                        activeTask.estimatedTime }}
+                          activeTask.estimatedTime }}
                       </div>
                     </div>
                     <div v-if="activeTask.stage === 'failed'" class="flex items-center">
@@ -187,7 +186,7 @@
             <!-- tasks count-->
             <span class="text-xs text-base-content/70">{{ filteredTasks.length }} / {{ tasks.length }} {{
               $t('download.tasks')
-              }}</span>
+            }}</span>
 
             <!-- filter button -->
             <div class="dropdown dropdown-end">
@@ -219,14 +218,13 @@
                 <!-- task information -->
                 <div class="w-12 h-8 bg-base-200 rounded-md overflow-hidden flex-shrink-0 mr-2.5">
                   <template v-if="!task.thumbnailLoadError && task.thumbnail">
-                    <img :src="task.thumbnail" 
-                      class="w-full h-full object-cover"
-                      :alt="$t('download.thumbnail')" 
+                    <img :src="task.thumbnail" class="w-full h-full object-cover" :alt="$t('download.thumbnail')"
                       @error="handleTaskThumbnailError" />
                   </template>
-                    <div v-else class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
-                      <v-icon name="ri-video-line" class="w-5 h-5 mb-1"></v-icon>
-                    </div>
+                  <div v-else
+                    class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
+                    <v-icon name="ri-video-line" class="w-5 h-5 mb-1"></v-icon>
+                  </div>
                 </div>
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center">
@@ -237,7 +235,7 @@
                   </div>
                   <div class="text-xs text-base-content/70 mt-0.5">
                     {{ formatDuration(task.duration) }} · {{ formatFileSize(task.fileSize) }} · {{ task.extractor }} ·{{
-                    task.uploader }}
+                      task.uploader }}
                   </div>
                 </div>
 
@@ -301,7 +299,8 @@
         </div>
 
         <!-- Filtered empty state -->
-        <div v-else-if="filteredTasks.length === 0 && tasks.length > 0" class="card bg-base-100 shadow-md border border-base-200">
+        <div v-else-if="filteredTasks.length === 0 && tasks.length > 0"
+          class="card bg-base-100 shadow-md border border-base-200">
           <div class="card-body p-6 flex flex-col items-center justify-center">
             <v-icon name="ri-inbox-line" class="w-12 h-12 text-base-content/20 mb-3"></v-icon>
             <h3 class="text-base font-medium mb-1.5">{{ $t('download.no_filter_results') }}</h3>
@@ -326,7 +325,6 @@
     <!-- new download modal -->
     <VideoDownloadModal :show="showDownloadModal" @update:show="showDownloadModal = $event"
       @download-started="onDownloadStarted" />
-
     <!-- task detail modal -->
     <div class="modal" :class="{ 'modal-open': selectedTaskId }">
       <div class="modal-box max-w-3xl w-11/12 max-h-[90vh] overflow-y-auto">
@@ -343,12 +341,11 @@
           <div class="flex items-start space-x-4">
             <div class="w-20 h-14 bg-base-200 rounded overflow-hidden flex-shrink-0">
               <template v-if="!selectedThumbnailLoadError && selectedTask.thumbnail">
-                <img :src="selectedTask.thumbnail" 
-                  class="w-full h-full object-cover"
-                  :alt="$t('download.thumbnail')" 
+                <img :src="selectedTask.thumbnail" class="w-full h-full object-cover" :alt="$t('download.thumbnail')"
                   @error="handleSelectedThumbnailError" />
               </template>
-              <div v-else class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
+              <div v-else
+                class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
                 <v-icon name="ri-video-line" class="w-8 h-8 mb-1"></v-icon>
               </div>
             </div>
@@ -563,7 +560,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ListTasks, DeleteTask } from 'wailsjs/go/api/DowntasksAPI'
 import { OpenDirectory } from 'wailsjs/go/systems/Service'
-import { useDt } from '@/handlers/downtasks'
+import { useDtStore } from '@/handlers/downtasks'
 import VideoDownloadModal from '@/components/modal/VideoDownloadModal.vue'
 import { useLoggerStore } from '@/stores/logger'
 
@@ -654,9 +651,6 @@ const toggleFilter = (stage) => {
 const currentStageInfo = computed(() => {
   return allStages.value.find(stage => stage.id === activeTask.value?.stage) || {}
 })
-
-// WebSocket handlers
-const { initDt, onProgress, taskProgressMap } = useDt()
 
 // # tasks:tasks -> filterTasks -> paginatedTasks
 // tasks: tasks
@@ -899,11 +893,11 @@ const formatDateTime = (timestamp) => {
 }
 
 const formatFileSize = (size) => {
-  if (!size) return t('common.unkonow_size')
+  if (!size) return t('common.unknown_size')
 
   // ensure size is number type
   const numSize = Number(size)
-  if (isNaN(numSize)) return t('common.unkonow_size')
+  if (isNaN(numSize)) return t('common.unknown_size')
 
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
   let i = 0
@@ -989,11 +983,11 @@ const getFileTypeLabel = (filePath) => {
 // get file name (remove path)
 const getFileName = (filePath) => {
   if (!filePath) return ''
-  
+
   // 统一处理路径分隔符（Windows 和 Unix）
   const normalizedPath = filePath.replace(/\\/g, '/')
   const fileName = normalizedPath.split('/').pop()
-  
+
   try {
     // 尝试解码可能的 URL 编码
     return decodeURIComponent(fileName)
@@ -1024,14 +1018,14 @@ const selectedThumbnailLoadError = ref(false)
 const handleThumbnailError = (e) => {
   // mark thumbnail load error
   logger.error('Thumbnail load error', activeTask.value?.thumbnail)
-  
+
   thumbnailLoadError.value = true
 }
 
 const handleTaskThumbnailError = (task) => {
   // mark thumbnail load error
   logger.error('Thumbnail load error', task.value?.thumbnail)
-  
+
   task.thumbnailLoadError = true
 }
 
@@ -1039,35 +1033,9 @@ const handleTaskThumbnailError = (task) => {
 const handleSelectedThumbnailError = (e) => {
   // mark thumbnail load error
   logger.error('Thumbnail load error', selectedTask.value?.thumbnail)
-  
+
   selectedThumbnailLoadError.value = true
 }
-
-// lifecycle hooks
-onMounted(() => {
-  // initialize WebSocket handler
-  initDt()
-
-  // register progress update callback
-  const unsubscribe = onProgress(updateTaskFromProgress)
-
-  // get tasks list (only once)
-  refreshTasks()
-
-  // cleanup function
-  onUnmounted(() => {
-    unsubscribe()
-  })
-})
-
-// watch task progress map
-watch(taskProgressMap, (newProgressMap) => {
-  // when receive new progress update, update corresponding task
-  Object.values(newProgressMap).forEach(progress => {
-    updateTaskFromProgress(progress)
-  })
-}, { deep: true })
-
 
 // update task status (from WebSocket progress update)
 const updateTaskFromProgress = (progress) => {
@@ -1085,6 +1053,29 @@ const updateTaskFromProgress = (progress) => {
   // update task list
   tasks.value[taskIndex] = { ...task }
 }
+
+const handleSignal = (signal) => {
+  if (signal.refresh) {
+    refreshTasks()
+  }
+}
+
+// lifecycle hooks
+onMounted(() => {
+  // 注册信号回调
+  const dtStore = useDtStore()
+  dtStore.registerProgressCallback(updateTaskFromProgress)
+  dtStore.registerSignalCallback(handleSignal)
+
+  // get tasks list (only once)
+  refreshTasks()
+
+  // cleanup function
+  onUnmounted(() => {
+    dtStore.unregisterProgressCallback(updateTaskFromProgress)
+    dtStore.unregisterSignalCallback(handleSignal)
+  })
+})
 
 // add new reactive variable to store current active task ID
 const activeTaskId = ref(null)
@@ -1109,6 +1100,13 @@ watch(selectedTaskId, (newId) => {
   }
 })
 
+watch([showDownloadModal], ([newShowDownload], [oldShowDownload]) => {
+  // 当下载模态框从打开状态变为关闭状态时刷新任务列表
+  if (oldShowDownload && !newShowDownload){
+    refreshTasks()
+  }
+})
+
 // filter stages based on task info
 const filteredStages = (task) => {
   if (!task) return []
@@ -1116,21 +1114,24 @@ const filteredStages = (task) => {
   // default all stages from download to completion
   const result = [stages.value[0], stages.value[stages.value.length - 1]]
 
-  // if has subtitle language, add subtitle processing stage
-  if (task.translateTo && task.translateTo.toLowerCase() !== 'none') {
-    result.splice(1, 0, stages.value.find(s => s.id === 'translating'))
-  }
+  if (task.type == 'custom') {
+    // if has subtitle language, add subtitle processing stage
+    if (task.translateTo && task.translateTo.toLowerCase() !== 'none') {
+      result.splice(1, 0, stages.value.find(s => s.id === 'translating'))
+    }
 
-  // if has video embedding style (non-default), add video embedding stage
-  if (task.subtitleStyle && task.subtitleStyle !== 'default') {
-    // ensure correct order of insertion
-    const subtitleIndex = result.findIndex(s => s.id === 'translating')
-    if (subtitleIndex !== -1) {
-      result.splice(subtitleIndex + 1, 0, stages.value.find(s => s.id === 'embedding'))
-    } else {
-      result.splice(1, 0, stages.value.find(s => s.id === 'embedding'))
+    // if has video embedding style (non-default), add video embedding stage
+    if (task.subtitleStyle && task.subtitleStyle !== 'default') {
+      // ensure correct order of insertion
+      const subtitleIndex = result.findIndex(s => s.id === 'translating')
+      if (subtitleIndex !== -1) {
+        result.splice(subtitleIndex + 1, 0, stages.value.find(s => s.id === 'embedding'))
+      } else {
+        result.splice(1, 0, stages.value.find(s => s.id === 'embedding'))
+      }
     }
   }
+
 
   return result
 }

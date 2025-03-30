@@ -1,119 +1,95 @@
+import { defineStore } from 'pinia'
 import { WS_NAMESPACE, WS_RESPONSE_EVENT } from '@/consts/websockets'
 import WebSocketService from '@/services/websocket'
-import { ref } from 'vue'
 
-// 创建一个响应式的任务进度映射，用于存储每个任务的最新进度
-const taskProgressMap = ref({})
-
-export function useDt() {
-    // 注册回调函数
-    const progressCallbacks = []
-    const singleCallbacks = []
-    const installingCallbacks = []
-
-    function handleCallback(data) {
-        switch (data.event) {
-            case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_PROGRESS:
-                handleProgress(data.data)
-                break
-            case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_SINGLE:
-                handleSingle(data.data)
-                break
-            case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_INSTALLING:
-                handleInstalling(data.data)
-                break
-            default:
-                console.warn('Unknown event:', data.event)
-        }
-    }
-
-    function handleProgress(innerData) {
-        // 更新任务进度映射
-        if (innerData && innerData.id) {
-            taskProgressMap.value[innerData.id] = innerData
-            
-            // 调用所有注册的进度回调函数
-            progressCallbacks.forEach(callback => {
-                try {
-                    callback(innerData)
-                } catch (error) {
-                    console.error('Error in progress callback:', error)
-                }
-            })
-        }
-    }
-
-    function handleSingle(innerData) {
-        // 调用所有注册的单任务回调函数
-        singleCallbacks.forEach(callback => {
-            try {
-                callback(innerData)
-            } catch (error) {
-                console.error('Error in single callback:', error)
-            }
+export const useDtStore = defineStore('downtasks', {
+  state: () => ({
+    taskProgressMap: {}, // 任务进度映射
+    progressCallbacks: [], // 进度回调函数
+    signalCallbacks: [], // 信号回调函数
+    installingCallbacks: [] // 安装回调函数
+  }),
+  actions: {
+    // 初始化 WebSocket 事件处理
+    init() {
+      WebSocketService.addListener(WS_NAMESPACE.DOWNTASKS, this.handleCallback)
+    },
+    // 清理 WebSocket 事件处理
+    cleanup() {
+      WebSocketService.removeListener(WS_NAMESPACE.DOWNTASKS, this.handleCallback)
+    },
+    // 处理 WebSocket 回调
+    handleCallback(data) {
+      switch (data.event) {
+        case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_PROGRESS:
+          this.handleProgress(data.data)
+          break
+        case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_SIGNAL:
+          this.handleSignal(data.data)
+          break
+        case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_INSTALLING:
+          this.handleInstalling(data.data)
+          break
+        default:
+          console.warn('Unknown event:', data.event)
+      }
+    },
+    // 处理进度事件
+    handleProgress(innerData) {
+      if (innerData && innerData.id) {
+        this.taskProgressMap[innerData.id] = innerData
+        this.progressCallbacks.forEach((callback) => {
+          try {
+            callback(innerData)
+          } catch (error) {
+            console.error('Progress callback error:', error)
+          }
         })
-    }
-
-    function handleInstalling(innerData) {
-        // 调用所有注册的安装回调函数
-        installingCallbacks.forEach(callback => {
-            try {
-                callback(innerData)
-            } catch (error) {
-                console.error('Error in installing callback:', error)
-            }
-        })
-    }
-
-    function initDt() {
-        // add listener
-        WebSocketService.addListener(WS_NAMESPACE.DOWNTASKS, (data) => handleCallback(data))
-    }
-    
-    // 注册进度更新回调
-    function onProgress(callback) {
-        if (typeof callback === 'function') {
-            progressCallbacks.push(callback)
+      }
+    },
+    // 处理信号事件
+    handleSignal(innerData) {
+      this.signalCallbacks.forEach((callback) => {
+        try {
+          callback(innerData)
+        } catch (error) {
+          console.error('Signal callback error:', error)
         }
-        return () => {
-            const index = progressCallbacks.indexOf(callback)
-            if (index !== -1) {
-                progressCallbacks.splice(index, 1)
-            }
+      })
+    },
+    // 处理安装事件
+    handleInstalling(innerData) {
+      this.installingCallbacks.forEach((callback) => {
+        try {
+          callback(innerData)
+        } catch (error) {
+          console.error('Installing callback error:', error)
         }
-    }
-    
-    // 注册单任务更新回调
-    function onSingle(callback) {
-        if (typeof callback === 'function') {
-            singleCallbacks.push(callback)
-        }
-        return () => {
-            const index = singleCallbacks.indexOf(callback)
-            if (index !== -1) {
-                singleCallbacks.splice(index, 1)
-            }
-        }
-    }
-
+      })
+    },
+    // 注册进度回调
+    registerProgressCallback(callback) {
+      this.progressCallbacks.push(callback)
+    },
+    // 取消注册进度回调
+    unregisterProgressCallback(callback) {
+      this.progressCallbacks = this.progressCallbacks.filter((cb) => cb !== callback)
+    },
+    // 注册信号回调
+    registerSignalCallback(callback) {
+      this.signalCallbacks.push(callback)
+    },
+    // 取消注册信号回调
+    unregisterSignalCallback(callback) {
+      this.signalCallbacks = this.signalCallbacks.filter((cb) => cb !== callback)
+    },
     // 注册安装回调
-    function onInstalling(callback) {
-        if (typeof callback === 'function') {
-            installingCallbacks.push(callback)
-        }
-        return () => {
-            const index = installingCallbacks.indexOf(callback)
-            if (index !== -1) {
-                installingCallbacks.splice(index, 1)
-            }
-        }
+    registerInstallingCallback(callback) {
+      this.installingCallbacks.push(callback)
+    },
+    // 取消注册安装回调
+    unregisterInstallingCallback(callback) {
+      this.installingCallbacks = this.installingCallbacks.filter((cb) => cb !== callback)
     }
-
-    return {
-        initDt,
-        onProgress,
-        onSingle,
-        onInstalling,
-        taskProgressMap
-    }
-}
+  }
+})

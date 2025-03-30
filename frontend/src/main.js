@@ -8,6 +8,7 @@ import { setupDiscreteApi } from '@/utils/discrete.js'
 import usePreferencesStore from 'stores/preferences.js'
 import { loadEnvironment } from '@/utils/platform.js'
 import { OhVueIcon, addIcons } from 'oh-vue-icons'
+import { useDtStore } from '@/handlers/downtasks'
 
 // 导入所有图标包
 import * as AiIcons from 'oh-vue-icons/icons/ai'
@@ -65,6 +66,10 @@ async function setupApp() {
 
     // Register OhVueIcon component globally
     app.component("v-icon", OhVueIcon);
+
+    // 初始化全局WS通信状态管理
+    const dtStore = useDtStore()
+    dtStore.init()
 
     await loadEnvironment()
     const prefStore = usePreferencesStore()
