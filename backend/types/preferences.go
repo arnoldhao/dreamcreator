@@ -14,6 +14,7 @@ type Preferences struct {
 	Download     downinfo.Config     `json:"download" yaml:"download"`
 	Logger       logger.Config       `json:"logger" yaml:"logger"`
 	Dependencies Dependencies        `json:"dependencies" yaml:"dependencies"`
+	ListendInfo  ListendInfo         `json:"listendInfo" yaml:"listend_info"`
 }
 
 func NewPreferences() Preferences {
@@ -40,6 +41,20 @@ func NewPreferences() Preferences {
 			},
 			FFMpeg: SoftwareInfo{},
 		},
+		ListendInfo: ListendInfo{
+			WS: ListendInfoDetails{
+				Protocol: "ws",
+				IP:       "localhost",
+				Port:     consts.WS_PORT,
+				Path:     "ws",
+			},
+			MCP: ListendInfoDetails{
+				Protocol: "http",
+				IP:       "localhost",
+				Port:     consts.MCP_SERVER_PORT,
+				Path:     "sse",
+			},
+		},
 	}
 }
 
@@ -62,4 +77,16 @@ type PreferencesGeneral struct {
 type Dependencies struct {
 	YTDLP  SoftwareInfo `json:"ytdlp" yaml:"ytdlp"`
 	FFMpeg SoftwareInfo `json:"ffmpeg" yaml:"ffmpeg"`
+}
+
+type ListendInfo struct {
+	WS  ListendInfoDetails `json:"ws" yaml:"ws"`
+	MCP ListendInfoDetails `json:"mcp" yaml:"mcp"`
+}
+
+type ListendInfoDetails struct {
+	Protocol string `json:"protocol" yaml:"protocol"`
+	IP       string `json:"ip" yaml:"ip"`
+	Port     int    `json:"port" yaml:"port"`
+	Path     string `json:"path" yaml:"path"`
 }

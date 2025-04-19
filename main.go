@@ -5,6 +5,7 @@ import (
 	"CanMe/backend/consts"
 	"CanMe/backend/core/downtasks"
 	"CanMe/backend/core/events"
+	"CanMe/backend/mcpserver"
 	"CanMe/backend/pkg/downinfo"
 	"CanMe/backend/pkg/logger"
 	"CanMe/backend/pkg/proxy"
@@ -67,6 +68,10 @@ func main() {
 	// # Paths API
 	pathsAPI := api.NewPathsAPI(preferencesService, dtService)
 
+	// MCP
+	// # MCP Server
+	mcpServer := mcpserver.NewService(dtService)
+
 	// window
 	windowWidth, windowHeight, maximised := preferencesService.GetWindowSize()
 	windowStartState := options.Normal
@@ -122,6 +127,10 @@ func main() {
 			// APIs
 			dtAPI.Subscribe(ctx)
 			pathsAPI.Subscribe(ctx)
+			// MCP
+			if err := mcpServer.Start(ctx); err != nil {
+				logger.GetLogger().Error("Error starting MCP server", zap.Error(err))
+			}
 		},
 		OnDomReady: func(ctx context.Context) {
 			x, y := wailsRuntime.WindowGetPosition(ctx)

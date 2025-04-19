@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -51,7 +52,7 @@ func (s *Service) Start() {
 	http.HandleFunc("/ws", s.handleWebSocket)
 
 	go func() {
-		err := http.ListenAndServe(":34444", nil)
+		err := http.ListenAndServe(fmt.Sprintf(":%v", consts.WS_PORT), nil)
 		if err != nil {
 			logger.Error("WebSocket server error", zap.Error(err))
 			return

@@ -130,7 +130,8 @@
       "download_dir_set_failed": "设置下载目录失败",
       "saved_path": "存储目录",
       "config_path": "配置路径",
-      "data_path": "数据路径"
+      "data_path": "数据路径",
+      "listend": "已监听"
     },
     "about": "关于我们",
     "dependency": {

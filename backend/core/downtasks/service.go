@@ -69,6 +69,25 @@ func (s *Service) DeleteTask(id string) error {
 	return s.taskManager.DeleteTask(id)
 }
 
+func (s *Service) GetTaskStatus(id string) (*types.DtTaskStatus, error) {
+	status := s.taskManager.GetTask(id)
+	if status == nil {
+		return nil, fmt.Errorf("task not found")
+	}
+	return status, nil
+}
+
+func (s *Service) GetTaskStatusByURL(url string) (bool, *types.DtTaskStatus, error) {
+	list := s.ListTasks()
+	for _, task := range list {
+		if task.URL == url {
+			return true, task, nil
+		}
+	}
+
+	return false, nil, nil
+}
+
 func (s *Service) GetFFMPEGPath() (types.SoftwareInfo, error) {
 	return s.checkFFMpeg()
 }

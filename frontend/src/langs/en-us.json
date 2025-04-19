@@ -131,7 +131,8 @@
       "download_dir_set_failed": "Failed to set download directory",
       "saved_path": "Saved Path",
       "config_path": "Config Path",
-      "data_path": "Data Path"
+      "data_path": "Data Path",
+      "listend": "Listened"
     },
     "about": "About",
     "dependency": {

@@ -237,6 +237,45 @@
                     </div>
                 </div>
             </ul>
+
+            <!-- Listend Menu -->
+            <ul class="menu p-2 rounded-lg border-2 border-base-300 bg-base-100">
+                <div class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-semibold text-base-content">{{ $t('settings.general.listend') }}</h2>
+                    </div>
+                </div>
+                <li class="divider-thin"></li>
+
+                <!-- WS Listend Info -->
+                <div class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
+                    <div class="flex items-center gap-2">
+                        <v-icon name="ri-link" class="h-4 w-4 text-base-content" />
+                        <h2 class="text-base-content">WebSocket</h2>
+                    </div>
+                    <div class="join items-center">
+                        <span class="text-sm text-base-content/60 w-[17rem] text-right truncate mr-2 select-all"
+                            :title="wsListendAddress">
+                            {{ wsListendAddress }}
+                        </span>
+                    </div>
+                </div>
+                <li class="divider-thin"></li>
+
+                <!-- MCP Listend Info -->
+                <div class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
+                    <div class="flex items-center gap-2">
+                        <v-icon name="ri-link" class="h-4 w-4 text-base-content" />
+                        <h2 class="text-base-content">MCP Server</h2>
+                    </div>
+                    <div class="join items-center">
+                        <span class="text-sm text-base-content/60 w-[17rem] text-right truncate mr-2 select-all"
+                            :title="mcpListendAddress">
+                            {{ mcpListendAddress }}
+                        </span>
+                    </div>
+                </div>
+            </ul>
         </div>
     </div>
 </template>
@@ -350,9 +389,27 @@ const openDirectory = async (path) => {
     OpenDirectory(path)
 }
 
+// Computed properties for listend addresses
+const wsListendAddress = computed(() => {
+    const wsInfo = prefStore.listendInfo?.ws;
+    if (!wsInfo) return '';
+    return `${wsInfo.protocol}://${wsInfo.ip}:${wsInfo.port}/${wsInfo.path}`;
+});
+
+const mcpListendAddress = computed(() => {
+    const mcpInfo = prefStore.listendInfo?.mcp;
+    if (!mcpInfo) return '';
+    return `${mcpInfo.protocol}://${mcpInfo.ip}:${mcpInfo.port}/${mcpInfo.path}`;
+});
+
+
 onMounted(() => {
     getPreferencesPath()
     getTaskDbPath()
+    // Ensure preferences are loaded, you might already have this logic
+    // if (!prefStore.loaded) {
+    //    prefStore.loadPreferences(); // Assuming you have a method to load preferences
+    // }
 })
 </script>
 

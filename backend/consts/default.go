@@ -3,7 +3,7 @@ package consts
 // App Info
 const APP_NAME = "CanMe"
 const APP_DESC = "CanMe is a comprehensive multilingual video download manager with a fluid user experience and powerful content processing capabilities.\n\nCopyright 2025"
-const APP_VERSION = "0.1.5"
+const APP_VERSION = "0.1.6"
 const BBOLT_DB_NAME = "canme.db"
 
 // App Config File
@@ -29,4 +29,10 @@ const (
 	TASK_TYPE_CUSTOM = "custom"
 	TASK_TYPE_QUICK  = "quick"
 	TASK_TYPE_MCP    = "mcp"
+)
+
+// listend port
+const (
+	WS_PORT         = 34444
+	MCP_SERVER_PORT = 34445
 )
