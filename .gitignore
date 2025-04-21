@@ -1,5 +1,7 @@
 # wails file
 build/bin
+build/windows/*.json
+build/windows/*.manifest
 
 node_modules
 frontend/dist

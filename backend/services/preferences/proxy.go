@@ -73,6 +73,9 @@ func (s *Service) GetProxyConfig() (resp types.JSResp) {
 		// 设置为手动代理
 		config.Type = "manual"
 		config.ProxyAddress = pref.Proxy.ProxyAddress
+	} else if pref.Proxy.Type == "system" {
+		// 设置为系统代理
+		config.Type = "system"
 	} else {
 		// 禁用代理
 		config.Type = "none"

@@ -5,6 +5,7 @@ import (
 	"CanMe/backend/consts"
 	"CanMe/backend/core/downtasks"
 	"CanMe/backend/core/events"
+	"CanMe/backend/core/imageproxies"
 	"CanMe/backend/mcpserver"
 	"CanMe/backend/pkg/downinfo"
 	"CanMe/backend/pkg/logger"
@@ -12,6 +13,7 @@ import (
 	"CanMe/backend/pkg/websockets"
 	"CanMe/backend/services/preferences"
 	"CanMe/backend/services/systems"
+	"CanMe/backend/storage"
 	"context"
 	"embed"
 	"fmt"
@@ -44,6 +46,12 @@ func main() {
 	defer logger.GetLogger().Sync()
 	logger.GetLogger().Info("CanMe Start!", zap.Time("now", time.Now()))
 
+	// bolt storage
+	boltStorage, err := storage.NewBoltStorage()
+	if err != nil {
+		logger.GetLogger().Error("Error creating bolt storage", zap.Error(err))
+	}
+
 	// Packages
 	// # Proxy
 	proxyClient := proxy.NewClient(proxy.DefaultConfig())
@@ -55,7 +63,9 @@ func main() {
 	// # Events
 	events := events.NewEventBus()
 	// # Downtasks
-	dtService := downtasks.NewService(events, proxyClient, downloadClient, preferencesService)
+	dtService := downtasks.NewService(events, proxyClient, downloadClient, preferencesService, boltStorage)
+	// # Imagesproxies
+	ipsService := imageproxies.NewService(proxyClient, boltStorage)
 
 	// Packages
 	// # Websocket
@@ -67,6 +77,8 @@ func main() {
 	dtAPI := api.NewDowntasksAPI(dtService, events, websocketService)
 	// # Paths API
 	pathsAPI := api.NewPathsAPI(preferencesService, dtService)
+	// # Utils API
+	utilsAPI := api.NewUtilsAPI(ipsService)
 
 	// MCP
 	// # MCP Server
@@ -89,7 +101,7 @@ func main() {
 	}
 
 	// Create application with options
-	err := wails.Run(&options.App{
+	err = wails.Run(&options.App{
 		Title:                    consts.APP_NAME,
 		Width:                    windowWidth,
 		Height:                   windowHeight,
@@ -114,6 +126,7 @@ func main() {
 			// APIs
 			dtAPI,
 			pathsAPI,
+			utilsAPI,
 		},
 		Logger: logger.NewWailsLogger(),
 		OnStartup: func(ctx context.Context) {
@@ -124,9 +137,11 @@ func main() {
 			websocketService.SetContext(ctx)
 			// Services
 			dtService.SetContext(ctx)
+			ipsService.SetContext(ctx)
 			// APIs
 			dtAPI.Subscribe(ctx)
 			pathsAPI.Subscribe(ctx)
+			utilsAPI.Subscribe(ctx)
 			// MCP
 			if err := mcpServer.Start(ctx); err != nil {
 				logger.GetLogger().Error("Error starting MCP server", zap.Error(err))

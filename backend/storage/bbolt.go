@@ -13,16 +13,17 @@ import (
 )
 
 var (
-	taskBucket = []byte("tasks")
+	taskBucket  = []byte("tasks")
+	imageBucket = []byte("images") // 用于存储图片的桶
 	// other buckets...
 )
 
-type BoltTaskStorage struct {
+type BoltStorage struct {
 	path string
 	db   *bbolt.DB
 }
 
-func NewBoltTaskStorage() (*BoltTaskStorage, error) {
+func NewBoltStorage() (*BoltStorage, error) {
 	// 获取用户配置目录
 	configDir, err := os.UserConfigDir()
 	if err != nil {
@@ -49,6 +50,10 @@ func NewBoltTaskStorage() (*BoltTaskStorage, error) {
 			return err
 		}
 
+		// create image buckets
+		if _, err := tx.CreateBucketIfNotExists(imageBucket); err != nil {
+			return err
+		}
 		// create other buckets...
 		return nil
 	})
@@ -57,14 +62,14 @@ func NewBoltTaskStorage() (*BoltTaskStorage, error) {
 		return nil, err
 	}
 
-	return &BoltTaskStorage{path: dbPath, db: db}, nil
+	return &BoltStorage{path: dbPath, db: db}, nil
 }
 
-func (s *BoltTaskStorage) Path() string {
+func (s *BoltStorage) Path() string {
 	return s.path
 }
 
-func (s *BoltTaskStorage) SaveTask(task *types.DtTaskStatus) error {
+func (s *BoltStorage) SaveTask(task *types.DtTaskStatus) error {
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(taskBucket)
 
@@ -78,7 +83,7 @@ func (s *BoltTaskStorage) SaveTask(task *types.DtTaskStatus) error {
 	})
 }
 
-func (s *BoltTaskStorage) GetTask(id string) (*types.DtTaskStatus, error) {
+func (s *BoltStorage) GetTask(id string) (*types.DtTaskStatus, error) {
 	var task types.DtTaskStatus
 
 	err := s.db.View(func(tx *bbolt.Tx) error {
@@ -98,7 +103,7 @@ func (s *BoltTaskStorage) GetTask(id string) (*types.DtTaskStatus, error) {
 	return &task, nil
 }
 
-func (s *BoltTaskStorage) ListTasks() ([]*types.DtTaskStatus, error) {
+func (s *BoltStorage) ListTasks() ([]*types.DtTaskStatus, error) {
 	var tasks []*types.DtTaskStatus
 
 	err := s.db.View(func(tx *bbolt.Tx) error {
@@ -122,13 +127,54 @@ func (s *BoltTaskStorage) ListTasks() ([]*types.DtTaskStatus, error) {
 }
 
 // DeleteTask 从存储中删除指定ID的任务
-func (s *BoltTaskStorage) DeleteTask(id string) error {
+func (s *BoltStorage) DeleteTask(id string) error {
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(taskBucket)
 		return b.Delete([]byte(id))
 	})
 }
 
-func (s *BoltTaskStorage) Close() error {
+// SaveImage 保存图片信息到存储
+func (s *BoltStorage) SaveImage(image *types.ImageInfo) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(imageBucket)
+
+		encoded, err := json.Marshal(image)
+		if err != nil {
+			return err
+		}
+
+		return b.Put([]byte(image.URL), encoded)
+	})
+}
+
+func (s *BoltStorage) GetImage(url string) (*types.ImageInfo, error) {
+	var image types.ImageInfo
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(imageBucket)
+		data := b.Get([]byte(url))
+		if data == nil {
+			return fmt.Errorf("image not found: %s", url)
+		}
+
+		return json.Unmarshal(data, &image)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &image, nil
+}
+
+func (s *BoltStorage) DeleteImage(url string) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(imageBucket)
+		return b.Delete([]byte(url))
+	})
+}
+
+func (s *BoltStorage) Close() error {
 	return s.db.Close()
 }

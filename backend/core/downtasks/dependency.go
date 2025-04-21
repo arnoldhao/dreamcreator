@@ -60,6 +60,9 @@ func (s *Service) getYtdlpPath(config YtdlpConfig) (string, error) {
 		if softinfo.LatestVersion != "" && softinfo.NeedUpdate {
 			config.Version = softinfo.LatestVersion
 			softinfo.ExecPath = filepath.Join(softinfo.Path, fmt.Sprintf("yt-dlp.%s", config.Version))
+			if runtime.GOOS == "windows" {
+				softinfo.ExecPath += ".exe"
+			}
 			// event stage
 			processStage = types.DtStageUpdating
 			finalStage = types.DtStageUpdated
@@ -260,6 +263,10 @@ func (s *Service) checkYTDLP() (config types.SoftwareInfo, err error) {
 		}
 	}
 
+	if runtime.GOOS == "windows" && !strings.HasSuffix(softinfo.ExecPath, ".exe") {
+		softinfo.ExecPath += ".exe"
+	}
+
 	// update to support yt-dlp version
 	if !strings.Contains(softinfo.ExecPath, "yt-dlp.") {
 		name := fmt.Sprintf("yt-dlp.%s", consts.YTDLP_VERSION)
@@ -273,7 +280,7 @@ func (s *Service) checkYTDLP() (config types.SoftwareInfo, err error) {
 		// save config and return
 		softinfo.Available = false
 		s.pref.SetYTDLP(softinfo)
-		return softinfo, fmt.Errorf("yt-dlp not found in cache directory: %s", execPath)
+		return softinfo, fmt.Errorf("yt-dlp not found in cache directory: %s", softinfo.Path)
 	}
 
 	// Windows: check file exists

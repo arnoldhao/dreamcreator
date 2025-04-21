@@ -19,18 +19,11 @@ type TaskManager struct {
 	ctx       context.Context
 	tasks     map[string]*types.DtTaskStatus
 	taskMutex sync.RWMutex
-	storage   *storage.BoltTaskStorage // 添加持久化存储
+	storage   *storage.BoltStorage // 添加持久化存储
 }
 
 // NewTaskManager 创建新的任务管理器
-func NewTaskManager(ctx context.Context) *TaskManager {
-	// 初始化 BoltDB 存储
-	boltStorage, err := storage.NewBoltTaskStorage()
-	if err != nil {
-		logger.Error("Failed to initialize task storage", zap.Error(err))
-		// 即使存储初始化失败，我们仍然可以使用内存存储继续运行
-	}
-
+func NewTaskManager(ctx context.Context, boltStorage *storage.BoltStorage) *TaskManager {
 	tm := &TaskManager{
 		ctx:     ctx,
 		tasks:   make(map[string]*types.DtTaskStatus),
@@ -164,7 +157,8 @@ func (tm *TaskManager) DeleteTask(id string) error {
 	defer tm.taskMutex.Unlock()
 
 	// 检查任务是否存在
-	if _, exists := tm.tasks[id]; !exists {
+	task, exists := tm.tasks[id]
+	if !exists {
 		return fmt.Errorf("task not found: %s", id)
 	}
 
@@ -175,6 +169,14 @@ func (tm *TaskManager) DeleteTask(id string) error {
 	if tm.storage != nil {
 		if err := tm.storage.DeleteTask(id); err != nil {
 			logger.Error("Failed to delete task",
+				zap.String("id", id),
+				zap.Error(err))
+			return err
+		}
+
+		// delete task image cache
+		if err := tm.storage.DeleteImage(task.Thumbnail); err != nil {
+			logger.Error("Failed to delete task image",
 				zap.String("id", id),
 				zap.Error(err))
 			return err

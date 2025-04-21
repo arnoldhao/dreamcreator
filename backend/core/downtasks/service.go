@@ -6,6 +6,7 @@ import (
 	"CanMe/backend/pkg/downinfo"
 	"CanMe/backend/pkg/proxy"
 	"CanMe/backend/services/preferences"
+	"CanMe/backend/storage"
 	"CanMe/backend/types"
 	"context"
 	"fmt"
@@ -37,15 +38,22 @@ type Service struct {
 	pref *preferences.Service
 	// ffmpeg exec path
 	ffmpegExecPath string
+	// bolt storage
+	boltStorage *storage.BoltStorage
 }
 
-func NewService(eventBus events.EventBus, proxyClient *proxy.Client, downloadClient *downinfo.Client, pref *preferences.Service) *Service {
+func NewService(eventBus events.EventBus,
+	proxyClient *proxy.Client,
+	downloadClient *downinfo.Client,
+	pref *preferences.Service,
+	boltStorage *storage.BoltStorage) *Service {
 	s := &Service{
 		taskManager:    nil,
 		eventBus:       eventBus,
 		proxyClient:    proxyClient,
 		downloadClient: downloadClient,
 		pref:           pref,
+		boltStorage:    boltStorage,
 	}
 
 	return s
@@ -53,7 +61,7 @@ func NewService(eventBus events.EventBus, proxyClient *proxy.Client, downloadCli
 
 func (s *Service) SetContext(ctx context.Context) {
 	s.ctx = ctx
-	s.taskManager = NewTaskManager(ctx)
+	s.taskManager = NewTaskManager(ctx, s.boltStorage)
 }
 
 func (s *Service) ListTasks() []*types.DtTaskStatus {

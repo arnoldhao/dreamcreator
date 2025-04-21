@@ -27,9 +27,13 @@
             <!-- task brief -->
             <div class="flex items-center mb-3">
               <div class="w-14 h-9 bg-base-200 rounded overflow-hidden flex-shrink-0 mr-3">
-                <template v-if="!thumbnailLoadError && activeTask.thumbnail">
-                  <img :src="activeTask.thumbnail" class="w-full h-full object-cover" :alt="$t('download.thumbnail')"
-                    @error="handleThumbnailError" />
+                <template v-if="activeTask.thumbnail">
+                  <ProxiedImage
+                    :src="activeTask.thumbnail"
+                    :alt="$t('download.thumbnail')"
+                    width="3.5rem"  height="2.25rem"  class="rounded-md mr-3 flex-shrink-0"
+                    error-icon="ri-video-line"
+                  />
                 </template>
                 <div v-else
                   class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
@@ -217,9 +221,13 @@
               <div class="flex items-center">
                 <!-- task information -->
                 <div class="w-12 h-8 bg-base-200 rounded-md overflow-hidden flex-shrink-0 mr-2.5">
-                  <template v-if="!task.thumbnailLoadError && task.thumbnail">
-                    <img :src="task.thumbnail" class="w-full h-full object-cover" :alt="$t('download.thumbnail')"
-                      @error="handleTaskThumbnailError" />
+                  <template v-if="task.thumbnail">
+                    <ProxiedImage
+                  :src="task.thumbnail"
+                  :alt="$t('download.thumbnail')"
+                  width="3rem" height="2rem" class="rounded-md mr-2.5 flex-shrink-0"
+                  error-icon="ri-video-line"
+                />
                   </template>
                   <div v-else
                     class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
@@ -340,9 +348,13 @@
           <!-- task title and thumbnail -->
           <div class="flex items-start space-x-4">
             <div class="w-20 h-14 bg-base-200 rounded overflow-hidden flex-shrink-0">
-              <template v-if="!selectedThumbnailLoadError && selectedTask.thumbnail">
-                <img :src="selectedTask.thumbnail" class="w-full h-full object-cover" :alt="$t('download.thumbnail')"
-                  @error="handleSelectedThumbnailError" />
+              <template v-if="selectedTask.thumbnail">
+                <ProxiedImage
+               :src="selectedTask.thumbnail"
+               :alt="$t('download.thumbnail')"
+               width="5rem" height="3.5rem" class="rounded flex-shrink-0"
+               error-icon="ri-video-line"
+             />
               </template>
               <div v-else
                 class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
@@ -562,6 +574,7 @@ import { ListTasks, DeleteTask } from 'wailsjs/go/api/DowntasksAPI'
 import { OpenDirectory } from 'wailsjs/go/systems/Service'
 import { useDtStore } from '@/handlers/downtasks'
 import VideoDownloadModal from '@/components/modal/VideoDownloadModal.vue'
+import ProxiedImage from '@/components/common/ProxiedImage.vue' 
 import { useLoggerStore } from '@/stores/logger'
 
 // i18n
@@ -709,10 +722,7 @@ const refreshTasks = async () => {
           translateTo: task.translateTo
             ? task.translateTo
             : t('download.none_content'),
-          subtitleStyle: task.subtitleStyle || t('download.none_content'),
-
-          // additional info
-          thumbnailLoadError: false,
+          subtitleStyle: task.subtitleStyle || t('download.none_content')
         }
       })
     } else {
@@ -1010,33 +1020,6 @@ const copyToClipboard = (toCopy) => {
     })
 }
 
-// 添加缩略图加载状态
-const thumbnailLoadError = ref(false)
-const selectedThumbnailLoadError = ref(false)
-
-// handle thumbnail error
-const handleThumbnailError = (e) => {
-  // mark thumbnail load error
-  logger.error('Thumbnail load error', activeTask.value?.thumbnail)
-
-  thumbnailLoadError.value = true
-}
-
-const handleTaskThumbnailError = (task) => {
-  // mark thumbnail load error
-  logger.error('Thumbnail load error', task.value?.thumbnail)
-
-  task.thumbnailLoadError = true
-}
-
-// handle selected thumbnail error
-const handleSelectedThumbnailError = (e) => {
-  // mark thumbnail load error
-  logger.error('Thumbnail load error', selectedTask.value?.thumbnail)
-
-  selectedThumbnailLoadError.value = true
-}
-
 // update task status (from WebSocket progress update)
 const updateTaskFromProgress = (progress) => {
   // find corresponding task
@@ -1083,20 +1066,11 @@ const activeTaskId = ref(null)
 // switch current displayed active task
 const switchActiveTask = (task) => {
   activeTaskId.value = task.id
-  // reset task thumbnail load error
-  task.thumbnailLoadError = false
 }
 
 watch(activeTaskId, (newId) => {
   if (newId) {
     refreshTasks()
-    thumbnailLoadError.value = false
-  }
-})
-
-watch(selectedTaskId, (newId) => {
-  if (newId) {
-    selectedThumbnailLoadError.value = false
   }
 })
 

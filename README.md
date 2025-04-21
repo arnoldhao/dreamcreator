@@ -36,6 +36,7 @@
 - 🔄 **Real-time Progress** - Intuitive display of download status and progress
 - 🌐 **Multilingual Support** - Complete English and Chinese interfaces
 - 💻 **Cross-platform Compatibility** - Support for Windows and macOS systems
+- ✨ **Support MCP** - Support MCP for LLM
 
 ## 🚀 Project Information
 
