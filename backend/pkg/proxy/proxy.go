@@ -10,8 +10,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"golang.org/x/sys/windows/registry"
 )
 
 // Config 代理配置
@@ -236,8 +234,10 @@ func (c *Client) GetProxyString() string {
 		return c.config.ProxyAddress
 	} else if c.config.Type == "system" {
 		// 在Windows上尝试从注册表获取系统代理
-		if proxy, err := getSystemProxyFromRegistry(); err == nil && proxy != "" {
-			return proxy
+		if runtime.GOOS == "windows" {
+			if proxy, err := getSystemProxyFromRegistry(); err == nil && proxy != "" {
+				return proxy
+			}
 		}
 
 		// 从环境变量中获取系统代理
@@ -259,31 +259,6 @@ func (c *Client) GetProxyString() string {
 	} else {
 		return ""
 	}
-}
-
-func getSystemProxyFromRegistry() (string, error) {
-	// 仅Windows系统需要此功能
-	if runtime.GOOS != "windows" {
-		return "", nil
-	}
-
-	key, err := registry.OpenKey(registry.CURRENT_USER, `Software\Microsoft\Windows\CurrentVersion\Internet Settings`, registry.QUERY_VALUE)
-	if err != nil {
-		return "", err
-	}
-	defer key.Close()
-
-	proxyEnabled, _, err := key.GetIntegerValue("ProxyEnable")
-	if err != nil || proxyEnabled == 0 {
-		return "", nil
-	}
-
-	proxyServer, _, err := key.GetStringValue("ProxyServer")
-	if err != nil {
-		return "", err
-	}
-
-	return proxyServer, nil
 }
 
 func parseWindowsProxy(proxyStr string) (*url.URL, error) {

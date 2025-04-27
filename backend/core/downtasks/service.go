@@ -137,6 +137,16 @@ func (s *Service) newCommand(enbaledFFMpeg bool) (*ytdlp.Command, error) {
 	}
 	dl.SetExecutable(path)
 
+	// set temp dir
+	tempDir, err := s.downDir("temp")
+	if err != nil {
+		return nil, err
+	}
+
+	// set env
+	dl.SetEnvVar("TEMP", tempDir)
+	dl.SetEnvVar("TMP", tempDir)
+
 	// ffmpeg
 	if enbaledFFMpeg {
 		ffinfo, err := s.checkFFMpeg()
