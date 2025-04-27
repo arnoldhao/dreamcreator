@@ -28,12 +28,8 @@
             <div class="flex items-center mb-3">
               <div class="w-14 h-9 bg-base-200 rounded overflow-hidden flex-shrink-0 mr-3">
                 <template v-if="activeTask.thumbnail">
-                  <ProxiedImage
-                    :src="activeTask.thumbnail"
-                    :alt="$t('download.thumbnail')"
-                    width="3.5rem"  height="2.25rem"  class="rounded-md mr-3 flex-shrink-0"
-                    error-icon="ri-video-line"
-                  />
+                  <ProxiedImage :src="activeTask.thumbnail" :alt="$t('download.thumbnail')"
+                    class="w-full h-full object-cover rounded-md" error-icon="ri-video-line" />
                 </template>
                 <div v-else
                   class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
@@ -222,12 +218,8 @@
                 <!-- task information -->
                 <div class="w-12 h-8 bg-base-200 rounded-md overflow-hidden flex-shrink-0 mr-2.5">
                   <template v-if="task.thumbnail">
-                    <ProxiedImage
-                  :src="task.thumbnail"
-                  :alt="$t('download.thumbnail')"
-                  width="3rem" height="2rem" class="rounded-md mr-2.5 flex-shrink-0"
-                  error-icon="ri-video-line"
-                />
+                    <ProxiedImage :src="task.thumbnail" :alt="$t('download.thumbnail')"
+                      class="w-full h-full object-cover rounded-md" error-icon="ri-video-line" />
                   </template>
                   <div v-else
                     class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
@@ -349,12 +341,8 @@
           <div class="flex items-start space-x-4">
             <div class="w-20 h-14 bg-base-200 rounded overflow-hidden flex-shrink-0">
               <template v-if="selectedTask.thumbnail">
-                <ProxiedImage
-               :src="selectedTask.thumbnail"
-               :alt="$t('download.thumbnail')"
-               width="5rem" height="3.5rem" class="rounded flex-shrink-0"
-               error-icon="ri-video-line"
-             />
+                <ProxiedImage :src="selectedTask.thumbnail" :alt="$t('download.thumbnail')"
+                  class="w-full h-full object-cover rounded-md" error-icon="ri-video-line" />
               </template>
               <div v-else
                 class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
@@ -574,7 +562,7 @@ import { ListTasks, DeleteTask } from 'wailsjs/go/api/DowntasksAPI'
 import { OpenDirectory } from 'wailsjs/go/systems/Service'
 import { useDtStore } from '@/handlers/downtasks'
 import VideoDownloadModal from '@/components/modal/VideoDownloadModal.vue'
-import ProxiedImage from '@/components/common/ProxiedImage.vue' 
+import ProxiedImage from '@/components/common/ProxiedImage.vue'
 import { useLoggerStore } from '@/stores/logger'
 
 // i18n
@@ -1076,7 +1064,7 @@ watch(activeTaskId, (newId) => {
 
 watch([showDownloadModal], ([newShowDownload], [oldShowDownload]) => {
   // 当下载模态框从打开状态变为关闭状态时刷新任务列表
-  if (oldShowDownload && !newShowDownload){
+  if (oldShowDownload && !newShowDownload) {
     refreshTasks()
   }
 })

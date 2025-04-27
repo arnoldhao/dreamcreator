@@ -66,9 +66,9 @@
               <!-- Video title and preview information -->
               <div class="flex items-center gap-4">
                 <div class="w-32 h-20 bg-base-200 rounded-lg overflow-hidden flex-shrink-0">
-                  <template v-if="!thumbnailLoadError && videoData?.thumbnail">
-                    <img :src="videoData.thumbnail" class="w-full h-full object-cover" :alt="$t('download.thumbnail')"
-                      @error="handleThumbnailError" />
+                  <template v-if="videoData?.thumbnail">
+                    <ProxiedImage :src="videoData.thumbnail" :alt="$t('download.thumbnail')"
+                      class="w-full h-full object-cover rounded-md" error-icon="ri-video-line" />
                   </template>
                   <div v-else
                     class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
@@ -116,11 +116,11 @@
                         class="select select-bordered w-full flex items-center justify-between select-sm"
                         @click="showSubtitleDropdown = !showSubtitleDropdown">
                         <span v-if="selectedSubtitles.length === 0" class="text-base-content/50">{{
-    $t('download.no_subtitles')
-  }}</span>
+                          $t('download.no_subtitles')
+                          }}</span>
                         <span v-else>{{ $t('download.selected') }} {{ selectedSubtitles.length }} {{
-    $t('download.subtitles')
-  }}</span>
+                          $t('download.subtitles')
+                          }}</span>
                         <v-icon name="ri-arrow-down-s-line" class="w-4 h-4"></v-icon>
                       </div>
                       <div v-if="showSubtitleDropdown" tabindex="0"
@@ -203,15 +203,15 @@
         <div v-if="mode === 'custom'" class="modal-action">
           <button class="btn btn-sm" @click="closeModal">{{ $t('common.cancel') }}</button>
           <button class="btn btn-primary btn-sm" @click="startCustomDownload" :disabled="!canDownload">{{
-    $t('common.start')
-  }}</button>
+            $t('common.start')
+            }}</button>
         </div>
         <!-- 快速下载模式 -->
         <div v-if="mode === 'quick'" class="modal-action">
           <button class="btn btn-sm" @click="closeModal">{{ $t('common.cancel') }}</button>
           <button class="btn btn-primary btn-sm" @click="startQuickDownload" :disabled="!quickModeDownEnabled">{{
             $t('common.start')
-            }}</button>
+          }}</button>
         </div>
 
       </div>
@@ -226,24 +226,10 @@ import { DependenciesReady } from 'wailsjs/go/api/PathsAPI'
 import useNavStore from '@/stores/nav.js'
 import useSettingsStore from '@/stores/settings'
 import { useI18n } from 'vue-i18n'
-import { useLoggerStore } from '@/stores/logger'
+import ProxiedImage from '@/components/common/ProxiedImage.vue'
 
 // i18n
 const { t } = useI18n()
-
-// logger
-const logger = useLoggerStore()
-
-// 添加缩略图加载状态
-const thumbnailLoadError = ref(false)
-
-// handle thumbnail error
-const handleThumbnailError = (e) => {
-  // mark thumbnail load error
-  logger.error('Thumbnail load error', videoData.value?.thumbnail)
-
-  thumbnailLoadError.value = true
-}
 
 const settingsStore = useSettingsStore()
 const navStore = useNavStore()
@@ -707,7 +693,6 @@ const resetForm = () => {
     selectedSubtitles.value = []
     translateTo.value = ''
     subtitleStyle.value = 'default'
-    thumbnailLoadError.value = false
   }
 }
 
