@@ -120,6 +120,10 @@ func (s *Service) UpdateYTDLP() (string, error) {
 	return s.getYtdlpPath(YtdlpConfig{Latest: true})
 }
 
+func (s *Service) GetFormats() map[string][]*types.ConversionFormat {
+	return s.taskManager.ListAvalibleConversionFormats()
+}
+
 func (s *Service) newCommand(enbaledFFMpeg bool) (*ytdlp.Command, error) {
 	// new
 	dl := ytdlp.New()
@@ -233,6 +237,17 @@ func (s *Service) Download(request *types.DtDownloadRequest) (*types.DtDownloadR
 	task.TranslateTo = request.TranslateTo
 	task.SubtitleStyle = request.SubtitleStyle
 
+	// recode info
+	task.RecodeFormatNumber = request.RecodeFormatNumber
+	if request.RecodeFormatNumber != 0 {
+		recodeExt, err := s.taskManager.GetConversionFormatExtension(request.RecodeFormatNumber)
+		if err != nil {
+			// ignore
+		} else {
+			task.RecodeExtention = recodeExt
+		}
+	}
+
 	// core metadata
 	task.Extractor = *metadata.Extractor
 	task.Title = *metadata.Title
@@ -329,6 +344,17 @@ func (s *Service) QuickDownload(request *types.DtQuickDownloadRequest) (*types.D
 	task.URL = request.URL
 	task.Stage = types.DtStageDownloading
 	task.Percentage = 0
+
+	// recode info
+	task.RecodeFormatNumber = request.RecodeFormatNumber
+	if request.RecodeFormatNumber != 0 {
+		recodeExt, err := s.taskManager.GetConversionFormatExtension(request.RecodeFormatNumber)
+		if err != nil {
+			// ignore
+		} else {
+			task.RecodeExtention = recodeExt
+		}
+	}
 
 	// define output dir, quick / mcp
 	outputDir, err := s.downDir(request.Type)
@@ -583,6 +609,11 @@ func (s *Service) downloadVideo(task *types.DtTaskStatus, request *types.Downloa
 		NoPlaylist().
 		NoOverwrites().
 		Output("%(title)s_%(height)sp_%(fps)dfps.%(ext)s")
+
+	// Recode
+	if task.RecodeExtention != "" {
+		dl.RecodeVideo(task.RecodeExtention)
+	}
 
 	var once sync.Once
 

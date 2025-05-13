@@ -186,3 +186,18 @@ func (api *DowntasksAPI) UpdateYTDLP() (resp *types.JSResp) {
 
 	return &types.JSResp{Success: true, Data: path}
 }
+
+func (api *DowntasksAPI) GetFormats() (resp *types.JSResp) {
+	// check
+	formats := api.service.GetFormats()
+	if formats == nil {
+		return &types.JSResp{Msg: "Formats is empty"}
+	}
+
+	formatsString, err := json.Marshal(formats)
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+
+	return &types.JSResp{Success: true, Data: string(formatsString)}
+}

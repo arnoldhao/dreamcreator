@@ -255,6 +255,10 @@
     "best_caption": "最佳字幕",
     "no_caption": "无字幕",
     "custom_mode": "自定义下载",
-    "quick_mode": "快速下载"
+    "quick_mode": "快速下载",
+    "transcoding": "转码",
+    "no_transcoding": "不转码",
+    "video_formats": "视频格式",
+    "audio_formats": "音频格式"
   }
 }

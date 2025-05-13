@@ -33,6 +33,16 @@ func NewTaskManager(ctx context.Context, boltStorage *storage.BoltStorage) *Task
 	// 如果存储初始化成功，从存储中加载任务
 	if boltStorage != nil {
 		tm.loadTasksFromStorage()
+
+		// if formats is null, initialize it
+		formats := tm.ListAllConversionFormats()
+		if formats == nil || len(formats) == 0 {
+			err := tm.storage.InitializeOrRestoreDefaultConversionFormats(true)
+			if err != nil {
+				logger.Error("Failed to initialize default conversion formats", zap.Error(err))
+			}
+			logger.Info("Default conversion formats initialized", zap.Int("count", len(formats)))
+		}
 	}
 
 	return tm
@@ -192,4 +202,91 @@ func (tm *TaskManager) Close() error {
 		return tm.storage.Close()
 	}
 	return nil
+}
+
+func (tm *TaskManager) ListAllConversionFormats() map[string][]*types.ConversionFormat {
+	tm.taskMutex.Lock()
+	defer tm.taskMutex.Unlock()
+
+	sortedFormats := make(map[string][]*types.ConversionFormat)
+	if tm.storage != nil {
+		formats, err := tm.storage.ListAllConversionFormats()
+		if err != nil {
+			logger.Error("Failed to list all conversion formats", zap.Error(err))
+			return nil
+		}
+
+		if formats != nil {
+			videoFormats := make([]*types.ConversionFormat, 0)
+			audioFormats := make([]*types.ConversionFormat, 0)
+			for _, format := range formats {
+				if format.Type == "video" {
+					videoFormats = append(videoFormats, format)
+				} else if format.Type == "audio" {
+					audioFormats = append(audioFormats, format)
+				}
+			}
+			if len(videoFormats) > 0 {
+				sortedFormats["video"] = videoFormats
+			}
+			if len(audioFormats) > 0 {
+				sortedFormats["audio"] = audioFormats
+			}
+		}
+
+	}
+
+	return sortedFormats
+}
+
+func (tm *TaskManager) ListAvalibleConversionFormats() map[string][]*types.ConversionFormat {
+	tm.taskMutex.Lock()
+	defer tm.taskMutex.Unlock()
+
+	sortedFormats := make(map[string][]*types.ConversionFormat)
+	if tm.storage != nil {
+		formats, err := tm.storage.ListAllConversionFormats()
+		if err != nil {
+			logger.Error("Failed to list all conversion formats", zap.Error(err))
+			return nil
+		}
+
+		if formats != nil {
+			videoFormats := make([]*types.ConversionFormat, 0)
+			audioFormats := make([]*types.ConversionFormat, 0)
+			for _, format := range formats {
+				if format.Type == "video" && format.Available {
+					videoFormats = append(videoFormats, format)
+				} else if format.Type == "audio" && format.Available {
+					audioFormats = append(audioFormats, format)
+				}
+			}
+			if len(videoFormats) > 0 {
+				sortedFormats["video"] = videoFormats
+			}
+			if len(audioFormats) > 0 {
+				sortedFormats["audio"] = audioFormats
+			}
+		}
+
+	}
+
+	return sortedFormats
+}
+
+func (tm *TaskManager) GetConversionFormatExtension(id int) (string, error) {
+	tm.taskMutex.Lock()
+	defer tm.taskMutex.Unlock()
+	if tm.storage != nil {
+		format, err := tm.storage.GetConversionFormat(id)
+		if err != nil {
+			logger.Error("Failed to get conversion format", zap.Error(err))
+			return "", err
+		}
+		if format != nil {
+			return format.Extension, nil
+		}
+	}
+
+	return "", fmt.Errorf("format not found")
 }

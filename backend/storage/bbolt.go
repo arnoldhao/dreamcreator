@@ -7,14 +7,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"time"
 
 	"go.etcd.io/bbolt"
 )
 
 var (
-	taskBucket  = []byte("tasks")
-	imageBucket = []byte("images") // 用于存储图片的桶
+	taskBucket   = []byte("tasks")
+	imageBucket  = []byte("images")  // 用于存储图片的桶
+	formatBucket = []byte("formats") // 用于存储格式的桶
 	// other buckets...
 )
 
@@ -52,6 +55,11 @@ func NewBoltStorage() (*BoltStorage, error) {
 
 		// create image buckets
 		if _, err := tx.CreateBucketIfNotExists(imageBucket); err != nil {
+			return err
+		}
+
+		// create format buckets
+		if _, err := tx.CreateBucketIfNotExists(formatBucket); err != nil {
 			return err
 		}
 		// create other buckets...
@@ -177,4 +185,122 @@ func (s *BoltStorage) DeleteImage(url string) error {
 
 func (s *BoltStorage) Close() error {
 	return s.db.Close()
+}
+
+// formatIDToKey 将整数 ID 转换为字节切片键
+func formatIDToKey(id int) []byte {
+	return []byte(strconv.Itoa(id))
+}
+
+// SaveConversionFormat 保存单个转换格式
+func (s *BoltStorage) SaveConversionFormat(format *types.ConversionFormat) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(formatBucket)
+		key := formatIDToKey(format.ID)
+
+		encoded, err := json.Marshal(format)
+		if err != nil {
+			return fmt.Errorf("failed to marshal conversion format (ID: %d): %w", format.ID, err)
+		}
+		return b.Put(key, encoded)
+	})
+}
+
+// GetConversionFormat 根据 ID 获取单个转换格式
+func (s *BoltStorage) GetConversionFormat(id int) (*types.ConversionFormat, error) {
+	var format types.ConversionFormat
+	key := formatIDToKey(id)
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(formatBucket)
+		data := b.Get(key)
+		if data == nil {
+			return fmt.Errorf("conversion format with ID %d not found", id)
+		}
+		return json.Unmarshal(data, &format)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	return &format, nil
+}
+
+// ListAllConversionFormats 获取所有存储的转换格式
+func (s *BoltStorage) ListAllConversionFormats() ([]*types.ConversionFormat, error) {
+	var formats []*types.ConversionFormat
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(formatBucket)
+		return b.ForEach(func(k, v []byte) error {
+			var format types.ConversionFormat
+			if err := json.Unmarshal(v, &format); err != nil {
+				// 可以选择记录错误并跳过，或者直接返回错误
+				// logger.Error("Failed to unmarshal conversion format during list", zap.ByteString("key", k), zap.Error(err))
+				// return nil // 跳过这个损坏的条目
+				return fmt.Errorf("failed to unmarshal conversion format (key: %s): %w", string(k), err)
+			}
+			formats = append(formats, &format)
+			return nil
+		})
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// 按 ID 排序 (可选，但通常更好)
+	sort.Slice(formats, func(i, j int) bool {
+		return formats[i].ID < formats[j].ID
+	})
+
+	return formats, nil
+}
+
+// InitializeOrRestoreDefaultConversionFormats 初始化或恢复默认转换格式
+// overwrite: true 会覆盖现有所有格式；false 只在数据库为空时添加默认格式
+func (s *BoltStorage) InitializeOrRestoreDefaultConversionFormats(overwrite bool) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(formatBucket)
+
+		if overwrite {
+			// 如果覆盖，先删除所有现有格式
+			// 注意：b.ForEach + b.Delete 在同一个事务中可能导致迭代器问题
+			// 更安全的方式是先收集所有key，然后删除
+			var keysToClear [][]byte
+			err := b.ForEach(func(k, v []byte) error {
+				keysToClear = append(keysToClear, k)
+				return nil
+			})
+			if err != nil {
+				return fmt.Errorf("failed to list keys for clearing formats: %w", err)
+			}
+			for _, key := range keysToClear {
+				if err := b.Delete(key); err != nil {
+					return fmt.Errorf("failed to delete format (key: %s) during restore: %w", string(key), err)
+				}
+			}
+		} else {
+			// 如果不覆盖，检查是否已经有数据
+			cursor := b.Cursor()
+			k, _ := cursor.First()
+			if k != nil {
+				// 已经有数据，并且不要求覆盖，则不执行任何操作
+				return nil
+			}
+		}
+
+		// 写入默认格式
+		for _, defaultFormat := range types.DefaultConversionFormats {
+			formatCopy := defaultFormat // 必须复制，否则后续迭代会修改已保存的指针
+			key := formatIDToKey(formatCopy.ID)
+			encoded, err := json.Marshal(&formatCopy)
+			if err != nil {
+				return fmt.Errorf("failed to marshal default format (ID: %d): %w", formatCopy.ID, err)
+			}
+			if err := b.Put(key, encoded); err != nil {
+				return fmt.Errorf("failed to save default format (ID: %d): %w", formatCopy.ID, err)
+			}
+		}
+		return nil
+	})
 }

@@ -256,6 +256,10 @@
     "best_caption": "Best Caption",
     "no_caption": "No Caption",
     "custom_mode": "Custom Mode",
-    "quick_mode": "Quick Mode"
+    "quick_mode": "Quick Mode",
+    "transcoding": "Transcoding",
+    "no_transcoding": "No Transcoding",
+    "video_formats": "Videos",
+    "audio_formats": "Audios"
   }
 }

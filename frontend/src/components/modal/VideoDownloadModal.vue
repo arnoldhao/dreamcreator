@@ -50,7 +50,7 @@
               <div class="flex gap-2">
                 <input type="text" v-model="url" :placeholder="$t('download.video_url_placeholder')"
                   class="input input-bordered flex-1 input-sm" />
-                <button @click="handleParse" class="btn btn-primary btn-sm" :disabled="isLoading">
+                <button @click="handleParse" type="button" class="btn btn-primary btn-sm" :disabled="isLoading">
                   <div class="flex items-center justify-center">
                     <v-icon v-if="isLoading" name="ri-loader-2-line" class="animate-spin h-4 w-4 mr-1"></v-icon>
                     <span>{{ isLoading ? $t('download.parsing') : $t('download.parse') }}</span>
@@ -84,10 +84,10 @@
 
               <!-- download options -->
               <div class="space-y-4 mt-2">
-                <!-- video and subtitle selection (main options) -->
-                <div class="grid grid-cols-2 gap-4">
+                <!-- video, subtitle, and transcode selection -->
+                <div class="grid grid-cols-4 gap-4">
                   <!-- video quality selection -->
-                  <div class="form-control w-full">
+                  <div class="form-control w-full col-span-2">
                     <label class="label">
                       <span class="label-text">{{ $t('download.video_quality') }}</span>
                     </label>
@@ -134,6 +134,29 @@
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  <div class="form-control w-full">
+                    <label class="label">
+                      <span class="label-text">{{ $t('download.transcoding') }}</span>
+                    </label>
+                    <select v-model="selectedTranscodeFormat" class="select select-bordered w-full select-sm">
+                      <option :value=0>{{ $t('download.no_transcoding') }}</option>
+                      <template v-if="availableTranscodeFormats?.video?.length">
+                        <optgroup :label="$t('download.video_formats')">
+                          <option v-for="format in availableTranscodeFormats.video" :key="format.id" :value="format.id">
+                            {{ format.name }}
+                          </option>
+                        </optgroup>
+                      </template>
+                      <template v-if="availableTranscodeFormats?.audio?.length">
+                        <optgroup :label="$t('download.audio_formats')">
+                          <option v-for="format in availableTranscodeFormats.audio" :key="format.id" :value="format.id">
+                            {{ format.name }}
+                          </option>
+                        </optgroup>
+                      </template>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -192,6 +215,24 @@
                       {{ item.label }}
                     </option>
                   </select>
+
+                  <select v-model="quickSelectedTranscodeFormat" class="select select-bordered select-sm w-full max-w-xs">
+                    <option :value="0">{{ $t('download.no_transcoding') }}</option>
+                    <template v-if="quickTranscodeOptions.video.length > 0">
+                      <optgroup :label="$t('download.video_formats')">
+                        <option v-for="format in quickTranscodeOptions.video" :key="format.id" :value="format.id">
+                          {{ format.name }}
+                        </option>
+                      </optgroup>
+                    </template>
+                    <template v-if="quickTranscodeOptions.audio.length > 0">
+                      <optgroup :label="$t('download.audio_formats')">
+                        <option v-for="format in quickTranscodeOptions.audio" :key="format.id" :value="format.id">
+                          {{ format.name }}
+                        </option>
+                      </optgroup>
+                    </template>
+                  </select>
                 </div>
               </div>
             </div>
@@ -221,7 +262,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { GetContent, Download, QuickDownload } from 'wailsjs/go/api/DowntasksAPI'
+import { GetContent, Download, QuickDownload, GetFormats } from 'wailsjs/go/api/DowntasksAPI'
 import { DependenciesReady } from 'wailsjs/go/api/PathsAPI'
 import useNavStore from '@/stores/nav.js'
 import useSettingsStore from '@/stores/settings'
@@ -274,16 +315,19 @@ const gotoDependency = () => {
 }
 
 // Watch modal visibility
-watch(() => showModal.value, (newValue) => {
+watch(() => showModal.value, async(newValue) => {
   if (newValue) {
     // Modal opened
-    checkDependencies()
+    await checkDependencies()
+    // get formats
+    if (dependenciesReady.value) {
+      await getFormats()
+    }
   } else {
     // Modal closed, reset form
     resetForm()
   }
 })
-
 
 // Form data
 const url = ref('')
@@ -296,6 +340,9 @@ const selectedSubtitles = ref([])
 const translateTo = ref('')
 const subtitleStyle = ref('default')
 const showSubtitleDropdown = ref(false)
+const availableTranscodeFormats = ref([])
+const selectedTranscodeFormat = ref(0) // New state for transcoding
+const quickSelectedTranscodeFormat = ref(0) // New state for transcoding
 
 // quick mode data
 const video = ref('best')
@@ -308,6 +355,34 @@ const captionItems = computed(() => [
   { key: false, label: t('download.no_caption') },
   { key: true, label: t('download.best_caption') },
 ])
+const quickTranscodeOptions = computed(() => {
+  const options = {
+    video: [],
+    audio: []
+  };
+
+  if (!availableTranscodeFormats.value || (!availableTranscodeFormats.value.video && !availableTranscodeFormats.value.audio)) {
+    return options;
+  }
+
+  if (video.value === 'best') {
+    if (availableTranscodeFormats.value.video) {
+      options.video = [...availableTranscodeFormats.value.video];
+    }
+    if (availableTranscodeFormats.value.audio) {
+      options.audio = [...availableTranscodeFormats.value.audio];
+    }
+  } else if (video.value === 'bestaudio') {
+    if (availableTranscodeFormats.value.audio) {
+      options.audio = [...availableTranscodeFormats.value.audio];
+    }
+  }
+  return options;
+});
+
+watch(video, () => {
+  quickSelectedTranscodeFormat.value = 0 // Reset transcode selection to "No Transcoding"
+})
 
 // Whether can start download
 const canDownload = computed(() => {
@@ -529,9 +604,23 @@ const toggleSubtitle = (subtitle) => {
 }
 
 // Parse video URL
+const getFormats = async () => {
+  try {
+    const response = await GetFormats()
+    if (response.success) {
+      availableTranscodeFormats.value = JSON.parse(response.data)
+    } else {
+      $message.warning(response.msg)
+    }
+  } catch (error) {
+    $message.error(error.message)
+  }
+}
+
 const handleParse = async () => {
   if (!url.value) return
 
+  // get video info
   try {
     isLoading.value = true
     const response = await GetContent(url.value)
@@ -554,6 +643,7 @@ const handleParse = async () => {
       selectedSubtitles.value = []
       translateTo.value = ''
       subtitleStyle.value = 'default'
+      selectedTranscodeFormat.value = 0 // Reset transcode selection
     } else {
       $dialog.error({
         title: t('download.parse_failed'),
@@ -598,7 +688,8 @@ const startCustomDownload = async () => {
       subLangs: selectedSubtitles.value.map(sub => sub.lang),
       subFormat: "",
       translateTo: translateTo.value,
-      subtitleStyle: subtitleStyle.value
+      subtitleStyle: subtitleStyle.value,
+      recodeFormatNumber: selectedTranscodeFormat.value
     }
 
     const response = await Download(downloadParams)
@@ -647,11 +738,14 @@ const startQuickDownload = async () => {
     const downloadParams = {
       url: url.value,
       video: video.value,
-      bestCaption: bestCaption.value
+      bestCaption: bestCaption.value,
+      recodeFormatNumber: quickSelectedTranscodeFormat.value
     }
 
     const response = await QuickDownload(downloadParams)
 
+    // reset form
+    quickSelectedTranscodeFormat.value = 0
     if (response.success) {
       // 触发下载开始事件
       emit('download-started', {
@@ -687,12 +781,14 @@ const resetForm = () => {
   if (mode.value === 'quick') {
     video.value = 'best'
     bestCaption.value = false
+    quickSelectedTranscodeFormat.value = 0
   } else {
     videoData.value = null
     selectedQuality.value = null
     selectedSubtitles.value = []
     translateTo.value = ''
     subtitleStyle.value = 'default'
+    selectedTranscodeFormat.value = 0 
   }
 }
 

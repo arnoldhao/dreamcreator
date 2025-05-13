@@ -17,6 +17,9 @@ type DtDownloadRequest struct {
 	// 翻译字幕
 	TranslateTo   string `json:"translateTo"`
 	SubtitleStyle string `json:"subtitleStyle"`
+
+	// Recode
+	RecodeFormatNumber int `json:"recodeFormatNumber"`
 }
 
 type DtDownloadResponse struct {
@@ -25,10 +28,12 @@ type DtDownloadResponse struct {
 }
 
 type DtQuickDownloadRequest struct {
-	URL         string `json:"url"`
-	Video       string `json:"video"`
-	BestCaption bool   `json:"bestCaption"`
-	Type        string `json:"type"`
+	URL                string `json:"url"`
+	Video              string `json:"video"`
+	BestCaption        bool   `json:"bestCaption"`
+	Type               string `json:"type"`
+	RecodeFormatNumber int    `json:"recodeFormatNumber"`
+	RecodeExtention    string `json:"recodeExtention"`
 }
 
 type DtQuickDownloadResponse struct {
@@ -106,6 +111,10 @@ type DtTaskStatus struct {
 	SubFormat     string   `json:"subFormat"` // 例如 "srt", "vtt", "best"
 	TranslateTo   string   `json:"translateTo"`
 	SubtitleStyle string   `json:"subtitleStyle"`
+
+	// Recode
+	RecodeFormatNumber int    `json:"recodeFormatNumber"`
+	RecodeExtention    string `json:"recodeExtention"`
 
 	// 状态
 	Stage     DtTaskStage `json:"stage"`               // 当前处理阶段

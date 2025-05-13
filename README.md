@@ -37,6 +37,7 @@
 - 🌐 **Multilingual Support** - Complete English and Chinese interfaces
 - 💻 **Cross-platform Compatibility** - Support for Windows and macOS systems
 - ✨ **Support MCP** - Support MCP for LLM
+- 🔀 **Support Recode** - Support Recode video or audio
 
 ## 🚀 Project Information
 
