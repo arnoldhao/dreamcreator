@@ -275,6 +275,9 @@ func (p *Service) SetLoggerConfig(config logger.Config) (resp types.JSResp) {
 		logger.Error("Failed to update logger config", zap.Error(err))
 		resp.Msg = err.Error()
 		return
+	} else {
+		logger.Info("Logger config updated", zap.Any("config", config))
+		p.UpdateGlobalConfig()
 	}
 
 	resp.Success = true

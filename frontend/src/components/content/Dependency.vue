@@ -116,7 +116,9 @@ const inputFFMPEGPath = async () => {
             const data = JSON.parse(response.data)
             if (data.available) {
                 prefStore.dependencies.ffmpeg.installed = true
+                prefStore.dependencies.ffmpeg.available = data.available
                 prefStore.dependencies.ffmpeg.path = data.path
+                prefStore.dependencies.ffmpeg.execPath = data.execPath
                 $message.success("Set FFMpeg success")
             } else {
                 prefStore.dependencies.ffmpeg.installed = false

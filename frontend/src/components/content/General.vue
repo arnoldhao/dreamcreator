@@ -122,7 +122,7 @@
                         <h2 class="text-base-content">{{ $t('settings.general.log_level') }}</h2>
                     </div>
                     <select class="select select-sm w-[10rem] text-left border-base-300"
-                        v-model="prefStore.logger.level" @change="prefStore.savePreferences()">
+                        v-model="prefStore.logger.level" @change="prefStore.setLoggerConfig()">
                         <option value="debug">Debug</option>
                         <option value="info">Info</option>
                         <option value="warn">Warn</option>

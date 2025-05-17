@@ -195,7 +195,7 @@ const usePreferencesStore = defineStore('preferences', {
          * @returns {Promise<boolean>}
          */
         async savePreferences() {
-            const pf = pick(this, ['behavior', 'general', 'proxy', 'download', 'logger']) 
+            const pf = pick(this, ['behavior', 'general', 'proxy', 'download', 'logger', 'dependencies']) 
             const { success, msg } = await SetPreferences(pf)
             // proxy 
             return success === true
@@ -276,24 +276,17 @@ const usePreferencesStore = defineStore('preferences', {
          * @param {Object} config 日志配置
          * @returns {Promise<boolean>}
          */
-        async setLoggerConfig(config) {
+        async setLoggerConfig() {
             try {
-                // 更新 store 中的配置
-                this.logger = {
-                    ...this.logger,
-                    ...config
-                }
-
                 // 保存到后端
-                const { success, msg } = await SetLoggerConfig(config)
+                const { success, msg } = await SetLoggerConfig(this.logger)
                 if (!success) {
-                    $message.error(msg || '保存日志配置失败')
+                    $message.error(msg || 'Save logger config failed')
                     return false
                 }
                 return true
             } catch (error) {
-                console.error('保存日志配置失败:', error)
-                $message.error('保存日志配置失败')
+                $message.error('Save logger config failed')
                 return false
             }
         },

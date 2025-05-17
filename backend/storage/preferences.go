@@ -59,6 +59,10 @@ func (p *PreferencesStorage) GetPreferences() (ret types.Preferences) {
 	ret.Behavior.WindowWidth = max(ret.Behavior.WindowWidth, consts.MIN_WINDOW_WIDTH)
 	ret.Behavior.WindowHeight = max(ret.Behavior.WindowHeight, consts.MIN_WINDOW_HEIGHT)
 
+	if reflect.DeepEqual(ret.ListendInfo, types.ListendInfo{}) {
+		ret.ListendInfo = types.DefaultListendInfo()
+	}
+
 	return
 }
 
@@ -97,6 +101,7 @@ func (p *PreferencesStorage) savePreferences(pf *types.Preferences) error {
 	if err = p.storage.Store(b); err != nil {
 		return err
 	}
+
 	return nil
 }
 

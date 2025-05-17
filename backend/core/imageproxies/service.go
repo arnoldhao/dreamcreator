@@ -76,7 +76,8 @@ func (s *Service) proxyImageWithoutCache(imageUrl string) (*types.ImageInfo, err
 	if err != nil {
 		return nil, fmt.Errorf("Fail to execute request: %w", err)
 	}
-	defer resp.Body.Close() // 确保响应体被关闭
+
+	defer resp.Body.Close()
 
 	// 检查响应状态码
 	if resp.StatusCode != http.StatusOK {

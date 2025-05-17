@@ -2,10 +2,12 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 	"sync"
@@ -22,6 +24,9 @@ type Config struct {
 
 	// 超时设置
 	Timeout time.Duration `json:"timeout,omitempty"`
+
+	// mutex
+	mu sync.RWMutex
 }
 
 // DefaultConfig 返回默认配置
@@ -89,15 +94,22 @@ func (c *Client) proxyFunc() func(*http.Request) (*url.URL, error) {
 			// 在Windows上优先使用注册表代理设置
 			if runtime.GOOS == "windows" {
 				if proxy, err := getSystemProxyFromRegistry(); err == nil && proxy != "" {
+					// ignore bypass list, just proxy it
 					return parseWindowsProxy(proxy)
 				}
+			} else if runtime.GOOS == "darwin" {
+				return getDarwinProxy(req)
+			} else {
+				// 在其他平台上，使用环境变量代理设置
+				return http.ProxyFromEnvironment(req)
 			}
-			return http.ProxyFromEnvironment(req)
 		case "manual":
 			return c.manualProxyFunc(req)
 		default:
 			return http.ProxyFromEnvironment(req)
 		}
+
+		return nil, nil
 	}
 }
 
@@ -227,38 +239,28 @@ func (c *Client) SetupEnv() {
 
 // GetProxyString 获取代理字符串（主机:端口格式）
 func (c *Client) GetProxyString() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.config.mu.RLock()
+	defer c.config.mu.RUnlock()
 
-	if c.config.Type == "manual" && c.config.ProxyAddress != "" {
-		return c.config.ProxyAddress
-	} else if c.config.Type == "system" {
-		// 在Windows上尝试从注册表获取系统代理
-		if runtime.GOOS == "windows" {
-			if proxy, err := getSystemProxyFromRegistry(); err == nil && proxy != "" {
-				return proxy
+	if c.config.Type != "none" {
+		url, err := c.proxyFunc()(&http.Request{
+			URL: &url.URL{
+				Scheme: "http",
+				Host:   "google.com", // example hostname
+			},
+		})
+
+		if err == nil && url != nil {
+			proxyURL, err := url.Parse(url.String())
+			if err != nil {
+				return ""
 			}
-		}
 
-		// 从环境变量中获取系统代理
-		httpProxy := os.Getenv("HTTP_PROXY")
-		if httpProxy == "" {
-			httpProxy = os.Getenv("http_proxy")
+			return fmt.Sprintf("%s:%s", proxyURL.Hostname(), proxyURL.Port())
 		}
-
-		httpsProxy := os.Getenv("HTTPS_PROXY")
-		if httpsProxy == "" {
-			httpsProxy = os.Getenv("https_proxy")
-		}
-
-		// 优先返回 HTTPS 代理，因为它更安全
-		if httpsProxy != "" {
-			return httpsProxy
-		}
-		return httpProxy
-	} else {
-		return ""
 	}
+
+	return ""
 }
 
 func parseWindowsProxy(proxyStr string) (*url.URL, error) {
@@ -278,5 +280,106 @@ func parseWindowsProxy(proxyStr string) (*url.URL, error) {
 		proxyStr = "http://" + proxyStr
 	}
 
+	return url.Parse(proxyStr)
+}
+
+func getDarwinProxy(req *http.Request) (*url.URL, error) {
+	// 1: from env
+	proxy, err := http.ProxyFromEnvironment(req)
+	if err != nil || proxy == nil {
+		// 2: from network
+		return getDarwinCurrentProxy()
+	} else {
+		return proxy, nil
+	}
+}
+
+func getDarwinCurrentNetworkService() (string, error) {
+	// 1. get default network interface
+	routeOut, err := exec.Command("route", "get", "default").Output()
+	if err != nil {
+		return "", err
+	}
+
+	// 2. parse interface name from route output
+	lines := strings.Split(string(routeOut), "\n")
+	var interfaceName string
+	for _, line := range lines {
+		if strings.Contains(line, "interface:") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				interfaceName = parts[1]
+				break
+			}
+		}
+	}
+
+	if interfaceName == "" {
+		return "", fmt.Errorf("cannot find default network interface")
+	}
+
+	// 3. get current network service
+	servicesOut, err := exec.Command("networksetup", "-listallhardwareports").Output()
+	if err != nil {
+		return "", err
+	}
+
+	// 4. find current network service
+	lines = strings.Split(string(servicesOut), "\n")
+	var currentService string
+	for i := 0; i < len(lines); i++ {
+		if strings.Contains(lines[i], "Device: "+interfaceName) {
+			// 前一行是服务名
+			if i > 0 && strings.Contains(lines[i-1], "Hardware Port:") {
+				parts := strings.Split(lines[i-1], ":")
+				if len(parts) >= 2 {
+					currentService = strings.TrimSpace(parts[1])
+					break
+				}
+			}
+		}
+	}
+
+	if currentService == "" {
+		return "", fmt.Errorf("cannot find current network service")
+	}
+
+	return currentService, nil
+}
+
+func getDarwinCurrentProxy() (*url.URL, error) {
+	// 1. get current network service
+	currentService, err := getDarwinCurrentNetworkService()
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. get proxy settings
+	proxyOut, err := exec.Command("networksetup", "-getwebproxy", currentService).Output()
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. parse proxy settings
+	lines := strings.Split(string(proxyOut), "\n")
+	var proxyEnabled bool
+	var proxyServer, proxyPort string
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, "Enabled: ") {
+			proxyEnabled = strings.Contains(line, "Yes")
+		} else if strings.HasPrefix(line, "Server: ") {
+			proxyServer = strings.TrimSpace(line[8:])
+		} else if strings.HasPrefix(line, "Port: ") {
+			proxyPort = strings.TrimSpace(line[6:])
+		}
+	}
+
+	if !proxyEnabled || proxyServer == "" {
+		return nil, nil // proxy is disabled or no server specified
+	}
+
+	// 4. construct proxy URL
+	proxyStr := fmt.Sprintf("http://%s:%s", proxyServer, proxyPort)
 	return url.Parse(proxyStr)
 }

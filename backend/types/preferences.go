@@ -41,20 +41,7 @@ func NewPreferences() Preferences {
 			},
 			FFMpeg: SoftwareInfo{},
 		},
-		ListendInfo: ListendInfo{
-			WS: ListendInfoDetails{
-				Protocol: "ws",
-				IP:       "localhost",
-				Port:     consts.WS_PORT,
-				Path:     "ws",
-			},
-			MCP: ListendInfoDetails{
-				Protocol: "http",
-				IP:       "localhost",
-				Port:     consts.MCP_SERVER_PORT,
-				Path:     "sse",
-			},
-		},
+		ListendInfo: DefaultListendInfo(),
 	}
 }
 
@@ -89,4 +76,21 @@ type ListendInfoDetails struct {
 	IP       string `json:"ip" yaml:"ip"`
 	Port     int    `json:"port" yaml:"port"`
 	Path     string `json:"path" yaml:"path"`
+}
+
+func DefaultListendInfo() ListendInfo {
+	return ListendInfo{
+		WS: ListendInfoDetails{
+			Protocol: "ws",
+			IP:       "localhost",
+			Port:     consts.WS_PORT,
+			Path:     "ws",
+		},
+		MCP: ListendInfoDetails{
+			Protocol: "http",
+			IP:       "localhost",
+			Port:     consts.MCP_SERVER_PORT,
+			Path:     "sse",
+		},
+	}
 }

@@ -99,7 +99,7 @@
         }
       } else {
         // 后端返回错误
-        throw new Error('Proxy request failed')
+        throw new Error(response.msg)
       }
     } catch (error) {
       logger.error('ProxiedImage: Failed to fetch image via proxy for url:', url, 'Error:', error)
