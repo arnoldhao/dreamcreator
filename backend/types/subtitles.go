@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/pemistahl/lingua-go"
 )
 
 // 常量定义
@@ -338,8 +336,8 @@ type LanguageMetadata struct {
 	Revision int `json:"revision" yaml:"revision"`
 
 	// Detected
-	DetectedLang lingua.Language `json:"detected_lang" yaml:"detected_lang"`
-	LanguageName string          `json:"language_name" yaml:"language_name"`
+	DetectedLang int    `json:"detected_lang" yaml:"detected_lang"`
+	LanguageName string `json:"language_name" yaml:"language_name"`
 
 	Translator string `json:"translator" yaml:"translator"`
 	Notes      string `json:"notes" yaml:"notes"`

@@ -31,12 +31,57 @@ func (c *Calculator) CountCharactersWithSpaces(text string) int {
 
 // CountWords 计算单词数（用于WPM）
 func (c *Calculator) CountWords(text string) int {
-	// 对于表意文字（中日韩），每个字符视为一个"词"
-	if c.isPrimarilyIdeographic(text) {
+	// 检查是否包含表意文字
+	hasIdeographic := false
+	hasAlphabetic := false
+
+	for _, r := range text {
+		if unicode.IsLetter(r) {
+			if unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Hangul) {
+				hasIdeographic = true
+			} else {
+				hasAlphabetic = true
+			}
+		}
+	}
+
+	// 如果是混合文本，需要分别计算
+	if hasIdeographic && hasAlphabetic {
+		return c.countMixedLanguageWords(text)
+	}
+
+	// 纯表意文字
+	if hasIdeographic {
 		return c.CountCharacters(text)
 	}
-	// 对于拼音文字，按空格分词
+
+	// 纯拼音文字
 	return len(strings.Fields(text))
+}
+
+// countMixedLanguageWords 计算混合语言文本的词数
+func (c *Calculator) countMixedLanguageWords(text string) int {
+	wordCount := 0
+	inWord := false
+
+	for _, r := range text {
+		if unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Hangul) {
+			// 表意文字，每个字符算一个词
+			wordCount++
+			inWord = false
+		} else if unicode.IsLetter(r) {
+			// 拼音文字，开始一个新词
+			if !inWord {
+				wordCount++
+				inWord = true
+			}
+		} else {
+			// 非字母字符，结束当前词
+			inWord = false
+		}
+	}
+
+	return wordCount
 }
 
 // CountMaxLineLength 计算最大行长度（字符数，不含空格）

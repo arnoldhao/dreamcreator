@@ -154,7 +154,7 @@ func (s *FormatConverterImpl) fromItt(filePath string, file []byte) (types.Subti
 
 	// 设置语言元数据
 	project.LanguageMetadata[langCode] = types.LanguageMetadata{
-		DetectedLang: langInt,
+		DetectedLang: int(langInt),
 		LanguageName: langCode,
 		Quality:      "imported",
 		SyncStatus:   "synced",
@@ -349,7 +349,7 @@ func (s *FormatConverterImpl) fromSrt(filePath string, file []byte) (types.Subti
 
 	// 设置语言元数据
 	project.LanguageMetadata[langCode] = types.LanguageMetadata{
-		DetectedLang: langInt,
+		DetectedLang: int(langInt),
 		LanguageName: langCode,
 		Quality:      "imported",
 		SyncStatus:   "synced",

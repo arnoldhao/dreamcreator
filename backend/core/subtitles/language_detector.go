@@ -12,15 +12,7 @@ type LanguageDetectorImpl struct {
 // NewLanguageDetector 创建语言检测器 - 使用相对距离
 func NewLanguageDetector() LanguageDetector {
 	detector := lingua.NewLanguageDetectorBuilder().
-		FromLanguages(
-			lingua.English,
-			lingua.Chinese,
-			lingua.Japanese,
-			lingua.Korean,
-			lingua.Spanish,
-			lingua.French,
-			// more languages...
-		).
+		FromAllLanguages().
 		WithMinimumRelativeDistance(0.9). // 设置最小相对距离
 		Build()
 
