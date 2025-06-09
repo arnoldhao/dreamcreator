@@ -1,0 +1,236 @@
+.font-system {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+// 基础按钮样式
+.btn-macos {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.2;
+  border-radius: 6px;
+  border: 1px solid var(--macos-border);
+  background: var(--macos-background);
+  color: var(--macos-text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 28px;
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--macos-gray-hover);
+    border-color: var(--macos-border);
+  }
+
+  &:active {
+    background: var(--macos-gray-active);
+    transform: scale(0.98);
+  }
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3);
+  }
+}
+
+// 主要按钮
+.btn-macos-primary {
+  @extend .btn-macos;
+  background: var(--macos-blue);
+  border-color: var(--macos-blue);
+  color: white;
+
+  &:hover {
+    background: var(--macos-blue-hover);
+    border-color: var(--macos-blue-hover);
+  }
+
+  &:active {
+    background: var(--macos-blue-active);
+    border-color: var(--macos-blue-active);
+  }
+}
+
+// 次要按钮
+.btn-macos-secondary {
+  @extend .btn-macos;
+  background: var(--macos-gray);
+  border-color: var(--macos-border);
+  color: var(--macos-text-primary);
+
+  &:hover {
+    background: var(--macos-gray-hover);
+  }
+
+  &:active {
+    background: var(--macos-gray-active);
+  }
+}
+
+// 危险按钮
+.btn-macos-danger {
+  @extend .btn-macos;
+  background: var(--macos-danger-bg);
+  border-color: var(--macos-danger-text);
+  color: var(--macos-danger-text);
+
+  &:hover {
+    background: var(--macos-danger-text);
+    color: white;
+  }
+}
+
+// 输入框样式
+.input-macos {
+  padding: 6px 12px;
+  border: 1px solid var(--macos-border);
+  border-radius: 6px;
+  background: var(--macos-background);
+  color: var(--macos-text-primary);
+  font-size: 13px;
+  transition: all 0.15s ease;
+
+  &:focus {
+    outline: none;
+    border-color: var(--macos-blue);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3);
+  }
+
+  &::placeholder {
+    color: var(--macos-text-tertiary);
+  }
+}
+
+// 选择框样式
+.select-macos {
+  @extend .input-macos;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--macos-blue);
+  }
+}
+
+// 卡片样式
+.card-macos {
+  background: var(--macos-background);
+  border: 1px solid var(--macos-separator);
+  border-radius: 8px;
+  overflow: hidden;
+
+  .card-header {
+    padding: 12px 16px;
+    background: var(--macos-background-secondary);
+    border-bottom: 1px solid var(--macos-separator);
+  }
+
+  .card-content {
+    padding: 16px;
+  }
+}
+
+// 滚动条样式
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--macos-scrollbar-thumb);
+  border-radius: 3px;
+
+  &:hover {
+    background: var(--macos-scrollbar-thumb-hover);
+  }
+}
+
+// 小尺寸按钮变体
+.btn-macos-sm {
+  @extend .btn-macos;
+  padding: 4px 12px;
+  font-size: 12px;
+  min-height: 24px;
+}
+
+// 输入框尺寸变体
+.input-compact {
+  @extend .input-macos;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.input-full {
+  @extend .input-macos;
+  width: 100%;
+}
+
+// 通用动画
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+// 加载动画
+.loading-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 6px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// 统一的历史记录滚动条样式
+.history-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--macos-scrollbar-thumb) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--macos-scrollbar-thumb);
+    border-radius: 3px;
+
+    &:hover {
+      background: var(--macos-scrollbar-thumb-hover);
+    }
+  }
+}

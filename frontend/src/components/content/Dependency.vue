@@ -363,11 +363,4 @@ onMounted(() => {
 </template>
 
 <style lang="scss" scoped>
-.card {
-    @apply shadow-lg;
-}
-
-.menu li a {
-    @apply hover:bg-base-200;
-}
 </style>

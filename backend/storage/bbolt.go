@@ -15,9 +15,10 @@ import (
 )
 
 var (
-	taskBucket   = []byte("tasks")
-	imageBucket  = []byte("images")  // 用于存储图片的桶
-	formatBucket = []byte("formats") // 用于存储格式的桶
+	taskBucket     = []byte("tasks")
+	imageBucket    = []byte("images")    // 用于存储图片的桶
+	formatBucket   = []byte("formats")   // 用于存储格式的桶
+	subtitleBucket = []byte("subtitles") // 用于存储字幕的桶
 	// other buckets...
 )
 
@@ -60,6 +61,11 @@ func NewBoltStorage() (*BoltStorage, error) {
 
 		// create format buckets
 		if _, err := tx.CreateBucketIfNotExists(formatBucket); err != nil {
+			return err
+		}
+
+		// create subtitle buckets
+		if _, err := tx.CreateBucketIfNotExists(subtitleBucket); err != nil {
 			return err
 		}
 		// create other buckets...
@@ -302,5 +308,84 @@ func (s *BoltStorage) InitializeOrRestoreDefaultConversionFormats(overwrite bool
 			}
 		}
 		return nil
+	})
+}
+
+/* SubtitlesBucket */
+// SaveSubtitle saves a subtitle to the storage
+func (s *BoltStorage) SaveSubtitle(sub *types.SubtitleProject) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(subtitleBucket)
+
+		sub.UpdatedAt = time.Now().Unix()
+		encoded, err := json.Marshal(sub)
+		if err != nil {
+			return err
+		}
+
+		return b.Put([]byte(sub.ID), encoded)
+	})
+}
+
+// GetSubtitle retrieves a subtitle from the storage
+func (s *BoltStorage) GetSubtitle(id string) (*types.SubtitleProject, error) {
+	var sub types.SubtitleProject
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(subtitleBucket)
+		data := b.Get([]byte(id))
+		if data == nil {
+			return fmt.Errorf("subtitle not found: %s", id)
+		}
+
+		return json.Unmarshal(data, &sub)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &sub, nil
+}
+
+// ListSubtitles lists all subtitles in the storage
+func (s *BoltStorage) ListSubtitles() ([]*types.SubtitleProject, error) {
+	var subs []*types.SubtitleProject
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(subtitleBucket)
+
+		return b.ForEach(func(k, v []byte) error {
+			var sub types.SubtitleProject
+			if err := json.Unmarshal(v, &sub); err != nil {
+				return err
+			}
+			subs = append(subs, &sub)
+			return nil
+		})
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return subs, nil
+}
+
+// DeleteSubtitle deletes a subtitle from the storage
+func (s *BoltStorage) DeleteSubtitle(id string) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(subtitleBucket)
+		return b.Delete([]byte(id))
+	})
+}
+
+// DeleteAllSubtitle deletes all subtitles from the storage
+func (s *BoltStorage) DeleteAllSubtitle() error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(subtitleBucket)
+		return b.ForEach(func(k, v []byte) error {
+			return b.Delete(k)
+		})
 	})
 }

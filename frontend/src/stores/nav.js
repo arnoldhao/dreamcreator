@@ -3,6 +3,7 @@ import { reactive } from 'vue'
 // 导航选项
 const navOptions = {
   DOWNLOAD: 'download',
+  SUBTITLE: 'subtitle',
   SETTINGS: 'settings'
 }
 
@@ -17,6 +18,11 @@ const state = reactive({
       label: 'ribbon.download',
       key: navOptions.DOWNLOAD,
       icon: 'ri-download-cloud-line',
+    },
+    {
+      label: 'ribbon.subtitle',
+      key: navOptions.SUBTITLE,
+      icon: 'md-subtitles-outlined',
     },
   ],
   

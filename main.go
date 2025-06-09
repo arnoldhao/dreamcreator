@@ -6,6 +6,7 @@ import (
 	"CanMe/backend/core/downtasks"
 	"CanMe/backend/core/events"
 	"CanMe/backend/core/imageproxies"
+	"CanMe/backend/core/subtitles"
 	"CanMe/backend/mcpserver"
 	"CanMe/backend/pkg/downinfo"
 	"CanMe/backend/pkg/logger"
@@ -66,6 +67,8 @@ func main() {
 	dtService := downtasks.NewService(events, proxyClient, downloadClient, preferencesService, boltStorage)
 	// # Imagesproxies
 	ipsService := imageproxies.NewService(proxyClient, boltStorage)
+	// # Subtitles
+	subtitlesService := subtitles.NewService(boltStorage)
 
 	// Packages
 	// # Websocket
@@ -79,6 +82,8 @@ func main() {
 	pathsAPI := api.NewPathsAPI(preferencesService, dtService)
 	// # Utils API
 	utilsAPI := api.NewUtilsAPI(ipsService)
+	// # Subtitles API
+	subtitlesAPI := api.NewSubtitlesAPI(subtitlesService)
 
 	// MCP
 	// # MCP Server
@@ -127,6 +132,7 @@ func main() {
 			dtAPI,
 			pathsAPI,
 			utilsAPI,
+			subtitlesAPI,
 		},
 		Logger: logger.NewWailsLogger(),
 		OnStartup: func(ctx context.Context) {
@@ -142,6 +148,7 @@ func main() {
 			dtAPI.Subscribe(ctx)
 			pathsAPI.Subscribe(ctx)
 			utilsAPI.Subscribe(ctx)
+			subtitlesAPI.Subscribe(ctx)
 			// MCP
 			if err := mcpServer.Start(ctx); err != nil {
 				logger.GetLogger().Error("Error starting MCP server", zap.Error(err))

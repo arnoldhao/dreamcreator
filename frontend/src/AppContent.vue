@@ -8,6 +8,7 @@ import { EventsOn, WindowIsFullscreen, WindowIsMaximised, WindowToggleMaximise }
 import { isMacOS, isWindows } from '@/utils/platform.js'
 import Settings from "@/components/content/Settings.vue";
 import VideoDownloadPage from "@/components/content/VideoDownloadPage.vue";
+import Subtitle from '@/components/content/Subtitle.vue';
 
 const props = defineProps({
   loading: Boolean,
@@ -102,6 +103,11 @@ onMounted(async () => {
         <!-- download video page -->
         <div v-show="navStore.currentNav === navStore.navOptions.DOWNLOAD" class="flex-1 content-container">
           <video-download-page class="flex-1" />
+        </div>
+
+        <!-- download video page -->
+        <div v-show="navStore.currentNav === navStore.navOptions.SUBTITLE" class="flex-1 content-container">
+          <subtitle class="flex-1" />
         </div>
 
         <!-- settings page -->

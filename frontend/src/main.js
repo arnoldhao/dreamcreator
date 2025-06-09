@@ -3,7 +3,9 @@ import { createApp, nextTick } from 'vue'
 import App from './App.vue'
 import './index.css'
 import './styles/style.scss'
+import './styles/macos-components.scss'
 import { i18n } from '@/utils/i18n.js'
+import { initThemeSystem } from '@/utils/theme.js'
 import { setupDiscreteApi } from '@/utils/discrete.js'
 import usePreferencesStore from 'stores/preferences.js'
 import { loadEnvironment } from '@/utils/platform.js'
@@ -60,6 +62,8 @@ const allIcons = Object.values({
 addIcons(...allIcons)
 
 async function setupApp() {
+    // 初始化主题系统
+    initThemeSystem()
     const app = createApp(App)
     app.use(i18n)
     app.use(createPinia())

@@ -4,7 +4,7 @@ import { onMounted, ref, watch } from 'vue'
 import usePreferencesStore from './stores/preferences.js'
 import { useI18n } from 'vue-i18n'
 import { WindowSetDarkTheme, WindowSetLightTheme } from 'wailsjs/runtime/runtime.js'
-import { applyThemeVariables } from '@/utils/theme.js'
+import { applyMacosTheme } from '@/utils/theme.js'
 import { WSON } from '@/handlers/websockets.js'
 
 const { connect } = WSON()
@@ -36,7 +36,7 @@ watch(
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
     
     // Apply custom theme variables
-    applyThemeVariables(isDark)
+    applyMacosTheme(isDark)
   },
   { immediate: true } // Apply immediately on component mount
 )

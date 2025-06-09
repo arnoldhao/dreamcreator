@@ -13,14 +13,15 @@
   <img src="https://img.shields.io/github/v/tag/arnoldhao/canme?label=version" alt="Version" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey" alt="Platform" />
   <img src="https://img.shields.io/badge/tech-Go%20%7C%20Vue3-green" alt="Tech" />
+  <img src="https://img.shields.io/badge/subtitle-ITT%20%7C%20SRT%20%7C%20FCPXML-blue" alt="Subtitle" />
 </div>
 
 <p align="center">
-  <strong>CanMe is a comprehensive multilingual video download manager with a fluid user experience and powerful content processing capabilities.</strong>
+  <strong>CanMe is a comprehensive multilingual video download manager with advanced subtitle processing capabilities and a fluid user experience.</strong>
 </p>
 
 <p align="center">
-  <strong>Built on <a href="https://github.com/yt-dlp/yt-dlp">yt-dlp</a>, supporting multiple video platforms with real-time download progress and multilingual interface.</strong>
+  <strong>Built on <a href="https://github.com/yt-dlp/yt-dlp">yt-dlp</a>, supporting multiple video platforms with real-time download progress, multilingual interface, and professional subtitle workflow.</strong>
 </p>
 
 <div align="center">
@@ -29,47 +30,95 @@
 
 <br/>
 
-## ✨ Key Features
+## ✨ Core Features
 
-- 🎬 **Powerful Video Downloads** - Support for content from various video platforms
-- 📝 **Subtitle Extraction** - Automatically download associated video subtitles
-- 🔄 **Real-time Progress** - Intuitive display of download status and progress
-- 🌐 **Multilingual Support** - Complete English and Chinese interfaces
-- 💻 **Cross-platform Compatibility** - Support for Windows and macOS systems
-- ✨ **Support MCP** - Support MCP for LLM
-- 🔀 **Support Recode** - Support Recode video or audio
+### 🎬 Video Download Engine
+- **Multi-platform Support** - Download from various video platforms with yt-dlp integration
+- **Real-time Progress** - Live download status with detailed progress indicators
+- **Format Selection** - Choose from available video/audio quality options
+- **Batch Processing** - Queue multiple downloads with smart management
 
-## 🚀 Project Information
+### 📝 Advanced Subtitle System
+- **📥 Import Support** - ITT and SRT subtitle format import
+- **📤 Export Formats** - Export to SRT and FCPXML for professional editing
+- **🔄 Auto-extraction** - Automatically download video subtitles when available
+- **🎯 Precision Timing** - Maintain accurate subtitle synchronization
 
-> This project aims to explore front-end and back-end development technologies by providing a complete solution for a real-world application scenario. As a personal learning project, the software may have some areas for improvement, your understanding is appreciated.
+### 🌐 User Experience
+- **Multilingual Interface** - Complete English and Chinese language support
+- **Cross-platform** - Native support for Windows and macOS
+- **Modern UI** - Clean design built with Vue3 + TailwindCSS + DaisyUI
+- **MCP Integration** - Model Context Protocol support for LLM workflows
 
-## 📋 Current Version
+### 🔧 Technical Capabilities
+- **Video Recoding** - Convert between different video/audio formats
+- **Proxy Support** - Network proxy configuration for global access
+- **Local Storage** - Efficient local data management with BBolt
+- **WebSocket Communication** - Real-time updates and notifications
 
-### ✅ Updates
-- 🔄 Refactored download module using yt-dlp as the core download engine
-- 🎨 New UI design based on Vue3 + TailwindCSS + DaisyUI
-- 🧹 Optimized code structure and removed redundant features
+## 🚀 Getting Started
 
-### ⚠️ Requirements
-- 🔧 **Dependencies**: `ffmpeg` needs to be installed separately
-- 🌐 **Network**: Stable internet connection required for the first use to download essential `go-ytdlp` components
+### Prerequisites
+- **FFmpeg** - Required for video processing and format conversion
+- **Stable Internet** - Initial setup downloads essential yt-dlp components
+- **System Requirements** - Windows 10+ or macOS 10.15+
 
-### ❗ Known Issues
-- When downloading YouTube videos with subtitles simultaneously, the progress indicator may not update, but downloads will complete successfully
-- The current version does not support pausing downloads, this feature will be added in upcoming versions
+### Installation
+1. Download the latest release for your platform
+2. Install FFmpeg on your system
+3. Launch CanMe and follow the setup wizard
 
-## 🔮 Future Plans
+## 📋 Version Information
 
-### Short-term Goals
-- ⛓️ **Download Pipeline**
-  - 🤖 Support for AI API integration
-  - 🔄 AI-based subtitle translation
-  - 📺 Subtitle embedding functionality
+### 🆕 Latest Updates
+- ✨ **New Subtitle Export System** - Professional ITT/SRT import and SRT/FCPXML export
+- 🔄 Enhanced download engine with yt-dlp core integration
+- 🎨 Redesigned UI with improved user experience
+- 🧹 Streamlined codebase with optimized performance
+- 🔧 Advanced video recoding capabilities
 
-### Long-term Goals
-- 🧠 **AI Enhanced Features**
-  - 💬 Intelligent conversation assistant
-  - 📝 Language learning tools (e.g., IELTS essay review)
+### ⚠️ System Requirements
+- 🔧 **Dependencies**: FFmpeg installation required
+- 🌐 **Network**: Internet connection needed for initial component download
+- 💾 **Storage**: Adequate disk space for downloads and processing
+
+### 📌 Known Limitations
+- YouTube subtitle downloads may not show progress updates (downloads complete successfully)
+- Download pause/resume functionality planned for future releases
+- Some platforms may require additional authentication
+
+## 🔮 Development Roadmap
+
+### 🎯 Short-term Goals
+- **Enhanced Subtitle Pipeline**
+  - 🤖 AI-powered subtitle translation
+  - 📺 Direct subtitle embedding in videos
+  - 🔄 Batch subtitle processing
+  - 🎨 Subtitle styling and formatting options
+
+### 🚀 Long-term Vision
+- **AI-Enhanced Workflow**
+  - 💬 Intelligent content assistant
+  - 📝 Educational tools (language learning, essay review)
   - 📊 Content analysis and recommendations
+  - 🧠 Smart content categorization
+
+## 🛠️ Technical Stack
+
+- **Backend**: Go with Wails framework
+- **Frontend**: Vue3 + TailwindCSS + DaisyUI
+- **Video Processing**: yt-dlp + FFmpeg
+- **Storage**: BBolt embedded database
+- **Communication**: WebSocket for real-time updates
+
+## 📖 Project Philosophy
+
+> CanMe represents a journey in modern application development, combining robust backend engineering with elegant frontend design. This project serves as both a practical tool and a learning platform, exploring the intersection of video processing, user experience design, and cross-platform development.
+
+## 🤝 Contributing
+
+As a personal learning project, CanMe welcomes feedback and suggestions. While the codebase continues to evolve, your understanding and patience with ongoing improvements are appreciated.
+
+---
 
 <p align="center">© 2025 <a href="https://github.com/arnoldhao">Arnold Hao</a>. All rights reserved.</p>

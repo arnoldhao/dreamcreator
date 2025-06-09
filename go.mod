@@ -7,6 +7,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/lrstanley/go-ytdlp v0.0.0-20250501010938-80d02fe36936
 	github.com/mark3labs/mcp-go v0.17.0
+	github.com/pemistahl/lingua-go v1.4.0
 	github.com/vrischmann/userdir v0.0.0-20151206171402-20f291cebd68
 	github.com/wailsapp/wails/v2 v2.10.1
 	go.etcd.io/bbolt v1.4.0
@@ -37,6 +38,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/samber/lo v1.49.1 // indirect
+	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/tkrajina/go-reflector v0.5.8 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
@@ -45,6 +47,8 @@ require (
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.38.0 // indirect
+	golang.org/x/exp v0.0.0-20221106115401-f9659909a136 // indirect
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
+	google.golang.org/protobuf v1.31.0 // indirect
 )
