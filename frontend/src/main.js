@@ -8,6 +8,7 @@ import { i18n } from '@/utils/i18n.js'
 import { initThemeSystem } from '@/utils/theme.js'
 import { setupDiscreteApi } from '@/utils/discrete.js'
 import usePreferencesStore from 'stores/preferences.js'
+import useDependenciesStore from 'stores/dependencies.js'
 import { loadEnvironment } from '@/utils/platform.js'
 import { OhVueIcon, addIcons } from 'oh-vue-icons'
 import { useDtStore } from '@/handlers/downtasks'
@@ -74,6 +75,10 @@ async function setupApp() {
     // 初始化全局WS通信状态管理
     const dtStore = useDtStore()
     dtStore.init()
+
+    // 初始化依赖store的WebSocket监听
+    const dependenciesStore = useDependenciesStore()
+    dependenciesStore.initWebSocket()
 
     await loadEnvironment()
     const prefStore = usePreferencesStore()

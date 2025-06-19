@@ -71,31 +71,6 @@ const usePreferencesStore = defineStore('preferences', {
         decoder: [],
         lastPref: {},
         logger: {}, 
-        dependencies: {
-            ytdlp: {
-                // additional properties, only enabled in frontend
-                installing: false,
-                installProgress: '',
-                installed: false,
-                updating: false,
-                updateProgress: '',
-                updated: false,
-                // properties from backend
-                path: '',
-                execPath: '',
-                version: '',
-                latestVersion: '',
-                needUpdate: false,
-            },
-            ffmpeg: {
-                installed: false,
-                path: '',
-                execPath: '',
-                version: '',
-                latestVersion: '',
-                needUpdate: false,
-            }
-        }
     }),
     getters: {
         getSeparator() {
@@ -195,7 +170,7 @@ const usePreferencesStore = defineStore('preferences', {
          * @returns {Promise<boolean>}
          */
         async savePreferences() {
-            const pf = pick(this, ['behavior', 'general', 'proxy', 'download', 'logger', 'dependencies']) 
+            const pf = pick(this, ['behavior', 'general', 'proxy', 'download', 'logger']) 
             const { success, msg } = await SetPreferences(pf)
             // proxy 
             return success === true

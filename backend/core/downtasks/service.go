@@ -2,12 +2,16 @@ package downtasks
 
 import (
 	"CanMe/backend/consts"
-	"CanMe/backend/core/events"
+	"CanMe/backend/pkg/dependencies"
+	"CanMe/backend/pkg/dependencies/providers"
 	"CanMe/backend/pkg/downinfo"
+	"CanMe/backend/pkg/events"
+	"CanMe/backend/pkg/logger"
 	"CanMe/backend/pkg/proxy"
 	"CanMe/backend/services/preferences"
 	"CanMe/backend/storage"
 	"CanMe/backend/types"
+
 	"context"
 	"fmt"
 	"os"
@@ -21,6 +25,7 @@ import (
 	"encoding/json"
 
 	"github.com/lrstanley/go-ytdlp"
+	"go.uber.org/zap"
 )
 
 // Service 处理视频下载和处理
@@ -31,7 +36,7 @@ type Service struct {
 	eventBus      events.EventBus
 	metadataCache sync.Map // 用于缓存视频元数据
 	// proxy
-	proxyClient *proxy.Client
+	proxyManager proxy.ProxyManager
 	// download
 	downloadClient *downinfo.Client
 	// pref
@@ -40,20 +45,38 @@ type Service struct {
 	ffmpegExecPath string
 	// bolt storage
 	boltStorage *storage.BoltStorage
+
+	// dependencies
+	depManager dependencies.Manager
 }
 
 func NewService(eventBus events.EventBus,
-	proxyClient *proxy.Client,
+	proxyManager proxy.ProxyManager,
 	downloadClient *downinfo.Client,
 	pref *preferences.Service,
-	boltStorage *storage.BoltStorage) *Service {
+	boltStorage *storage.BoltStorage,
+) *Service {
+
+	// 创建依赖管理器
+	depManager := dependencies.NewManager(eventBus, proxyManager, boltStorage)
+
+	// 注册依赖提供者
+	depManager.Register(providers.NewYTDLPProvider(eventBus))
+	depManager.Register(providers.NewFFmpegProvider(eventBus))
+
+	// 初始化默认依赖信息
+	if err := depManager.InitializeDefaultDependencies(); err != nil {
+		logger.Error("Failed to initialize default dependencies", zap.Error(err))
+	}
+
 	s := &Service{
 		taskManager:    nil,
 		eventBus:       eventBus,
-		proxyClient:    proxyClient,
+		proxyManager:   proxyManager,
 		downloadClient: downloadClient,
 		pref:           pref,
 		boltStorage:    boltStorage,
+		depManager:     depManager,
 	}
 
 	return s
@@ -96,30 +119,6 @@ func (s *Service) GetTaskStatusByURL(url string) (bool, *types.DtTaskStatus, err
 	return false, nil, nil
 }
 
-func (s *Service) GetFFMPEGPath() (types.SoftwareInfo, error) {
-	return s.checkFFMpeg()
-}
-
-func (s *Service) SetFFMpegPath(execPath string) (types.SoftwareInfo, error) {
-	return s.setFFMpeg(execPath)
-}
-
-func (s *Service) GetYTDLPPath() (types.SoftwareInfo, error) {
-	return s.checkYTDLP()
-}
-
-func (s *Service) InstallYTDLP() (string, error) {
-	return s.getYtdlpPath(YtdlpConfig{Latest: false})
-}
-
-func (s *Service) CheckYTDLPUpdate() (types.SoftwareInfo, error) {
-	return s.checkYTDLPUpdate()
-}
-
-func (s *Service) UpdateYTDLP() (string, error) {
-	return s.getYtdlpPath(YtdlpConfig{Latest: true})
-}
-
 func (s *Service) GetFormats() map[string][]*types.ConversionFormat {
 	return s.taskManager.ListAvalibleConversionFormats()
 }
@@ -129,17 +128,17 @@ func (s *Service) newCommand(enbaledFFMpeg bool) (*ytdlp.Command, error) {
 	dl := ytdlp.New()
 
 	// proxy
-	if httpProxy := s.proxyClient.GetProxyString(); httpProxy != "" {
+	if httpProxy := s.proxyManager.GetProxyString(); httpProxy != "" {
 		dl.SetEnvVar("HTTP_PROXY", httpProxy).
 			SetEnvVar("HTTPS_PROXY", httpProxy)
 	}
 
 	// yt-dlp mustinstall
-	path, err := s.getYtdlpPath(YtdlpConfig{Latest: false})
+	ytExecPath, err := s.YTDLPExecPath()
 	if err != nil {
 		return nil, err
 	}
-	dl.SetExecutable(path)
+	dl.SetExecutable(ytExecPath)
 
 	// set temp dir
 	tempDir, err := s.downDir("temp")
@@ -153,17 +152,12 @@ func (s *Service) newCommand(enbaledFFMpeg bool) (*ytdlp.Command, error) {
 
 	// ffmpeg
 	if enbaledFFMpeg {
-		ffinfo, err := s.checkFFMpeg()
+		ffExecPath, err := s.FFMPEGExecPath()
 		if err != nil {
 			return nil, err
 		}
-
-		if !ffinfo.Available {
-			return nil, fmt.Errorf("ffmpeg is not available in new command function")
-		}
-
 		// set ffmpeg
-		dl.FFmpegLocation(ffinfo.ExecPath)
+		dl.FFmpegLocation(ffExecPath)
 	}
 
 	return dl, nil
@@ -711,13 +705,24 @@ func (s *Service) fillTaskInfo(infoChan InfoChan) {
 				// update
 				s.taskManager.UpdateTask(task)
 
-				// refresh
-				s.eventBus.Broadcast(consts.TopicDowntasksSignal, &types.DTSignal{
-					ID:      task.ID,
-					Type:    task.Type,
-					Stage:   task.Stage,
-					Refresh: true,
-				})
+				// 创建事件
+				event := &events.BaseEvent{
+					ID:        uuid.New().String(),
+					Type:      consts.TopicDowntasksInstalling,
+					Source:    "downtasks",
+					Timestamp: time.Now(),
+					Data: &types.DTSignal{
+						ID:      task.ID,
+						Type:    task.Type,
+						Stage:   task.Stage,
+						Refresh: true,
+					},
+					Metadata: map[string]interface{}{
+						"task": task,
+					},
+				}
+
+				s.eventBus.Publish(s.ctx, event)
 			}
 		}
 	}
@@ -781,13 +786,24 @@ func (s *Service) parseYtdlpOutput(task *types.DtTaskStatus, result *ytdlp.Resul
 	// 更新任务
 	s.taskManager.UpdateTask(task)
 
-	// refresh
-	s.eventBus.Broadcast(consts.TopicDowntasksSignal, &types.DTSignal{
-		ID:      task.ID,
-		Type:    task.Type,
-		Stage:   task.Stage,
-		Refresh: true,
-	})
+	// 创建事件
+	event := &events.BaseEvent{
+		ID:        uuid.New().String(),
+		Type:      consts.TopicDowntasksInstalling,
+		Source:    "downtasks",
+		Timestamp: time.Now(),
+		Data: &types.DTSignal{
+			ID:      task.ID,
+			Type:    task.Type,
+			Stage:   task.Stage,
+			Refresh: true,
+		},
+		Metadata: map[string]interface{}{
+			"task": task,
+		},
+	}
+
+	s.eventBus.Publish(s.ctx, event)
 }
 
 // translateSubtitles 实现字幕翻译阶段
@@ -875,7 +891,19 @@ func (s *Service) monitorProgress(progressChan ProgressChan) {
 		}
 
 		// eventbus
-		s.eventBus.Broadcast(consts.TopicDowntasksProgress, progress)
+		// 创建事件
+		event := &events.BaseEvent{
+			ID:        uuid.New().String(),
+			Type:      consts.TopicDowntasksProgress,
+			Source:    "downtasks",
+			Timestamp: time.Now(),
+			Data:      progress,
+			Metadata: map[string]interface{}{
+				"progress": progress,
+			},
+		}
+
+		s.eventBus.Publish(s.ctx, event)
 	}
 }
 

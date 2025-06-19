@@ -74,6 +74,20 @@ const (
 	DtStageInstalled    DtTaskStage = "installed"    // 安装完成
 	DtStageUpdating     DtTaskStage = "updating"     // 更新阶段
 	DtStageUpdated      DtTaskStage = "updated"      // 更新完成
+
+	// Dependencies Stage
+	DependenciesPreparing        DtTaskStage = "preparing"        // 1.准备阶段
+	DependenciesDownloading      DtTaskStage = "downloading"      // 2.下载阶段
+	DependenciesInstallFailed    DtTaskStage = "installFailed"    // 3.安装失败
+	DependenciesInstallCompleted DtTaskStage = "installCompleted" // 4.安装完成
+	DependenciesInstallCancelled DtTaskStage = "installCancelled" // 5.安装取消
+	DependenciesExtracting       DtTaskStage = "extracting"       // 6.解压阶段
+	DependenciesValidating       DtTaskStage = "validating"       // 7.校验阶段
+	DependenciesCleaning         DtTaskStage = "cleaning"         // 8.清理阶段
+	DependenciesUpdating         DtTaskStage = "updating"         // 9.更新阶段
+	DependenciesUpdateFailed     DtTaskStage = "updateFailed"     // 10.更新失败阶段
+	DependenciesUpdateCompleted  DtTaskStage = "updateCompleted"  // 11.更新完成阶段
+	DependenciesUpdateCancelled  DtTaskStage = "updateCancelled"  // 12.更新取消阶段
 )
 
 // DtProgress 表示处理进度信息

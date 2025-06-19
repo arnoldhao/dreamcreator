@@ -15,7 +15,8 @@ var (
 	globalLogger      *zap.Logger
 	globalAtomicLevel zap.AtomicLevel = zap.NewAtomicLevelAt(zap.InfoLevel) // 默认Info级别
 	currentConfig     *Config                                               // 保存当前配置用于比较
-	configMutex       sync.Mutex                                            // 保护currentConfig和globalLogger的更新
+	configMutex       sync.RWMutex
+	initOnce          sync.Once // 保护currentConfig和globalLogger的更新
 )
 
 // InitLogger 初始化或重新初始化日志记录器
@@ -123,25 +124,15 @@ func InitLogger(cfg *Config) error {
 
 // GetLogger 获取全局logger实例
 func GetLogger() *zap.Logger {
-	configMutex.Lock() // GetLogger也需要锁，以防在InitLogger执行一半时被调用
-	// 如果全局logger未初始化，使用默认配置初始化
-	// 这种惰性初始化在并发场景下可能需要更复杂的处理，但对于InitLogger是主要入口点的情况，这里可以简化
-	if globalLogger == nil {
-		// 首次调用GetLogger且未初始化时，进行初始化
-		// 解锁以允许InitLogger获取锁
-		configMutex.Unlock()
+	initOnce.Do(func() {
 		if err := InitLogger(DefaultConfig()); err != nil {
-			// 如果初始化失败，使用一个基本的console logger作为后备
-			// 重新获取锁来安全地设置和返回后备logger
-			configMutex.Lock()
-			globalLogger = zap.NewExample() // zap.NewExample() 默认使用Info级别
+			globalLogger = zap.NewExample()
 		}
-		// InitLogger会设置globalLogger，所以再次获取锁并返回
-		// configMutex.Lock() // 已经在InitLogger中或上面的fallback中处理了
-	}
-	loggerInstance := globalLogger
-	configMutex.Unlock()
-	return loggerInstance
+	})
+
+	configMutex.RLock()
+	defer configMutex.RUnlock()
+	return globalLogger
 }
 
 // Debug level log

@@ -3,7 +3,8 @@ package api
 import (
 	"CanMe/backend/consts"
 	"CanMe/backend/core/downtasks"
-	"CanMe/backend/core/events"
+	"CanMe/backend/pkg/events"
+	"CanMe/backend/pkg/logger"
 	"CanMe/backend/pkg/websockets"
 	"CanMe/backend/types"
 	"context"
@@ -28,38 +29,52 @@ func NewDowntasksAPI(service *downtasks.Service, eventBus events.EventBus, ws *w
 func (api *DowntasksAPI) Subscribe(ctx context.Context) {
 	api.ctx = ctx
 
-	// Subscribe
-	api.eventBus.Subscribe(consts.TopicDowntasksProgress, func(event events.Event) {
-		// WebSocket Logic:report current progress to client
-		if data, ok := event.Data.(*types.DtProgress); ok {
+	progressHandler := events.HandlerFunc(func(ctx context.Context, event events.Event) error {
+		// WebSocket Logic: report current progress to client
+		if data, ok := event.GetData().(*types.DtProgress); ok {
 			api.ws.SendToClient(types.WSResponse{
 				Namespace: consts.NAMESPACE_DOWNTASKS,
 				Event:     consts.EVENT_DOWNTASKS_PROGRESS,
 				Data:      data,
 			})
+		} else {
+			logger.Warn("Failed to convert event data to DtProgress")
 		}
+		return nil
 	})
 
-	api.eventBus.Subscribe(consts.TopicDowntasksSignal, func(event events.Event) {
-		if data, ok := event.Data.(*types.DTSignal); ok {
+	signalHandler := events.HandlerFunc(func(ctx context.Context, event events.Event) error {
+		// WebSocket Logic: report current progress to client
+		if data, ok := event.GetData().(*types.DTSignal); ok {
 			api.ws.SendToClient(types.WSResponse{
 				Namespace: consts.NAMESPACE_DOWNTASKS,
 				Event:     consts.EVENT_DOWNTASKS_SIGNAL,
 				Data:      data,
 			})
+		} else {
+			logger.Warn("Failed to convert event data to DTSignal")
 		}
+		return nil
 	})
 
-	api.eventBus.Subscribe(consts.TopicDowntasksInstalling, func(event events.Event) {
-		// WebSocket Logic:report current installing status to client
-		if data, ok := event.Data.(*types.DtProgress); ok {
+	installHandler := events.HandlerFunc(func(ctx context.Context, event events.Event) error {
+		// WebSocket Logic: report current progress to client
+		if data, ok := event.GetData().(*types.DtProgress); ok {
 			api.ws.SendToClient(types.WSResponse{
 				Namespace: consts.NAMESPACE_DOWNTASKS,
 				Event:     consts.EVENT_DOWNTASKS_INSTALLING,
 				Data:      data,
 			})
+		} else {
+			logger.Warn("Failed to convert event data to DtProgress")
 		}
+		return nil
 	})
+
+	api.eventBus.Subscribe(consts.TopicDowntasksProgress, progressHandler)
+	api.eventBus.Subscribe(consts.TopicDowntasksSignal, signalHandler)
+	api.eventBus.Subscribe(consts.TopicDowntasksInstalling, installHandler)
+
 }
 
 func (api *DowntasksAPI) GetContent(url string) (resp *types.JSResp) {
@@ -150,41 +165,6 @@ func (api *DowntasksAPI) DeleteTask(id string) (resp *types.JSResp) {
 	}
 
 	return &types.JSResp{Success: true}
-}
-
-func (api *DowntasksAPI) InstallYTDLP() (resp *types.JSResp) {
-	// install
-	path, err := api.service.InstallYTDLP()
-	if err != nil {
-		return &types.JSResp{Msg: err.Error()}
-	}
-
-	return &types.JSResp{Success: true, Data: path}
-}
-
-func (api *DowntasksAPI) CheckYTDLPUpdate() (resp *types.JSResp) {
-	// check
-	info, err := api.service.CheckYTDLPUpdate()
-	if err != nil {
-		return &types.JSResp{Msg: err.Error()}
-	}
-
-	infoString, err := json.Marshal(info)
-	if err != nil {
-		return &types.JSResp{Msg: err.Error()}
-	}
-
-	return &types.JSResp{Success: true, Data: string(infoString)}
-}
-
-func (api *DowntasksAPI) UpdateYTDLP() (resp *types.JSResp) {
-	// install
-	path, err := api.service.UpdateYTDLP()
-	if err != nil {
-		return &types.JSResp{Msg: err.Error()}
-	}
-
-	return &types.JSResp{Success: true, Data: path}
 }
 
 func (api *DowntasksAPI) GetFormats() (resp *types.JSResp) {

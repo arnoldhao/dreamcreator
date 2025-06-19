@@ -25,7 +25,7 @@ type Service struct {
 	clientVersion string
 
 	ctx            context.Context
-	proxyClient    *proxy.Client
+	proxyManager   proxy.ProxyManager
 	downloadClient *downinfo.Client
 }
 
@@ -38,7 +38,7 @@ func New() *Service {
 			preferences = &Service{
 				pref:          storage.NewPreferences(),
 				clientVersion: consts.APP_VERSION,
-				proxyClient:   nil,
+				proxyManager:  nil,
 			}
 
 			// 初始化日志系统
@@ -54,11 +54,11 @@ func New() *Service {
 	return preferences
 }
 
-func (p *Service) SetPackageClients(proxyClient *proxy.Client, downloadClient *downinfo.Client) {
+func (p *Service) SetPackageClients(proxyManager proxy.ProxyManager, downloadClient *downinfo.Client) {
 	// proxy
-	p.proxyClient = proxyClient
+	p.proxyManager = proxyManager
 	p.OnProxyChanged(func(config *proxy.Config) {
-		p.proxyClient.SetConfig(config)
+		p.proxyManager.UpdateConfig(config)
 	})
 
 	// 初始化代理配置
@@ -206,7 +206,7 @@ type latestRelease struct {
 
 func (p *Service) CheckForUpdate() (resp types.JSResp) {
 	// request latest version
-	res, err := p.proxyClient.HTTPClient().Get(consts.CHECK_UPDATE_URL)
+	res, err := p.proxyManager.GetHTTPClient().Get(consts.CHECK_UPDATE_URL)
 	if err != nil || res.StatusCode != http.StatusOK {
 		resp.Msg = "network error"
 		return
@@ -282,51 +282,4 @@ func (p *Service) SetLoggerConfig(config logger.Config) (resp types.JSResp) {
 
 	resp.Success = true
 	return
-}
-
-func (p *Service) GetDependencies() types.Dependencies {
-	pref := p.pref.GetPreferences()
-	return pref.Dependencies
-}
-
-func (p *Service) SetDependfencies(depends types.Dependencies) error {
-	pref := p.pref.GetPreferences()
-	pref.Dependencies = depends
-	err := p.pref.SetPreferences(&pref)
-	if err != nil {
-		logger.Error("Failed to update dependencies", zap.Error(err))
-		return err
-	}
-
-	return nil
-}
-
-func (p *Service) GetDependsYTDLP() types.SoftwareInfo {
-	depends := p.GetDependencies()
-	if y := depends.YTDLP; y != (types.SoftwareInfo{}) {
-		return y
-	}
-
-	return types.SoftwareInfo{}
-}
-
-func (p *Service) GetDependsFFMpeg() types.SoftwareInfo {
-	depends := p.GetDependencies()
-	if y := depends.FFMpeg; y != (types.SoftwareInfo{}) {
-		return y
-	}
-
-	return types.SoftwareInfo{}
-}
-
-func (p *Service) SetYTDLP(ytdlp types.SoftwareInfo) error {
-	depends := p.GetDependencies()
-	depends.YTDLP = ytdlp
-	return p.SetDependfencies(depends)
-}
-
-func (p *Service) SetFFMpeg(ffmpeg types.SoftwareInfo) error {
-	depends := p.GetDependencies()
-	depends.FFMpeg = ffmpeg
-	return p.SetDependfencies(depends)
 }

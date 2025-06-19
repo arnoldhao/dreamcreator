@@ -8,13 +8,12 @@ import (
 )
 
 type Preferences struct {
-	Behavior     PreferencesBehavior `json:"behavior" yaml:"behavior"`
-	General      PreferencesGeneral  `json:"general" yaml:"general"`
-	Proxy        proxy.Config        `json:"proxy" yaml:"proxy"`
-	Download     downinfo.Config     `json:"download" yaml:"download"`
-	Logger       logger.Config       `json:"logger" yaml:"logger"`
-	Dependencies Dependencies        `json:"dependencies" yaml:"dependencies"`
-	ListendInfo  ListendInfo         `json:"listendInfo" yaml:"listend_info"`
+	Behavior    PreferencesBehavior `json:"behavior" yaml:"behavior"`
+	General     PreferencesGeneral  `json:"general" yaml:"general"`
+	Proxy       proxy.Config        `json:"proxy" yaml:"proxy"`
+	Download    downinfo.Config     `json:"download" yaml:"download"`
+	Logger      logger.Config       `json:"logger" yaml:"logger"`
+	ListendInfo ListendInfo         `json:"listendInfo" yaml:"listend_info"`
 }
 
 func NewPreferences() Preferences {
@@ -34,13 +33,7 @@ func NewPreferences() Preferences {
 		Download: downinfo.Config{
 			Dir: downinfo.GetDefaultDownloadDir(),
 		},
-		Logger: *logger.DefaultConfig(),
-		Dependencies: Dependencies{
-			YTDLP: SoftwareInfo{
-				Version: consts.YTDLP_VERSION,
-			},
-			FFMpeg: SoftwareInfo{},
-		},
+		Logger:      *logger.DefaultConfig(),
 		ListendInfo: DefaultListendInfo(),
 	}
 }
@@ -59,11 +52,6 @@ type PreferencesGeneral struct {
 	Language    string `json:"language" yaml:"language"`
 	CheckUpdate bool   `json:"checkUpdate" yaml:"check_update"`
 	SkipVersion string `json:"skipVersion" yaml:"skip_version,omitempty"`
-}
-
-type Dependencies struct {
-	YTDLP  SoftwareInfo `json:"ytdlp" yaml:"ytdlp"`
-	FFMpeg SoftwareInfo `json:"ffmpeg" yaml:"ffmpeg"`
 }
 
 type ListendInfo struct {

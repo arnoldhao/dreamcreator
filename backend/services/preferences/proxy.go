@@ -106,27 +106,27 @@ func (s *Service) CheckAndUpdateProxy() {
 // 这个方法封装了对底层代理实现的调用，使服务层和存储层解耦
 func (s *Service) applyProxyConfig(config *proxy.Config) {
 	// 检查代理客户端是否已设置
-	if s.proxyClient == nil {
+	if s.proxyManager == nil {
 		log.Printf("warning: proxy client not set, cannot apply proxy config")
 		return
 	}
 
 	if config.Type == "none" {
 		// 禁用代理
-		s.proxyClient.SetConfig(&proxy.Config{
+		s.proxyManager.UpdateConfig(&proxy.Config{
 			Type: "none",
 		})
 		log.Printf("proxy disabled")
 	} else if config.Type == "system" {
 		// 使用系统代理
-		s.proxyClient.SetConfig(&proxy.Config{
+		s.proxyManager.UpdateConfig(&proxy.Config{
 			Type: "system",
 		})
 		log.Printf("using system proxy")
 	} else if config.Type == "manual" {
 		// 启用手动代理
 		if config.ProxyAddress != "" {
-			s.proxyClient.SetConfig(&proxy.Config{
+			s.proxyManager.UpdateConfig(&proxy.Config{
 				Type:         "manual",
 				ProxyAddress: config.ProxyAddress,
 			})

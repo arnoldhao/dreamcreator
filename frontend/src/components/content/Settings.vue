@@ -39,7 +39,7 @@ const settingsStore = useSettingsStore()
 
 const menuItems = computed(() => [
     { key: 'general', icon: 'ri-settings-3-line', label: t('settings.general.name') },
-    { key: 'dependency', icon: 'oi-package-dependencies', label: t('settings.dependency.name') },
+    { key: 'dependency', icon: 'oi-package-dependencies', label: t('settings.dependency.title') },
     { key: 'about', icon: 'ri-information-line', label: t('settings.about') }
 ])
 

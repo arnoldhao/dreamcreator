@@ -4,11 +4,11 @@ import (
 	"CanMe/backend/api"
 	"CanMe/backend/consts"
 	"CanMe/backend/core/downtasks"
-	"CanMe/backend/core/events"
 	"CanMe/backend/core/imageproxies"
 	"CanMe/backend/core/subtitles"
 	"CanMe/backend/mcpserver"
 	"CanMe/backend/pkg/downinfo"
+	"CanMe/backend/pkg/events"
 	"CanMe/backend/pkg/logger"
 	"CanMe/backend/pkg/proxy"
 	"CanMe/backend/pkg/websockets"
@@ -54,19 +54,19 @@ func main() {
 	}
 
 	// Packages
+	// # Events
+	eventBus := events.NewEventBus(events.DefaultEventBusOptions())
 	// # Proxy
-	proxyClient := proxy.NewClient(proxy.DefaultConfig())
+	proxyManager := proxy.NewManager(proxy.DefaultConfig(), eventBus)
 	// # Download
 	downloadClient := downinfo.NewClient(downinfo.DefaultConfig())
-	preferencesService.SetPackageClients(proxyClient, downloadClient)
+	preferencesService.SetPackageClients(proxyManager, downloadClient)
 
 	// Services
-	// # Events
-	events := events.NewEventBus()
 	// # Downtasks
-	dtService := downtasks.NewService(events, proxyClient, downloadClient, preferencesService, boltStorage)
+	dtService := downtasks.NewService(eventBus, proxyManager, downloadClient, preferencesService, boltStorage)
 	// # Imagesproxies
-	ipsService := imageproxies.NewService(proxyClient, boltStorage)
+	ipsService := imageproxies.NewService(proxyManager, boltStorage)
 	// # Subtitles
 	subtitlesService := subtitles.NewService(boltStorage)
 
@@ -77,13 +77,15 @@ func main() {
 
 	// API
 	// # Downtasks API
-	dtAPI := api.NewDowntasksAPI(dtService, events, websocketService)
+	dtAPI := api.NewDowntasksAPI(dtService, eventBus, websocketService)
 	// # Paths API
 	pathsAPI := api.NewPathsAPI(preferencesService, dtService)
 	// # Utils API
 	utilsAPI := api.NewUtilsAPI(ipsService)
 	// # Subtitles API
 	subtitlesAPI := api.NewSubtitlesAPI(subtitlesService)
+	// # Dependencies API
+	dependenciesAPI := api.NewDependenciesAPI(dtService)
 
 	// MCP
 	// # MCP Server
@@ -133,6 +135,7 @@ func main() {
 			pathsAPI,
 			utilsAPI,
 			subtitlesAPI,
+			dependenciesAPI,
 		},
 		Logger: logger.NewWailsLogger(),
 		OnStartup: func(ctx context.Context) {
@@ -140,6 +143,7 @@ func main() {
 			preferencesService.SetContext(ctx)
 			systemService.SetContext(ctx, consts.APP_VERSION)
 			// Packages
+			proxyManager.SetContext(ctx)
 			websocketService.SetContext(ctx)
 			// Services
 			dtService.SetContext(ctx)
@@ -149,6 +153,7 @@ func main() {
 			pathsAPI.Subscribe(ctx)
 			utilsAPI.Subscribe(ctx)
 			subtitlesAPI.Subscribe(ctx)
+			dependenciesAPI.Subscribe(ctx)
 			// MCP
 			if err := mcpServer.Start(ctx); err != nil {
 				logger.GetLogger().Error("Error starting MCP server", zap.Error(err))

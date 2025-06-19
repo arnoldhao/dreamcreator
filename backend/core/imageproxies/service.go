@@ -19,15 +19,15 @@ import (
 type Service struct {
 	ctx context.Context
 	// proxy
-	proxyClient *proxy.Client
+	proxyManager proxy.ProxyManager
 	// storage
 	storage *storage.BoltStorage
 }
 
-func NewService(proxyClient *proxy.Client, storage *storage.BoltStorage) *Service {
+func NewService(proxyManager proxy.ProxyManager, storage *storage.BoltStorage) *Service {
 	return &Service{
-		proxyClient: proxyClient,
-		storage:     storage,
+		proxyManager: proxyManager,
+		storage:      storage,
 	}
 }
 
@@ -72,7 +72,7 @@ func (s *Service) proxyImageWithoutCache(imageUrl string) (*types.ImageInfo, err
 	// 设置一个常见的 User-Agent
 	req.Header.Set("User-Agent", consts.USER_AGENT)
 	// 发送请求
-	resp, err := s.proxyClient.HTTPClient().Do(req)
+	resp, err := s.proxyManager.GetHTTPClient().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("Fail to execute request: %w", err)
 	}

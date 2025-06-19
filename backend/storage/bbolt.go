@@ -15,10 +15,11 @@ import (
 )
 
 var (
-	taskBucket     = []byte("tasks")
-	imageBucket    = []byte("images")    // 用于存储图片的桶
-	formatBucket   = []byte("formats")   // 用于存储格式的桶
-	subtitleBucket = []byte("subtitles") // 用于存储字幕的桶
+	taskBucket       = []byte("tasks")
+	imageBucket      = []byte("images")       // 用于存储图片的桶
+	formatBucket     = []byte("formats")      // 用于存储格式的桶
+	subtitleBucket   = []byte("subtitles")    // 用于存储字幕的桶
+	dependencyBucket = []byte("dependencies") // 用于存储依赖信息的桶
 	// other buckets...
 )
 
@@ -66,6 +67,11 @@ func NewBoltStorage() (*BoltStorage, error) {
 
 		// create subtitle buckets
 		if _, err := tx.CreateBucketIfNotExists(subtitleBucket); err != nil {
+			return err
+		}
+
+		// create dependency buckets
+		if _, err := tx.CreateBucketIfNotExists(dependencyBucket); err != nil {
 			return err
 		}
 		// create other buckets...
@@ -387,5 +393,106 @@ func (s *BoltStorage) DeleteAllSubtitle() error {
 		return b.ForEach(func(k, v []byte) error {
 			return b.Delete(k)
 		})
+	})
+}
+
+// SaveDependency 保存依赖信息到存储
+func (s *BoltStorage) SaveDependency(dep *types.DependencyInfo) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(dependencyBucket)
+
+		// 更新最后检查时间
+		dep.LastCheck = time.Now()
+		encoded, err := json.Marshal(dep)
+		if err != nil {
+			return fmt.Errorf("failed to marshal dependency %s: %w", dep.Type, err)
+		}
+
+		return b.Put([]byte(dep.Type), encoded)
+	})
+}
+
+// GetDependency 根据类型获取依赖信息
+func (s *BoltStorage) GetDependency(depType types.DependencyType) (*types.DependencyInfo, error) {
+	var dep types.DependencyInfo
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(dependencyBucket)
+		data := b.Get([]byte(depType))
+		if data == nil {
+			return fmt.Errorf("dependency not found: %s", depType)
+		}
+
+		return json.Unmarshal(data, &dep)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &dep, nil
+}
+
+// ListAllDependencies 获取所有依赖信息
+func (s *BoltStorage) ListAllDependencies() ([]*types.DependencyInfo, error) {
+	var dependencies []*types.DependencyInfo
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(dependencyBucket)
+
+		return b.ForEach(func(k, v []byte) error {
+			var dep types.DependencyInfo
+			if err := json.Unmarshal(v, &dep); err != nil {
+				return err
+			}
+			dependencies = append(dependencies, &dep)
+			return nil
+		})
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return dependencies, nil
+}
+
+// DeleteDependency 删除指定类型的依赖信息
+func (s *BoltStorage) DeleteDependency(depType types.DependencyType) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(dependencyBucket)
+		return b.Delete([]byte(depType))
+	})
+}
+
+// UpdateDependencyVersion 更新依赖版本信息
+func (s *BoltStorage) UpdateDependencyVersion(depType types.DependencyType, version, latestVersion string, needUpdate bool) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(dependencyBucket)
+
+		// 先获取现有数据
+		data := b.Get([]byte(depType))
+		if data == nil {
+			return fmt.Errorf("dependency not found: %s", depType)
+		}
+
+		var dep types.DependencyInfo
+		if err := json.Unmarshal(data, &dep); err != nil {
+			return fmt.Errorf("failed to unmarshal dependency %s: %w", depType, err)
+		}
+
+		// 更新版本信息
+		dep.Version = version
+		dep.LatestVersion = latestVersion
+		dep.NeedUpdate = needUpdate
+		dep.LastCheck = time.Now()
+
+		// 重新保存
+		encoded, err := json.Marshal(&dep)
+		if err != nil {
+			return fmt.Errorf("failed to marshal updated dependency %s: %w", depType, err)
+		}
+
+		return b.Put([]byte(depType), encoded)
 	})
 }

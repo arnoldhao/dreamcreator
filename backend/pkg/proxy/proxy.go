@@ -25,43 +25,68 @@ type Config struct {
 	// 超时设置
 	Timeout time.Duration `json:"timeout,omitempty"`
 
-	// mutex
-	mu sync.RWMutex
+	// 绕过代理的主机列表
+	NoProxy []string `json:"no_proxy,omitempty"`
+}
+
+// Validate 验证配置
+func (c *Config) Validate() error {
+	if c.Timeout <= 0 {
+		return fmt.Errorf("timeout must be positive")
+	}
+
+	if c.Type == "manual" && c.ProxyAddress == "" {
+		return fmt.Errorf("proxy address is required for manual proxy")
+	}
+
+	if c.Type == "manual" {
+		if _, err := url.Parse(c.ProxyAddress); err != nil {
+			return fmt.Errorf("invalid proxy address: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // DefaultConfig 返回默认配置
 func DefaultConfig() *Config {
 	return &Config{
 		Type:    "system",
-		Timeout: 30 * time.Second,
+		Timeout: 30 * time.Minute, // 默认30分钟
 	}
 }
 
-// Client 代理客户端
-type Client struct {
-	config     *Config
-	httpClient *http.Client
-	mu         sync.RWMutex
+// client 代理客户端 - 现在是私有的
+type client struct {
+	ctx    context.Context
+	config *Config
+	hc     *http.Client
+	mu     sync.RWMutex
 }
 
-// NewClient 创建新的代理客户端
-func NewClient(config *Config) *Client {
+// newClient 创建新的代理客户端 - 私有构造函数
+func newClient(config *Config) *client {
 	if config == nil {
 		config = DefaultConfig()
 	}
 
-	client := &Client{
+	c := &client{
 		config: config,
 	}
 
 	// 初始化HTTP客户端
-	client.resetHTTPClient()
+	c.resetHTTPClient()
 
-	return client
+	return c
+}
+
+// setContext 设置上下文
+func (c *client) setContext(ctx context.Context) {
+	c.ctx = ctx
 }
 
 // resetHTTPClient 重置HTTP客户端
-func (c *Client) resetHTTPClient() {
+func (c *client) resetHTTPClient() {
 	transport := &http.Transport{
 		Proxy: c.proxyFunc(),
 		DialContext: (&net.Dialer{
@@ -75,14 +100,14 @@ func (c *Client) resetHTTPClient() {
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 
-	c.httpClient = &http.Client{
+	c.hc = &http.Client{
 		Transport: transport,
 		Timeout:   c.config.Timeout,
 	}
 }
 
 // proxyFunc 返回代理函数
-func (c *Client) proxyFunc() func(*http.Request) (*url.URL, error) {
+func (c *client) proxyFunc() func(*http.Request) (*url.URL, error) {
 	return func(req *http.Request) (*url.URL, error) {
 		c.mu.RLock()
 		defer c.mu.RUnlock()
@@ -114,7 +139,7 @@ func (c *Client) proxyFunc() func(*http.Request) (*url.URL, error) {
 }
 
 // manualProxyFunc 处理手动设置的代理
-func (c *Client) manualProxyFunc(req *http.Request) (*url.URL, error) {
+func (c *client) manualProxyFunc(req *http.Request) (*url.URL, error) {
 	// 检查是否应该跳过代理
 	if c.shouldBypassProxy(req.URL.Hostname()) {
 		return nil, nil
@@ -134,135 +159,115 @@ func (c *Client) manualProxyFunc(req *http.Request) (*url.URL, error) {
 }
 
 // shouldBypassProxy 判断是否应该绕过代理
-func (c *Client) shouldBypassProxy(host string) bool {
+func (c *client) shouldBypassProxy(host string) bool {
 	// localhost和127.0.0.1不使用代理
 	if host == "localhost" || strings.HasPrefix(host, "127.") {
 		return true
 	}
 
+	// 检查NoProxy列表
+	for _, noProxyHost := range c.config.NoProxy {
+		if strings.Contains(host, noProxyHost) {
+			return true
+		}
+	}
+
 	return false
 }
 
-// SetConfig 设置新的配置
-func (c *Client) SetConfig(config *Config) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+// updateConfig 更新配置 - 内部方法
+func (c *client) updateConfig(newConfig *Config) error {
+	if err := newConfig.Validate(); err != nil {
+		return err
+	}
 
-	c.config = config
+	c.mu.Lock()
+	c.config = newConfig
 	c.resetHTTPClient()
+	c.mu.Unlock()
+
+	return nil
 }
 
-// GetConfig 返回当前配置的副本
-func (c *Client) GetConfig() *Config {
+// getConfig 返回当前配置的副本
+func (c *client) getConfig() *Config {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	// 创建配置的副本，避免外部修改
 	configCopy := *c.config
+	if c.config.NoProxy != nil {
+		configCopy.NoProxy = make([]string, len(c.config.NoProxy))
+		copy(configCopy.NoProxy, c.config.NoProxy)
+	}
 	return &configCopy
 }
 
-// UpdateSystemProxy 更新为系统代理
-func (c *Client) UpdateSystemProxy() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.config.Type = "system"
-	c.resetHTTPClient()
-}
-
-// DisableProxy 禁用代理
-func (c *Client) DisableProxy() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.config.Type = "none"
-	c.resetHTTPClient()
-}
-
-// SetManualProxy 设置手动代理
-func (c *Client) SetManualProxy(proxyAddress string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.config.Type = "manual"
-	c.config.ProxyAddress = proxyAddress
-	c.resetHTTPClient()
-}
-
-// HTTPClient 返回HTTP客户端
-func (c *Client) HTTPClient() *http.Client {
+// httpClient 返回HTTP客户端
+func (c *client) httpClient() *http.Client {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-
-	return c.httpClient
+	return c.hc
 }
 
-// Do 执行HTTP请求
-func (c *Client) Do(req *http.Request) (*http.Response, error) {
-	return c.HTTPClient().Do(req)
-}
-
-// Get 执行GET请求
-func (c *Client) Get(ctx context.Context, url string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	return c.Do(req)
-}
-
-// SetupEnv 设置环境变量
-func (c *Client) SetupEnv() {
+// setupEnv 设置环境变量
+func (c *client) setupEnv() {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	// 清除现有环境变量
-	os.Unsetenv("HTTP_PROXY")
-	os.Unsetenv("http_proxy")
-	os.Unsetenv("HTTPS_PROXY")
-	os.Unsetenv("https_proxy")
-	os.Unsetenv("NO_PROXY")
-	os.Unsetenv("no_proxy")
+	envVars := []string{"HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "NO_PROXY", "no_proxy"}
+	for _, env := range envVars {
+		os.Unsetenv(env)
+	}
 
 	if c.config.Type == "none" {
 		return
 	}
 
-	if c.config.Type == "manual" {
-		if c.config.ProxyAddress != "" {
-			os.Setenv("HTTP_PROXY", c.config.ProxyAddress)
-			os.Setenv("http_proxy", c.config.ProxyAddress)
+	if c.config.Type == "manual" && c.config.ProxyAddress != "" {
+		os.Setenv("HTTP_PROXY", c.config.ProxyAddress)
+		os.Setenv("http_proxy", c.config.ProxyAddress)
+		os.Setenv("HTTPS_PROXY", c.config.ProxyAddress)
+		os.Setenv("https_proxy", c.config.ProxyAddress)
+
+		if len(c.config.NoProxy) > 0 {
+			noProxy := strings.Join(c.config.NoProxy, ",")
+			os.Setenv("NO_PROXY", noProxy)
+			os.Setenv("no_proxy", noProxy)
 		}
 	}
 }
 
-// GetProxyString 获取代理字符串（主机:端口格式）
-func (c *Client) GetProxyString() string {
-	c.config.mu.RLock()
-	defer c.config.mu.RUnlock()
+// getProxyString 获取代理字符串
+func (c *client) getProxyString() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
-	if c.config.Type != "none" {
-		url, err := c.proxyFunc()(&http.Request{
-			URL: &url.URL{
-				Scheme: "http",
-				Host:   "google.com", // example hostname
-			},
-		})
-
-		if err == nil && url != nil {
-			proxyURL, err := url.Parse(url.String())
-			if err != nil {
-				return ""
-			}
-
-			return fmt.Sprintf("%s:%s", proxyURL.Hostname(), proxyURL.Port())
-		}
+	if c.config.Type == "none" {
+		return ""
 	}
 
-	return ""
+	req := &http.Request{
+		URL: &url.URL{
+			Scheme: "http",
+			Host:   "example.com",
+		},
+	}
+
+	proxyURL, err := c.proxyFunc()(req)
+	if err != nil || proxyURL == nil {
+		return ""
+	}
+
+	if proxyURL.Port() != "" {
+		return fmt.Sprintf("%s:%s", proxyURL.Hostname(), proxyURL.Port())
+	}
+
+	return proxyURL.Hostname()
 }
 
+// parseWindowsProxy 解析Windows代理字符串
 func parseWindowsProxy(proxyStr string) (*url.URL, error) {
 	// 处理格式: "http=127.0.0.1:8888;https=127.0.0.1:8888"
 	if strings.Contains(proxyStr, "=") {
@@ -283,6 +288,7 @@ func parseWindowsProxy(proxyStr string) (*url.URL, error) {
 	return url.Parse(proxyStr)
 }
 
+// getDarwinProxy 获取macOS代理设置
 func getDarwinProxy(req *http.Request) (*url.URL, error) {
 	// 1: from env
 	proxy, err := http.ProxyFromEnvironment(req)
@@ -294,6 +300,7 @@ func getDarwinProxy(req *http.Request) (*url.URL, error) {
 	}
 }
 
+// getDarwinCurrentNetworkService 获取当前网络服务
 func getDarwinCurrentNetworkService() (string, error) {
 	// 1. get default network interface
 	routeOut, err := exec.Command("route", "get", "default").Output()
@@ -347,6 +354,7 @@ func getDarwinCurrentNetworkService() (string, error) {
 	return currentService, nil
 }
 
+// getDarwinCurrentProxy 获取macOS当前代理设置
 func getDarwinCurrentProxy() (*url.URL, error) {
 	// 1. get current network service
 	currentService, err := getDarwinCurrentNetworkService()

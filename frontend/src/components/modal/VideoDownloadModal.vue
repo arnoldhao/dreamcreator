@@ -263,7 +263,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { GetContent, Download, QuickDownload, GetFormats } from 'wailsjs/go/api/DowntasksAPI'
-import { DependenciesReady } from 'wailsjs/go/api/PathsAPI'
+import { DependenciesReady } from 'wailsjs/go/api/DependenciesAPI'
 import useNavStore from '@/stores/nav.js'
 import useSettingsStore from '@/stores/settings'
 import { useI18n } from 'vue-i18n'
@@ -297,6 +297,8 @@ const showModal = computed({
 const dependenciesReady = ref(false)
 
 const checkDependencies = async () => {
+  // reset dependenciesReady
+  dependenciesReady.value = false
   try {
     const response = await DependenciesReady()
     if (response.success) {
