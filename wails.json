@@ -9,5 +9,8 @@
   "author": {
     "name": "Arnold HAO",
     "email": "xunruhao@gmail.com"
+  },
+  "info": {
+    "productVersion": "0.1.14"
   }
 }

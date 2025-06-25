@@ -54,10 +54,10 @@ var YTDLPMirrors = map[string]Mirror{
 var FFmpegDownloadURLs = map[string]map[string]map[string]string{
 	"windows": {
 		"amd64": {
-			"ghproxy": "https://gh-proxy.com/github.com/BtbN/FFmpeg-Builds/releases/download/{version}/{filename}.zip",
+			"ghproxy": "https://gh-proxy.com/github.com/jellyfin/jellyfin-ffmpeg/releases/download/{version}/{filename}.zip",
 		},
 		"arm64": {
-			"ghproxy": "https://gh-proxy.com/github.com/BtbN/FFmpeg-Builds/releases/download/{version}/{filename}.zip",
+			"ghproxy": "https://gh-proxy.com/github.com/jellyfin/jellyfin-ffmpeg/releases/download/{version}/{filename}.zip",
 		},
 	},
 	"darwin": {
@@ -73,10 +73,10 @@ var FFmpegDownloadURLs = map[string]map[string]map[string]string{
 var FFmpegAPIURLs = map[string]map[string]map[string]string{
 	"windows": {
 		"amd64": {
-			"ghproxy": "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest",
+			"ghproxy": "https://api.github.com/repos/jellyfin/jellyfin-ffmpeg/releases/latest",
 		},
 		"arm64": {
-			"ghproxy": "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest",
+			"ghproxy": "https://api.github.com/repos/jellyfin/jellyfin-ffmpeg/releases/latest",
 		},
 	},
 	"darwin": {
@@ -145,10 +145,22 @@ func BuildYTDLPDownloadURL(mirror, version, osType string) (string, error) {
 	return url, nil
 }
 
-func GetFFMPEGFileName(osType string) string {
+func GetFFMPEGFileName(osType, version, arch string) string {
+	var archSuffix string
+	if arch == "arm64" {
+		archSuffix = "winarm64"
+	} else {
+		archSuffix = "win64"
+	}
+
+	// 去掉v前缀
+	if strings.HasPrefix(version, "v") {
+		version = version[1:]
+	}
+
 	switch osType {
 	case "windows":
-		return "ffmpeg-master-latest-win64-gpl-shared"
+		return fmt.Sprintf("jellyfin-ffmpeg_%s_portable_%s-clang-gpl", version, archSuffix)
 	case "darwin":
 		return "ffmpeg"
 	default:
@@ -162,7 +174,7 @@ func BuildFFMPEGDownloadURL(mirror, version, osType, arch string) (string, error
 		return "", fmt.Errorf("unsupported mirror: %s", mirror)
 	}
 
-	filename := GetFFMPEGFileName(osType)
+	filename := GetFFMPEGFileName(osType, version, arch)
 	url := strings.ReplaceAll(template, "{version}", version)
 	url = strings.ReplaceAll(url, "{filename}", filename)
 
@@ -182,4 +194,26 @@ func GetYTDLPAPIURL() (string, error) {
 	url := "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
 
 	return url, nil
+}
+
+// Dependencies Embedded Versions
+const (
+	EMBEDDED_YTDLP_VERSION          = "2025.05.22"
+	EMBEDDED_FFMPEG_VERSION_DARWIN  = "119886-g52441bd4cd"
+	EMBEDDED_FFMPEG_VERSION_WINDOWS = "7.1.1-5"
+)
+
+func YtdlpEmbedVersion(osType string) (string, error) {
+	return EMBEDDED_YTDLP_VERSION, nil
+}
+
+func FfmpegEmbedVersion(osType string) (string, error) {
+	switch osType {
+	case "windows":
+		return EMBEDDED_FFMPEG_VERSION_WINDOWS, nil
+	case "darwin":
+		return EMBEDDED_FFMPEG_VERSION_DARWIN, nil
+	default:
+		return "", fmt.Errorf("unsupported os type: %s", osType)
+	}
 }

@@ -122,6 +122,8 @@ func (c *client) proxyFunc() func(*http.Request) (*url.URL, error) {
 					// ignore bypass list, just proxy it
 					return parseWindowsProxy(proxy)
 				}
+				// Windows fallback: 如果注册表读取失败，使用环境变量
+				return http.ProxyFromEnvironment(req)
 			} else if runtime.GOOS == "darwin" {
 				return getDarwinProxy(req)
 			} else {
@@ -208,6 +210,19 @@ func (c *client) httpClient() *http.Client {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.hc
+	configType := c.config.Type
+	hc := c.hc
+	c.mu.RUnlock()
+
+	// 只有系统代理模式才需要重置
+	if configType == "system" {
+		c.mu.Lock()
+		c.resetHTTPClient()
+		hc = c.hc
+		c.mu.Unlock()
+	}
+
+	return hc
 }
 
 // setupEnv 设置环境变量

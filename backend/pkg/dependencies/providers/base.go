@@ -84,6 +84,10 @@ func (bp *BaseProvider) DownloadAndExtract(ctx context.Context, manager dependen
 	} else {
 		// 下载文件
 		if err := manager.GetDownloader().Download(ctx, url, archivePath, progress); err != nil {
+			logger.Warn("Failed to download archive",
+				zap.String("url", url),
+				zap.String("path", archivePath),
+				zap.Error(err))
 			return "", fmt.Errorf("failed to download: %w", err)
 		}
 	}
@@ -136,6 +140,8 @@ func (bp *BaseProvider) extractZip(archivePath, version string) (string, error) 
 	}
 
 	var execPath string
+	var execPaths []string // 收集所有可执行文件
+
 	for _, f := range r.File {
 		path := filepath.Join(extractDir, f.Name)
 
@@ -169,15 +175,34 @@ func (bp *BaseProvider) extractZip(archivePath, version string) (string, error) 
 
 		// 检查是否是可执行文件
 		if bp.isExecutableFile(f.Name) {
-			execPath = path
+			execPaths = append(execPaths, path)
 		}
 	}
 
-	if execPath == "" {
+	if len(execPaths) == 0 {
 		return "", fmt.Errorf("executable not found in archive")
 	}
 
+	// 选择最合适的可执行文件
+	execPath = bp.selectBestExecutable(execPaths)
+
 	return execPath, nil
+}
+
+// selectBestExecutable 选择最合适的可执行文件
+func (bp *BaseProvider) selectBestExecutable(execPaths []string) string {
+	// 优先级规则：选择与provider名称最匹配的文件
+	for _, path := range execPaths {
+		fileName := filepath.Base(path)
+		// 去除扩展名进行比较
+		baseName := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+		if strings.EqualFold(baseName, bp.name) {
+			return path
+		}
+	}
+
+	// 如果没有完全匹配，返回第一个
+	return execPaths[0]
 }
 
 // isExecutableFile 检查是否是可执行文件

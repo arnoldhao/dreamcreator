@@ -84,10 +84,6 @@ const (
 	DependenciesExtracting       DtTaskStage = "extracting"       // 6.解压阶段
 	DependenciesValidating       DtTaskStage = "validating"       // 7.校验阶段
 	DependenciesCleaning         DtTaskStage = "cleaning"         // 8.清理阶段
-	DependenciesUpdating         DtTaskStage = "updating"         // 9.更新阶段
-	DependenciesUpdateFailed     DtTaskStage = "updateFailed"     // 10.更新失败阶段
-	DependenciesUpdateCompleted  DtTaskStage = "updateCompleted"  // 11.更新完成阶段
-	DependenciesUpdateCancelled  DtTaskStage = "updateCancelled"  // 12.更新取消阶段
 )
 
 // DtProgress 表示处理进度信息

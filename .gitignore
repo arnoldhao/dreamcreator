@@ -1,7 +1,12 @@
 # wails file
 build/bin
+build/*.zip
 build/windows/*.json
 build/windows/*.manifest
+build/windows/installer
+
+# binaries
+backend/embedded/binaries/*
 
 node_modules
 frontend/dist

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"CanMe/backend/pkg/logger"
@@ -17,13 +18,16 @@ import (
 )
 
 type Service struct {
-	ctx  context.Context
-	send chan types.WSResponse
+	ctx         context.Context
+	send        chan types.WSResponse
+	connections map[string]*websocket.Conn // 管理多个连接
+	connMutex   sync.RWMutex               // 保护连接映射
 }
 
 func New() *Service {
 	return &Service{
-		send: make(chan types.WSResponse, 100),
+		send:        make(chan types.WSResponse, 100),
+		connections: make(map[string]*websocket.Conn),
 	}
 }
 
@@ -110,10 +114,10 @@ func (s *Service) readPump(id string, conn *websocket.Conn) {
 }
 
 func (s *Service) writePump(id string, conn *websocket.Conn) {
-	ticker := time.NewTicker(30 * time.Second)
+	// 移除心跳ticker，只保留消息处理
 	defer func() {
-		ticker.Stop()
 		conn.Close()
+		logger.Info("WebSocket connection closed", zap.String("id", id))
 	}()
 
 	for {
@@ -125,13 +129,18 @@ func (s *Service) writePump(id string, conn *websocket.Conn) {
 				return
 			}
 
-			// 处理消息...
+			// 设置写入超时
+			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+
+			// 尝试发送消息
 			w, err := conn.NextWriter(websocket.TextMessage)
 			if err != nil {
-				logger.Error("Failed to get next writer",
+				logger.Error("Failed to get next writer - connection may be broken",
 					zap.String("id", id),
 					zap.Error(err))
-				continue
+				// 连接断开，触发重连
+				s.handleConnectionLost(id)
+				return
 			}
 
 			msg, err := json.Marshal(message)
@@ -142,26 +151,43 @@ func (s *Service) writePump(id string, conn *websocket.Conn) {
 				continue
 			}
 
-			w.Write(msg)
-			if err := w.Close(); err != nil {
-				logger.Error("Failed to close writer",
+			_, err = w.Write(msg)
+			if err != nil {
+				logger.Error("Failed to write message - connection lost",
 					zap.String("id", id),
 					zap.Error(err))
+				w.Close()
+				s.handleConnectionLost(id)
 				return
 			}
 
-		case <-ticker.C:
-			// 发送 ping 消息
-			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				logger.Error("Failed to send ping message",
+			if err := w.Close(); err != nil {
+				logger.Error("Failed to close writer - connection lost",
 					zap.String("id", id),
 					zap.Error(err))
+				s.handleConnectionLost(id)
 				return
 			}
+
+			logger.Debug("Message sent successfully", zap.String("id", id))
 		}
 	}
 }
 
+// 新增：处理连接丢失
+func (s *Service) handleConnectionLost(id string) {
+	logger.Warn("WebSocket connection lost, will attempt to reconnect on next message",
+		zap.String("id", id))
+	// 这里可以发送连接丢失事件给前端（如果连接还活着的话）
+	// 或者设置一个标志，让下次SendToClient时重新建立连接
+}
+
 func (s *Service) SendToClient(message types.WSResponse) {
-	s.send <- message
+	select {
+	case s.send <- message:
+		// 消息已发送到队列
+	default:
+		// 队列满了，记录警告
+		logger.Warn("WebSocket send queue is full, message dropped")
+	}
 }

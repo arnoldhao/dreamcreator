@@ -175,7 +175,11 @@
       "validate": "验证",
       "validating": "验证中",
       "validate_success": "验证成功",
-      "validate_failed": "验证失败"
+      "validate_failed": "验证失败",
+      "repair": "修复",
+      "repairing": "修复中",
+      "repair_success": "修复成功",
+      "repair_failed": "修复失败"
     }
   },
   "message": {

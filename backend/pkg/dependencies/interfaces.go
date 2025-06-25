@@ -52,6 +52,8 @@ type Manager interface {
 	DependenciesReady(ctx context.Context) (bool, error)
 	// ValidateDependencies 验证所有依赖可用性
 	ValidateDependencies(ctx context.Context) error
+	// RepairDependency 修复指定依赖
+	RepairDependency(ctx context.Context, depType types.DependencyType) error
 }
 
 // Downloader 下载器接口

@@ -2,8 +2,6 @@ package subtitles
 
 import (
 	"CanMe/backend/types"
-
-	"github.com/pemistahl/lingua-go"
 )
 
 // 核心服务接口
@@ -23,7 +21,7 @@ type TextProcessor interface {
 
 type LanguageDetector interface {
 	DetectLanguage(text string) string
-	DetectLanguageInt(text string) (lingua.Language, string)
+	DetectLanguageInt(text string) (int, string)
 }
 
 type FormatConverter interface {

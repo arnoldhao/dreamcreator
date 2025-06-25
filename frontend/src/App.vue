@@ -5,9 +5,7 @@ import usePreferencesStore from './stores/preferences.js'
 import { useI18n } from 'vue-i18n'
 import { WindowSetDarkTheme, WindowSetLightTheme } from 'wailsjs/runtime/runtime.js'
 import { applyMacosTheme } from '@/utils/theme.js'
-import { WSON } from '@/handlers/websockets.js'
 
-const { connect } = WSON()
 const prefStore = usePreferencesStore()
 const i18n = useI18n()
 const initializing = ref(true)
@@ -18,8 +16,6 @@ onMounted(async () => {
       prefStore.checkForUpdate()
     }
 
-    // websocket connect
-    connect()
   } finally {
     initializing.value = false
   }

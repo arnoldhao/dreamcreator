@@ -8,12 +8,12 @@ on:
       tag:
         description: 'Version tag'
         required: true
-        default: '0.1.13'
+        default: '0.1.14'
 
 jobs:
   release:
     name: Release macOS App
-    runs-on: macos-latest # We can cross compile but need to be on macOS to notarise
+    runs-on: macos-latest
     permissions:
       contents: write
     strategy:
@@ -21,10 +21,9 @@ jobs:
         platform:
           - darwin/amd64
           - darwin/arm64
-    #          - darwin/universal
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Normalise platform tag
         id: normalise_platform
@@ -32,6 +31,9 @@ jobs:
         run: |
           tag=$(echo ${{ matrix.platform }} | sed -e 's/\//_/g' -e 's/darwin/mac/g' -e 's/amd64/intel/g')
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          # 提取架构信息用于二进制下载
+          arch=$(echo ${{ matrix.platform }} | cut -d'/' -f2)
+          echo "arch=$arch" >> "$GITHUB_OUTPUT"
 
       - name: Normalise version tag
         id: normalise_version
@@ -46,7 +48,7 @@ jobs:
           fi
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: 1.24.0
 
@@ -55,9 +57,52 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.1
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 23.1.0
+
+      # 新增：下载二进制依赖文件
+      - name: Download embedded binaries
+        shell: bash
+        run: |
+          # 创建binaries目录
+          mkdir -p backend/embedded/binaries
+          
+          # 设置版本常量(与consts/mirrors.go中的版本保持一致)
+          YTDLP_VERSION="2025.05.22"
+          FFMPEG_VERSION="119886-g52441bd4cd"
+          ARCH="${{ steps.normalise_platform.outputs.arch }}"
+          
+          # 下载yt-dlp
+          echo "Downloading yt-dlp for darwin/$ARCH..."
+          if [ "$ARCH" = "amd64" ]; then
+            YTDLP_FILENAME="yt-dlp_macos"
+          else
+            YTDLP_FILENAME="yt-dlp_macos"
+          fi
+          
+          curl -L "https://github.com/yt-dlp/yt-dlp/releases/download/$YTDLP_VERSION/$YTDLP_FILENAME" \
+            -o "backend/embedded/binaries/yt-dlp_${YTDLP_VERSION}_darwin_${ARCH}"
+          chmod +x "backend/embedded/binaries/yt-dlp_${YTDLP_VERSION}_darwin_${ARCH}"
+          
+          # 下载FFmpeg
+          echo "Downloading FFmpeg for darwin/$ARCH..."
+          if [ "$ARCH" = "amd64" ]; then
+            FFMPEG_URL="https://evermeet.cx/ffmpeg/ffmpeg-${FFMPEG_VERSION}.zip"
+          else
+            FFMPEG_URL="https://evermeet.cx/ffmpeg/ffmpeg-${FFMPEG_VERSION}.zip"
+          fi
+          
+          # 下载并解压FFmpeg
+          curl -L "$FFMPEG_URL" -o ffmpeg.zip
+          unzip -q ffmpeg.zip
+          mv ffmpeg "backend/embedded/binaries/ffmpeg_${FFMPEG_VERSION}_darwin_${ARCH}"
+          chmod +x "backend/embedded/binaries/ffmpeg_${FFMPEG_VERSION}_darwin_${ARCH}"
+          rm ffmpeg.zip
+          
+          # 验证文件
+          echo "Downloaded binaries:"
+          ls -la backend/embedded/binaries/
 
       - name: Build frontend assets
         shell: bash
@@ -70,12 +115,6 @@ jobs:
           mv tmp.json package.json
           npm install
 
-      # - name: Build wails app for macOS
-      #   shell: bash
-      #   run: |
-      #     CGO_ENABLED=1 wails build -platform ${{ matrix.platform }} \
-      #     -ldflags "-X main.version=${{ steps.normalise_version.outputs.version }} -X main.gaMeasurementID=${{ secrets.GA_MEASUREMENT_ID }} -X main.gaSecretKey=${{ secrets.MAC_GA_SECRET }}"
-
       - name: Build wails app for macOS
         shell: bash
         run: |
@@ -83,7 +122,7 @@ jobs:
           -ldflags "-X main.version=${{ steps.normalise_version.outputs.version }}"
 
       - name: Checkout create-image
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: create-dmg/create-dmg
           path: ./build/create-dmg
@@ -113,7 +152,7 @@ jobs:
         run: mv "CanMe-${{ steps.normalise_platform.outputs.tag }}.dmg" "CanMe_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.dmg"
 
       - name: Upload release asset (DMG Package)
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.normalise_version.outputs.version }}
           files: ./build/bin/CanMe_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.dmg

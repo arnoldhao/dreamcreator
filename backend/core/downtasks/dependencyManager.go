@@ -44,6 +44,10 @@ func (s *Service) ValidateDependencies() error {
 	return s.depManager.ValidateDependencies(s.ctx)
 }
 
+func (s *Service) RepairDependency(depType types.DependencyType) error {
+	return s.depManager.RepairDependency(s.ctx, depType)
+}
+
 // executablePath 获取可执行文件路径
 func (s *Service) executablePath(depType types.DependencyType) (string, error) {
 	info, err := s.depManager.Get(s.ctx, depType)

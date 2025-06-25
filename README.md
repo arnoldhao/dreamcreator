@@ -59,14 +59,11 @@
 ## 🚀 Getting Started
 
 ### Prerequisites
-- **FFmpeg** - Required for video processing and format conversion
-- **Stable Internet** - Initial setup downloads essential yt-dlp components
 - **System Requirements** - Windows 10+ or macOS 10.15+
 
 ### Installation
 1. Download the latest release for your platform
-2. Install FFmpeg on your system
-3. Launch CanMe and follow the setup wizard
+2. Launch CanMe
 
 ## 📋 Version Information
 
@@ -78,8 +75,6 @@
 - 🔧 Advanced video recoding capabilities
 
 ### ⚠️ System Requirements
-- 🔧 **Dependencies**: FFmpeg installation required
-- 🌐 **Network**: Internet connection needed for initial component download
 - 💾 **Storage**: Adequate disk space for downloads and processing
 
 ### 📌 Known Limitations

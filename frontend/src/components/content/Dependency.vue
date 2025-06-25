@@ -48,20 +48,13 @@
                     <div class="flex items-center space-x-2">
                         <!-- 操作按钮区域 -->
                         <template v-if="dep.available">
-                            <button v-if="dep.needUpdate && !dep.updating && !dep.installing"
+                            <button v-if="dep.needUpdate && !dep.installing"
                                 @click="showMirrorSelector(key, 'update')" class="btn-macos btn-primary" :disabled="isCheckUpdatesDisabled">
                                 <v-icon class="w-4 h-4 mr-2" name="md-upgrade-outlined"></v-icon>
                                 {{ $t('settings.dependency.update') }}
                             </button>
 
-                            <button v-else-if="dep.updating" class="btn-macos" disabled>
-                                <div
-                                    class="w-4 h-4 mr-2 border-2 border-primary border-t-transparent rounded-full animate-spin">
-                                </div>
-                                {{ $t('settings.dependency.updating') }}
-                            </button>
-
-                            <!-- 如果正在安装，也显示安装状态 -->
+                            <!-- 如果正在安装，显示安装状态，包含更新状态 -->
                             <button v-else-if="dep.installing" class="btn-macos" disabled>
                                 <div
                                     class="w-4 h-4 mr-2 border-2 border-primary border-t-transparent rounded-full animate-spin">
@@ -71,6 +64,19 @@
                         </template>
 
                         <template v-else>
+                            <!-- Repair按钮 -->
+                            <button @click="repairDependency(key)" :disabled="isCheckUpdatesDisabled"
+                                class="btn-macos btn-primary">
+                                <v-icon v-if="!dep.installing" class="w-4 h-4 mr-2"
+                                    name="md-download-outlined"></v-icon>
+                                <div v-else
+                                    class="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin">
+                                </div>
+                                {{ dep.installing ? $t('settings.dependency.repairing') :
+                                    $t('settings.dependency.repair') }}
+                            </button>
+
+                            <!-- Install按钮 -->
                             <button @click="showMirrorSelector(key, 'install')" :disabled="isCheckUpdatesDisabled"
                                 class="btn-macos btn-primary">
                                 <v-icon v-if="!dep.installing" class="w-4 h-4 mr-2"
@@ -112,14 +118,13 @@
                 </div>
 
                 <!-- 进度显示区域 - 支持安装和更新 -->
-                <div v-if="dep.installing || dep.updating" class="card-content border-t border-base-300">
+                <div v-if="dep.installing" class="card-content border-t border-base-300">
                     <!-- 进度条 -->
                     <div class="space-y-2">
                         <div class="flex items-center justify-between text-sm">
                             <span class="text-base-content/70">{{ $t('settings.dependency.status.progress') }}</span>
                             <span class="text-base-content/70">
-                                {{ dep.installing ? (dep.installProgress || $t('settings.dependency.installing')) :
-                                    (dep.updateProgress || $t('settings.dependency.updating')) }}
+                                {{ dep.installProgress }}
                             </span>
                         </div>
 
@@ -266,6 +271,9 @@ export default {
             closeMirrorModal()
         }
 
+        const repairDependency = async (type) => {
+            await dependenciesStore.repairDependency(type)
+        }
 
         // 关闭镜像选择模态框
         const closeMirrorModal = () => {
@@ -289,9 +297,7 @@ export default {
             // 根据当前状态返回对应的进度百分比
             if (dep.installing) {
                 return dep.installProgressPercent || 0
-            } else if (dep.updating) {
-                return dep.updateProgressPercent || 0
-            }
+            } 
             return 0
         }
 
@@ -312,6 +318,7 @@ export default {
             validateDependencies,
             checkUpdates,
             showMirrorSelector,
+            repairDependency,
             closeMirrorModal,
             performAction,
             openDirectory,

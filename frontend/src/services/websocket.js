@@ -1,123 +1,107 @@
-import { types } from 'wailsjs/go/models';
-
 class WebSocketService {
   constructor() {
     this.client = null;
     this.listeners = new Map();
-    this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
-    this.reconnectDelay = 1000;
+    this.connecting = false;
+    this.autoReconnectTimer = null;
   }
 
-  connect() {
-    return new Promise((resolve, reject) => {
-      // 如果已经连接且状态正常，直接返回
-      if (this.client && this.client.readyState === WebSocket.OPEN) {
-        resolve();
-        return;
-      }
-
+  async connect() {
+    if (this.connecting || this.isConnected()) return;
+    
+    this.connecting = true;
+    try {
       const socket = new WebSocket(`ws://localhost:34444/ws?id=canme`);
-
-      socket.onopen = () => {
-        console.log(`WebSocket connected`);
-        this.client = socket;
-        this.reconnectAttempts = 0; // 重置重连计数
-        resolve();
-      };
-
-      socket.onerror = (error) => {
-        console.error(`WebSocket error:`, error);
-        reject(error);
-      };
-
-      socket.onmessage = (message) => {
-        let data;
-        try {
-          const jsonData = JSON.parse(message.data);
-          data = new types.WSResponse(jsonData);
-        } catch (e) {
-          console.error('Parse message error:', e);
-          return;
-        }
-        this.notifyListeners(data);
-      };
-
-      socket.onclose = (event) => {
-        console.log('WebSocket connection closed:', event.code, event.reason);
-        this.client = null; // 修复：正确清理连接状态
-        
-        // 自动重连逻辑
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-          setTimeout(() => {
-            this.reconnectAttempts++;
-            console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-            this.connect().catch(console.error);
-          }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts));
-        }
-      };
-    });
+      
+      await new Promise((resolve, reject) => {
+        socket.onopen = resolve;
+        socket.onerror = reject;
+        socket.onmessage = (msg) => this.handleMessage(msg);
+        socket.onclose = () => { this.client = null; };
+      });
+      
+      this.client = socket;
+    } finally {
+      this.connecting = false;
+    }
   }
 
-  send(namespace, event, data) {
-    const socket = this.client;
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      const request = new types.WSRequest({
-        namespace: namespace,
-        event: event,
-        data: data
-      });
-      socket.send(JSON.stringify(request));
-    } else {
-      console.error(`WebSocket is not connected, attempting to reconnect...`);
-      // 尝试重新连接
-      this.connect().then(() => {
-        if (this.client && this.client.readyState === WebSocket.OPEN) {
-          const request = new types.WSRequest({
-            namespace: namespace,
-            event: event,
-            data: data
-          });
-          this.client.send(JSON.stringify(request));
+  // 确保连接，带简单重试
+  async ensureConnected(retries = 2) {
+    if (this.isConnected()) return true;
+    
+    for (let i = 0; i <= retries; i++) {
+      try {
+        await this.connect();
+        if (this.isConnected()) return true;
+      } catch (error) {
+        if (i < retries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
         }
-      }).catch(console.error);
+      }
     }
+    return false;
+  }
+
+  // 自动重连
+  startAutoReconnect(interval = 5000) {
+    if (this.autoReconnectTimer) return;
+    
+    this.autoReconnectTimer = setInterval(async () => {
+      if (!this.isConnected() && !this.connecting) {
+        await this.ensureConnected(1);
+      }
+    }, interval);
+  }
+
+  stopAutoReconnect() {
+    if (this.autoReconnectTimer) {
+      clearInterval(this.autoReconnectTimer);
+      this.autoReconnectTimer = null;
+    }
+  }
+
+  async send(namespace, event, data) {
+    if (!(await this.ensureConnected())) {
+      throw new Error('WebSocket 连接失败');
+    }
+    
+    this.client.send(JSON.stringify({ namespace, event, data }));
   }
 
   addListener(namespace, callback) {
-    const key = `${namespace}`;
-    if (!this.listeners.has(key)) {
-      this.listeners.set(key, []);
+    if (!this.listeners.has(namespace)) {
+      this.listeners.set(namespace, []);
     }
-    this.listeners.get(key).push(callback);
+    this.listeners.get(namespace).push(callback);
   }
 
   removeListener(namespace, callback) {
-    const key = `${namespace}`;
-    if (this.listeners.has(key)) {
-      const callbacks = this.listeners.get(key);
+    const callbacks = this.listeners.get(namespace);
+    if (callbacks) {
       const index = callbacks.indexOf(callback);
-      if (index !== -1) {
-        callbacks.splice(index, 1);
-      }
+      if (index !== -1) callbacks.splice(index, 1);
     }
   }
 
-  notifyListeners(data) {
-    const key = `${data.namespace}`;
-    if (this.listeners.has(key)) {
-      this.listeners.get(key).forEach(callback => callback(data));
-    } else {
-      console.log(`No listeners for ${key}`);
+  handleMessage(message) {
+    try {
+      const data = JSON.parse(message.data);
+      const callbacks = this.listeners.get(data.namespace) || [];
+      callbacks.forEach(cb => cb(data));
+    } catch (e) {
+      console.error('Parse message error:', e);
     }
   }
 
   disconnect() {
-    const socket = this.client;
-    if (socket) {
-      socket.close();
-      this.client = null;
-    }
+    this.stopAutoReconnect();
+    this.client?.close();
+    this.client = null;
+  }
+
+  isConnected() {
+    return this.client?.readyState === WebSocket.OPEN;
   }
 }
 

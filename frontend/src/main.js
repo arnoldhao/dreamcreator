@@ -11,6 +11,7 @@ import usePreferencesStore from 'stores/preferences.js'
 import useDependenciesStore from 'stores/dependencies.js'
 import { loadEnvironment } from '@/utils/platform.js'
 import { OhVueIcon, addIcons } from 'oh-vue-icons'
+import WebSocketService from '@/services/websocket'
 import { useDtStore } from '@/handlers/downtasks'
 
 // 导入所有图标包
@@ -37,26 +38,26 @@ import * as WiIcons from 'oh-vue-icons/icons/wi'
 
 // 合并所有图标
 const allIcons = Object.values({
-  ...AiIcons,
-  ...BiIcons,
-  ...CoIcons,
-  ...CiIcons,
-  ...FaIcons,
-  ...FcIcons,
-  ...FiIcons,
-  ...GiIcons,
-  ...HiIcons,
-  ...IoIcons,
-  ...LaIcons,
-  ...MdIcons,
-  ...OiIcons,
-  ...PiIcons,
-  ...PrIcons,
-  ...PxIcons,
-  ...RiIcons,
-  ...SiIcons,
-  ...ViIcons,
-  ...WiIcons
+    ...AiIcons,
+    ...BiIcons,
+    ...CoIcons,
+    ...CiIcons,
+    ...FaIcons,
+    ...FcIcons,
+    ...FiIcons,
+    ...GiIcons,
+    ...HiIcons,
+    ...IoIcons,
+    ...LaIcons,
+    ...MdIcons,
+    ...OiIcons,
+    ...PiIcons,
+    ...PrIcons,
+    ...PxIcons,
+    ...RiIcons,
+    ...SiIcons,
+    ...ViIcons,
+    ...WiIcons
 })
 
 // 注册所有图标
@@ -72,13 +73,18 @@ async function setupApp() {
     // Register OhVueIcon component globally
     app.component("v-icon", OhVueIcon);
 
-    // 初始化全局WS通信状态管理
+    // 1. 初始化WebSocket连接
+    await WebSocketService.connect();
+    // 开启自动重连
+    WebSocketService.startAutoReconnect()
+
+    // 2.初始化全局WS通信状态管理
     const dtStore = useDtStore()
     dtStore.init()
 
-    // 初始化依赖store的WebSocket监听
+    // 3.初始化依赖store的WebSocket监听
     const dependenciesStore = useDependenciesStore()
-    dependenciesStore.initWebSocket()
+    dependenciesStore.setupWebSocketListeners();
 
     await loadEnvironment()
     const prefStore = usePreferencesStore()

@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
-	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -87,11 +85,11 @@ func (v *validator) ValidateExecutable(ctx context.Context, execPath string, exp
 	defer cancel()
 
 	// 尝试执行版本命令
-	cmd := exec.CommandContext(ctx, execPath, "-version")
+	cmd := createHiddenCommand(ctx, execPath, "-version")
 	output, err := cmd.Output()
 	if err != nil {
 		// 尝试其他版本命令格式
-		cmd = exec.CommandContext(ctx, execPath, "--version")
+		cmd = createHiddenCommand(ctx, execPath, "--version")
 		output, err = cmd.Output()
 		if err != nil {
 			return fmt.Errorf("failed to get version: %w", err)
@@ -103,6 +101,21 @@ func (v *validator) ValidateExecutable(ctx context.Context, execPath string, exp
 
 	// 如果指定了期望版本，进行验证
 	if expectedVersion != "" {
+		// 去掉v前缀
+		if strings.HasPrefix(expectedVersion, "v") {
+			expectedVersion = expectedVersion[1:]
+		}
+
+		// 处理可能包含后缀的版本（如 "1-6"）
+		if strings.Contains(expectedVersion, "-") {
+			expectedVersion = strings.Split(expectedVersion, "-")[0]
+		}
+
+		// 去掉versionStr后缀换行符
+		if strings.HasSuffix(versionStr, "\n") {
+			versionStr = strings.TrimSuffix(versionStr, "\n")
+		}
+
 		if !strings.Contains(strings.ToLower(versionStr), strings.ToLower(expectedVersion)) {
 			return fmt.Errorf("version mismatch: expected %s, got %s", expectedVersion, versionStr)
 		}
@@ -134,25 +147,4 @@ func (v *validator) ValidateChecksum(filePath, expectedChecksum string) error {
 	}
 
 	return nil
-}
-
-// ExtractVersion 从版本输出中提取版本号
-func ExtractVersion(output string) string {
-	// 常见的版本号格式正则表达式
-	patterns := []string{
-		`version\s+([0-9]+\.[0-9]+\.[0-9]+)`,
-		`([0-9]+\.[0-9]+\.[0-9]+)`,
-		`v([0-9]+\.[0-9]+\.[0-9]+)`,
-		`([0-9]+\.[0-9]+)`,
-	}
-
-	for _, pattern := range patterns {
-		re := regexp.MustCompile(pattern)
-		matches := re.FindStringSubmatch(strings.ToLower(output))
-		if len(matches) > 1 {
-			return matches[1]
-		}
-	}
-
-	return ""
 }

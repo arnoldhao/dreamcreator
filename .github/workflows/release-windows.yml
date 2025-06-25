@@ -8,7 +8,7 @@ on:
       tag:
         description: 'Version tag'
         required: true
-        default: '0.1.13'
+        default: '0.1.14'
 
 jobs:
   release:
@@ -23,7 +23,7 @@ jobs:
           # - windows/arm64 # TODO: Enable this
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Normalise platform tag
         id: normalise_platform
@@ -31,6 +31,9 @@ jobs:
         run: |
           tag=$(echo ${{ matrix.platform }} | sed -e 's/\//_/g' -e 's/amd64/x64/g')
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          # 提取架构信息用于二进制下载
+          arch=$(echo ${{ matrix.platform }} | cut -d'/' -f2)
+          echo "arch=$arch" >> "$GITHUB_OUTPUT"
 
       - name: Normalise platform name
         id: normalise_platform_name
@@ -52,7 +55,7 @@ jobs:
           fi
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: 1.24.0
 
@@ -66,9 +69,47 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.1
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 23.1.0
+
+      # 新增：下载二进制依赖文件
+      - name: Download embedded binaries
+        shell: bash
+        run: |
+          # 创建binaries目录
+          mkdir -p backend/embedded/binaries
+          
+          # 设置版本常量(与consts/mirrors.go中的版本保持一致)
+          YTDLP_VERSION="2025.05.22"
+          FFMPEG_VERSION="7.1.1-5"
+          ARCH="${{ steps.normalise_platform.outputs.arch }}"
+          
+          # 下载yt-dlp
+          echo "Downloading yt-dlp for windows/$ARCH..."
+          curl -L "https://github.com/yt-dlp/yt-dlp/releases/download/$YTDLP_VERSION/yt-dlp.exe" \
+            -o "backend/embedded/binaries/yt-dlp_${YTDLP_VERSION}_windows_${ARCH}.exe"
+          
+          # 下载FFmpeg
+          echo "Downloading FFmpeg for windows/$ARCH..."
+          if [ "$ARCH" = "amd64" ]; then
+            FFMPEG_FILENAME="jellyfin-ffmpeg_${FFMPEG_VERSION}_portable_win64-clang-gpl"
+          else
+            FFMPEG_FILENAME="jellyfin-ffmpeg_${FFMPEG_VERSION}_portable_winarm64-clang-gpl"
+          fi
+          
+          FFMPEG_URL="https://gh-proxy.com/github.com/jellyfin/jellyfin-ffmpeg/releases/download/v${FFMPEG_VERSION}/${FFMPEG_FILENAME}.zip"
+          
+          # 下载并解压FFmpeg
+          curl -L "$FFMPEG_URL" -o ffmpeg.zip
+          unzip -q ffmpeg.zip
+          # 从解压的目录中找到ffmpeg.exe
+          find . -name "ffmpeg.exe" -exec cp {} "backend/embedded/binaries/ffmpeg_${FFMPEG_VERSION}_windows_${ARCH}.exe" \;
+          rm -rf ffmpeg.zip ${FFMPEG_FILENAME}/
+          
+          # 验证文件
+          echo "Downloaded binaries:"
+          ls -la backend/embedded/binaries/
 
       - name: Build frontend assets
         shell: bash
@@ -80,13 +121,6 @@ jobs:
           jq '.version = "${{ steps.normalise_version.outputs.version }}"' package.json > tmp.json
           mv tmp.json package.json
           npm install
-
-      # - name: Build Windows portable app
-      #   shell: bash
-      #   run: |
-      #     CGO_ENABLED=1 wails build -clean -platform ${{ matrix.platform }} \
-      #     -webview2 embed \
-      #     -ldflags "-X main.version=v${{ steps.normalise_version.outputs.version }} -X main.gaMeasurementID=${{ secrets.GA_MEASUREMENT_ID }} -X main.gaSecretKey=${{ secrets.WINDOWS_GA_SECRET }}"
 
       - name: Build Windows portable app
         shell: bash
@@ -100,7 +134,7 @@ jobs:
         run: Compress-Archive "CanMe.exe" "CanMe_Portable_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.zip"
 
       - name: Upload release asset (Portable)
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.normalise_version.outputs.version }}
           files: ./build/bin/CanMe_Portable_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.zip
@@ -128,7 +162,7 @@ jobs:
         run: Rename-Item -Path "CanMe-${{ steps.normalise_platform_name.outputs.pname }}-installer.exe" -NewName "CanMe_Setup_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.exe"
 
       - name: Upload release asset (Installer)
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.normalise_version.outputs.version }}
           files: ./build/bin/CanMe_Setup_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.exe

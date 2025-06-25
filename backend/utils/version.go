@@ -30,6 +30,8 @@ type Version struct {
 	original    string
 	// For semantic versions
 	major, minor, patch int
+	suffix              int  // 新增：用于存储后缀数字（如 -6 中的 6）
+	hasSuffix           bool // 新增：标记是否有后缀
 	// For date versions
 	date time.Time
 	// For snapshot versions
@@ -73,7 +75,7 @@ func ParseVersion(v string) (*Version, error) {
 	return nil, ErrInvalidVersion
 }
 
-// parseSemanticVersion parses semantic version (x.y.z)
+// parseSemanticVersion parses semantic version (x.y.z or x.y.z-suffix)
 func parseSemanticVersion(v string) (*Version, error) {
 	parts := strings.Split(v, ".")
 	if len(parts) != 3 {
@@ -90,9 +92,29 @@ func parseSemanticVersion(v string) (*Version, error) {
 		return nil, ErrInvalidVersion
 	}
 
-	patch, err := strconv.Atoi(parts[2])
-	if err != nil {
-		return nil, ErrInvalidVersion
+	// 处理可能包含后缀的 patch 版本（如 "1-6"）
+	patchPart := parts[2]
+	var patch, suffix int
+	var hasSuffix bool
+	
+	if dashIndex := strings.Index(patchPart, "-"); dashIndex != -1 {
+		// 有后缀的情况
+		patch, err = strconv.Atoi(patchPart[:dashIndex])
+		if err != nil {
+			return nil, ErrInvalidVersion
+		}
+		
+		suffix, err = strconv.Atoi(patchPart[dashIndex+1:])
+		if err != nil {
+			return nil, ErrInvalidVersion
+		}
+		hasSuffix = true
+	} else {
+		// 无后缀的情况
+		patch, err = strconv.Atoi(patchPart)
+		if err != nil {
+			return nil, ErrInvalidVersion
+		}
 	}
 
 	return &Version{
@@ -101,6 +123,8 @@ func parseSemanticVersion(v string) (*Version, error) {
 		major:       major,
 		minor:       minor,
 		patch:       patch,
+		suffix:      suffix,
+		hasSuffix:   hasSuffix,
 	}, nil
 }
 
@@ -213,7 +237,24 @@ func (v *Version) compareSemanticVersion(other *Version) int {
 	if v.minor != other.minor {
 		return compareInt(v.minor, other.minor)
 	}
-	return compareInt(v.patch, other.patch)
+	if v.patch != other.patch {
+		return compareInt(v.patch, other.patch)
+	}
+	
+	// 比较后缀
+	if v.hasSuffix && other.hasSuffix {
+		// 两个都有后缀，比较后缀数字
+		return compareInt(v.suffix, other.suffix)
+	} else if v.hasSuffix && !other.hasSuffix {
+		// 只有 v 有后缀，v 被认为是预发布版本，小于正式版本
+		return -1
+	} else if !v.hasSuffix && other.hasSuffix {
+		// 只有 other 有后缀，other 被认为是预发布版本，v 大于 other
+		return 1
+	}
+	
+	// 两个都没有后缀，版本相等
+	return 0
 }
 
 func (v *Version) compareDateVersion(other *Version) int {

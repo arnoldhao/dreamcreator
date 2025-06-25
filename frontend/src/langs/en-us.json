@@ -174,7 +174,11 @@
       "validate": "Validate",
       "validating": "Validating",
       "validate_success": "Validate Success",
-      "validate_failed": "Validate Failed"
+      "validate_failed": "Validate Failed",
+      "repair": "Repair",
+      "repairing": "Repairing",
+      "repair_success": "Repair Success",
+      "repair_failed": "Repair Failed"
     }
   },
   "message": {

@@ -1,13 +1,19 @@
 package dependencies
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
+	"CanMe/backend/embedded"
 	"CanMe/backend/pkg/events"
 	"CanMe/backend/pkg/logger"
 	"CanMe/backend/pkg/proxy"
@@ -16,7 +22,6 @@ import (
 	"CanMe/backend/utils"
 
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 )
 
 // manager 依赖管理器实现
@@ -54,42 +59,20 @@ func (m *manager) InitializeDefaultDependencies() error {
 	// 检查 yt-dlp 依赖
 	ytdlpInfo, err := m.boltStorage.GetDependency(types.DependencyYTDLP)
 	if err != nil || ytdlpInfo == nil {
-		// 初始化默认的 YTDLP 依赖信息
-		ytdlpInfo = &types.DependencyInfo{
-			Type:          types.DependencyYTDLP,
-			Name:          "YT-DLP",
-			Available:     false,
-			Path:          "",
-			ExecPath:      "",
-			Version:       "",
-			LatestVersion: "",
-			NeedUpdate:    false,
-		}
-
-		// 保存到存储
-		if err := m.boltStorage.SaveDependency(ytdlpInfo); err != nil {
-			return fmt.Errorf("failed to save default YTDLP dependency: %w", err)
+		err = m.initializeFromEmbedded(types.DependencyYTDLP)
+		if err != nil {
+			logger.Error("Failed to initialize yt-dlp dependency", zap.Error(err))
+			return err
 		}
 	}
 
 	// 检查 ffmpeg 依赖
 	ffmpegInfo, err := m.boltStorage.GetDependency(types.DependencyFFmpeg)
 	if err != nil || ffmpegInfo == nil {
-		// 初始化默认的 FFmpeg 依赖信息
-		ffmpegInfo = &types.DependencyInfo{
-			Type:          types.DependencyFFmpeg,
-			Name:          "FFmpeg",
-			Available:     false,
-			Path:          "",
-			ExecPath:      "",
-			Version:       "",
-			LatestVersion: "",
-			NeedUpdate:    false,
-		}
-
-		// 保存到存储
-		if err := m.boltStorage.SaveDependency(ffmpegInfo); err != nil {
-			return fmt.Errorf("failed to save default FFmpeg dependency: %w", err)
+		err = m.initializeFromEmbedded(types.DependencyFFmpeg)
+		if err != nil {
+			logger.Error("Failed to initialize ffmpeg dependency", zap.Error(err))
+			return err
 		}
 	}
 
@@ -168,6 +151,11 @@ func (m *manager) Install(ctx context.Context, depType types.DependencyType, con
 
 	if err != nil {
 		// 发布下载进度事件：3.下载失败（下载失败）
+		logger.Warn("Manager Install Download Error",
+			zap.Error(err),
+			zap.Any("info", info),
+			zap.Any("config", config),
+		)
 		m.pushEvent.PublishInstallEvent(string(depType), types.DependenciesInstallFailed, 0)
 		return nil, err
 	} else {
@@ -335,27 +323,194 @@ func (m *manager) ValidateDependencies(ctx context.Context) error {
 		return fmt.Errorf("failed to list dependencies: %w", err)
 	}
 
-	// 使用 errgroup 简化并发错误处理
-	g, ctx := errgroup.WithContext(ctx)
+	// 使用普通的 WaitGroup，不要因为单个验证失败而取消其他验证
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var validationErrors []error
 
 	for _, dep := range stored {
-		if !dep.Available {
-			continue
-		}
-
 		// 捕获循环变量
 		dependency := dep
-		g.Go(func() error {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			// 创建依赖的副本以避免并发修改
+			updatedDep := dependency
+
 			if err := m.validator.ValidateExecutable(ctx, dependency.ExecPath, dependency.Version, dependency.Type); err != nil {
-				dependency.Available = false
-				if saveErr := m.boltStorage.SaveDependency(dependency); saveErr != nil {
-					return fmt.Errorf("failed to save dependency: %w", saveErr)
-				}
-				return fmt.Errorf("dependency %s validation failed: %w", dependency.Name, err)
+				updatedDep.Available = false
+				mu.Lock()
+				validationErrors = append(validationErrors, fmt.Errorf("dependency %s validation failed: %w", dependency.Name, err))
+				mu.Unlock()
+			} else {
+				updatedDep.Available = true
 			}
-			return nil
-		})
+
+			// 保存更新后的依赖状态
+			if saveErr := m.boltStorage.SaveDependency(updatedDep); saveErr != nil {
+				mu.Lock()
+				validationErrors = append(validationErrors, fmt.Errorf("failed to save dependency %s: %w", dependency.Name, saveErr))
+				mu.Unlock()
+			}
+		}()
 	}
 
-	return g.Wait()
+	wg.Wait()
+
+	// 如果有验证错误，返回合并的错误信息
+	if len(validationErrors) > 0 {
+		return fmt.Errorf("validation completed with %d errors: %v", len(validationErrors), validationErrors)
+	}
+
+	return nil
+}
+
+// RepairDependency 修复依赖
+func (m *manager) RepairDependency(ctx context.Context, depType types.DependencyType) error {
+	return m.initializeFromEmbedded(depType)
+}
+
+func (m *manager) initializeFromEmbedded(depType types.DependencyType) error {
+	if depType == types.DependencyYTDLP {
+		return m.initializeYTDLP()
+	} else if depType == types.DependencyFFmpeg {
+		return m.initializeFFmpeg()
+	} else {
+		return fmt.Errorf("unknown dependency type: %s", depType)
+	}
+}
+
+func (m *manager) initializeYTDLP() error {
+	fileByte, version, err := getEmbeddedBinary(types.DependencyYTDLP)
+	if err != nil {
+		return err
+	}
+
+	// exec path
+	execPath, err := execPath(types.DependencyYTDLP, version)
+	if err != nil {
+		return err
+	}
+
+	// write
+	dest, err := os.OpenFile(execPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return err
+	}
+	defer dest.Close()
+	reader := bytes.NewReader(fileByte)
+	_, err = io.Copy(dest, reader)
+	if err != nil {
+		return err
+	}
+
+	// return
+	info := &types.DependencyInfo{
+		Type:      types.DependencyYTDLP,
+		Name:      "YT-DLP",
+		Path:      filepath.Dir(execPath),
+		ExecPath:  execPath,
+		Version:   version,
+		Available: true,
+		LastCheck: time.Now(),
+	}
+
+	// 校验文件
+	if err := m.validator.ValidateFile(execPath); err != nil {
+		return err
+	}
+
+	// 保存到存储
+	if err := m.boltStorage.SaveDependency(info); err != nil {
+		return fmt.Errorf("failed to save default YTDLP dependency: %w", err)
+	}
+
+	return nil
+}
+
+func (m *manager) initializeFFmpeg() error {
+	fileByte, version, err := getEmbeddedBinary(types.DependencyFFmpeg)
+	if err != nil {
+		return err
+	}
+
+	// exec path
+	execPath, err := execPath(types.DependencyFFmpeg, version)
+	if err != nil {
+		return err
+	}
+
+	// write
+	dest, err := os.OpenFile(execPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return err
+	}
+	defer dest.Close()
+	reader := bytes.NewReader(fileByte)
+	_, err = io.Copy(dest, reader)
+	if err != nil {
+		return err
+	}
+
+	// return
+	info := &types.DependencyInfo{
+		Type:      types.DependencyFFmpeg,
+		Name:      "FFmpeg",
+		Path:      filepath.Dir(execPath),
+		ExecPath:  execPath,
+		Version:   version,
+		Available: true,
+		LastCheck: time.Now(),
+	}
+
+	// 校验文件
+	if err := m.validator.ValidateFile(execPath); err != nil {
+		return err
+	}
+
+	// 保存到存储
+	if err := m.boltStorage.SaveDependency(info); err != nil {
+		return fmt.Errorf("failed to save default FFmpeg dependency: %w", err)
+	}
+
+	return nil
+}
+
+func getEmbeddedBinary(depType types.DependencyType) (fileByte []byte, version string, err error) {
+	binariesFS := embedded.GetEmbeddedBinaries() // 从embedded包获取二进制文件系统
+	version, err = embedded.GetEmbeddedBinaryVersion(depType)
+	if err != nil {
+		return nil, "", err
+	}
+	fileName := fmt.Sprintf("binaries/%s_%s_%s_%s", depType, version, runtime.GOOS, runtime.GOARCH)
+	if runtime.GOOS == "windows" {
+		fileName += ".exe"
+	}
+	// 检查文件是否存在
+	if _, err := binariesFS.Open(fileName); err != nil {
+		return nil, "", fmt.Errorf("embedded binary not found: %s", fileName)
+	}
+
+	fileByte, err = binariesFS.ReadFile(fileName)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return fileByte, version, nil
+}
+
+func execPath(depType types.DependencyType, version string) (string, error) {
+	cacheDir := filepath.Join(os.TempDir(), "canme", string(depType))
+	execName := string(depType)
+	if runtime.GOOS == "windows" {
+		execName += ".exe"
+	}
+
+	execPath := filepath.Join(cacheDir, fmt.Sprintf("%s-%s", string(depType), version), execName)
+	if err := os.MkdirAll(filepath.Dir(execPath), 0755); err != nil {
+		return "", err
+	}
+
+	return execPath, nil
 }

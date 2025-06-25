@@ -236,3 +236,30 @@ func (api *DependenciesAPI) InstallDependencyWithMirror(depType string, version 
 		Data:    string(data),
 	}
 }
+
+func (api *DependenciesAPI) RepairDependency(depType string) types.JSResp {
+	var depTypeEnum types.DependencyType
+	switch depType {
+	case "yt-dlp":
+		depTypeEnum = types.DependencyYTDLP
+	case "ffmpeg":
+		depTypeEnum = types.DependencyFFmpeg
+	default:
+		logger.Error("Unsupported dependency type", zap.String("type", depType))
+		return types.JSResp{
+			Success: false,
+			Msg:     "unsupported dependency type",
+		}
+	}
+	err := api.downtasksService.RepairDependency(depTypeEnum)
+	if err != nil {
+		logger.Error("Failed to repair dependency", zap.String("type", string(depTypeEnum)), zap.Error(err))
+		return types.JSResp{
+			Success: false,
+			Msg:     err.Error(),
+		}
+	}
+	return types.JSResp{
+		Success: true,
+	}
+}
