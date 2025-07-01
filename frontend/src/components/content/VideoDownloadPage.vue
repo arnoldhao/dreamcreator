@@ -11,6 +11,10 @@
           <v-icon name="ri-add-line" class="h-3.5 w-3.5 mr-1"></v-icon>
           {{ $t('download.new_task') }}
         </button>
+        <button class="btn btn-xs btn-outline" @click="openCookieModal">
+          <v-icon name="ri-leaf-line" class="h-3.5 w-3.5 mr-1"></v-icon>
+          {{ $t('cookies.title') }}
+        </button>
       </div>
     </div>
 
@@ -325,6 +329,8 @@
     <!-- new download modal -->
     <VideoDownloadModal :show="showDownloadModal" @update:show="showDownloadModal = $event"
       @download-started="onDownloadStarted" />
+    <!-- browser cookie modal -->
+    <BrowserCookieModal :show="showCookieModal" @update:show="showCookieModal = $event" />
     <!-- task detail modal -->
     <div class="modal" :class="{ 'modal-open': selectedTaskId }">
       <div class="modal-box max-w-3xl w-11/12 max-h-[90vh] overflow-y-auto">
@@ -562,6 +568,7 @@ import { ListTasks, DeleteTask } from 'wailsjs/go/api/DowntasksAPI'
 import { OpenDirectory } from 'wailsjs/go/systems/Service'
 import { useDtStore } from '@/handlers/downtasks'
 import VideoDownloadModal from '@/components/modal/VideoDownloadModal.vue'
+import BrowserCookieModal from '@/components/modal/BrowserCookieModal.vue'
 import ProxiedImage from '@/components/common/ProxiedImage.vue'
 import { useLoggerStore } from '@/stores/logger'
 
@@ -576,6 +583,7 @@ const selectedTaskId = ref(null)
 // task detail modal
 const activeTab = ref('info')
 const showDownloadModal = ref(false)
+const showCookieModal = ref(false)
 // filter
 const filterStage = ref('all')
 // pagination
@@ -729,6 +737,10 @@ const refreshTasks = async () => {
 
 const openDownloadModal = () => {
   showDownloadModal.value = true
+}
+
+const openCookieModal = () => {
+  showCookieModal.value = true
 }
 
 const onDownloadStarted = async (taskId) => {

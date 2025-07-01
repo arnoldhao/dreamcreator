@@ -2,6 +2,7 @@ package downtasks
 
 import (
 	"CanMe/backend/consts"
+	"CanMe/backend/pkg/browercookies"
 	"CanMe/backend/pkg/dependencies"
 	"CanMe/backend/pkg/dependencies/providers"
 	"CanMe/backend/pkg/downinfo"
@@ -48,6 +49,9 @@ type Service struct {
 
 	// dependencies
 	depManager dependencies.Manager
+
+	// cookie manager
+	cookieManager browercookies.CookieManager
 }
 
 func NewService(eventBus events.EventBus,
@@ -55,6 +59,7 @@ func NewService(eventBus events.EventBus,
 	downloadClient *downinfo.Client,
 	pref *preferences.Service,
 	boltStorage *storage.BoltStorage,
+	cookieManager browercookies.CookieManager,
 ) *Service {
 
 	// 创建依赖管理器
@@ -77,6 +82,7 @@ func NewService(eventBus events.EventBus,
 		pref:           pref,
 		boltStorage:    boltStorage,
 		depManager:     depManager,
+		cookieManager:  browercookies.NewCookieManager(boltStorage),
 	}
 
 	return s
@@ -123,7 +129,7 @@ func (s *Service) GetFormats() map[string][]*types.ConversionFormat {
 	return s.taskManager.ListAvalibleConversionFormats()
 }
 
-func (s *Service) newCommand(enbaledFFMpeg bool) (*ytdlp.Command, error) {
+func (s *Service) newCommand(enbaledFFMpeg bool, cookiesFile string) (*ytdlp.Command, error) {
 	// new
 	dl := ytdlp.New()
 
@@ -160,13 +166,37 @@ func (s *Service) newCommand(enbaledFFMpeg bool) (*ytdlp.Command, error) {
 		dl.FFmpegLocation(ffExecPath)
 	}
 
+	if cookiesFile != "" {
+		// set cookies
+		dl.Cookies(cookiesFile)
+	}
+
 	return dl, nil
 }
 
 // ParseURL 从 YouTube 获取视频内容信息
-func (s *Service) ParseURL(url string) (*ytdlp.ExtractedInfo, error) {
+func (s *Service) ParseURL(url string, browser string) (*ytdlp.ExtractedInfo, error) {
+	// 获取Cookies
+	var cookiesFile string
+	if browser != "" {
+		netscapecookies, err := s.GetNetscapeCookiesByDomain(browser, url)
+		if err == nil && netscapecookies != "" {
+			// 保存netscapecookies为文件
+			path, err := s.YTDLPPath()
+			if err != nil {
+				return nil, err
+			}
+			cookiesFile = filepath.Join(path, "cookies.txt")
+			err = os.WriteFile(cookiesFile, []byte(netscapecookies), 0644)
+			if err != nil {
+				return nil, err
+			}
+
+			defer os.Remove(cookiesFile)
+		}
+	}
 	// 创建 yt-dlp 命令构建器
-	dl, err := s.newCommand(false)
+	dl, err := s.newCommand(false, cookiesFile)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +223,7 @@ func (s *Service) ParseURL(url string) (*ytdlp.ExtractedInfo, error) {
 	return &info, nil
 }
 
-func (s *Service) getVideoMetadata(url string) (*ytdlp.ExtractedInfo, error) {
+func (s *Service) getVideoMetadata(url, browser string) (*ytdlp.ExtractedInfo, error) {
 	// 尝试从缓存获取元数据
 	metadata, ok := s.getCachedMetadata(url)
 	if ok {
@@ -201,7 +231,7 @@ func (s *Service) getVideoMetadata(url string) (*ytdlp.ExtractedInfo, error) {
 	}
 
 	// 如果缓存中没有，则重新获取
-	return s.ParseURL(url)
+	return s.ParseURL(url, browser)
 }
 
 type InfoChan chan *types.FillTaskInfo
@@ -218,7 +248,7 @@ func (s *Service) Download(request *types.DtDownloadRequest) (*types.DtDownloadR
 	task.Type = consts.TASK_TYPE_CUSTOM
 
 	// 尝试从缓存获取元数据
-	metadata, err := s.getVideoMetadata(request.URL)
+	metadata, err := s.getVideoMetadata(request.URL, request.Browser)
 	if err != nil {
 		s.handleTaskError(task, err, nil)
 		return nil, err
@@ -311,6 +341,7 @@ func (s *Service) Download(request *types.DtDownloadRequest) (*types.DtDownloadR
 	go s.processTask(task, &types.DownloadVideoRequest{
 		Type:          task.Type,
 		URL:           request.URL,
+		Browser:       request.Browser,
 		FormatID:      request.FormatID,
 		DownloadSubs:  request.DownloadSubs,
 		SubLangs:      request.SubLangs,
@@ -336,6 +367,8 @@ func (s *Service) QuickDownload(request *types.DtQuickDownloadRequest) (*types.D
 
 	task.Type = request.Type
 	task.URL = request.URL
+	task.Browser = request.Browser
+
 	task.Stage = types.DtStageDownloading
 	task.Percentage = 0
 
@@ -373,6 +406,7 @@ func (s *Service) QuickDownload(request *types.DtQuickDownloadRequest) (*types.D
 	go s.processTask(task, &types.DownloadVideoRequest{
 		Type:        request.Type,
 		URL:         request.URL,
+		Browser:     request.Browser,
 		Video:       request.Video,
 		BestCaption: request.BestCaption,
 	}, infoChan, progressChan)
@@ -509,14 +543,34 @@ func (s *Service) downloadVideo(task *types.DtTaskStatus, request *types.Downloa
 		StageInfo:  "Start downloading video",
 	}
 
-	dl, err := s.newCommand(true)
+	// 获取Cookies
+	var cookiesFile string
+	if request.Browser != "" {
+		netscapecookies, err := s.GetNetscapeCookiesByDomain(request.Browser, request.URL)
+		if err == nil && netscapecookies != "" {
+			// 保存netscapecookies为文件
+			path, err := s.YTDLPPath()
+			if err != nil {
+				return err
+			}
+			cookiesFile = filepath.Join(path, "cookies.txt")
+			err = os.WriteFile(cookiesFile, []byte(netscapecookies), 0644)
+			if err != nil {
+				return err
+			}
+
+			defer os.Remove(cookiesFile)
+		}
+	}
+
+	dl, err := s.newCommand(true, cookiesFile)
 	if err != nil {
 		s.handleTaskError(task, err, progressChan)
 		return err
 	}
 
 	if task.Type == "custom" {
-		metadata, err := s.getVideoMetadata(request.URL)
+		metadata, err := s.getVideoMetadata(request.URL, request.Browser)
 		if err != nil {
 			s.handleTaskError(task, err, progressChan)
 			return err

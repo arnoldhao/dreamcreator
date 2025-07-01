@@ -8,6 +8,7 @@ import (
 
 type DtDownloadRequest struct {
 	URL      string `json:"url"`
+	Browser  string `json:"browser"`
 	FormatID string `json:"formatId"`
 	// 下载字幕
 	DownloadSubs bool     `json:"downloadSubs"`
@@ -29,6 +30,7 @@ type DtDownloadResponse struct {
 
 type DtQuickDownloadRequest struct {
 	URL                string `json:"url"`
+	Browser            string `json:"browser"`
 	Video              string `json:"video"`
 	BestCaption        bool   `json:"bestCaption"`
 	Type               string `json:"type"`
@@ -46,6 +48,8 @@ type DownloadVideoRequest struct {
 	Type string `json:"type"`
 
 	URL string `json:"url"`
+	// cookies
+	Browser string `json:"browser"`
 	// best options
 	Video       string `json:"video"`
 	BestCaption bool   `json:"bestCaption"`
@@ -151,6 +155,7 @@ type DtTaskStatus struct {
 	Duration   float64 `json:"duration,omitempty"`   // 视频时长（秒`)
 	FileSize   int64   `json:"fileSize,omitempty"`   // 文件大小（字节）
 	Format     string  `json:"format,omitempty"`     // 视频格式
+	Browser    string  `json:"browser,omitempty"`    // 使用的浏览器Cookies
 
 	// 进度信息
 	Percentage    float64 `json:"percentage"`              // 当前阶段的进度百分比

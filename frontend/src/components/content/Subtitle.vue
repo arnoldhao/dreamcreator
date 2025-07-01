@@ -323,11 +323,6 @@ export default {
 
 
 <style scoped>
-/* macOS原生应用风格样式 */
-.font-system {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
 /* 使用全局滚动条样式，删除重复定义 */
 /* 保留侧边栏特殊滚动条样式 */
 .sidebar-scroll {

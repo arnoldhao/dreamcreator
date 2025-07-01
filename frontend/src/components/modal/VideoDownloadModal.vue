@@ -1,147 +1,185 @@
 <template>
-  <dialog :open="showModal" :class="['modal', { 'modal-open': showModal }]">
-    <div class="modal-box w-11/12 max-w-3xl bg-base-100 overflow-visible">
-      <h3 class="font-bold text-lg flex items-center">
-        <v-icon name="ri-download-cloud-line" class="w-5 h-5 mr-2 text-primary"></v-icon>
-        {{ mode === 'quick' ? $t('download.quick_task') : $t('download.new_task') }}
-      </h3>
-
-      <!-- 模式切换按钮 -->
-      <div class="tabs tabs-boxed bg-base-200 p-1 mt-2">
-        <button class="tab flex-1" :class="{ 'tab-active': mode === 'custom' }" @click="mode = 'custom'">
-          {{ $t('download.custom_mode') }}
-        </button>
-        <button class="tab flex-1" :class="{ 'tab-active': mode === 'quick' }" @click="mode = 'quick'">
-          {{ $t('download.quick_mode') }}
+  <div v-if="showModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="modal-container">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div class="header-content">
+          <div class="header-icon">
+            <v-icon name="ri-download-cloud-line" class="w-5 h-5 text-primary"></v-icon>
+          </div>
+          <h3 class="modal-title">
+            {{ mode === 'quick' ? $t('download.quick_task') : $t('download.new_task') }}
+          </h3>
+        </div>
+        <button @click="closeModal" class="close-button">
+          <v-icon name="ri-close-line" class="w-4 h-4"></v-icon>
         </button>
       </div>
 
-      <!-- 依赖管理 -->
-      <div v-if="!dependenciesReady" class="py-8">
-        <div class="flex flex-col items-center gap-6">
-          <!-- 警告图标和文字 -->
-          <div class="flex flex-col items-center gap-2">
-            <v-icon name="ri-error-warning-line" class="w-12 h-12 text-warning"></v-icon>
-            <p class="text-lg font-medium text-base-content">{{ $t('download.dependencies_not_ready') }}</p>
-            <p class="text-sm text-base-content/60">{{ $t('download.dependencies_not_ready_desc') }}</p>
+      <!-- Modal Content -->
+      <div class="modal-content">
+        <!-- Mode Switcher -->
+        <div class="mode-switcher">
+          <div class="switcher-track">
+            <button 
+              class="switcher-option" 
+              :class="{ 'active': mode === 'custom' }" 
+              @click="mode = 'custom'"
+            >
+              {{ $t('download.custom_mode') }}
+            </button>
+            <button 
+              class="switcher-option" 
+              :class="{ 'active': mode === 'quick' }" 
+              @click="mode = 'quick'"
+            >
+              {{ $t('download.quick_mode') }}
+            </button>
           </div>
-          <!-- 操作按钮 -->
-          <div class="flex items-center gap-2">
-            <button class="btn btn-primary  btn-sm" @click="gotoDependency()">
-              <v-icon name="ri-tools-line" class="w-4 h-4 mr-1"></v-icon>
+        </div>
+
+        <!-- Dependencies Check -->
+        <div v-if="!dependenciesReady" class="dependencies-warning">
+          <div class="warning-content">
+            <div class="warning-icon">
+              <v-icon name="ri-error-warning-line" class="w-8 h-8 text-orange-500"></v-icon>
+            </div>
+            <div class="warning-text">
+              <h4>{{ $t('download.dependencies_not_ready') }}</h4>
+              <p>{{ $t('download.dependencies_not_ready_desc') }}</p>
+            </div>
+          </div>
+          <div class="warning-actions">
+            <button class="btn-macos-primary btn-macos-sm" @click="gotoDependency()">
+              <v-icon name="ri-tools-line" class="w-4 h-4 mr-2"></v-icon>
               {{ $t('download.manage_dependencies') }}
             </button>
-            <button class="btn  btn-sm" @click="checkDependencies()">
-              <v-icon name="ri-refresh-line" class="w-4 h-4 mr-1"></v-icon>
+            <button class="btn-macos-secondary btn-macos-sm" @click="checkDependencies()">
+              <v-icon name="ri-refresh-line" class="w-4 h-4 mr-2"></v-icon>
               {{ $t('common.refresh') }}
             </button>
           </div>
-          <!-- 取消按钮 -->
-          <button class="btn btn-ghost btn-sm" @click="closeModal">{{ $t('common.cancel') }}</button>
         </div>
-      </div>
 
-      <div v-else>
-        <!-- 自定义下载模式 -->
-        <div v-if="mode === 'custom'" class="py-4">
-          <form class="flex flex-col gap-4">
-            <!-- URL area -->
-            <div class="form-control w-full">
-              <div class="flex gap-2">
-                <input type="text" v-model="url" :placeholder="$t('download.video_url_placeholder')"
-                  class="input input-bordered flex-1 input-sm" />
-                <button @click="handleParse" type="button" class="btn btn-primary btn-sm" :disabled="isLoading">
-                  <div class="flex items-center justify-center">
-                    <v-icon v-if="isLoading" name="ri-loader-2-line" class="animate-spin h-4 w-4 mr-1"></v-icon>
-                    <span>{{ isLoading ? $t('download.parsing') : $t('download.parse') }}</span>
+        <!-- Main Content -->
+        <div v-else class="main-content">
+          <!-- Custom Mode -->
+          <div v-if="mode === 'custom'" class="custom-mode">
+            <!-- URL Input Section -->
+            <div class="input-section">
+              <label class="section-label">{{ $t('download.video_url') }}</label>
+              
+              <!-- URL输入框和browser选择、parse按钮在同一行 -->
+              <div class="url-input-row">
+                <input 
+                  type="text" 
+                  v-model="url" 
+                  @input="onUrlInput"
+                  :placeholder="$t('download.video_url_placeholder')"
+                  class="input-macos url-input"
+                />
+                
+                <!-- Browser选择和Parse按钮（仅在有URL且获取到browser信息后显示） -->
+                <transition name="slide-in-right">
+                  <div v-if="url.trim() && (availableBrowsers.length > 0 || !isLoadingBrowsers)" 
+                       :class="['browser-controls', mode === 'custom' ? 'browser-controls-custom' : 'browser-controls-quick']">
+                    <select 
+                      v-model="browser" 
+                      class="select-macos browser-select" 
+                      :disabled="isLoadingBrowsers"
+                    >
+                      <option v-for="option in browserOptions" :key="option.value" :value="option.value">
+                        {{ option.label }}
+                      </option>
+                    </select>
+                    
+                    <!-- Parse按钮只在custom模式显示 -->
+                    <button 
+                      v-if="mode === 'custom'"
+                      @click="handleParse" 
+                      type="button" 
+                      class="btn-macos-primary" 
+                      :disabled="isLoading || !url.trim()"
+                    >
+                      <v-icon 
+                        v-if="isLoading" 
+                        name="ri-loader-2-line" 
+                        class="animate-spin w-4 h-4 mr-2"
+                      ></v-icon>
+                      <span>{{ isLoading ? $t('download.parsing') : $t('download.parse') }}</span>
+                    </button>
                   </div>
-                </button>
+                </transition>
+              </div>
+              
+              <!-- 加载状态提示（显示在下方） -->
+              <div v-if="isLoadingBrowsers" class="loading-indicator-below">
+                <v-icon name="ri-loader-2-line" class="animate-spin w-4 h-4 text-blue-500"></v-icon>
+                <span class="loading-text">{{ $t('download.checking_cookies') }}</span>
               </div>
             </div>
 
-            <!-- Parse result area -->
-            <template v-if="videoData?.title">
-              <div class="divider"></div>
+            <!-- 分割线 -->
+            <div v-if="videoData?.title" class="section-divider"></div>
 
-              <!-- Video title and preview information -->
-              <div class="flex items-center gap-4">
-                <div class="w-32 h-20 bg-base-200 rounded-lg overflow-hidden flex-shrink-0">
-                  <template v-if="videoData?.thumbnail">
-                    <ProxiedImage :src="videoData.thumbnail" :alt="$t('download.thumbnail')"
-                      class="w-full h-full object-cover rounded-md" error-icon="ri-video-line" />
-                  </template>
-                  <div v-else
-                    class="w-full h-full flex flex-col items-center justify-center text-base-content/30 bg-base-200">
-                    <v-icon name="ri-video-line" class="w-8 h-8 mb-1"></v-icon>
-                    <span class="text-xs">{{ $t('download.thumbnail') }}</span>
+            <!-- Video Info Card -->
+            <div v-if="videoData?.title" class="video-info-card">
+              <div class="video-preview">
+                <div class="thumbnail-container">
+                  <ProxiedImage 
+                    v-if="videoData?.thumbnail"
+                    :src="videoData.thumbnail" 
+                    :alt="$t('download.thumbnail')"
+                    class="thumbnail-image" 
+                    error-icon="ri-video-line" 
+                  />
+                  <div v-else class="thumbnail-placeholder">
+                    <v-icon name="ri-video-line" class="w-8 h-8 text-base-content/30"></v-icon>
                   </div>
                 </div>
-                <div class="flex-1">
-                  <div class="text-base font-medium">{{ videoData.title }}</div>
-                  <div class="text-sm text-base-content/70 mt-1">{{ videoData.duration }} · {{ videoData.author }}</div>
+                <div class="video-meta">
+                  <h4 class="video-title">{{ videoData.title }}</h4>
+                  <p class="video-details">{{ videoData.duration }} · {{ videoData.author }}</p>
                 </div>
               </div>
 
-              <!-- download options -->
-              <div class="space-y-4 mt-2">
-                <!-- video, subtitle, and transcode selection -->
-                <div class="grid grid-cols-4 gap-4">
-                  <!-- video quality selection -->
-                  <div class="form-control w-full col-span-2">
-                    <label class="label">
-                      <span class="label-text">{{ $t('download.video_quality') }}</span>
-                    </label>
-                    <select v-model="selectedQuality" class="select select-bordered w-full select-sm">
+              <!-- Download Options -->
+              <div class="download-options">
+                <div class="options-grid">
+                  <!-- Video Quality -->
+                  <div class="option-group">
+                    <label for="video-quality-select" class="option-label">{{ $t('download.video_quality') }}</label>
+                    <select id="video-quality-select" v-model="selectedQuality" class="select-macos">
                       <option disabled value="">{{ $t('download.select_video_quality') }}</option>
-                      <template v-for="quality in formatQualities(videoData?.formats || [])"
-                        :key="quality.id || quality.format_id">
-                        <option v-if="quality.isHeader" disabled
-                          class="!bg-base-200 !text-base-content/70 !font-semibold !py-2 !my-1 !border-t !border-base-300">
+                      <template v-for="quality in formatQualities(videoData?.formats || [])" :key="quality.id || quality.format_id">
+                        <option v-if="quality.isHeader" disabled class="option-header">
                           ▾ {{ quality.label }}
                         </option>
-                        <option v-else :value="quality" class="label-text-alt text-base-content/70">
+                        <option v-else :value="quality">
                           {{ quality.label }}
                         </option>
                       </template>
                     </select>
                   </div>
 
-                  <!-- subtitle language selection (multi-select) -->
-                  <div class="form-control w-full">
-                    <label class="label">
-                      <span class="label-text">{{ $t('download.subtitle_language') }}</span>
-                    </label>
-                    <div class="dropdown w-full">
-                      <div tabindex="0" role="button"
-                        class="select select-bordered w-full flex items-center justify-between select-sm"
-                        @click="showSubtitleDropdown = !showSubtitleDropdown">
-                        <span v-if="selectedSubtitles.length === 0" class="text-base-content/50">{{
-                          $t('download.no_subtitles')
-                          }}</span>
-                        <span v-else>{{ $t('download.selected') }} {{ selectedSubtitles.length }} {{
-                          $t('download.subtitles')
-                          }}</span>
-                        <v-icon name="ri-arrow-down-s-line" class="w-4 h-4"></v-icon>
-                      </div>
-                      <div v-if="showSubtitleDropdown" tabindex="0"
-                        class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-full max-h-60 overflow-y-auto">
-                        <div v-for="subtitle in videoData.subtitles" :key="subtitle.value.lang"
-                          class="p-2 hover:bg-base-200 rounded cursor-pointer flex items-center"
-                          @click.stop="toggleSubtitle(subtitle.value)">
-                          <input type="checkbox" :checked="isSubtitleSelected(subtitle.value)"
-                            class="checkbox checkbox-sm mr-2" />
-                          <span>{{ subtitle.label }}</span>
-                        </div>
-                      </div>
-                    </div>
+                  <!-- Subtitle Selection -->
+                  <div class="option-group">
+                    <label for="subtitle-lang-select" class="option-label">{{ $t('download.subtitle_language') }}</label>
+                    <select id="subtitle-lang-select" v-model="selectedSubtitleLang" class="select-macos" @change="handleSubtitleChange">
+                      <option value="">{{ $t('download.no_subtitles') }}</option>
+                      <template v-if="videoData?.subtitles?.length">
+                        <option v-for="subtitle in videoData.subtitles" :key="subtitle.value.lang" :value="subtitle.value.lang">
+                          {{ subtitle.label }}
+                        </option>
+                      </template>
+                    </select>
                   </div>
 
-                  <div class="form-control w-full">
-                    <label class="label">
-                      <span class="label-text">{{ $t('download.transcoding') }}</span>
-                    </label>
-                    <select v-model="selectedTranscodeFormat" class="select select-bordered w-full select-sm">
-                      <option :value=0>{{ $t('download.no_transcoding') }}</option>
+                  <!-- Transcoding -->
+                  <div class="option-group">
+                    <label for="transcode-format-select" class="option-label">{{ $t('download.transcoding') }}</label>
+                    <select id="transcode-format-select" v-model="selectedTranscodeFormat" class="select-macos">
+                      <option :value="0">{{ $t('download.no_transcoding') }}</option>
                       <template v-if="availableTranscodeFormats?.video?.length">
                         <optgroup :label="$t('download.video_formats')">
                           <option v-for="format in availableTranscodeFormats.video" :key="format.id" :value="format.id">
@@ -160,110 +198,129 @@
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
 
-              <!-- Pipeline Options -->
-              <div class="mt-4">
-                <label class="label">
-                  <span class="label-text">{{ $t('download.pipeline') }}</span>
-                </label>
-                <div class="bg-base-200 p-2 rounded-lg">
-                  <div class="flex items-center">
-                    <template v-for="(step, index) in pipelineSteps" :key="index">
-                      <!-- Step arrow -->
-                      <template v-if="index > 0">
-                        <div class="flex-none mx-2">
-                          <v-icon name="ri-arrow-right-line" class="w-5 h-5 text-base-content/50"></v-icon>
-                        </div>
+          <!-- Quick Mode -->
+          <div v-if="mode === 'quick'" class="quick-mode">
+            <!-- URL Input -->
+            <div class="input-section">
+              <label class="section-label">{{ $t('download.video_url') }}</label>
+              
+              <!-- URL输入框和browser选择在同一行 -->
+              <div class="url-input-row">
+                <input 
+                  type="text" 
+                  v-model="url" 
+                  @input="onUrlInput"
+                  :placeholder="$t('download.video_url_placeholder')"
+                  class="input-macos url-input"
+                />
+                
+                <!-- Browser选择（仅在有URL且获取到browser信息后显示） -->
+                <transition name="slide-in-right">
+                  <div v-if="url.trim() && (availableBrowsers.length > 0 || !isLoadingBrowsers)" 
+                       :class="['browser-controls', mode === 'custom' ? 'browser-controls-custom' : 'browser-controls-quick']">
+                    <select 
+                      v-model="browser" 
+                      class="select-macos browser-select" 
+                      :disabled="isLoadingBrowsers"
+                    >
+                      <option v-for="option in browserOptions" :key="option.value" :value="option.value">
+                        {{ option.label }}
+                      </option>
+                    </select>
+                  </div>
+                </transition>
+              </div>
+              
+              <!-- 加载状态提示（显示在下方） -->
+              <div v-if="isLoadingBrowsers" class="loading-indicator-below">
+                <v-icon name="ri-loader-2-line" class="animate-spin w-4 h-4 text-blue-500"></v-icon>
+                <span class="loading-text">{{ $t('download.checking_cookies') }}</span>
+              </div>
+            </div>
+
+            <!-- Quick Options（仅在获取到browser信息后显示） -->
+            <transition name="fade-in">
+              <div v-if="url.trim() && (availableBrowsers.length > 0 || !isLoadingBrowsers)" class="quick-options">
+                <div class="options-grid">
+                  <div class="option-group">
+                    <label for="quick-video-quality-select" class="option-label">{{ $t('download.video_quality') }}</label>
+                    <select id="quick-video-quality-select" v-model="video" class="select-macos">
+                      <option v-for="item in videoItems" :key="item.key" :value="item.key">
+                        {{ item.label }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="option-group">
+                    <label for="quick-subtitle-lang-select" class="option-label">{{ $t('download.subtitle_language') }}</label>
+                    <select id="quick-subtitle-lang-select" v-model="bestCaption" class="select-macos">
+                      <option v-for="item in captionItems" :key="item.key" :value="item.key">
+                        {{ item.label }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="option-group">
+                    <label for="quick-transcode-format-select" class="option-label">{{ $t('download.transcoding') }}</label>
+                    <select id="quick-transcode-format-select" v-model="quickSelectedTranscodeFormat" class="select-macos">
+                      <option :value="0">{{ $t('download.no_transcoding') }}</option>
+                      <template v-if="quickTranscodeOptions.video.length > 0">
+                        <optgroup :label="$t('download.video_formats')">
+                          <option v-for="format in quickTranscodeOptions.video" :key="format.id" :value="format.id">
+                            {{ format.name }}
+                          </option>
+                        </optgroup>
                       </template>
-                      <!-- Step content -->
-                      <div class="flex-1 flex items-center">
-                        <div
-                          :class="[step.bg, 'w-6 h-6 rounded-full flex items-center justify-center text-white relative group']">
-                          <v-icon :name="step.icon"
-                            class="w-4 h-4 absolute opacity-0 group-hover:opacity-100 transition-opacity"></v-icon>
-                          <span class="group-hover:opacity-0 transition-opacity">{{ step.number }}</span>
-                        </div>
-                        <div class="ml-2">
-                          <div class="font-medium text-sm">{{ step.title }}</div>
-                          <div class="text-xs text-base-content/70">{{ step.desc }}</div>
-                        </div>
-                      </div>
-                    </template>
+                      <template v-if="quickTranscodeOptions.audio.length > 0">
+                        <optgroup :label="$t('download.audio_formats')">
+                          <option v-for="format in quickTranscodeOptions.audio" :key="format.id" :value="format.id">
+                            {{ format.name }}
+                          </option>
+                        </optgroup>
+                      </template>
+                    </select>
                   </div>
                 </div>
               </div>
-            </template>
-          </form>
+            </transition>
+          </div>
         </div>
+      </div>
 
-        <div v-if="mode === 'quick'" class="py-4">
-          <form class="flex flex-col gap-4" @submit.prevent>
-            <!-- URL area -->
-            <div class="form-control w-full">
-              <div class="flex gap-2">
-                <input type="text" v-model="url" :placeholder="$t('download.video_url_placeholder')"
-                  class="input input-bordered flex-1 input-sm" />
-                <div class="flex space-x-2">
-                  <select v-model="video" class="select select-bordered select-sm w-full max-w-xs">
-                    <option v-for="item in videoItems" :key="item.key" :value="item.key">
-                      {{ item.label }}
-                    </option>
-                  </select>
-
-                  <select v-model="bestCaption" class="select select-bordered select-sm w-full max-w-xs">
-                    <option v-for="item in captionItems" :key="item.key" :value="item.key">
-                      {{ item.label }}
-                    </option>
-                  </select>
-
-                  <select v-model="quickSelectedTranscodeFormat" class="select select-bordered select-sm w-full max-w-xs">
-                    <option :value="0">{{ $t('download.no_transcoding') }}</option>
-                    <template v-if="quickTranscodeOptions.video.length > 0">
-                      <optgroup :label="$t('download.video_formats')">
-                        <option v-for="format in quickTranscodeOptions.video" :key="format.id" :value="format.id">
-                          {{ format.name }}
-                        </option>
-                      </optgroup>
-                    </template>
-                    <template v-if="quickTranscodeOptions.audio.length > 0">
-                      <optgroup :label="$t('download.audio_formats')">
-                        <option v-for="format in quickTranscodeOptions.audio" :key="format.id" :value="format.id">
-                          {{ format.name }}
-                        </option>
-                      </optgroup>
-                    </template>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </form>
-        </div>
-
-        <!-- 开始/取消按钮 -->
-        <!-- 自定义模式 -->
-        <div v-if="mode === 'custom'" class="modal-action">
-          <button class="btn btn-sm" @click="closeModal">{{ $t('common.cancel') }}</button>
-          <button class="btn btn-primary btn-sm" @click="startCustomDownload" :disabled="!canDownload">{{
-            $t('common.start')
-            }}</button>
-        </div>
-        <!-- 快速下载模式 -->
-        <div v-if="mode === 'quick'" class="modal-action">
-          <button class="btn btn-sm" @click="closeModal">{{ $t('common.cancel') }}</button>
-          <button class="btn btn-primary btn-sm" @click="startQuickDownload" :disabled="!quickModeDownEnabled">{{
-            $t('common.start')
-          }}</button>
-        </div>
-
+      <!-- Modal Footer -->
+      <div class="modal-footer">
+        <button class="btn-macos-secondary" @click="closeModal">
+          {{ $t('common.cancel') }}
+        </button>
+        <button 
+          v-if="mode === 'custom' && canDownload"
+          class="btn-macos-primary" 
+          @click="startCustomDownload" 
+          :disabled="!canDownload"
+        >
+          {{ $t('common.start') }}
+        </button>
+        <button 
+          v-if="mode === 'quick' && quickModeDownEnabled"
+          class="btn-macos-primary" 
+          @click="startQuickDownload" 
+          :disabled="!quickModeDownEnabled"
+        >
+          {{ $t('common.start') }}
+        </button>
       </div>
     </div>
-  </dialog>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { GetContent, Download, QuickDownload, GetFormats } from 'wailsjs/go/api/DowntasksAPI'
 import { DependenciesReady } from 'wailsjs/go/api/DependenciesAPI'
+import { GetBrowserByDomain } from 'wailsjs/go/api/CookiesAPI'
 import useNavStore from '@/stores/nav.js'
 import useSettingsStore from '@/stores/settings'
 import { useI18n } from 'vue-i18n'
@@ -317,7 +374,7 @@ const gotoDependency = () => {
 }
 
 // Watch modal visibility
-watch(() => showModal.value, async(newValue) => {
+watch(() => showModal.value, async (newValue) => {
   if (newValue) {
     // Modal opened
     await checkDependencies()
@@ -339,12 +396,16 @@ const isLoading = ref(false)
 const videoData = ref(null)
 const selectedQuality = ref(null)
 const selectedSubtitles = ref([])
+const selectedSubtitleLang = ref('')
 const translateTo = ref('')
 const subtitleStyle = ref('default')
 const showSubtitleDropdown = ref(false)
 const availableTranscodeFormats = ref([])
 const selectedTranscodeFormat = ref(0) // New state for transcoding
 const quickSelectedTranscodeFormat = ref(0) // New state for transcoding
+const browser = ref('')
+const availableBrowsers = ref([])
+const isLoadingBrowsers = ref(false)
 
 // quick mode data
 const video = ref('best')
@@ -382,8 +443,72 @@ const quickTranscodeOptions = computed(() => {
   return options;
 });
 
+// 浏览器选项计算属性
+const browserOptions = computed(() => {
+  const options = [{ value: '', label: '无' }]
+  if (availableBrowsers.value && availableBrowsers.value.length > 0) {
+    availableBrowsers.value.forEach(browser => {
+      options.push({ value: browser, label: browser })
+    })
+  }
+  return options
+})
+
+// 获取可用浏览器的方法
+const fetchAvailableBrowsers = async (url) => {
+  if (!url) {
+    availableBrowsers.value = []
+    browser.value = ''
+    return
+  }
+
+  try {
+    isLoadingBrowsers.value = true
+    const response = await GetBrowserByDomain(url)
+    if (response.success) {
+      const browsers = JSON.parse(response.data)
+      availableBrowsers.value = browsers || []
+      // 重置browser选择
+      browser.value = ''
+    } else {
+      availableBrowsers.value = []
+      browser.value = ''
+    }
+  } catch (error) {
+    console.error('Failed to fetch browsers:', error)
+    availableBrowsers.value = []
+    browser.value = ''
+  } finally {
+    isLoadingBrowsers.value = false
+  }
+}
+
 watch(video, () => {
   quickSelectedTranscodeFormat.value = 0 // Reset transcode selection to "No Transcoding"
+})
+
+// 添加URL输入处理方法
+const onUrlInput = (event) => {
+  const newUrl = event.target.value
+  // 防抖处理，避免频繁调用API
+  clearTimeout(urlInputTimer.value)
+  urlInputTimer.value = setTimeout(() => {
+    if (newUrl.trim() && newUrl !== url.value) {
+      fetchAvailableBrowsers(newUrl)
+    } else if (!newUrl.trim()) {
+      // 清空URL时重置browser相关状态
+      availableBrowsers.value = []
+      browser.value = ''
+    }
+  }, 500)
+}
+
+// 添加防抖timer
+const urlInputTimer = ref(null)
+
+// 监听URL变化
+watch(url, (newUrl) => {
+  fetchAvailableBrowsers(newUrl)
 })
 
 // Whether can start download
@@ -542,66 +667,14 @@ const formatFileSize = (size) => {
   return `${fileSize.toFixed(2)} ${units[i]}`
 }
 
-// Calculate pipeline steps
-const pipelineSteps = computed(() => {
-  const steps = []
-
-  // Step 1: Download (required)
-  steps.push({
-    number: 1,
-    title: t('download.download_video'),
-    desc: t('download.download_video_desc'),
-    bg: 'bg-primary',
-    icon: 'ri-download-cloud-line'
-  })
-
-  let currentStep = 2
-
-  if (selectedSubtitles.value.length > 0) {
-    // If selected subtitles and need translation
-    if (translateTo.value) {
-      steps.push({
-        number: currentStep++,
-        title: t('download.translate'),
-        desc: t('download.translate_desc'),
-        bg: 'bg-primary/80',
-        icon: 'ri-translate-2'
-      })
-    }
-
-    // If selected subtitles and need to embed
-    if (subtitleStyle.value !== 'default') {
-      steps.push({
-        number: currentStep++,
-        title: t('download.process_video'),
-        desc: t('download.process_video_desc'),
-        bg: 'bg-primary/60',
-        icon: 'ri-movie-line'
-      })
-    }
-  }
-
-  // Last step: Complete (required)
-  steps.push({
-    number: currentStep,
-    title: t('download.complete'),
-    desc: t('download.complete_desc'),
-    bg: 'bg-success',
-    icon: 'ri-check-line'
-  })
-
-  return steps
-})
-
-const isSubtitleSelected = (subtitle) => {
-  return selectedSubtitles.value.includes(subtitle)
-}
-
-const toggleSubtitle = (subtitle) => {
-  if (isSubtitleSelected(subtitle)) {
-    selectedSubtitles.value = selectedSubtitles.value.filter(s => s !== subtitle)
+// 处理字幕选择变化
+const handleSubtitleChange = (event) => {
+  const value = event.target.value
+  if (value === '') {
+    selectedSubtitles.value = []
   } else {
-    selectedSubtitles.value.push(subtitle)
+    const subtitle = videoData.value?.subtitles?.find(sub => sub.value.lang === value)
+    selectedSubtitles.value = subtitle ? [subtitle.value] : []
   }
 }
 
@@ -625,7 +698,7 @@ const handleParse = async () => {
   // get video info
   try {
     isLoading.value = true
-    const response = await GetContent(url.value)
+    const response = await GetContent(url.value, browser.value) // enable cookies
     if (response.success) {
       const data = JSON.parse(response.data)
       videoData.value = {
@@ -685,6 +758,7 @@ const startCustomDownload = async () => {
     // Prepare download parameters
     const downloadParams = {
       url: url.value,
+      browser: browser.value,
       formatId: selectedQuality.value.format_id,
       downloadSubs: selectedSubtitles.value.length > 0,
       subLangs: selectedSubtitles.value.map(sub => sub.lang),
@@ -728,7 +802,7 @@ const startCustomDownload = async () => {
 }
 
 const quickModeDownEnabled = computed(() => {
-  return url.value !== '' && video.value !== '' && bestCaption.value !== null
+  return url.value !== '' && video.value !== '' && bestCaption.value !== null 
 })
 
 // Start download
@@ -739,6 +813,7 @@ const startQuickDownload = async () => {
     // Prepare download parameters
     const downloadParams = {
       url: url.value,
+      browser: browser.value,
       video: video.value,
       bestCaption: bestCaption.value,
       recodeFormatNumber: quickSelectedTranscodeFormat.value
@@ -780,6 +855,8 @@ const closeModal = () => {
 // Reset form
 const resetForm = () => {
   url.value = ''
+  browser.value = ''
+  availableBrowsers.value = []
   if (mode.value === 'quick') {
     video.value = 'best'
     bestCaption.value = false
@@ -790,31 +867,417 @@ const resetForm = () => {
     selectedSubtitles.value = []
     translateTo.value = ''
     subtitleStyle.value = 'default'
-    selectedTranscodeFormat.value = 0 
+    selectedTranscodeFormat.value = 0
   }
 }
 
 </script>
 
-<style scoped>
-.modal-box {
-  max-height: 85vh;
-  overflow-y: auto;
+<style lang="scss" scoped>
+// 模态框容器
+.modal-container {
+  position: relative;
+  width: 90%;
+  max-width: 640px;
+  max-height: 90vh;
+  background: var(--macos-background);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: slideInUp 0.3s ease;
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-in-out;
+// Header样式
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--macos-background-secondary);
+  border-bottom: 1px solid var(--macos-separator);
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--macos-blue);
+  border-radius: 8px;
+  color: white;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--macos-text-primary);
+  margin: 0;
+}
+
+.close-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: var(--macos-gray);
+  border-radius: 6px;
+  color: var(--macos-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  
+  &:hover {
+    background: var(--macos-gray-hover);
+    color: var(--macos-text-primary);
   }
+}
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
+// Content样式
+.modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+// Mode Switcher
+.mode-switcher {
+  margin-bottom: 24px;
+}
+
+.switcher-track {
+  display: flex;
+  background: var(--macos-gray);
+  border-radius: 8px;
+  padding: 2px;
+  position: relative;
+}
+
+.switcher-option {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--macos-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  z-index: 1;
+  
+  &.active {
+    background: var(--macos-background);
+    color: var(--macos-text-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+}
+
+// Dependencies Warning
+.dependencies-warning {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.warning-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.warning-text {
+  h4 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--macos-text-primary);
+    margin: 0 0 4px 0;
+  }
+  
+  p {
+    font-size: 13px;
+    color: var(--macos-text-secondary);
+    margin: 0;
+  }
+}
+
+.warning-actions {
+  display: flex;
+  gap: 12px;
+}
+
+// Main Content
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+// Input Section
+.input-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--macos-text-primary);
+}
+
+// URL输入行样式
+.url-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.url-input {
+  flex: 1;
+  min-width: 0;
+}
+
+// Browser控件容器
+.browser-controls {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.browser-controls-custom {
+  gap: 8px;
+  
+  .browser-select {
+    width: 120px;
+    flex-shrink: 0;
+  }
+}
+
+.browser-controls-quick {
+  .browser-select {
+    width: 120px;
+    flex-shrink: 0;
+  }
+}
+
+// 加载状态
+.loading-indicator-below {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--macos-text-secondary);
+}
+
+.loading-text {
+  font-size: 12px;
+  color: var(--macos-text-secondary);
+}
+
+// 动画
+.slide-in-right-enter-active,
+.slide-in-right-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-in-right-enter-from {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.slide-in-right-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.fade-in-enter-active,
+.fade-in-leave-active {
+  transition: all 0.3s ease;
+}
+
+.fade-in-enter-from {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.fade-in-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+// Video Info Card
+.video-info-card {
+  background: var(--macos-background-secondary);
+  border: 1px solid var(--macos-separator);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.video-preview {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  border-bottom: 1px solid var(--macos-separator);
+}
+
+.thumbnail-container {
+  width: 120px;
+  height: 68px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--macos-gray);
+}
+
+.thumbnail-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumbnail-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--macos-gray);
+}
+
+.video-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.video-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--macos-text-primary);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.video-details {
+  font-size: 12px;
+  color: var(--macos-text-secondary);
+  margin: 0;
+}
+
+// Download Options
+.download-options {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+.option-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.option-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--macos-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.select-macos option.option-header {
+  background: var(--macos-background-secondary);
+  color: var(--macos-text-secondary);
+  font-weight: 600;
+}
+
+// Quick Mode
+.quick-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.quick-options {
+  margin-top: 20px;
+  
+  .options-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+// Footer
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--macos-background-secondary);
+  border-top: 1px solid var(--macos-separator);
+}
+
+// 分割线样式
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    var(--macos-separator) 20%, 
+    var(--macos-separator) 80%, 
+    transparent 100%
+  );
+  margin: 20px 0;
+  opacity: 0.6;
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .modal-container {
+    width: 95%;
+    max-height: 95vh;
+  }
+  
+  .options-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .url-input-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .browser-controls {
+    width: 100%;
+    
+    .browser-select {
+      flex: 1;
+      width: auto;
+    }
   }
 }
 </style>

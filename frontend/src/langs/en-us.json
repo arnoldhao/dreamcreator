@@ -19,8 +19,34 @@
     "start": "Start",
     "info": "Info",
     "refresh": "Refresh",
+    "sync": "Sync",
+    "loading": "Loading...",
     "unknown_duration": "Unknown Duration",
     "unknown_size": "Unknown Size"
+  },
+  "cookies": {
+    "title": "Browser Cookies",
+    "no_cookies_found": "No Cookies Found",
+    "try_sync": "Try syncing or open a browser to generate cookies.",
+    "cookies": "Cookies",
+    "name": "Name",
+    "domain": "Domain",
+    "value": "Value",
+    "fetch_error": "Failed to fetch cookies:",
+    "sync_success": "Cookies synced successfully.",
+    "sync_error": "Failed to sync cookies:",
+    "browsers": "Browsers",
+    "all_browsers": "All Browsers",
+    "no_matching_cookies": "No matching cookies found",
+    "try_different_search": "Try a different search term",
+    "search_placeholder": "Search by name, domain, or value",
+    "total_cookies": "Total Cookies: {count}",
+    "loading_cookies": "Loading Cookies...",
+    "last_sync": "Last Sync",
+    "just_now": "Just Now",
+    "minutes_ago": "{count} minutes ago",
+    "hours_ago": "{count} hours ago",
+    "days_ago": "{count} days ago"
   },
   "dialogue": {
     "app_name": "CanMe",
@@ -284,7 +310,8 @@
     "transcoding": "Transcoding",
     "no_transcoding": "No Transcoding",
     "video_formats": "Videos",
-    "audio_formats": "Audios"
+    "audio_formats": "Audios",
+    "checking_cookies": "Checking Cookies"
   },
   "subtitle": {
     "title": "Subtitle",

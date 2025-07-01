@@ -77,8 +77,8 @@ func (api *DowntasksAPI) Subscribe(ctx context.Context) {
 
 }
 
-func (api *DowntasksAPI) GetContent(url string) (resp *types.JSResp) {
-	content, err := api.service.ParseURL(url)
+func (api *DowntasksAPI) GetContent(url string, browser string) (resp *types.JSResp) {
+	content, err := api.service.ParseURL(url, browser)
 	if err != nil {
 		return &types.JSResp{Msg: err.Error()}
 	}

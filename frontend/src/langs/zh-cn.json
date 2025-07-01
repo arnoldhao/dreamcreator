@@ -19,8 +19,34 @@
     "start": "开始",
     "info": "信息",
     "refresh": "刷新",
+    "sync": "同步",
+    "loading": "加载中...",
     "unknown_duration": "未知时长",
     "unknown_size": "未知大小"
+  },
+  "cookies": {
+    "title": "浏览器Cookies",
+    "no_cookies_found": "未找到Cookies",
+    "try_sync": "请尝试同步或打开浏览器以生成Cookies。",
+    "cookies": "个Cookies",
+    "name": "名称",
+    "domain": "域",
+    "value": "值",
+    "fetch_error": "获取Cookies失败：",
+    "sync_success": "Cookies同步成功。",
+    "sync_error": "Cookies同步失败：",
+    "browsers": "浏览器",
+    "all_browsers": "所有浏览器",
+    "no_matching_cookies": "未找到匹配的Cookies",
+    "try_different_search": "尝试不同的搜索词",
+    "search_placeholder": "按名称、域或值搜索",
+    "total_cookies": "共 {count} 个Cookies",
+    "loading_cookies": "加载Cookie中...",
+    "last_sync": "上次同步",
+    "just_now": "刚刚",
+    "minutes_ago": "{count} 分钟前",
+    "hours_ago": "{count} 小时前",
+    "days_ago": "{count} 天前"
   },
   "dialogue": {
     "app_name": "CanMe",
@@ -285,7 +311,8 @@
     "transcoding": "转码",
     "no_transcoding": "不转码",
     "video_formats": "视频格式",
-    "audio_formats": "音频格式"
+    "audio_formats": "音频格式",
+    "checking_cookies": "正在检查 Cookies"
   },
   "subtitle": {
     "title": "字幕",

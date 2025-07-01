@@ -20,13 +20,16 @@ var (
 	formatBucket     = []byte("formats")      // 用于存储格式的桶
 	subtitleBucket   = []byte("subtitles")    // 用于存储字幕的桶
 	dependencyBucket = []byte("dependencies") // 用于存储依赖信息的桶
+	cookiesBucket    = []byte("cookies")      // 用于存储浏览器Cookie的桶
 	// other buckets...
 )
 
 type BoltStorage struct {
 	path string
-	db   *bbolt.DB
+	db   *bbolt.DB // Make DB field public for direct transaction access
 }
+
+var NewBoltStorageForTest func(path string) (*BoltStorage, error)
 
 func NewBoltStorage() (*BoltStorage, error) {
 	// 获取用户配置目录
@@ -72,6 +75,10 @@ func NewBoltStorage() (*BoltStorage, error) {
 
 		// create dependency buckets
 		if _, err := tx.CreateBucketIfNotExists(dependencyBucket); err != nil {
+			return err
+		}
+		// create cookies bucket
+		if _, err := tx.CreateBucketIfNotExists(cookiesBucket); err != nil {
 			return err
 		}
 		// create other buckets...
@@ -494,5 +501,72 @@ func (s *BoltStorage) UpdateDependencyVersion(depType types.DependencyType, vers
 		}
 
 		return b.Put([]byte(depType), encoded)
+	})
+}
+
+// SaveCookies 保存Cookie信息到存储
+func (s *BoltStorage) SaveCookies(browser string, browsercookies *types.BrowserCookies) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(cookiesBucket)
+
+		encoded, err := json.Marshal(browsercookies)
+		if err != nil {
+			return fmt.Errorf("failed to marshal browsercookies %s: %w", browser, err)
+		}
+
+		return b.Put([]byte(browser), encoded)
+	})
+}
+
+// GetCookies 根据浏览器类型获取Cookie信息
+func (s *BoltStorage) GetCookies(browser string) (*types.BrowserCookies, error) {
+	var browsercookies *types.BrowserCookies
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(cookiesBucket)
+		data := b.Get([]byte(browser))
+		if data == nil {
+			return fmt.Errorf("cookies not found: %s", browser)
+		}
+
+		return json.Unmarshal(data, &browsercookies)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return browsercookies, nil
+}
+
+// ListAllCookies 获取所有Cookie信息
+func (s *BoltStorage) ListAllCookies() (map[string]*types.BrowserCookies, error) {
+	cookiesMap := make(map[string]*types.BrowserCookies)
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(cookiesBucket)
+
+		return b.ForEach(func(k, v []byte) error {
+			var browsercookies *types.BrowserCookies
+			if err := json.Unmarshal(v, &browsercookies); err != nil {
+				return err
+			}
+			cookiesMap[string(k)] = browsercookies
+			return nil
+		})
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return cookiesMap, nil
+}
+
+// DeleteCookies 删除指定浏览器类型的Cookie信息
+func (s *BoltStorage) DeleteCookies(browser string) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(cookiesBucket)
+		return b.Delete([]byte(browser))
 	})
 }

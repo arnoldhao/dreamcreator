@@ -4,14 +4,24 @@ import (
 	"CanMe/backend/types"
 )
 
+// GetYTDLPPath 获取 yt-dlp 可执行文件的文件夹路径
+func (s *Service) YTDLPPath() (string, error) {
+	return s.executablePath(types.DependencyYTDLP)
+}
+
 // YTDLPExecPath 获取 yt-dlp 可执行文件路径
 func (s *Service) YTDLPExecPath() (string, error) {
-	return s.executablePath(types.DependencyYTDLP)
+	return s.executableExecPath(types.DependencyYTDLP)
+}
+
+// GetFFMPEGPath 获取 FFmpeg 可执行文件的文件夹路径
+func (s *Service) FFMPEGPath() (string, error) {
+	return s.executablePath(types.DependencyFFmpeg)
 }
 
 // FFMPEGExecPath 获取 FFmpeg 可执行文件路径
 func (s *Service) FFMPEGExecPath() (string, error) {
-	return s.executablePath(types.DependencyFFmpeg)
+	return s.executableExecPath(types.DependencyFFmpeg)
 }
 
 // InstallDependency 安装依赖
@@ -48,8 +58,18 @@ func (s *Service) RepairDependency(depType types.DependencyType) error {
 	return s.depManager.RepairDependency(s.ctx, depType)
 }
 
-// executablePath 获取可执行文件路径
+// executablePath 获取可执行文件的文件夹路径
 func (s *Service) executablePath(depType types.DependencyType) (string, error) {
+	info, err := s.depManager.Get(s.ctx, depType)
+	if err != nil {
+		return "", err
+	}
+
+	return info.Path, nil
+}
+
+// executableExecPath 获取可执行文件路径
+func (s *Service) executableExecPath(depType types.DependencyType) (string, error) {
 	info, err := s.depManager.Get(s.ctx, depType)
 	if err != nil {
 		return "", err

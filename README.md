@@ -60,19 +60,59 @@
 
 ### Prerequisites
 - **System Requirements** - Windows 10+ or macOS 10.15+
+- **Dependencies** - All required dependencies (yt-dlp, FFmpeg) are automatically managed by CanMe
 
 ### Installation
-1. Download the latest release for your platform
-2. Launch CanMe
 
-## 📋 Version Information
+#### 📦 Download & Basic Setup
+1. Download the latest release for your platform from [GitHub Releases](https://github.com/arnoldhao/canme/releases)
+2. Extract the downloaded archive to your preferred location
 
-### 🆕 Latest Updates
-- ✨ **New Subtitle Export System** - Professional ITT/SRT import and SRT/FCPXML export
-- 🔄 Enhanced download engine with yt-dlp core integration
-- 🎨 Redesigned UI with improved user experience
-- 🧹 Streamlined codebase with optimized performance
-- 🔧 Advanced video recoding capabilities
+#### 🍎 macOS Installation
+
+**⚠️ Important for macOS Users**
+
+Due to the lack of Apple Developer Certificate, both Intel and ARM64 versions require additional steps:
+
+##### First Launch Setup
+1. **Right-click** on the CanMe app and select **"Open"**
+2. Click **"Open"** in the security dialog that appears
+3. If you see "CanMe cannot be opened because it is from an unidentified developer":
+   - Go to **System Preferences** → **Security & Privacy** → **General**
+   - Click **"Open Anyway"** next to the CanMe warning message
+   - Enter your admin password when prompted
+
+##### Alternative Method (Terminal)
+If the above doesn't work, you can use Terminal:
+```bash
+sudo xattr -rd com.apple.quarantine /path/to/CanMe.app
+```
+
+#### 🔧 Built-in Dependency Management
+- yt-dlp & FFmpeg : Automatically managed - no manual installation required
+- Chrome Cookies : Automatic synchronization support for enhanced platform access
+- Network Proxy : Built-in proxy configuration for global access
+
+#### 🪟 Windows Installation
+1. Extract the downloaded archive
+2. Run CanMe.exe directly - no additional setup required
+3. Windows Defender may show a warning - click "More info" → "Run anyway"
+
+### 🚀 Ready to Use
+Once installed, CanMe is ready to use with:
+
+- ✅ Zero Configuration - All dependencies automatically managed
+- ✅ Chrome Cookie Sync - Seamless access to authenticated content (macOS)
+- ✅ Multi-platform Support - Download from various video platforms
+- ✅ Professional Subtitle Tools - ITT/SRT import, SRT/FCPXML export
+
+### 🔍 Troubleshooting macOS Issues
+- "App is damaged" : Use the Terminal command above to remove quarantine attributes
+- Permission denied : Ensure you have admin privileges and try the System Preferences method
+- App won't start : Check Console.app for detailed error messages General Issues
+- Download failures : Check your internet connection and proxy settings
+- Missing features : Ensure you downloaded the latest version
+- Performance issues : Close other resource-intensive applications
 
 ### ⚠️ System Requirements
 - 💾 **Storage**: Adequate disk space for downloads and processing

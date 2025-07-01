@@ -7,6 +7,7 @@ import (
 	"CanMe/backend/core/imageproxies"
 	"CanMe/backend/core/subtitles"
 	"CanMe/backend/mcpserver"
+	"CanMe/backend/pkg/browercookies"
 	"CanMe/backend/pkg/downinfo"
 	"CanMe/backend/pkg/events"
 	"CanMe/backend/pkg/logger"
@@ -62,9 +63,12 @@ func main() {
 	downloadClient := downinfo.NewClient(downinfo.DefaultConfig())
 	preferencesService.SetPackageClients(proxyManager, downloadClient)
 
+	// # CookieManager (New)
+	cookieManager := browercookies.NewCookieManager(boltStorage)
+
 	// Services
 	// # Downtasks
-	dtService := downtasks.NewService(eventBus, proxyManager, downloadClient, preferencesService, boltStorage)
+	dtService := downtasks.NewService(eventBus, proxyManager, downloadClient, preferencesService, boltStorage, cookieManager)
 	// # Imagesproxies
 	ipsService := imageproxies.NewService(proxyManager, boltStorage)
 	// # Subtitles
@@ -86,6 +90,8 @@ func main() {
 	subtitlesAPI := api.NewSubtitlesAPI(subtitlesService)
 	// # Dependencies API
 	dependenciesAPI := api.NewDependenciesAPI(dtService)
+	// # Cookies API (New)
+	cookiesAPI := api.NewCookiesAPI(dtService)
 
 	// MCP
 	// # MCP Server
@@ -136,6 +142,7 @@ func main() {
 			utilsAPI,
 			subtitlesAPI,
 			dependenciesAPI,
+			cookiesAPI,
 		},
 		Logger: logger.NewWailsLogger(),
 		OnStartup: func(ctx context.Context) {
@@ -154,6 +161,7 @@ func main() {
 			utilsAPI.Subscribe(ctx)
 			subtitlesAPI.Subscribe(ctx)
 			dependenciesAPI.Subscribe(ctx)
+			cookiesAPI.WailsInit(ctx)
 			// MCP
 			if err := mcpServer.Start(ctx); err != nil {
 				logger.GetLogger().Error("Error starting MCP server", zap.Error(err))
