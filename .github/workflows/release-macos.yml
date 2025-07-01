@@ -134,6 +134,7 @@ jobs:
         run: |
           mv bin/canme.app "bin/CanMe.app"
           ./create-dmg/create-dmg \
+            --skip-jenkins \
             --no-internet-enable \
             --volname "CanMe" \
             --volicon "bin/CanMe.app/Contents/Resources/iconfile.icns" \
