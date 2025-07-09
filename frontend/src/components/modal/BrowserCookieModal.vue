@@ -12,10 +12,6 @@
           <span class="text-sm text-base-content/60">({{ browsers.length }} {{ $t('cookies.browsers') }})</span>
         </div>
         <div class="flex items-center space-x-2">
-          <button @click="syncCookies" :disabled="isLoading" class="btn-macos">
-            <v-icon name="ri-refresh-line" class="w-4 h-4 mr-2" :class="{ 'animate-spin': isLoading }"></v-icon>
-            {{ isLoading ? $t('common.loading') : $t('common.sync') }}
-          </button>
           <button @click="closeModal"
             class="p-2 hover:bg-base-200 rounded-lg transition-colors text-base-content/60 hover:text-base-content">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,7 +24,7 @@
       <!-- 搜索和过滤栏 -->
       <div class="px-6 py-4 bg-base-200/10 border-b border-base-300">
         <div class="flex items-center space-x-4">
-          <!-- 搜索框 - 修复padding问题 -->
+          <!-- 搜索框 -->
           <div class="flex-1 relative">
             <svg
               class="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-base-content/40 pointer-events-none"
@@ -85,33 +81,87 @@
 
         <!-- Cookies 展示 -->
         <div v-else class="p-6">
-          <div class="space-y-3 max-h-96 overflow-y-auto cookies-scroll">
+          <div class="space-y-4 max-h-96 overflow-y-auto cookies-scroll">
             <div v-for="browser in filteredBrowsers" :key="browser"
-              class="bg-base-100 border border-base-300 rounded-lg overflow-hidden hover:shadow-sm transition-all duration-200">
-              <!-- 浏览器头部 -->
-              <div
-                class="flex items-center justify-between p-4 bg-base-200/20 border-b border-base-300 cursor-pointer hover:bg-base-200/40 transition-colors"
-                @click="toggleBrowser(browser)">
-                <div class="flex items-center space-x-3">
-                  <div class="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                    <v-icon :name="getBrowserIcon(browser)" class="w-5 h-5 text-primary"></v-icon>
+              class="bg-white/80 backdrop-blur-sm border border-gray-200/60 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 ease-out">
+
+              <!-- 浏览器头部 - 重新设计 -->
+              <div class="px-5 py-4 bg-gradient-to-r from-gray-50/50 to-white/30 border-b border-gray-100/80">
+                <div class="flex items-center justify-between">
+                  <!-- 左侧：浏览器信息 -->
+                  <div class="flex items-center space-x-4 flex-1 min-w-0">
+                    <!-- 浏览器图标 -->
+                    <div
+                      class="w-10 h-10 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-all duration-200">
+                      <v-icon :name="getBrowserIcon(browser)" class="w-6 h-6 text-blue-600"></v-icon>
+                    </div>
+
+                    <!-- 浏览器详情 -->
+                    <div class="flex-1 min-w-0">
+                      <!-- 第一行：浏览器名称 + 状态 + 展开按钮 -->
+                      <div class="flex items-center space-x-3 mb-1">
+                        <h4 class="text-base font-semibold text-gray-900 tracking-tight">{{ browser }}</h4>
+                        <!-- 状态指示器 -->
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                          :class="getStatusClass(browser)">
+                          <span class="w-1.5 h-1.5 rounded-full mr-1.5" :class="getStatusDotClass(browser)"></span>
+                          {{ getStatusText(browser) }}
+                        </span>
+                        <!-- 展开按钮移到这里 -->
+                        <button @click="toggleBrowser(browser)"
+                          class="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors duration-200 ml-auto">
+                          <v-icon name="ri-arrow-down-s-line"
+                            class="w-4 h-4 text-gray-600 transition-transform duration-200"
+                            :class="{ 'rotate-180': expandedBrowsers.includes(browser) }"></v-icon>
+                        </button>
+                      </div>
+
+                      <!-- 第二行：统计信息 + 同步时间 -->
+                      <div class="flex items-center space-x-4 text-sm text-gray-600 mb-1">
+                        <span class="flex items-center space-x-1">
+                          <v-icon name="ri-database-2-line" class="w-3.5 h-3.5"></v-icon>
+                          <span>{{ getBrowserCookieCount(browser) }} {{ $t('cookies.cookies') }}</span>
+                        </span>
+                        <span class="flex items-center space-x-1">
+                          <v-icon name="ri-global-line" class="w-3.5 h-3.5"></v-icon>
+                          <span>{{ getDomainCount(browser) }} {{ $t('cookies.domains') }}</span>
+                        </span>
+                        <!-- 同步时间信息 -->
+                        <span v-if="getLastSyncTime(browser)" class="flex items-center space-x-1 text-gray-500">
+                          <v-icon name="ri-time-line" class="w-3.5 h-3.5"></v-icon>
+                          <span class="text-xs">{{ formatSyncTime(getLastSyncTime(browser)) }}</span>
+                        </span>
+                      </div>
+
+                      <!-- 第三行：同步状态信息（如果有错误或重要状态） -->
+                      <div v-if="getSyncStatusText(browser)" class="flex items-start space-x-2">
+                        <span class="w-1 h-1 rounded-full mt-1.5 flex-shrink-0"
+                          :class="getSyncStatusClass(browser)"></span>
+                        <p class="text-xs select-text cursor-text leading-relaxed flex-1"
+                          :class="getSyncStatusClass(browser)" :title="getSyncStatusText(browser)">
+                          {{ getSyncStatusText(browser) }}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <h4 class="text-sm font-medium text-base-content">{{ browser }}</h4>
-                    <p class="text-xs text-base-content/60">
-                      {{ getBrowserCookieCount(browser) }} {{ $t('cookies.cookies') }}
-                    </p>
-                    <!-- 新增：显示上次同步时间 -->
-                    <p class="text-xs text-base-content/40" v-if="getLastSyncTime(browser)">
-                      {{ $t('cookies.last_sync') }}: {{ formatSyncTime(getLastSyncTime(browser)) }}
-                    </p>
+
+                  <!-- 右侧：同步按钮组 -->
+                  <div class="flex items-center space-x-2 ml-4">
+                    <div v-for="syncType in getSyncFromOptions(browser)" :key="syncType">
+                      <button @click="syncCookies(syncType, [browser])" :disabled="syncingBrowsers.has(browser)"
+                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1"
+                        :class="{
+                          'opacity-50 cursor-not-allowed': syncingBrowsers.has(browser),
+                          'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 shadow-sm': syncType === 'yt-dlp',
+                          'bg-gray-100 text-gray-700 hover:bg-gray-200 focus:ring-gray-400': syncType === 'canme'
+                        }">
+                        <v-icon name="ri-refresh-line" class="w-3 h-3 mr-1.5"
+                          :class="{ 'animate-spin': syncingBrowsers.has(browser) }"></v-icon>
+                        {{ $t('cookies.sync_with', { type: syncType }) }}
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <svg class="w-5 h-5 text-base-content/40 transition-transform duration-200"
-                  :class="{ 'rotate-180': expandedBrowsers.includes(browser) }" fill="none" stroke="currentColor"
-                  viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
               </div>
 
               <!-- Cookies 表格 -->
@@ -128,7 +178,6 @@
                           class="px-4 py-3 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
                           {{ $t('cookies.name') }}
                         </th>
-
                         <th
                           class="px-4 py-3 text-left text-xs font-medium text-base-content/70 uppercase tracking-wider">
                           {{ $t('cookies.value') }}
@@ -173,9 +222,10 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, computed } from 'vue';
+import { ref, watch, onMounted, computed, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ListAllCookies, SyncCookies } from 'wailsjs/go/api/CookiesAPI';
+import { useDtStore } from '@/handlers/downtasks';
 
 const props = defineProps({
   show: Boolean,
@@ -184,6 +234,7 @@ const props = defineProps({
 const emit = defineEmits(['update:show']);
 
 const { t } = useI18n();
+const dtStore = useDtStore();
 
 const isLoading = ref(false);
 const browsers = ref([]);
@@ -191,6 +242,7 @@ const cookiesByBrowser = ref({});
 const searchQuery = ref('');
 const selectedBrowser = ref('');
 const expandedBrowsers = ref([]);
+const syncingBrowsers = ref(new Set()); // 跟踪正在同步的浏览器
 
 // 计算属性
 const filteredBrowsers = computed(() => {
@@ -241,19 +293,98 @@ const toggleBrowser = (browser) => {
 
 const getBrowserCookieCount = (browser) => {
   const browserData = cookiesByBrowser.value[browser];
-  // 1. 检查 browserData 和正确的字段名 domain_cookies 是否存在
   if (!browserData || !browserData.domain_cookies) {
     return 0;
-  } else {
-    // 2. 遍历所有域名，并累加每个域名下的 Cookie 数量
-    return Object.values(browserData.domain_cookies).reduce((total, domain) => {
-      // 3. 确保 domain 对象和其下的 Cookies 数组存在
-      return total + (domain && Array.isArray(domain.cookies) ? domain.cookies.length : 0);
-    }, 0);
+  }
+  return Object.values(browserData.domain_cookies).reduce((total, domain) => {
+    return total + (domain && Array.isArray(domain.cookies) ? domain.cookies.length : 0);
+  }, 0);
+};
+
+// 获取域名数量
+const getDomainCount = (browser) => {
+  const browserData = cookiesByBrowser.value[browser];
+  if (!browserData || !browserData.domain_cookies) {
+    return 0;
+  }
+  return Object.keys(browserData.domain_cookies).length;
+};
+
+// 获取浏览器状态
+const getStatusText = (browser) => {
+  const browserData = cookiesByBrowser.value[browser];
+  if (!browserData) return t('cookies.status.unknown');
+
+  switch (browserData.status) {
+    case 'synced': return t('cookies.status.synced');
+    case 'never': return t('cookies.status.never');
+    case 'syncing': return t('cookies.status.syncing');
+    case 'error': return t('cookies.status.error');
+    default: return t('cookies.status.unknown');
   }
 };
 
-// 同样修复getFilteredCookies方法
+// 获取状态样式类
+const getStatusClass = (browser) => {
+  const browserData = cookiesByBrowser.value[browser];
+  if (!browserData) return 'bg-gray-100 text-gray-600';
+
+  switch (browserData.status) {
+    case 'synced': return 'bg-green-100 text-green-700';
+    case 'never': return 'bg-gray-100 text-gray-600';
+    case 'syncing': return 'bg-blue-100 text-blue-700';
+    case 'error': return 'bg-red-100 text-red-700';
+    default: return 'bg-gray-100 text-gray-600';
+  }
+};
+
+// 获取状态指示点的样式类
+const getStatusDotClass = (browser) => {
+  const browserData = cookiesByBrowser.value[browser];
+  if (!browserData) return 'bg-gray-400';
+
+  switch (browserData.status) {
+    case 'synced': return 'bg-green-500';
+    case 'never': return 'bg-gray-400';
+    case 'syncing': return 'bg-blue-500';
+    case 'error': return 'bg-red-500';
+    default: return 'bg-gray-400';
+  }
+};
+
+// 获取同步状态文本
+const getSyncStatusText = (browser) => {
+  const browserData = cookiesByBrowser.value[browser];
+  if (!browserData || !browserData.last_sync_status) return '';
+
+  switch (browserData.last_sync_status) {
+    case 'success': return t('cookies.sync_success');
+    case 'failed': return t('cookies.sync_error', { msg: browserData.status_description });
+    default: return '';
+  }
+};
+
+// 获取同步状态样式类
+const getSyncStatusClass = (browser) => {
+  const browserData = cookiesByBrowser.value[browser];
+  if (!browserData || !browserData.last_sync_status) return '';
+
+  switch (browserData.last_sync_status) {
+    case 'success': return 'text-green-600';
+    case 'failed': return 'text-red-600';
+    default: return '';
+  }
+};
+
+// 获取同步选项
+const getSyncFromOptions = (browser) => {
+  const browserData = cookiesByBrowser.value[browser];
+  if (!browserData || !browserData.sync_from) {
+    return ['canme', 'yt-dlp']; // 默认选项
+  }
+  return browserData.sync_from;
+};
+
 const getFilteredCookies = (browser) => {
   const browserData = cookiesByBrowser.value[browser];
   if (!browserData) return [];
@@ -261,22 +392,9 @@ const getFilteredCookies = (browser) => {
   let allCookies = [];
 
   if (browserData.domain_cookies) {
-    // domain_cookies -> domain -> cookies
     Object.values(browserData.domain_cookies).forEach(domain => {
       if (domain.cookies && Array.isArray(domain.cookies)) {
         allCookies = allCookies.concat(domain.cookies);
-      }
-    });
-  } else if (Array.isArray(browserData)) {
-    // 直接是cookies数组
-    allCookies = browserData;
-  } else if (typeof browserData === 'object') {
-    // 尝试从对象中提取cookies
-    Object.values(browserData).forEach(domain => {
-      if (domain && domain.cookies && Array.isArray(domain.cookies)) {
-        allCookies = allCookies.concat(domain.cookies);
-      } else if (Array.isArray(domain)) {
-        allCookies = allCookies.concat(domain);
       }
     });
   }
@@ -298,42 +416,82 @@ const fetchCookies = async () => {
   try {
     const res = await ListAllCookies();
     if (res.success) {
-      // 解析JSON数据，得到 map[string]*BrowserCookies 结构
       const cookiesData = JSON.parse(res.data || '{}') || {};
       cookiesByBrowser.value = cookiesData;
-      // 从cookiesData的键中提取浏览器名称
       browsers.value = Object.keys(cookiesData);
-      // 默认展开第一个浏览器
-      if (browsers.value.length > 0 && expandedBrowsers.value.length === 0) {
-        expandedBrowsers.value.push(browsers.value[0]);
-      }
+      // 默认不展开
+      // if (browsers.value.length > 0 && expandedBrowsers.value.length === 0) {
+      //   expandedBrowsers.value.push(browsers.value[0]);
+      // }
     } else {
       throw new Error(res.msg);
     }
   } catch (error) {
-    console.error('Fetch cookies error:', error);
+    $message.error('Fetch cookies error:', error);
   } finally {
     isLoading.value = false;
   }
 };
 
-const syncCookies = async () => {
-  isLoading.value = true;
+const syncCookies = async (syncFrom, browsers) => {
+  if (!syncFrom || !browsers || browsers.length === 0) return;
+
+  // 标记浏览器为同步中
+  browsers.forEach(browser => {
+    syncingBrowsers.value.add(browser);
+  });
+
   try {
-    const res = await SyncCookies();
+    // 注册 WebSocket 回调来监听同步结果
+    const handleSyncResult = (data) => {
+      switch (data.status) {
+        case 'started':
+          $message.info(t('cookies.sync_started', { type: data.sync_from }));
+          break;
+        case 'success':
+          $message.success(t('cookies.sync_success', { type: data.sync_from }));
+          break;
+        case 'failed':
+          $message.error(t('cookies.sync_error', { type: data.sync_from, error: data.error }));
+          break;
+        default:
+          $message.warning('Unknown sync status:', data.status);
+          break;
+      }
+
+      // 只有在完成时才移除回调
+      if (data.done) {
+        // 移除同步中标记
+        browsers.forEach(browser => {
+          syncingBrowsers.value.delete(browser);
+        });
+        fetchCookies(); // 刷新 cookie 列表
+        dtStore.removeCookieSyncCallback(handleSyncResult);
+      }
+    };
+
+    // 注册回调
+    dtStore.registerCookieSyncCallback(handleSyncResult);
+
+    // 调用同步 API（立即返回）
+    const res = await SyncCookies(syncFrom, browsers);
+
     if (res.success) {
-      // 解析JSON数据，得到 map[string]*BrowserCookies 结构
-      const cookiesData = JSON.parse(res.data || '{}') || {};
-      cookiesByBrowser.value = cookiesData;
-      // 从cookiesData的键中提取浏览器名称
-      browsers.value = Object.keys(cookiesData);
+      $message.info(t('cookies.sync_started', { type: syncFrom }));
     } else {
+      // 如果启动失败，移除同步中标记和回调
+      browsers.forEach(browser => {
+        syncingBrowsers.value.delete(browser);
+      });
+      dtStore.removeCookieSyncCallback(handleSyncResult);
       throw new Error(res.msg);
     }
   } catch (error) {
-    console.error('Sync cookies error:', error);
-  } finally {
-    isLoading.value = false;
+    // 移除同步中标记
+    browsers.forEach(browser => {
+      syncingBrowsers.value.delete(browser);
+    });
+    $message.error(t('cookies.sync_start_error', { error: error.message }));
   }
 };
 
@@ -355,14 +513,14 @@ const getLastSyncTime = (browser) => {
 // 格式化同步时间显示
 const formatSyncTime = (syncTime) => {
   if (!syncTime) return '';
-  
+
   const date = new Date(syncTime);
   const now = new Date();
   const diffMs = now - date;
   const diffMins = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  
+
   if (diffMins < 1) {
     return t('cookies.just_now');
   } else if (diffMins < 60) {
@@ -376,12 +534,40 @@ const formatSyncTime = (syncTime) => {
   }
 };
 
+// WebSocket 事件处理
+const initWebSocketHandlers = () => {
+  dtStore.init();
+};
+
+const cleanupWebSocketHandlers = () => {
+  dtStore.cleanup();
+};
+
 watch(() => props.show, (newVal) => {
   if (newVal) {
     fetchCookies();
+    initWebSocketHandlers();
     // 重置搜索和过滤状态
     searchQuery.value = '';
     selectedBrowser.value = '';
+    expandedBrowsers.value = [];
+    syncingBrowsers.value.clear();
+  } else {
+    cleanupWebSocketHandlers();
+  }
+});
+
+watch(searchQuery, (newQuery) => {
+  if (newQuery) {
+    // 当有搜索查询时，自动展开所有有匹配 cookies 的浏览器
+    const browsersWithMatches = filteredBrowsers.value.filter(browser => {
+      return getFilteredCookies(browser).length > 0;
+    });
+
+    // 只展开有匹配结果的浏览器
+    expandedBrowsers.value = [...browsersWithMatches];
+  } else {
+    // 清空搜索时，收起所有浏览器
     expandedBrowsers.value = [];
   }
 });
@@ -389,7 +575,12 @@ watch(() => props.show, (newVal) => {
 onMounted(() => {
   if (props.show) {
     fetchCookies();
+    initWebSocketHandlers();
   }
+});
+
+onUnmounted(() => {
+  cleanupWebSocketHandlers();
 });
 </script>
 
@@ -403,12 +594,24 @@ onMounted(() => {
   @apply px-4 py-2 bg-base-100 hover:bg-base-200 text-base-content rounded-lg transition-all duration-200 text-sm font-medium border border-base-300 hover:border-gray-400;
 }
 
+/* 同步按钮样式 */
+.btn-sync {
+  @apply px-3 py-1 text-xs font-medium rounded-md transition-all duration-200 border;
+}
+
+.btn-sync-primary {
+  @apply bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300;
+}
+
+.btn-sync-secondary {
+  @apply bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300;
+}
+
 /* macOS 风格输入框 */
 .input-macos {
   @apply bg-base-100 border border-base-300 rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200;
 }
 
-/* 确保搜索框内的元素不重叠 */
 .input-macos[class*="pl-10"] {
   padding-left: 40px;
 }

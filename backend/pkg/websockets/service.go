@@ -4,7 +4,6 @@ import (
 	"CanMe/backend/consts"
 	"CanMe/backend/types"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,32 +16,40 @@ import (
 	"go.uber.org/zap"
 )
 
+type Client struct {
+	id       string
+	conn     *websocket.Conn
+	send     chan types.WSResponse
+	service  *Service
+	lastPing time.Time
+}
+
 type Service struct {
 	ctx         context.Context
-	send        chan types.WSResponse
-	connections map[string]*websocket.Conn // 管理多个连接
-	connMutex   sync.RWMutex               // 保护连接映射
+	clients     map[string]*Client
+	clientMutex sync.RWMutex
+	broadcast   chan types.WSResponse
+	heartbeat   *time.Ticker
 }
+
+const (
+	// 心跳间隔
+	heartbeatInterval = 30 * time.Second
+	// 客户端超时时间
+	clientTimeout = 90 * time.Second
+	// 写入超时
+	writeWait = 10 * time.Second
+	// 读取超时
+	pongWait = 60 * time.Second
+	// Ping间隔
+	pingPeriod = (pongWait * 9) / 10
+)
 
 func New() *Service {
 	return &Service{
-		send:        make(chan types.WSResponse, 100),
-		connections: make(map[string]*websocket.Conn),
-	}
-}
-
-func createWebSocketClient() *http.Client {
-	transport := &http.Transport{
-		// 不使用代理或使用专用代理
-		DisableCompression: true,
-		TLSClientConfig:    &tls.Config{InsecureSkipVerify: true},
-		// 设置较短的超时
-		IdleConnTimeout: 30 * time.Second,
-	}
-
-	return &http.Client{
-		Transport: transport,
-		Timeout:   1 * time.Minute, // WebSocket连接应该有较短的超时
+		clients:   make(map[string]*Client),
+		broadcast: make(chan types.WSResponse, 256),
+		heartbeat: time.NewTicker(heartbeatInterval),
 	}
 }
 
@@ -51,143 +58,251 @@ func (s *Service) SetContext(ctx context.Context) {
 }
 
 func (s *Service) Start() {
-	client := createWebSocketClient()
-	http.DefaultClient = client
-	http.HandleFunc("/ws", s.handleWebSocket)
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true // Wails应用允许所有来源
+		},
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+	}
+
+	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		s.handleWebSocket(upgrader, w, r)
+	})
+
+	// 启动广播处理器
+	go s.handleBroadcast()
+	// 启动心跳检查
+	go s.handleHeartbeat()
 
 	go func() {
+		logger.Info("WebSocket server starting", zap.Int("port", consts.WS_PORT))
 		err := http.ListenAndServe(fmt.Sprintf(":%v", consts.WS_PORT), nil)
 		if err != nil {
 			logger.Error("WebSocket server error", zap.Error(err))
-			return
 		}
 	}()
 }
 
-func (s *Service) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	upgrader := websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool {
-			return true // allow all origins
-		},
-	}
+func (s *Service) handleWebSocket(upgrader websocket.Upgrader, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		logger.Error("Failed to upgrade connection", zap.Error(err))
 		return
 	}
 
-	id := r.URL.Query().Get("id")
-	go s.readPump(id, conn)
-	go s.writePump(id, conn)
+	clientID := r.URL.Query().Get("id")
+	if clientID == "" {
+		clientID = "default"
+	}
+
+	client := &Client{
+		id:       clientID,
+		conn:     conn,
+		send:     make(chan types.WSResponse, 256),
+		service:  s,
+		lastPing: time.Now(),
+	}
+
+	// 注册客户端
+	s.clientMutex.Lock()
+	// 如果已存在同ID客户端，先关闭旧连接
+	if oldClient, exists := s.clients[clientID]; exists {
+		close(oldClient.send)
+		oldClient.conn.Close()
+	}
+	s.clients[clientID] = client
+	s.clientMutex.Unlock()
+
+	logger.Info("WebSocket client connected", zap.String("id", clientID))
+
+	// 启动客户端处理协程
+	go client.writePump()
+	go client.readPump()
 }
 
-func (s *Service) readPump(id string, conn *websocket.Conn) {
+func (c *Client) readPump() {
 	defer func() {
-		conn.Close()
+		c.service.unregisterClient(c.id)
+		c.conn.Close()
 	}()
 
+	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.conn.SetPongHandler(func(string) error {
+		c.lastPing = time.Now()
+		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+
 	for {
-		_, message, err := conn.ReadMessage()
+		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				logger.Error("WebSocket error", zap.Error(err))
+				logger.Error("WebSocket read error", zap.String("id", c.id), zap.Error(err))
 			}
 			break
 		}
+
 		var msg types.WSRequest
 		if err := json.Unmarshal(message, &msg); err != nil {
-			logger.Error("Failed to parse message",
-				zap.String("id", id),
-				zap.Error(err))
+			logger.Error("Failed to parse message", zap.String("id", c.id), zap.Error(err))
 			continue
 		}
 
-		// switch Namespace
+		// 处理心跳响应
+		if msg.Event == "pong" {
+			c.lastPing = time.Now()
+			continue
+		}
+
+		// 处理其他消息类型
 		switch consts.WSNamespace(msg.Namespace) {
 		default:
-			logger.Error("Unexpected namespace",
-				zap.String("id", id),
-				zap.String("namespace", string(msg.Namespace)))
-			continue
+			logger.Debug("Received message",
+				zap.String("id", c.id),
+				zap.String("namespace", string(msg.Namespace)),
+				zap.String("event", string(msg.Event)))
 		}
 	}
 }
 
-func (s *Service) writePump(id string, conn *websocket.Conn) {
-	// 移除心跳ticker，只保留消息处理
+func (c *Client) writePump() {
+	ticker := time.NewTicker(pingPeriod)
 	defer func() {
-		conn.Close()
-		logger.Info("WebSocket connection closed", zap.String("id", id))
+		ticker.Stop()
+		c.conn.Close()
 	}()
 
 	for {
 		select {
-		case message, ok := <-s.send:
+		case message, ok := <-c.send:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// 通道已关闭，发送关闭消息
-				conn.WriteMessage(websocket.CloseMessage, []byte{})
+				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
-			// 设置写入超时
-			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-
-			// 尝试发送消息
-			w, err := conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				logger.Error("Failed to get next writer - connection may be broken",
-					zap.String("id", id),
-					zap.Error(err))
-				// 连接断开，触发重连
-				s.handleConnectionLost(id)
+			if err := c.conn.WriteJSON(message); err != nil {
+				logger.Error("Failed to write message", zap.String("id", c.id), zap.Error(err))
 				return
 			}
 
-			msg, err := json.Marshal(message)
-			if err != nil {
-				logger.Error("Failed to marshal message",
-					zap.String("id", id),
-					zap.Error(err))
-				continue
-			}
-
-			_, err = w.Write(msg)
-			if err != nil {
-				logger.Error("Failed to write message - connection lost",
-					zap.String("id", id),
-					zap.Error(err))
-				w.Close()
-				s.handleConnectionLost(id)
+		case <-ticker.C:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				logger.Error("Failed to send ping", zap.String("id", c.id), zap.Error(err))
 				return
 			}
 
-			if err := w.Close(); err != nil {
-				logger.Error("Failed to close writer - connection lost",
-					zap.String("id", id),
-					zap.Error(err))
-				s.handleConnectionLost(id)
-				return
-			}
-
-			logger.Debug("Message sent successfully", zap.String("id", id))
+		case <-c.service.ctx.Done():
+			return
 		}
 	}
 }
 
-// 新增：处理连接丢失
-func (s *Service) handleConnectionLost(id string) {
-	logger.Warn("WebSocket connection lost, will attempt to reconnect on next message",
-		zap.String("id", id))
-	// 这里可以发送连接丢失事件给前端（如果连接还活着的话）
-	// 或者设置一个标志，让下次SendToClient时重新建立连接
+func (s *Service) handleBroadcast() {
+	for {
+		select {
+		case message := <-s.broadcast:
+			s.clientMutex.RLock()
+			for _, client := range s.clients {
+				// 如果指定了客户端ID，只发送给指定客户端
+				if message.ClientID != "" && message.ClientID != client.id {
+					continue
+				}
+
+				select {
+				case client.send <- message:
+				default:
+					// 客户端发送队列满，关闭连接
+					close(client.send)
+					delete(s.clients, client.id)
+				}
+			}
+			s.clientMutex.RUnlock()
+
+		case <-s.ctx.Done():
+			return
+		}
+	}
+}
+
+func (s *Service) handleHeartbeat() {
+	for {
+		select {
+		case <-s.heartbeat.C:
+			now := time.Now()
+			heartbeatMsg := types.WSResponse{
+				Namespace: "system",
+				Event:     "heartbeat",
+				Data: types.HeartbeatData{
+					Timestamp: now.Unix(),
+					Message:   "ping",
+				},
+			}
+
+			s.clientMutex.RLock()
+			for id, client := range s.clients {
+				// 检查客户端是否超时
+				if now.Sub(client.lastPing) > clientTimeout {
+					logger.Warn("Client timeout, removing", zap.String("id", id))
+					close(client.send)
+					client.conn.Close()
+					delete(s.clients, id)
+					continue
+				}
+
+				// 发送心跳
+				select {
+				case client.send <- heartbeatMsg:
+				default:
+					// 发送队列满
+				}
+			}
+			s.clientMutex.RUnlock()
+
+		case <-s.ctx.Done():
+			s.heartbeat.Stop()
+			return
+		}
+	}
+}
+
+func (s *Service) unregisterClient(clientID string) {
+	s.clientMutex.Lock()
+	defer s.clientMutex.Unlock()
+
+	if client, exists := s.clients[clientID]; exists {
+		close(client.send)
+		delete(s.clients, clientID)
+		logger.Info("WebSocket client disconnected", zap.String("id", clientID))
+	}
 }
 
 func (s *Service) SendToClient(message types.WSResponse) {
 	select {
-	case s.send <- message:
-		// 消息已发送到队列
+	case s.broadcast <- message:
+		// 消息已发送到广播队列
 	default:
-		// 队列满了，记录警告
-		logger.Warn("WebSocket send queue is full, message dropped")
+		// 广播队列满，记录警告
+		logger.Warn("WebSocket broadcast queue is full, message dropped")
 	}
+}
+
+// 发送给特定客户端
+func (s *Service) SendToSpecificClient(clientID string, message types.WSResponse) {
+	message.ClientID = clientID
+	s.SendToClient(message)
+}
+
+// 获取连接状态
+func (s *Service) GetConnectedClients() []string {
+	s.clientMutex.RLock()
+	defer s.clientMutex.RUnlock()
+
+	clients := make([]string, 0, len(s.clients))
+	for id := range s.clients {
+		clients = append(clients, id)
+	}
+	return clients
 }

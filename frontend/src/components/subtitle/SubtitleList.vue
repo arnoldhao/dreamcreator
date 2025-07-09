@@ -45,7 +45,7 @@
             </svg>
           </div>
           <span class="current-standard">{{ $t('subtitle.list.current_standard') }}: <strong>{{ standardDisplayName
-              }}</strong></span>
+          }}</strong></span>
           <span class="standard-desc">{{ standardDescription }}</span>
         </div>
 
@@ -179,7 +179,7 @@
                     <div class="metric-item level-normal">
                       <span class="metric-label">{{ $t('subtitle.list.duration') }}</span>
                       <span class="metric-value">{{ formatSimpleDuration(subtitle.start_time, subtitle.end_time)
-                      }}</span>
+                        }}</span>
                     </div>
                     <div v-if="getSubtitleGuideline(subtitle)" class="subtitle-metrics">
                       <template v-for="(type, key) in { cps: 'CPS', wpm: 'WPM', cpl: 'CPL' }" :key="key">
@@ -396,11 +396,11 @@ export default {
 
     formatDate(timecode) {
       if (!timecode || !timecode.time) return 'N/A'
-      const totalMs = timecode.time / 1000000
+      const totalMs = Math.floor(timecode.time / 1000000)
       const hours = Math.floor(totalMs / 3600000)
       const minutes = Math.floor((totalMs % 3600000) / 60000)
       const seconds = Math.floor((totalMs % 60000) / 1000)
-      const milliseconds = Math.floor(totalMs % 1000)
+      const milliseconds = totalMs % 1000
       return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`
     },
 

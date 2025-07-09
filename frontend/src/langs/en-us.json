@@ -25,16 +25,24 @@
     "unknown_size": "Unknown Size"
   },
   "cookies": {
+    "status": {
+      "unknown": "Unknown",
+      "syncing": "Syncing",
+      "error": "Error",
+      "synced": "Synced",
+      "never": "Never Synced"
+    },
     "title": "Browser Cookies",
     "no_cookies_found": "No Cookies Found",
     "try_sync": "Try syncing or open a browser to generate cookies.",
     "cookies": "Cookies",
     "name": "Name",
     "domain": "Domain",
+    "domains": "Domains",
     "value": "Value",
-    "fetch_error": "Failed to fetch cookies:",
-    "sync_success": "Cookies synced successfully.",
-    "sync_error": "Failed to sync cookies:",
+    "fetch_error": "Failed to fetch cookies: {msg}",
+    "sync_success": "Cookies synced successfully",
+    "sync_error": "Failed to sync cookies: {msg}",
     "browsers": "Browsers",
     "all_browsers": "All Browsers",
     "no_matching_cookies": "No matching cookies found",
@@ -46,7 +54,10 @@
     "just_now": "Just Now",
     "minutes_ago": "{count} minutes ago",
     "hours_ago": "{count} hours ago",
-    "days_ago": "{count} days ago"
+    "days_ago": "{count} days ago",
+    "sync_with": "Use {type} to sync",
+    "sync_started": "Sync started",
+    "sync_start_error": "Sync start error"
   },
   "dialogue": {
     "app_name": "CanMe",

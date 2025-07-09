@@ -149,7 +149,12 @@ type FCPXMLTextStyleAttr struct {
 
 // IttDocument itt格式字幕
 type IttDocument struct {
-	Head struct {
+	XMLName             xml.Name `xml:"tt"`
+	TimeBase            string   `xml:"timeBase,attr"`
+	FrameRate           string   `xml:"frameRate,attr"`
+	FrameRateMultiplier string   `xml:"frameRateMultiplier,attr"`
+	DropMode            string   `xml:"dropMode,attr"`
+	Head                struct {
 		Metadata struct {
 			Title     string `xml:"title"`
 			Copyright string `xml:"copyright"`

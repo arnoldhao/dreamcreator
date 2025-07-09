@@ -383,10 +383,10 @@ func (s *SubtitleSegment) Validate() error {
 		return fmt.Errorf("end time cannot be negative")
 	}
 
-	// 验证时间逻辑
-	if s.EndTime.Time <= s.StartTime.Time {
-		return fmt.Errorf("end time (%v) must be after start time (%v)", s.EndTime.Time, s.StartTime.Time)
-	}
+	// 不验证时间逻辑，在代码中对开始结束时间相同的字幕进行过滤
+	// if s.EndTime.Time <= s.StartTime.Time {
+	// 	return fmt.Errorf("end time (%v) must be after start time (%v)", s.EndTime.Time, s.StartTime.Time)
+	// }
 
 	// 验证持续时间不能过短（至少100毫秒）
 	duration := s.Duration()

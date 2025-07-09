@@ -30,27 +30,23 @@ func (a *CookiesAPI) WailsInit(ctx context.Context) error {
 }
 
 // RefreshCookies triggers a refresh of the cookie cache.
-func (a *CookiesAPI) SyncCookies() types.JSResp {
-	logger.GetLogger().Info("Refreshing browser cookies...")
-	cookies, err := a.downtasksService.SyncCookies()
-	if err != nil {
-		logger.GetLogger().Error("Failed to refresh cookies: " + err.Error())
-		return types.JSResp{
-			Success: false,
-			Msg:     "Failed to refresh cookies: " + err.Error(),
-		}
-	}
-	logger.GetLogger().Info("Browser cookies refreshed successfully.")
+func (a *CookiesAPI) SyncCookies(syncFrom string, browsers []string) types.JSResp {
+	logger.GetLogger().Debug("Starting browser cookies sync...")
 
-	data, _ := json.Marshal(cookies)
+	// 立即启动异步同步，不等待结果
+	a.downtasksService.SyncCookies(syncFrom, browsers)
+
+	// 立即返回成功响应
+	logger.GetLogger().Debug("Browser cookies sync started successfully.")
 	return types.JSResp{
 		Success: true,
-		Data:    string(data),
+		Msg:     "Cookie sync started, you will be notified when completed",
+		Data:    nil,
 	}
 }
 
 func (a *CookiesAPI) GetBrowserByDomain(targetURL string) types.JSResp {
-	logger.GetLogger().Info("Getting browser for URL", zap.String("url", targetURL))
+	logger.GetLogger().Debug("Getting browser for URL", zap.String("url", targetURL))
 	browser, err := a.downtasksService.GetBrowserByDomain(targetURL)
 	if err != nil {
 		logger.GetLogger().Error("Failed to get browser for URL", zap.String("url", targetURL), zap.Error(err))
@@ -69,7 +65,7 @@ func (a *CookiesAPI) GetBrowserByDomain(targetURL string) types.JSResp {
 
 // GetCookiesByDomain retrieves cookies for a specific URL from a given browser.
 func (a *CookiesAPI) GetCookiesByDomain(browser string, targetURL string) types.JSResp {
-	logger.GetLogger().Info("Getting cookies for URL", zap.String("url", targetURL), zap.String("browser", browser))
+	logger.GetLogger().Debug("Getting cookies for URL", zap.String("url", targetURL), zap.String("browser", browser))
 	cookies, err := a.downtasksService.GetCookiesByDomain(browser, targetURL)
 	if err != nil {
 		logger.GetLogger().Error("Failed to get cookies for URL", zap.String("url", targetURL), zap.String("browser", browser), zap.Error(err))
@@ -88,7 +84,7 @@ func (a *CookiesAPI) GetCookiesByDomain(browser string, targetURL string) types.
 
 // ListAllCookies retrieves all cached cookies, grouped by browser.
 func (a *CookiesAPI) ListAllCookies() types.JSResp {
-	logger.GetLogger().Info("Listing all cached cookies by browser.")
+	logger.GetLogger().Debug("Listing all cached cookies by browser.")
 	cookies, err := a.downtasksService.ListAllCookies()
 	if err != nil {
 		logger.GetLogger().Error("Failed to list all cookies: " + err.Error())

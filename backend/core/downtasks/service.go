@@ -59,7 +59,6 @@ func NewService(eventBus events.EventBus,
 	downloadClient *downinfo.Client,
 	pref *preferences.Service,
 	boltStorage *storage.BoltStorage,
-	cookieManager browercookies.CookieManager,
 ) *Service {
 
 	// 创建依赖管理器
@@ -82,7 +81,7 @@ func NewService(eventBus events.EventBus,
 		pref:           pref,
 		boltStorage:    boltStorage,
 		depManager:     depManager,
-		cookieManager:  browercookies.NewCookieManager(boltStorage),
+		cookieManager:  browercookies.NewCookieManager(boltStorage, depManager),
 	}
 
 	return s

@@ -25,16 +25,24 @@
     "unknown_size": "未知大小"
   },
   "cookies": {
+    "status": {
+      "unknown": "未知",
+      "syncing": "同步中",
+      "error": "同步错误",
+      "synced": "已同步",
+      "never": "从未同步"
+    },
     "title": "浏览器Cookies",
     "no_cookies_found": "未找到Cookies",
     "try_sync": "请尝试同步或打开浏览器以生成Cookies。",
     "cookies": "个Cookies",
     "name": "名称",
     "domain": "域",
+    "domains": "个域",
     "value": "值",
-    "fetch_error": "获取Cookies失败：",
-    "sync_success": "Cookies同步成功。",
-    "sync_error": "Cookies同步失败：",
+    "fetch_error": "获取Cookies失败: {msg}",
+    "sync_success": "Cookies同步成功",
+    "sync_error": "Cookies同步失败: {msg}",
     "browsers": "浏览器",
     "all_browsers": "所有浏览器",
     "no_matching_cookies": "未找到匹配的Cookies",
@@ -46,7 +54,10 @@
     "just_now": "刚刚",
     "minutes_ago": "{count} 分钟前",
     "hours_ago": "{count} 小时前",
-    "days_ago": "{count} 天前"
+    "days_ago": "{count} 天前",
+    "sync_with": "使用 {type} 同步",
+    "sync_started": "同步已开始",
+    "sync_start_error": "同步启动错误"
   },
   "dialogue": {
     "app_name": "CanMe",

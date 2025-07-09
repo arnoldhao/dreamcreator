@@ -1,14 +1,76 @@
 package downtasks
 
 import (
+	"CanMe/backend/consts"
+	"CanMe/backend/pkg/events"
+	"CanMe/backend/pkg/logger"
 	"CanMe/backend/types"
 	"fmt"
 	"net/http"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 // SyncCookies refreshes the browser cookies.
-func (s *Service) SyncCookies() (map[string]*types.BrowserCookies, error) {
-	return s.cookieManager.Sync()
+func (s *Service) SyncCookies(syncFrom string, browsers []string) {
+	logger.GetLogger().Debug("Starting async browser cookies sync...")
+
+	go func() {
+		// 发送开始同步事件
+		startEvent := &events.BaseEvent{
+			ID:        uuid.New().String(),
+			Type:      consts.TopicDowntasksCookieSync,
+			Source:    "downtasks",
+			Timestamp: time.Now(),
+			Data: &types.DTCookieSync{
+				SyncFrom:  syncFrom,
+				Browsers:  browsers,
+				Status:    types.CookieSyncStatusStarted,
+				Done:      false,
+				Error:     "",
+				Timestamp: time.Now().Unix(),
+			},
+		}
+
+		if s.eventBus != nil {
+			s.eventBus.Publish(s.ctx, startEvent)
+		}
+
+		// 执行同步操作
+		err := s.cookieManager.Sync(s.ctx, syncFrom, browsers)
+
+		// 准备结果事件
+		var status types.DTCookieSyncStatus
+		var errMessage string
+		if err == nil {
+			status = types.CookieSyncStatusSuccess
+			errMessage = ""
+		} else {
+			status = types.CookieSyncStatusFailed
+			errMessage = err.Error()
+		}
+
+		resultEvent := &events.BaseEvent{
+			ID:        uuid.New().String(),
+			Type:      consts.TopicDowntasksCookieSync,
+			Source:    "downtasks",
+			Timestamp: time.Now(),
+			Data: &types.DTCookieSync{
+				SyncFrom:  syncFrom,
+				Browsers:  browsers,
+				Status:    status,
+				Done:      true,
+				Error:     errMessage,
+				Timestamp: time.Now().Unix(),
+			},
+		}
+
+		// 通过事件总线发送结果
+		if s.eventBus != nil {
+			s.eventBus.Publish(s.ctx, resultEvent)
+		}
+	}()
 }
 
 // ListAllCookies lists all cached cookies, grouped by browser.

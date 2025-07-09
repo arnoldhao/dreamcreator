@@ -205,3 +205,20 @@ type DTSignal struct {
 	Stage   DtTaskStage `json:"stage"` // 当前处理阶段
 	Refresh bool        `json:"refresh"`
 }
+
+type DTCookieSyncStatus string
+
+const (
+	CookieSyncStatusStarted DTCookieSyncStatus = "started" // 开始同步
+	CookieSyncStatusSuccess DTCookieSyncStatus = "success" // 同步成功
+	CookieSyncStatusFailed  DTCookieSyncStatus = "failed"  // 同步失败
+)
+
+type DTCookieSync struct {
+	SyncFrom  string             `json:"sync_from"` // "canme" 或 "yt-dlp"
+	Browsers  []string           `json:"browsers"`  // 同步的浏览器列表
+	Status    DTCookieSyncStatus `json:"status"`    // 同步状态
+	Done      bool               `json:"done"`      // 同步是否完成
+	Error     string             `json:"error"`     // 错误信息（如果有）
+	Timestamp int64              `json:"timestamp"` // 同步时间戳
+}

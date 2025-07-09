@@ -7,7 +7,8 @@ export const useDtStore = defineStore('downtasks', {
     taskProgressMap: {}, // 任务进度映射
     progressCallbacks: [], // 进度回调函数
     signalCallbacks: [], // 信号回调函数
-    installingCallbacks: [] // 安装回调函数
+    installingCallbacks: [], // 安装回调函数
+    cookieSyncCallbacks: [] // cookie 同步回调函数
   }),
   actions: {
     // 初始化 WebSocket 事件处理
@@ -29,6 +30,9 @@ export const useDtStore = defineStore('downtasks', {
           break
         case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_INSTALLING:
           this.handleInstalling(data.data)
+          break
+        case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_COOKIE_SYNC:
+          this.handleCookieSync(data.data)
           break
         default:
           console.warn('Unknown event:', data.event)
@@ -67,6 +71,16 @@ export const useDtStore = defineStore('downtasks', {
         }
       })
     },
+    // 处理 cookie 同步事件
+    handleCookieSync(data) {
+      this.cookieSyncCallbacks.forEach(callback => {
+        try {
+          callback(data)
+        } catch (error) {
+          console.error('Cookie sync callback error:', error)
+        }
+      })
+    },
     // 注册进度回调
     registerProgressCallback(callback) {
       this.progressCallbacks.push(callback)
@@ -90,6 +104,17 @@ export const useDtStore = defineStore('downtasks', {
     // 取消注册安装回调
     unregisterInstallingCallback(callback) {
       this.installingCallbacks = this.installingCallbacks.filter((cb) => cb !== callback)
+    },
+    // 注册 cookie 同步回调
+    registerCookieSyncCallback(callback) {
+      this.cookieSyncCallbacks.push(callback)
+    }, 
+    // 移除 cookie 同步回调
+    removeCookieSyncCallback(callback) {
+      const index = this.cookieSyncCallbacks.indexOf(callback)
+      if (index > -1) {
+        this.cookieSyncCallbacks.splice(index, 1)
+      }
     }
   }
 })

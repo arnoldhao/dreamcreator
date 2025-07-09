@@ -73,8 +73,21 @@ async function setupApp() {
     // Register OhVueIcon component globally
     app.component("v-icon", OhVueIcon);
 
-    // 1. 初始化WebSocket连接
-    await WebSocketService.connect();
+    // 1. 启动永不断开的WebSocket连接
+    WebSocketService.startAutoReconnect();
+
+    // 等待初始连接建立（最多等待5秒）
+    let connectionAttempts = 0;
+    while (!WebSocketService.isConnected() && connectionAttempts < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        connectionAttempts++;
+    }
+
+    if (WebSocketService.isConnected()) {
+        console.log('WebSocket connected successfully');
+    } else {
+        console.warn('WebSocket initial connection failed, but auto-reconnect is active');
+    }
     // 开启自动重连
     WebSocketService.startAutoReconnect()
 

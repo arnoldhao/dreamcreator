@@ -7,7 +7,6 @@ import (
 	"CanMe/backend/core/imageproxies"
 	"CanMe/backend/core/subtitles"
 	"CanMe/backend/mcpserver"
-	"CanMe/backend/pkg/browercookies"
 	"CanMe/backend/pkg/downinfo"
 	"CanMe/backend/pkg/events"
 	"CanMe/backend/pkg/logger"
@@ -63,12 +62,9 @@ func main() {
 	downloadClient := downinfo.NewClient(downinfo.DefaultConfig())
 	preferencesService.SetPackageClients(proxyManager, downloadClient)
 
-	// # CookieManager (New)
-	cookieManager := browercookies.NewCookieManager(boltStorage)
-
 	// Services
 	// # Downtasks
-	dtService := downtasks.NewService(eventBus, proxyManager, downloadClient, preferencesService, boltStorage, cookieManager)
+	dtService := downtasks.NewService(eventBus, proxyManager, downloadClient, preferencesService, boltStorage)
 	// # Imagesproxies
 	ipsService := imageproxies.NewService(proxyManager, boltStorage)
 	// # Subtitles
@@ -77,7 +73,6 @@ func main() {
 	// Packages
 	// # Websocket
 	websocketService := websockets.New()
-	websocketService.Start()
 
 	// API
 	// # Downtasks API
@@ -152,6 +147,7 @@ func main() {
 			// Packages
 			proxyManager.SetContext(ctx)
 			websocketService.SetContext(ctx)
+			websocketService.Start()
 			// Services
 			dtService.SetContext(ctx)
 			ipsService.SetContext(ctx)

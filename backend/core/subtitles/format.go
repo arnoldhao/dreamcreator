@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
+	"math"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -67,6 +68,14 @@ func (s *FormatConverterImpl) fromItt(filePath string, file []byte) (types.Subti
 		return types.SubtitleProject{}, fmt.Errorf("failed to parse ITT file: %v", err)
 	}
 
+	// 解析帧率
+	frameRate := 25.0 // 默认帧率
+	if itt.FrameRate != "" {
+		if rate, err := strconv.ParseFloat(itt.FrameRate, 64); err == nil {
+			frameRate = rate
+		}
+	}
+
 	// 设置项目元数据
 	project.Metadata = types.ProjectMetadata{
 		ID:          project.ID,
@@ -111,11 +120,11 @@ func (s *FormatConverterImpl) fromItt(filePath string, file []byte) (types.Subti
 	for _, body := range itt.Body.Div {
 		for _, p := range body.P {
 			// 解析时间码
-			startTime, err := parseITTTimecode(p.Begin)
+			startTime, err := parseITTTimecode(p.Begin, frameRate)
 			if err != nil {
 				return types.SubtitleProject{}, fmt.Errorf("failed to parse begin timecode: %v", err)
 			}
-			endTime, err := parseITTTimecode(p.End)
+			endTime, err := parseITTTimecode(p.End, frameRate)
 			if err != nil {
 				return types.SubtitleProject{}, fmt.Errorf("failed to parse end timecode: %v", err)
 			}
@@ -172,7 +181,7 @@ func (s *FormatConverterImpl) fromItt(filePath string, file []byte) (types.Subti
 }
 
 // parseITTTimecode 将 ITT 时间码字符串转换为 Timecode 结构
-func parseITTTimecode(tc string) (types.Timecode, error) {
+func parseITTTimecode(tc string, frameRate float64) (types.Timecode, error) {
 	// ITT 时间码格式：HH:MM:SS:FF 或 HH:MM:SS.mmm
 	var hours, minutes, seconds, frames int
 	var milliseconds float64
@@ -183,11 +192,17 @@ func parseITTTimecode(tc string) (types.Timecode, error) {
 		if err != nil {
 			return types.Timecode{}, err
 		}
+		// 修复：将小数部分转换为毫秒
+		milliseconds = milliseconds * 1000
 	} else {
 		// 处理帧格式
 		_, err := fmt.Sscanf(tc, "%d:%d:%d:%d", &hours, &minutes, &seconds, &frames)
 		if err != nil {
 			return types.Timecode{}, err
+		}
+		// 将帧转换为毫秒，使用四舍五入提高精度
+		if frameRate > 0 {
+			milliseconds = math.Round(float64(frames) / frameRate * 1000)
 		}
 	}
 
@@ -195,7 +210,7 @@ func parseITTTimecode(tc string) (types.Timecode, error) {
 	duration := time.Duration(hours)*time.Hour +
 		time.Duration(minutes)*time.Minute +
 		time.Duration(seconds)*time.Second +
-		time.Duration(milliseconds*float64(time.Millisecond))
+		time.Duration(milliseconds)*time.Millisecond
 
 	return types.Timecode{
 		Time:   duration,
@@ -314,6 +329,11 @@ func (s *FormatConverterImpl) fromSrt(filePath string, file []byte) (types.Subti
 		var textLines []string
 		for i := timecodeLineIndex + 1; i < len(cleanLines); i++ {
 			textLines = append(textLines, cleanLines[i])
+		}
+
+		// 过滤掉开始时间与结束时间相同的字幕
+		if startTime.Time == endTime.Time {
+			continue
 		}
 
 		if len(textLines) == 0 {
@@ -573,7 +593,7 @@ func createSequence(project *types.SubtitleProject, languageCode string, fcpXMLC
 
 			// 创建标题元素
 			title := types.FCPXMLTitle{
-				Name:     fmt.Sprintf("%s", content.Text),
+				Name:     content.Text,
 				Lane:     fcpXMLConfig.DefaultLane,
 				Offset:   offsetFromStart.ToFCPXMLFormat(fcpXMLConfig.FrameRate), // 直接使用 Timecode 的格式化方法
 				Duration: duration.ToFCPXMLFormat(fcpXMLConfig.FrameRate),        // 使用 Timecode 的格式化方法
