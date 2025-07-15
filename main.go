@@ -68,7 +68,7 @@ func main() {
 	// # Imagesproxies
 	ipsService := imageproxies.NewService(proxyManager, boltStorage)
 	// # Subtitles
-	subtitlesService := subtitles.NewService(boltStorage)
+	subtitlesService := subtitles.NewService(boltStorage, proxyManager, eventBus)
 
 	// Packages
 	// # Websocket
@@ -82,7 +82,7 @@ func main() {
 	// # Utils API
 	utilsAPI := api.NewUtilsAPI(ipsService)
 	// # Subtitles API
-	subtitlesAPI := api.NewSubtitlesAPI(subtitlesService)
+	subtitlesAPI := api.NewSubtitlesAPI(subtitlesService, eventBus, websocketService)
 	// # Dependencies API
 	dependenciesAPI := api.NewDependenciesAPI(dtService)
 	// # Cookies API (New)
@@ -151,6 +151,7 @@ func main() {
 			// Services
 			dtService.SetContext(ctx)
 			ipsService.SetContext(ctx)
+			subtitlesService.SetContext(ctx)
 			// APIs
 			dtAPI.Subscribe(ctx)
 			pathsAPI.Subscribe(ctx)

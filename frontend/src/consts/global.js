@@ -9,4 +9,5 @@ export const Project = {
     OfficialWebsite: 'https://canme.dreamapp.cc',
     HelpURLEn: 'https://canme.dreamapp.cc/zh/guide/privacy.html',
     HelpURLZh: 'https://canme.dreamapp.cc/guide/privacy.html',
+    ZHConvert: 'https://zhconvert.org',
 }

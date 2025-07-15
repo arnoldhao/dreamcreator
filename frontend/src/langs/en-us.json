@@ -19,6 +19,9 @@
     "start": "Start",
     "info": "Info",
     "refresh": "Refresh",
+    "refreshing": "Refreshing...",
+    "refresh_success": "Refresh Success",
+    "refresh_failed": "Refresh Failed",
     "sync": "Sync",
     "loading": "Loading...",
     "unknown_duration": "Unknown Duration",
@@ -88,7 +91,10 @@
       "x": "x",
       "turn_off_update_checking": "Turn off update checking",
       "website": "Website",
-      "social_accounts": "Social Accounts"
+      "social_accounts": "Social Accounts",
+      "acknowledgments": "Acknowledgments",
+      "zhconvert": "ZHConvert",
+      "zhconvert_desc": "CanMe uses the zhconvert API service. Commercial use of zhconvert requires a paid license."
     }
   },
   "menu": {
@@ -440,7 +446,25 @@
     },
     "add_language": {
       "title": "Add Language",
-      "coming_soon": "Coming Soon..."
+      "zhconvert": "Chinese Conversion",
+      "llm": "AI Translation",
+      "coming_soon": "Coming Soon...",
+      "source_language": "Source Language",
+      "select_source_language": "Please select source language",
+      "select_converter": "Please select converter",
+      "converter_type": "Converter Type",
+      "loading_converters": "Loading Converters...",
+      "no_converters_available": "No Converters Available",
+      "load_converters_failed": "Failed to load converters",
+      "llm_translation": "LLM Translation",
+      "llm_description": "Use AI technology to perform high-quality multi-language translation, coming soon...",
+      "converting": "Converting...",
+      "start_convert": "Start Conversion",
+      "conversion_started": "Conversion Started",
+      "conversion_failed": "Conversion Failed",
+      "conversion_canceled": "Conversion Canceled",
+      "conversion_success": "Conversion Success",
+      "conversion_finished": "Conversion Finished {status}"
     }
   }
 }

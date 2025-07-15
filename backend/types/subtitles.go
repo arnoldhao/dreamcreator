@@ -346,6 +346,9 @@ type LanguageMetadata struct {
 
 	// map类型放在最后
 	CustomFields map[string]string `json:"custom_fields" yaml:"custom_fields"`
+
+	Status       LanguageContentStatus `json:"status" yaml:"status"`
+	ActiveTaskID string                `json:"active_task_id,omitempty" yaml:"active_task_id,omitempty"` // 当前活跃的转换任务ID
 }
 
 func (v *LanguageMetadata) Validate() error {
@@ -580,4 +583,45 @@ func (t *Timecode) ToVTTFormat() string {
 	seconds := (total % 60000) / 1000
 	milliseconds := total % 1000
 	return fmt.Sprintf("%02d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds)
+}
+
+// 转换状态枚举
+type ConversionStatus string
+
+const (
+	ConversionStatusPending    ConversionStatus = "pending"    // 等待转换
+	ConversionStatusProcessing ConversionStatus = "processing" // 转换中
+	ConversionStatusCompleted  ConversionStatus = "completed"  // 转换完成
+	ConversionStatusFailed     ConversionStatus = "failed"     // 转换失败
+	ConversionStatusCancelled  ConversionStatus = "cancelled"  // 转换取消
+)
+
+// 转换任务信息
+type ConversionTask struct {
+	ID           string           `json:"id"`
+	Type         string           `json:"type"` // "zhconvert" 或 "llm_translate"
+	Status       ConversionStatus `json:"status"`
+	Progress     float64          `json:"progress"` // 0-100
+	StartTime    int64            `json:"start_time"`
+	EndTime      int64            `json:"end_time,omitempty"`
+	ErrorMessage string           `json:"error_message,omitempty"`
+
+	// 转换参数
+	SourceLang    string `json:"source_lang"`
+	TargetLang    string `json:"target_lang"`
+	Converter     int    `json:"converter,omitempty"` // zhconvert 转换器类型
+	ConverterName string `json:"converter_name,omitempty"`
+	Provider      string `json:"provider,omitempty"` // LLM 提供商
+
+	// 进度详情
+	TotalSegments     int `json:"total_segments"`
+	ProcessedSegments int `json:"processed_segments"`
+	FailedSegments    int `json:"failed_segments"`
+}
+
+// 语言内容状态
+type LanguageContentStatus struct {
+	IsOriginal      bool             `json:"is_original"`      // 是否为原始语言
+	ConversionTasks []ConversionTask `json:"conversion_tasks"` // 转换任务历史
+	LastUpdated     int64            `json:"last_updated"`
 }

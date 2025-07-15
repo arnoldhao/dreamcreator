@@ -8,19 +8,22 @@ export const useDtStore = defineStore('downtasks', {
     progressCallbacks: [], // 进度回调函数
     signalCallbacks: [], // 信号回调函数
     installingCallbacks: [], // 安装回调函数
-    cookieSyncCallbacks: [] // cookie 同步回调函数
+    cookieSyncCallbacks: [], // cookie 同步回调函数
+    subtitleProgressCallbacks: [], // 字幕进度回调函数
   }),
   actions: {
     // 初始化 WebSocket 事件处理
     init() {
-      WebSocketService.addListener(WS_NAMESPACE.DOWNTASKS, this.handleCallback)
+      WebSocketService.addListener(WS_NAMESPACE.DOWNTASKS, this.handleDowntasksCallback)
+      WebSocketService.addListener(WS_NAMESPACE.SUBTITLES, this.handleSubtitleCallback)
     },
     // 清理 WebSocket 事件处理
     cleanup() {
-      WebSocketService.removeListener(WS_NAMESPACE.DOWNTASKS, this.handleCallback)
+      WebSocketService.removeListener(WS_NAMESPACE.DOWNTASKS, this.handleDowntasksCallback)
+      WebSocketService.removeListener(WS_NAMESPACE.SUBTITLE, this.handleSubtitleCallback)
     },
     // 处理 WebSocket 回调
-    handleCallback(data) {
+    handleDowntasksCallback(data) {
       switch (data.event) {
         case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_PROGRESS:
           this.handleProgress(data.data)
@@ -80,6 +83,34 @@ export const useDtStore = defineStore('downtasks', {
           console.error('Cookie sync callback error:', error)
         }
       })
+    },
+    // SUBTITLE
+    handleSubtitleCallback(data) {
+      switch (data.event) {
+        case WS_RESPONSE_EVENT.EVENT_SUBTITLE_PROGRESS:
+          this.handleSubtitleProgress(data.data)
+          break
+        default:
+          console.warn('Unknown event:', data.event)
+      }
+    },
+    // 处理字幕进度事件
+    handleSubtitleProgress(data) {
+      this.subtitleProgressCallbacks.forEach((callback) => {
+        try {
+          callback(data)
+        } catch (error) {
+          console.error('Subtitle progress callback error:', error)
+        }
+      })
+    },
+    // 注册字幕进度回调
+    registerSubtitleProgressCallback(callback) {
+      this.subtitleProgressCallbacks.push(callback)
+    },
+    // 取消注册字幕进度回调
+    unregisterSubtitleProgressCallback(callback) {
+      this.subtitleProgressCallbacks = this.subtitleProgressCallbacks.filter((cb) => cb !== callback)
     },
     // 注册进度回调
     registerProgressCallback(callback) {

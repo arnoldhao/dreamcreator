@@ -17,17 +17,20 @@
               </button>
             </div>
           </button>
-
-          <!-- 添加语言按钮 -->
-          <button @click="$emit('add-language')" class="language-tab add-tab">
-            +
-          </button>
         </div>
 
         <!-- 指标说明按钮 - 使用图标 -->
         <div class="tabs-right">
-          <button @click="toggleMetricsPanel" class="metrics-icon-btn" :class="{ 'active': isMetricsPanelExpanded }">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <!-- 添加语言按钮 -->
+          <button @click="$emit('add-language')" class="action-btn add-language-btn" title="添加语言">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+          </button>
+
+          <!-- 指标面板切换按钮 -->
+          <button @click="toggleMetricsPanel" class="action-btn metrics-btn" :class="{ 'active': isMetricsPanelExpanded }" title="显示/隐藏指标说明">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
             </svg>
           </button>
@@ -451,6 +454,10 @@ export default {
   display: flex;
   flex-direction: column;
   height: 100%;
+  /* 关键：确保不会超出父容器 */
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .language-tabs-container {
@@ -462,32 +469,60 @@ export default {
   min-height: 48px;
   flex-shrink: 0;
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  /* 关键：确保右侧按钮始终在右侧 */
+  justify-content: space-between;
 }
 
 .language-tabs {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 8px;
   padding: 0;
   background: transparent;
   border: none;
   border-radius: 0;
+  /* 关键：让左侧区域占据剩余空间但不超出 */
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .tabs-left {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
+  max-width: calc(100vw - 48px - 48px - 320px - 48px - 60px); /* 减去右侧按钮区域宽度 */
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-behavior: smooth;
+  box-sizing: border-box;
+}
+
+/* 隐藏 webkit 滚动条 */
+.tabs-left::-webkit-scrollbar {
+  display: none;
 }
 
 .tabs-right {
   display: flex;
   align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-width: 80px;
+  justify-content: flex-end;
+  padding-left: 12px;
+  border-left: 1px solid var(--macos-separator);
+  margin-left: 12px;
 }
 
+/* 严格控制语言标签的宽度 */
 .language-tab {
   display: flex;
   align-items: center;
@@ -500,9 +535,14 @@ export default {
   font-size: 13px;
   font-weight: 500;
   color: var(--macos-text-secondary);
-  min-width: fit-content;
+  flex-shrink: 0;
   white-space: nowrap;
   height: 32px;
+  min-width: 80px;
+  max-width: 120px;
+  overflow: hidden;
+  box-sizing: border-box;
+  margin-right: 8px;
 }
 
 .language-tab:hover {
@@ -525,30 +565,129 @@ export default {
   transform: translateY(-1px);
 }
 
-.language-tab.add-tab {
-  min-width: 32px;
+/* 统一的操作按钮样式 */
+.action-btn {
   width: 32px;
+  height: 32px;
+  border: 1px solid var(--macos-border);
+  border-radius: 6px;
+  background: var(--macos-background);
+  color: var(--macos-text-secondary);
+  display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 6px;
-  background: transparent;
-  border: 1px dashed var(--macos-border);
-  color: var(--macos-text-tertiary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
 }
 
-.language-tab.add-tab:hover {
-  background: var(--macos-background-secondary);
-  border-color: var(--macos-blue);
-  border-style: solid;
-  color: var(--macos-blue);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.15);
+.action-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.1) 100%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
+
+.action-btn:hover {
+  background: var(--macos-background-secondary);
+  color: var(--macos-text-primary);
+  border-color: var(--macos-blue);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn:hover::before {
+  opacity: 1;
+}
+
+.action-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 确保 tabs-right 中的按钮样式优先级 */
+.tabs-right .action-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--macos-border);
+  border-radius: 6px;
+  background: var(--macos-background);
+  color: var(--macos-text-secondary);
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.tabs-right .action-btn:hover {
+  background: var(--macos-background-secondary);
+  color: var(--macos-text-primary);
+  border-color: var(--macos-blue);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 添加语言按钮特殊样式 */
+.add-language-btn {
+  border-style: dashed;
+  border-color: var(--macos-border);
+}
+
+.add-language-btn:hover {
+  border-style: solid;
+  border-color: var(--macos-success-text);
+  color: var(--macos-success-text);
+  background: var(--macos-success-bg);
+}
+
+.tabs-right .add-language-btn {
+  border-style: dashed;
+}
+
+.tabs-right .add-language-btn:hover {
+  border-style: solid;
+  border-color: var(--macos-success-text);
+  color: var(--macos-success-text);
+  background: var(--macos-success-bg);
+}
+
+/* 指标按钮激活状态 */
+.metrics-btn.active {
+  background: var(--macos-blue);
+  color: white;
+  border-color: var(--macos-blue);
+  box-shadow: 0 2px 8px rgba(var(--macos-blue-rgb), 0.3);
+}
+
+.metrics-btn.active:hover {
+  background: var(--macos-blue-hover);
+  border-color: var(--macos-blue-hover);
+}
+
+.tabs-right .metrics-btn.active {
+  background: var(--macos-blue);
+  color: white;
+  border-color: var(--macos-blue);
+}
+
 
 .tab-content {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px; /* 减小间距 */
   width: 100%;
+  overflow: hidden;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .language-indicator {
@@ -562,6 +701,11 @@ export default {
   flex: 1;
   text-align: left;
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 70px;
 }
 
 .subtitle-count {
@@ -569,6 +713,8 @@ export default {
   opacity: 0.75;
   flex-shrink: 0;
   font-weight: 400;
+  /* 确保数字不会被截断 */
+  min-width: fit-content;
 }
 
 .language-tab.active .subtitle-count {
@@ -818,21 +964,177 @@ export default {
   background: var(--macos-scrollbar-thumb-hover);
 }
 
+/* 添加滚动提示样式 */
+.language-tabs-container::before,
+.language-tabs-container::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background: var(--macos-background-secondary);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.language-tabs-container::before {
+  left: 20px;
+  background: linear-gradient(to right, var(--macos-background-secondary), transparent);
+}
+
+.language-tabs-container::after {
+  right: 60px; /* 为右侧按钮留出空间 */
+  background: linear-gradient(to left, var(--macos-background-secondary), transparent);
+}
+
+/* 当可以滚动时显示渐变提示 */
+.language-tabs-container.can-scroll-left::before {
+  opacity: 1;
+}
+
+.language-tabs-container.can-scroll-right::after {
+  opacity: 1;
+}
+
+/* 添加滚动按钮（可选） */
+.scroll-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: var(--macos-background);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 2;
+}
+
+.scroll-button:hover {
+  background: var(--macos-background-secondary);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.scroll-button.left {
+  left: 24px;
+}
+
+.scroll-button.right {
+  right: 64px;
+}
+
+.language-tabs-container:hover .scroll-button {
+  opacity: 1;
+}
+
+/* 响应式调整 */
+@media (max-width: 1200px) {
+  .tabs-left {
+    max-width: calc(100vw - 48px - 24px - 280px - 48px - 40px - 70px);
+  }
+  
+  .tabs-right {
+    width: 70px;
+    min-width: 70px;
+    gap: 6px;
+    padding-left: 8px;
+    margin-left: 8px;
+  }
+  
+  .action-btn {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .action-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+  
+  .language-tab {
+    max-width: 100px;
+    min-width: 70px;
+  }
+  
+  .language-name {
+    max-width: 50px;
+  }
+}
+
+@media (max-width: 900px) {
+  .tabs-left {
+    max-width: calc(100vw - 48px - 16px - 240px - 48px - 30px - 60px);
+  }
+  
+  .tabs-right {
+    width: 60px;
+    min-width: 60px;
+  }
+  
+  .language-tab {
+    max-width: 80px;
+    min-width: 60px;
+  }
+  
+  .language-name {
+    max-width: 40px;
+  }
+}
+
 @media (max-width: 768px) {
   .language-tabs-container {
-    padding: 12px 16px;
-    min-height: 48px;
+    padding: 8px 16px;
   }
-
+  
   .language-tab {
     padding: 4px 8px;
     font-size: 12px;
+    max-width: 60px;
+    min-width: 50px;
     height: 28px;
   }
+  
+  .language-name {
+    max-width: 30px;
+  }
 
-  .language-tab.add-tab {
+  .tabs-right {
+    gap: 6px;
+    min-width: 70px;
+    padding-left: 8px;
+    margin-left: 8px;
+  }
+  
+  .action-btn {
     width: 28px;
-    min-width: 28px;
+    height: 28px;
+  }
+  
+  .action-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+  
+  .tabs-left {
+    mask-image: linear-gradient(to right, 
+      transparent 0px, 
+      black 10px, 
+      black calc(100% - 10px), 
+      transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, 
+      transparent 0px, 
+      black 10px, 
+      black calc(100% - 10px), 
+      transparent 100%);
   }
 
   .subtitle-item {
@@ -1092,32 +1394,6 @@ export default {
 
 .threshold-item.danger .threshold-value {
   color: #ef4444;
-}
-
-.metrics-icon-btn {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--macos-border);
-  border-radius: 6px;
-  background: var(--macos-background-secondary);
-  color: var(--macos-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.metrics-icon-btn:hover {
-  background: var(--macos-gray-hover);
-  color: var(--macos-text-primary);
-  border-color: var(--macos-blue);
-}
-
-.metrics-icon-btn.active {
-  background: var(--macos-blue);
-  color: white;
-  border-color: var(--macos-blue);
 }
 
 .level-normal {

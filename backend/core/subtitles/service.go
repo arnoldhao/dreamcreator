@@ -1,6 +1,9 @@
 package subtitles
 
 import (
+	"CanMe/backend/pkg/events"
+	"CanMe/backend/pkg/proxy"
+	"CanMe/backend/pkg/zhconvert"
 	"CanMe/backend/storage"
 	"CanMe/backend/types"
 
@@ -21,18 +24,27 @@ type Service struct {
 
 	// bolt storage
 	boltStorage *storage.BoltStorage
+	// proxy
+	proxyManager proxy.ProxyManager
+	// zhconvert
+	zhConverter *zhconvert.Converter
+	// 事件总线
+	eventBus events.EventBus
 }
 
-func NewService(boltStorage *storage.BoltStorage) *Service {
+func NewService(boltStorage *storage.BoltStorage, proxyManager proxy.ProxyManager, eventBus events.EventBus) *Service {
 	return &Service{
 		formatConverter: NewFormatConverter(),
 		textProcessor:   NewTextProcessor(),
 		qualityAssessor: NewQualityAssessor(),
 		boltStorage:     boltStorage,
+		proxyManager:    proxyManager,
+		zhConverter:     zhconvert.New(zhconvert.DefaultConfig(), proxyManager),
+		eventBus:        eventBus,
 	}
 }
 
-func (s *Service) Subscribe(ctx context.Context) {
+func (s *Service) SetContext(ctx context.Context) {
 	s.ctx = ctx
 }
 

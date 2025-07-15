@@ -1,7 +1,11 @@
 package api
 
 import (
+	"CanMe/backend/consts"
 	"CanMe/backend/core/subtitles"
+	"CanMe/backend/pkg/events"
+	"CanMe/backend/pkg/logger"
+	"CanMe/backend/pkg/websockets"
 	"CanMe/backend/types"
 	"context"
 	"fmt"
@@ -15,18 +19,38 @@ import (
 )
 
 type SubtitlesAPI struct {
-	ctx  context.Context
-	subs *subtitles.Service
+	ctx      context.Context
+	subs     *subtitles.Service
+	eventBus events.EventBus
+	ws       *websockets.Service
 }
 
-func NewSubtitlesAPI(subs *subtitles.Service) *SubtitlesAPI {
+func NewSubtitlesAPI(subs *subtitles.Service, eventBus events.EventBus, ws *websockets.Service) *SubtitlesAPI {
 	return &SubtitlesAPI{
-		subs: subs,
+		subs:     subs,
+		eventBus: eventBus,
+		ws:       ws,
 	}
 }
 
 func (api *SubtitlesAPI) Subscribe(ctx context.Context) {
 	api.ctx = ctx
+
+	progressHandler := events.HandlerFunc(func(ctx context.Context, event events.Event) error {
+		// WebSocket Logic: report current progress to client
+		if data, ok := event.GetData().(types.ConversionTask); ok {
+			api.ws.SendToClient(types.WSResponse{
+				Namespace: consts.NAMESPACE_SUBTITLES,
+				Event:     consts.EVENT_SUBTITLE_PROGRESS,
+				Data:      data,
+			})
+		} else {
+			logger.Warn("Failed to convert event data to SubtitleProgress")
+		}
+		return nil
+	})
+
+	api.eventBus.Subscribe(consts.TopicSubtitleProgress, progressHandler)
 }
 
 func (api *SubtitlesAPI) OpenFileWithOptions(filePath string, options types.TextProcessingOptions) (resp *types.JSResp) {
@@ -291,4 +315,22 @@ func (api *SubtitlesAPI) UpdateLanguageMetadata(id string, langCode string, meta
 	}
 
 	return &types.JSResp{Success: true, Data: string(contentString)}
+}
+
+func (api *SubtitlesAPI) GetSupportedConverters() (resp *types.JSResp) {
+	converters := api.subs.GetSupportedConverters()
+	contentString, err := json.Marshal(converters)
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+
+	return &types.JSResp{Success: true, Data: string(contentString)}
+}
+
+func (api *SubtitlesAPI) ZHConvertSubtitle(id string, origin, converterString string) (resp *types.JSResp) {
+	err := api.subs.ZHConvertSubtitle(id, origin, converterString)
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+	return &types.JSResp{Success: true}
 }

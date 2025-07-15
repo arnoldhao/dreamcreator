@@ -1,13 +1,13 @@
 <template>
-  <div class="subtitle-editor h-full bg-base-100 font-system flex flex-col">
+  <div class="subtitle-editor h-full w-full bg-base-100 font-system flex flex-col">
     <!-- 标题栏组件 -->
-    <SubtitleHeader :current-project="currentProject" :auto-save-status="autoSaveStatus" @open-file="openFile"
+    <SubtitleHeader :current-project="currentProject" :auto-save-status="autoSaveStatus" @refresh-projects="handleRefresh" @open-file="openFile"
       @show-history="showHistory = true" @update:projectData="updateCurrentProject" class="flex-shrink-0" />
 
     <!-- 主内容区域 -->
-    <div v-if="currentProject" class="flex flex-1 min-h-0">
+    <div v-if="currentProject" class="flex flex-1 min-h-0 min-w-0">
       <!-- 左主编辑区域 -->
-      <div class="flex-1 p-4 min-h-0">
+      <div class="flex-1 p-4 min-h-0 min-w-0 overflow-hidden">
         <!-- 字幕列表组件 -->
         <SubtitleList :subtitles="currentLanguageSegments" :current-language="currentLanguage"
           :available-languages="availableLanguages" :subtitle-counts="subtitleCounts" @add-language="addLanguage"
@@ -15,7 +15,7 @@
       </div>
 
       <!-- 右侧边栏 -->
-      <div class="w-64 bg-base-200/30 border-l border-base-300 flex flex-col">
+      <div class="w-64 bg-base-200/30 border-l border-base-300 flex flex-col flex-shrink-0">
         <div class="flex-1 overflow-y-auto sidebar-scroll p-4">
           <!-- 导出配置组件 -->
           <SubtitleExportConfig :project-data="currentProject" :current-language="currentLanguage"
@@ -36,19 +36,27 @@
     <!-- 历史记录模态框 -->
     <SubtitleHistoryModal :show="showHistory" :subtitle-projects="subtitleProjects" @close="showHistory = false"
       @load-recent-file="loadRecentFile" @remove-from-history="removeFromHistory" @clear-history="clearAllHistory" />
+
+    <!-- 添加语言模态框 -->
+    <SubtitleAddLanguageModal :show="showAddLanguageModal" :available-languages="Object.keys(availableLanguages)"
+      :subtitle-service="subtitleService" @close="showAddLanguageModal = false"
+      @convert-started="handleConvertStarted" />
+
   </div>
 </template>
 
 <script>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { SelectFile } from 'wailsjs/go/systems/Service'
-import { OpenFileWithOptions, GetSubtitle, ListSubtitles, DeleteSubtitle, DeleteAllSubtitle } from 'wailsjs/go/api/SubtitlesAPI'
+import { OpenFileWithOptions, GetSubtitle, DeleteSubtitle, DeleteAllSubtitle } from 'wailsjs/go/api/SubtitlesAPI'
+import { useSubtitleStore } from '@/stores/subtitle'
 import { subtitleService } from '@/services/subtitleService.js'
 import SubtitleHeader from '@/components/subtitle/SubtitleHeader.vue'
 import SubtitleExportConfig from '@/components/subtitle/SubtitleExportConfig.vue'
 import SubtitleList from '@/components/subtitle/SubtitleList.vue'
 import SubtitleImportModal from '@/components/subtitle/SubtitleImportModal.vue'
 import SubtitleHistoryModal from '@/components/subtitle/SubtitleHistoryModal.vue'
+import SubtitleAddLanguageModal from '@/components/subtitle/SubtitleAddLanguageModal.vue'
 import SubtitleWelcome from '@/components/subtitle/SubtitleWelcome.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -59,26 +67,55 @@ export default {
     SubtitleExportConfig,
     SubtitleList,
     SubtitleHistoryModal,
+    SubtitleAddLanguageModal,
     SubtitleWelcome,
   },
   setup() {
+     // 使用 store 中的数据
+    const subtitleStore = useSubtitleStore()
+    let unsubscribeConversion = null
+    const currentProject = computed(() => subtitleStore.currentProject)
+    const subtitleProjects = computed(() => subtitleStore.projects)
+    const isLoading = computed(() => subtitleStore.isLoading)
+
     // 响应式数据
-    const currentProject = ref(null)
     const currentLanguage = ref('English')
     const autoSaveStatus = ref(null)
-    const isLoading = ref(false)
     const showHistory = ref(false)
-    const subtitleProjects = ref([])
     const selectedFilePath = ref('')
     const showImportModal = ref(false)
+    const showAddLanguageModal = ref(false)
+
 
     // i18
     const { t } = useI18n()
 
+    const handleConversionEvent = (event) => {
+      if (event.isTerminal) {
+        // 静默刷新，不显示加载状态
+        subtitleStore.fetchProjects({ showLoading: false })
+          .catch(error => {
+            console.error('Auto refresh failed:', error)
+          })
+      }
+    }
+
+    const handleRefresh = async () => {
+      try {
+        await subtitleStore.refreshProjects()
+        $message.success(t('common.refresh_success'))
+      } catch (error) {
+        $dialog.error({
+          title: t('common.refresh_failed'),
+          content: error.message
+        })
+      }
+    }
+
     // 公共函数
     // 可以提取的公共逻辑
     const setProjectData = (projectData) => {
-      currentProject.value = projectData
+       subtitleStore.setCurrentProject(projectData)
       const availableLangs = Object.keys(projectData.language_metadata || {})
       if (availableLangs.length > 0) {
         currentLanguage.value = availableLangs[0]
@@ -86,33 +123,10 @@ export default {
       subtitleService.initialize(projectData)
     }
 
-    // 初始化时加载字幕项目列表
-    const loadSubtitleProjects = async () => {
-      try {
-        isLoading.value = true
-        const response = await ListSubtitles()
-        if (response.success) {
-          const projectsData = JSON.parse(response.data)
-          subtitleProjects.value = projectsData
-          // if no projects, set currentProject to null
-          if (!projectsData || projectsData?.length === 0) {
-            currentProject.value = null
-            currentLanguage.value = null
-          }
-        } else {
-          throw new Error(response.msg)
-        }
-      } catch (error) {
-        $message.error(error.message)
-      } finally {
-        isLoading.value = false
-      }
-    }
-
     // 加载特定字幕项目
     const loadSubtitleProject = async (projectId) => {
       try {
-        isLoading.value = true
+         subtitleStore.isLoading = true
         const result = await GetSubtitle(projectId)
 
         if (!result.success) {
@@ -132,7 +146,7 @@ export default {
       } catch (error) {
         $message.error(error.message)
       } finally {
-        isLoading.value = false
+        subtitleStore.isLoading = false
       }
     }
 
@@ -171,7 +185,7 @@ export default {
     const handleImportWithOptions = async ({ filePath, options }) => {
       try {
         showImportModal.value = false
-        isLoading.value = true
+         subtitleStore.isLoading = true
         const result = await OpenFileWithOptions(filePath, options)
         if (!result.success) {
           throw new Error(result.msg)
@@ -188,17 +202,17 @@ export default {
         setProjectData(projectData)
 
         // 重新加载项目列表
-        await loadSubtitleProjects()
+        await subtitleStore.fetchProjects()
       } catch (error) {
         $message.error(error.message)
       } finally {
-        isLoading.value = false
+        subtitleStore.isLoading = false
       }
     }
     // 主要功能函数
     const openFile = async () => {
       try {
-        isLoading.value = true
+        subtitleStore.isLoading = true
         // 调用 Wails 的文件选择 API
         const fileResult = await SelectFile(t('subtitle.common.select_sub_file'), ['srt', 'itt']) //todo
         if (!fileResult.success) {
@@ -210,14 +224,14 @@ export default {
           return
         }
         // 停止loading，准备打开配置modal
-        isLoading.value = false
+       subtitleStore.isLoading = false
 
         // 设置选中的文件路径并打开配置modal
         selectedFilePath.value = filePath
         showImportModal.value = true
 
       } catch (error) {
-        isLoading.value = false
+         subtitleStore.isLoading = false
       }
     }
 
@@ -234,7 +248,7 @@ export default {
       try {
         const response = await DeleteSubtitle(id)
         if (response.success) {
-          await loadSubtitleProjects()
+           await subtitleStore.fetchProjects()
         } else {
           throw new Error(response.msg)
         }
@@ -247,7 +261,7 @@ export default {
       try {
         const response = await DeleteAllSubtitle()
         if (response.success) {
-          await loadSubtitleProjects()
+          await subtitleStore.fetchProjects()
         } else {
           throw new Error(response.msg)
         }
@@ -265,45 +279,67 @@ export default {
     }
 
     const updateCurrentProject = (projectData) => {
-      currentProject.value = projectData
+      subtitleStore.setCurrentProject(projectData)
     }
 
     const addLanguage = () => {
-      $dialog.info({
-        title: t('subtitle.add_language.title'),
-        content: t('subtitle.add_language.coming_soon')
-      })
+      showAddLanguageModal.value = true
     }
+
+    const handleConvertStarted = (conversionInfo) => {
+     // do nothing
+    }
+
 
     // 生命周期
     watch(() => showHistory.value, async (newValue, oldValue) => {
       if (newValue === true && oldValue === false) {
-        await loadSubtitleProjects()
+         await subtitleStore.fetchProjects()
+      }
+    })
+
+    onMounted(async () => {
+      // 初始加载
+      try {
+        await subtitleStore.fetchProjects()
+      } catch (error) {
+        console.error('Initial load failed:', error)
+      }
+
+      // 订阅转换事件
+      unsubscribeConversion = subtitleService.onConversionEvent(handleConversionEvent)
+    })
+
+    onUnmounted(() => {
+      if (unsubscribeConversion) {
+        unsubscribeConversion()
       }
     })
 
     return {
-      // i18n
       t,
-
-      // 响应式数据
+      // 使用计算属性从 store 获取数据
       currentProject,
+      subtitleProjects,
+      isLoading,
+      // 组件内部状态
       currentLanguage,
       autoSaveStatus,
-      isLoading,
       showHistory,
-      subtitleProjects,
       selectedFilePath,
       showImportModal,
-
+      showAddLanguageModal,
+      subtitleService,
       // 计算属性
       availableLanguages,
       currentLanguageSegments,
       subtitleCounts,
-
+      // store
+      subtitleStore,
+      handleConversionEvent,
+      handleRefresh,
       // 方法
       setProjectData,
-      loadSubtitleProjects,
       loadSubtitleProject,
       handleImportWithOptions,
       openFile,
@@ -315,6 +351,7 @@ export default {
       exportSubtitles,
       updateCurrentProject,
       addLanguage,
+      handleConvertStarted,
       getLanguageSegmentCount
     }
   }
@@ -323,6 +360,20 @@ export default {
 
 
 <style scoped>
+/* 添加容器宽度控制 */
+.subtitle-editor {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* 确保主内容区域不会溢出 */
+.subtitle-editor .flex.flex-1.min-h-0 {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
 /* 使用全局滚动条样式，删除重复定义 */
 /* 保留侧边栏特殊滚动条样式 */
 .sidebar-scroll {

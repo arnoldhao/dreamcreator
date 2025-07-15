@@ -19,6 +19,9 @@
     "start": "开始",
     "info": "信息",
     "refresh": "刷新",
+    "refreshing": "刷新中...",
+    "refresh_success": "刷新成功",
+    "refresh_failed": "刷新失败",
     "sync": "同步",
     "loading": "加载中...",
     "unknown_duration": "未知时长",
@@ -88,7 +91,10 @@
       "x": "x",
       "turn_off_update_checking": "关闭检测更新",
       "website": "查看",
-      "social_accounts": "社交账户"
+      "social_accounts": "社交账户",
+      "acknowledgments": "致谢",
+      "zhconvert": "繁化姬",
+      "zhconvert_desc": "CanMe使用了繁化姬的API服务，繁化姬商业用途必须付费。"
     }
   },
   "menu": {
@@ -441,7 +447,25 @@
     },
     "add_language": {
       "title": "添加语言",
-      "coming_soon": "即将推出..."
+      "zhconvert": "中文转换",
+      "llm": "AI翻译",
+      "coming_soon": "即将推出",
+      "source_language": "源语言",
+      "select_source_language": "请选择源语言",
+      "select_converter": "请选择转换模型",
+      "converter_type": "转换模型",
+      "loading_converters": "正在加载转换器...",
+      "no_converters_available": "暂无可用的转换模型",
+      "load_converters_failed": "加载转换模型失败",
+      "llm_translation": "AI智能翻译",
+      "llm_description": "使用人工智能技术进行高质量的多语言翻译，即将推出，敬请期待。",
+      "converting": "转换中...",
+      "start_convert": "开始转换",
+      "conversion_started": "转换已开始",
+      "conversion_failed": "转换失败",
+      "conversion_canceled": "转换已取消",
+      "conversion_success": "转换成功",
+      "conversion_finished": "转换已完成 {status}"
     }
   }
 }

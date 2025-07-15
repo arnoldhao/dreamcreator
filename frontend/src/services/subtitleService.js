@@ -1,5 +1,17 @@
-import { UpdateProjectName, ExportSubtitleToFile, UpdateProjectMetadata, UpdateSubtitleSegment, UpdateLanguageContent, UpdateLanguageMetadata } from 'wailsjs/go/api/SubtitlesAPI';
+import {
+  UpdateProjectName,
+  ExportSubtitleToFile,
+  UpdateProjectMetadata,
+  UpdateSubtitleSegment,
+  UpdateLanguageContent,
+  UpdateLanguageMetadata,
+  // 新增中文转换相关 API
+  GetSupportedConverters,
+  ZHConvertSubtitle
+} from 'wailsjs/go/api/SubtitlesAPI';
 import { createAutoSaveManager } from '@/utils/autoSave.js';
+import { useDtStore } from '@/handlers/downtasks'
+import { i18nGlobal } from '@/utils/i18n.js'
 
 /**
  * 字幕服务类
@@ -12,6 +24,10 @@ export class SubtitleService {
     this.saveStatus = 'idle';
     this.statusCallbacks = new Set();
     this.projectUpdateCallbacks = new Set();
+    // 新增中文转换相关状态
+    this.supportedConverters = [];
+    this.conversionCallbacks = new Set();
+    this.dtStore = null;
   }
 
   /**
@@ -29,6 +45,12 @@ export class SubtitleService {
       onError: this.handleSaveError.bind(this),
       onStatusChange: this.handleStatusChange.bind(this)
     });
+
+    // 初始化中文转换功能
+    this.initializeZHConvert();
+
+    // 初始化 WebSocket 监听
+    this.initializeWebSocketListeners();
   }
 
   /**
@@ -292,6 +314,114 @@ export class SubtitleService {
     this.autoSaveManager.save({ languageCode, metadata }, 'language_metadata');
   }
 
+  // ==================== 中文转换功能 ====================
+
+  /**
+   * 初始化中文转换功能
+   */
+  async initializeZHConvert() {
+    try {
+      await this.loadSupportedConverters();
+    } catch (error) {
+      console.error('Failed to initialize ZH convert:', error);
+    }
+  }
+
+  /**
+   * 加载支持的转换器列表
+   * @returns {Promise<string[]>} 转换器列表
+   */
+  async loadSupportedConverters() {
+    try {
+      const result = await GetSupportedConverters();
+      if (result.success) {
+        this.supportedConverters = JSON.parse(result.data || '[]');
+        return this.supportedConverters;
+      } else {
+        throw new Error(result.msg || 'Failed to get supported converters');
+      }
+    } catch (error) {
+      console.error('Error loading supported converters:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取支持的转换器列表
+   * @returns {string[]} 转换器列表
+   */
+  getSupportedConverters() {
+    return this.supportedConverters;
+  }
+
+  /**
+   * 执行中文转换
+   * @param {string} origin - 源语言代码
+   * @param {string} converter - 转换器类型
+   * @returns {Promise<Object>} 转换结果
+   */
+  async convertSubtitle(origin, converter) {
+    if (!this.currentProject) {
+      throw new Error('No project loaded');
+    }
+
+    if (!origin || !converter) {
+      throw new Error('Origin and converter are required');
+    }
+
+    if (!this.supportedConverters.includes(converter)) {
+      throw new Error(`Unsupported converter: ${converter}`);
+    }
+
+    try {
+      const result = await ZHConvertSubtitle(this.currentProject.id, origin, converter);
+
+      if (!result.success) {
+        throw new Error(result.msg || 'Conversion failed');
+      }
+
+      // 触发转换开始事件
+      this.handleConversionStart(origin, converter);
+
+      return result;
+    } catch (error) {
+      console.error('Conversion error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 处理转换开始
+   * @param {string} origin - 源语言
+   * @param {string} converter - 转换器
+   */
+  handleConversionStart(origin, converter) {
+    const event = {
+      type: 'conversion_started',
+      origin,
+      converter,
+      timestamp: Date.now()
+    };
+
+    this.conversionCallbacks.forEach(callback => {
+      try {
+        callback(event);
+      } catch (error) {
+        console.error('Conversion callback error:', error);
+      }
+    });
+  }
+
+  /**
+   * 订阅转换事件
+   * @param {Function} callback - 回调函数
+   * @returns {Function} 取消订阅函数
+   */
+  onConversionEvent(callback) {
+    this.conversionCallbacks.add(callback);
+    return () => this.conversionCallbacks.delete(callback);
+  }
+
   // ==================== 其他功能方法 ====================
 
   /**
@@ -379,20 +509,75 @@ export class SubtitleService {
     }
   }
 
+  // ==================== WebSocket 事件处理 ====================
+
+  /**
+   * 初始化 WebSocket 监听器
+   */
+  initializeWebSocketListeners() {
+    this.dtStore = useDtStore()
+
+    // 注册字幕进度回调
+    this.dtStore.registerSubtitleProgressCallback(this.handleSubtitleProgress.bind(this))
+  }
+
+  /**
+   * 处理字幕进度更新
+   * @param {Object} data - 进度数据
+   */
+  // 在现有的 handleSubtitleProgress 方法中
+  handleSubtitleProgress(data) {
+    // 检查是否为终态
+    const terminalStatuses = ['completed', 'failed', 'cancelled']
+    const isTerminalStatus = terminalStatuses.includes(data.status)
+
+    // 触发转换进度事件
+    const event = {
+      type: 'conversion_progress',
+      data,
+      isTerminal: isTerminalStatus,
+      timestamp: Date.now()
+    }
+
+    if (isTerminalStatus) {
+      $message.info(i18nGlobal.t('subtitle.add_language.conversion_finished', { status: data.status }))
+    }
+
+    this.conversionCallbacks.forEach(callback => {
+      try {
+        callback(event)
+      } catch (error) {
+        console.error('Progress callback error:', error)
+      }
+    })
+  }
+
   // ==================== 生命周期方法 ====================
 
   /**
-   * 销毁服务
-   */
+ * 销毁服务
+ */
   destroy() {
     if (this.autoSaveManager) {
       this.autoSaveManager.destroy();
       this.autoSaveManager = null;
     }
+
+    // 清理 WebSocket 监听器
+    if (this.dtStore) {
+      this.dtStore.unregisterSubtitleProgressCallback(this.handleSubtitleProgress.bind(this))
+      this.dtStore = null
+    }
+
+    // 清理回调
     this.statusCallbacks.clear();
     this.projectUpdateCallbacks.clear();
+    this.conversionCallbacks.clear();
+
+    // 重置状态
     this.currentProject = null;
     this.saveStatus = 'idle';
+    this.supportedConverters = [];
   }
 
   /**

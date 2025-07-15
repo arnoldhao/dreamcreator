@@ -31,6 +31,10 @@ const openX = () => {
     BrowserOpenURL(Project.Twitter)
 }
 
+const openZHConvert = () => {
+    BrowserOpenURL(Project.ZHConvert)
+}
+
 const onCheckUpdateChange = () => {
     prefStore.general.checkUpdate = !prefStore.general.checkUpdate
     prefStore.savePreferences()
@@ -117,6 +121,25 @@ const onCheckUpdateChange = () => {
                         <h2 class="text-base-content">{{ $t('dialogue.about.x') }}</h2>
                     </div>
                     <button @click="openX" class="btn btn-sm border-1 border-base-300 font-normal text-base-content">{{
+                        $t('dialogue.about.website') }}</button>
+                </div>
+            </ul>
+
+            <!-- Acknowledgments Menu -->
+            <ul class="menu p-2 rounded-lg border-2 border-base-300 bg-base-100">
+                <div class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-semibold text-base-content">{{ $t('dialogue.about.acknowledgments') }}</h2>
+                    </div>
+                </div>
+                <li class="divider-thin"></li>
+                <div class="flex items-center justify-between p-2 pl-4 rounded-lg bg-base-100">
+                    <div class="flex items-center gap-2">
+                       <v-icon name="ri-global-line" class="h-4 w-4 text-base-content" />
+                        <h2 class="text-base-content">{{ $t('dialogue.about.zhconvert') }}</h2>
+                        <p class="text-sm text-base-content">{{ $t('dialogue.about.zhconvert_desc') }}</p>
+                    </div>
+                    <button @click="openZHConvert" class="btn btn-sm border-1 border-base-300 font-normal text-base-content">{{
                         $t('dialogue.about.website') }}</button>
                 </div>
             </ul>

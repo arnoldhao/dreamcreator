@@ -51,7 +51,7 @@ func (c *Config) Validate() error {
 // DefaultConfig 返回默认配置
 func DefaultConfig() *Config {
 	return &Config{
-		Type:    "system",
+		Type:    "none",
 		Timeout: 30 * time.Minute, // 默认30分钟
 	}
 }
@@ -135,8 +135,6 @@ func (c *client) proxyFunc() func(*http.Request) (*url.URL, error) {
 		default:
 			return http.ProxyFromEnvironment(req)
 		}
-
-		return nil, nil
 	}
 }
 
@@ -208,15 +206,13 @@ func (c *client) getConfig() *Config {
 // httpClient 返回HTTP客户端
 func (c *client) httpClient() *http.Client {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.hc
 	configType := c.config.Type
 	hc := c.hc
-	c.mu.RUnlock()
+	c.mu.RUnlock() // 先释放读锁
 
 	// 只有系统代理模式才需要重置
 	if configType == "system" {
-		c.mu.Lock()
+		c.mu.Lock() // 现在安全地获取写锁
 		c.resetHTTPClient()
 		hc = c.hc
 		c.mu.Unlock()

@@ -51,6 +51,18 @@
             <span class="text-xs text-base-content/70">{{ getAutoSaveStatusText() }}</span>
           </div>
 
+          <!-- 刷新按钮 -->
+          <button v-if="currentProject" @click="$emit('refresh-projects')" :disabled="subtitleStore.isLoading" class="btn-macos"
+            :class="{ 'opacity-50 cursor-not-allowed': subtitleStore.isLoading }">
+            <svg class="w-4 h-4 mr-2" :class="{ 'animate-spin': subtitleStore.isLoading }" fill="none"
+              stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+              </path>
+            </svg>
+            {{ subtitleStore.isLoading ? $t('common.refreshing') : $t('common.refresh') }}
+          </button>
+
           <button @click="$emit('open-file')" class="btn-macos">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -73,6 +85,7 @@
 </template>
 
 <script>
+import { useSubtitleStore } from '@/stores/subtitle'
 import { subtitleService } from '@/services/subtitleService.js'
 import { useI18n } from 'vue-i18n'
 
@@ -88,10 +101,11 @@ export default {
       default: null
     }
   },
-  emits: ['open-file', 'show-history', 'update:projectData'],
+  emits: ['refresh-projects', 'open-file', 'show-history', 'update:projectData'],
   setup() {
     const { t } = useI18n()
-    return { t }
+    const subtitleStore = useSubtitleStore()
+    return { t, subtitleStore }
   },
   data() {
     return {
@@ -183,5 +197,4 @@ export default {
 }
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>
