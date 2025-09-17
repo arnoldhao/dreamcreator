@@ -28,6 +28,9 @@ export class SubtitleService {
     this.supportedConverters = [];
     this.conversionCallbacks = new Set();
     this.dtStore = null;
+    // 记录 WebSocket 回调绑定与订阅状态，避免重复注册造成多次提示
+    this._subtitleProgressHandler = null;
+    this._wsSubscribed = false;
   }
 
   /**
@@ -431,14 +434,38 @@ export class SubtitleService {
    * @param {string} format - 导出格式
    * @returns {Promise<Object>} 导出结果
    */
-  async exportSubtitles(projectId, languageCode, format) {
+  async exportSubtitles(projectId, languageCode, format, formatConfig) {
     if (!projectId || !languageCode || !format) {
       throw new Error('Project ID, language code and format are required');
     }
 
     try {
+      // If caller provided a format-specific config, persist it first
+      if (formatConfig && this.currentProject && this.currentProject.metadata) {
+        const metadata = JSON.parse(JSON.stringify(this.currentProject.metadata));
+        metadata.export_configs = metadata.export_configs || {};
+        const prev = metadata.export_configs[format] || {};
+        metadata.export_configs[format] = { ...prev, ...formatConfig };
+        const saveRes = await UpdateProjectMetadata(projectId, metadata);
+        if (!saveRes?.success) {
+          throw new Error(saveRes?.msg || 'Failed to save export config');
+        }
+        // keep local state in sync if backend returned updated project
+        try {
+          if (saveRes.data) {
+            const updatedProject = JSON.parse(saveRes.data);
+            this.handleProjectUpdate(updatedProject);
+          }
+        } catch {}
+      }
+
       // 调用后端导出API
       const result = await ExportSubtitleToFile(projectId, languageCode, format);
+      const cancelled = !!result?.data && result.data.cancelled === true;
+
+      if (cancelled) {
+        return { success: false, cancelled: true };
+      }
 
       if (!result.success) {
         throw new Error(result.msg);
@@ -446,6 +473,7 @@ export class SubtitleService {
 
       return {
         success: true,
+        cancelled: false,
         filePath: result.data?.filePath,
         fileName: result.data?.fileName
       };
@@ -515,10 +543,15 @@ export class SubtitleService {
    * 初始化 WebSocket 监听器
    */
   initializeWebSocketListeners() {
-    this.dtStore = useDtStore()
+    // 若已订阅则直接返回，避免重复注册
+    if (this._wsSubscribed && this._subtitleProgressHandler) return
 
+    this.dtStore = useDtStore()
+    // 固定绑定引用，便于后续正确注销
+    this._subtitleProgressHandler = this.handleSubtitleProgress.bind(this)
     // 注册字幕进度回调
-    this.dtStore.registerSubtitleProgressCallback(this.handleSubtitleProgress.bind(this))
+    this.dtStore.registerSubtitleProgressCallback(this._subtitleProgressHandler)
+    this._wsSubscribed = true
   }
 
   /**
@@ -564,10 +597,12 @@ export class SubtitleService {
     }
 
     // 清理 WebSocket 监听器
-    if (this.dtStore) {
-      this.dtStore.unregisterSubtitleProgressCallback(this.handleSubtitleProgress.bind(this))
-      this.dtStore = null
+    if (this.dtStore && this._subtitleProgressHandler && this._wsSubscribed) {
+      try { this.dtStore.unregisterSubtitleProgressCallback(this._subtitleProgressHandler) } catch {}
     }
+    this._subtitleProgressHandler = null
+    this._wsSubscribed = false
+    this.dtStore = null
 
     // 清理回调
     this.statusCallbacks.clear();

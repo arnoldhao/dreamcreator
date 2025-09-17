@@ -1,10 +1,10 @@
 package browercookies
 
 import (
+	"CanMe/backend/consts"
 	"CanMe/backend/pkg/logger"
 	"CanMe/backend/storage"
 	"CanMe/backend/types"
-	"CanMe/backend/consts"
 	"context"
 	"errors"
 	"fmt"
@@ -19,9 +19,10 @@ import (
 	"CanMe/backend/pkg/dependencies"
 
 	"github.com/lrstanley/go-ytdlp"
-	"github.com/reveever/gocookie"
 	"go.uber.org/zap"
 	"golang.org/x/net/publicsuffix"
+
+	"CanMe/backend/utils"
 )
 
 type cookieManager struct {
@@ -41,11 +42,18 @@ func (c *cookieManager) Sync(ctx context.Context, syncFrom string, browsers []st
 		return errors.New("storage is not initialized")
 	}
 
+	logger.Debug("cookies.Sync start",
+		zap.String("from", syncFrom),
+		zap.Strings("browsers", browsers),
+		zap.String("os", runtime.GOOS),
+	)
+
 	browserCookiesMap := make(map[string]*types.BrowserCookies)
 	if syncFrom == "canme" {
-		browserCookiesMap = c.readAllBrowserCookiesByGoCookie(ctx, browsers)
-
+		// deprecated
+		return fmt.Errorf("canme cookies sync is not supported; please use yt-dlp")
 	} else if syncFrom == "yt-dlp" {
+		// do not block elevated; return direct error from yt-dlp
 		browserCookiesMap = c.readAllBrowserCookiesByYTDLP(ctx, browsers)
 	} else {
 		return fmt.Errorf("unsupported syncFrom: %s", syncFrom)
@@ -55,16 +63,33 @@ func (c *cookieManager) Sync(ctx context.Context, syncFrom string, browsers []st
 		return fmt.Errorf("no browser cookies found")
 	}
 
+	// 统计成功/失败，用于整体结果判断
+	anySuccess := false
+	var firstErrMsg string
+
 	for browser, cookies := range browserCookiesMap {
 		if browser != "" && cookies != nil {
 			err := c.storage.SaveCookies(browser, cookies)
 			if err != nil {
-				logger.GetLogger().Error("Failed to save cookies for browser %s: %v", zap.String("browser", browser), zap.Error(err))
+				logger.Error("Failed to save cookies for browser", zap.String("browser", browser), zap.Error(err))
+			}
+			if strings.EqualFold(cookies.LastSyncStatus, "success") {
+				anySuccess = true
+			} else if firstErrMsg == "" {
+				firstErrMsg = cookies.StatusDescription
 			}
 		}
 	}
 
-	return nil
+	if anySuccess {
+		logger.Debug("cookies.Sync complete", zap.Bool("success", true))
+		return nil
+	}
+	if firstErrMsg == "" {
+		firstErrMsg = "no cookies found"
+	}
+	logger.Warn("cookies.Sync complete", zap.Bool("success", false), zap.String("error", firstErrMsg))
+	return fmt.Errorf(firstErrMsg)
 }
 
 // ListAllCookies retrieves all cached cookies, grouped by browser.
@@ -73,22 +98,36 @@ func (c *cookieManager) ListAllCookies() (map[string]*types.BrowserCookies, erro
 		return nil, errors.New("storage is not initialized")
 	}
 
-	// available type to get cookies
+	// available type to get cookies: yt-dlp only
 	syncFrom := []string{"yt-dlp"}
 	osType := runtime.GOOS
-	if osType == "darwin" {
-		syncFrom = append(syncFrom, "canme")
-	}
 
 	var currentBrowsers []*types.BrowserCookies
 	allBrowsers := []consts.BrowserType{consts.Chrome, consts.Chromium, consts.Firefox, consts.Edge, consts.Safari}
 	for _, browser := range allBrowsers {
-		cookiePath := GetCookieFilePath(browser)
-		if _, err := os.Stat(cookiePath); err == nil {
-			// supportedBrowsers = append(supportedBrowsers, string(browser))
+		homeDir, _ := os.UserHomeDir()
+		// 扫描多 Profile 的候选路径，取第一个存在的作为展示路径
+		var firstPath string
+		var paths []string
+		if osType == "windows" {
+			paths = listCandidateCookiePaths(browser, homeDir)
+		} else if osType == "darwin" { // 暂不预支持 Linux
+			paths = listCandidateCookiePaths(browser, homeDir)
+		}
+		if len(paths) > 0 {
+			firstPath = paths[0]
+		} else {
+			// 回退单一路径（兼容旧逻辑）
+			p := GetCookieFilePath(browser)
+			if _, err := os.Stat(p); err == nil {
+				firstPath = p
+			}
+		}
+
+		if firstPath != "" {
 			currentBrowsers = append(currentBrowsers, &types.BrowserCookies{
 				Browser:           string(browser),
-				Path:              cookiePath,
+				Path:              firstPath,
 				Status:            "never",
 				StatusDescription: "never sync cookies",
 				SyncFrom:          syncFrom,
@@ -98,7 +137,18 @@ func (c *cookieManager) ListAllCookies() (map[string]*types.BrowserCookies, erro
 				DomainCookies:     nil,
 			})
 		} else {
-			logger.GetLogger().Info("Failed to stat cookie file for browser", zap.String("browser", string(browser)), zap.Any("path", cookiePath), zap.Error(err))
+			logger.Info("No cookie store detected for browser", zap.String("browser", string(browser)))
+		}
+	}
+
+	// Windows 高权限运行提示：添加描述，便于前端展示指引
+	if osType == "windows" {
+		if utils.WindowsIsElevated() {
+			for _, bc := range currentBrowsers {
+				if bc != nil {
+					bc.StatusDescription = "Running as Administrator may block cookie decryption. Please run as a normal user."
+				}
+			}
 		}
 	}
 
@@ -197,89 +247,56 @@ func (c *cookieManager) GetNetscapeCookiesByDomain(browser, domain string) (stri
 }
 
 // readAllBrowserCookies reads all cookies from all supported browsers and groups them by browser name.
-func (c *cookieManager) readAllBrowserCookiesByGoCookie(ctx context.Context, browsers []string) map[string]*types.BrowserCookies {
-	browserCookiesMap := make(map[string]*types.BrowserCookies)
+// canme sync removed
 
-	// available type to get cookies
-	syncFrom := []string{"yt-dlp"}
-	osType := runtime.GOOS
-	if osType == "darwin" {
-		syncFrom = append(syncFrom, "canme")
-	}
-
-	for _, browser := range browsers {
-		eachBrowserCookies := types.BrowserCookies{
-			Browser:           browser,
-			Path:              gocookie.GetCookieFilePath(gocookie.BrowserType(browser)),
-			Status:            "syncing",
-			StatusDescription: "syncing cookies",
-			SyncFrom:          syncFrom,
-			LastSyncFrom:      "canme",
-			LastSyncTime:      time.Time{},
-			LastSyncStatus:    "syncing",
-			DomainCookies:     make(map[string]*types.DomainCookies),
-		}
-
-		gocookies, err := gocookie.GetCookies(gocookie.BrowserType(browser))
-		if err != nil {
-			logger.GetLogger().Error("Failed to extract cookies using gocookie: ", zap.Any("browser", string(browser)), zap.Error(err))
-			continue
-		} else if len(gocookies) > 0 {
-			// 重新针对domain进行分组
-			for _, cookie := range gocookies {
-				if eachBrowserCookies.DomainCookies[cookie.Domain] == nil {
-					eachBrowserCookies.DomainCookies[cookie.Domain] = &types.DomainCookies{
-						Domain:  cookie.Domain,
-						Cookies: []*http.Cookie{},
-					}
-				}
-
-				// fill info
-				eachBrowserCookies.Status = "synced"
-				eachBrowserCookies.StatusDescription = "cookies synced"
-				eachBrowserCookies.LastSyncTime = time.Now()
-				eachBrowserCookies.LastSyncStatus = "success"
-
-				eachBrowserCookies.DomainCookies[cookie.Domain].Cookies = append(eachBrowserCookies.DomainCookies[cookie.Domain].Cookies, cookie)
-			}
-		} else {
-			// 没有发现cookies,填充信息
-			eachBrowserCookies.Status = "error"
-			eachBrowserCookies.StatusDescription = "no cookies found"
-			eachBrowserCookies.LastSyncTime = time.Now()
-			eachBrowserCookies.LastSyncStatus = "failed"
-		}
-
-		browserCookiesMap[string(browser)] = &eachBrowserCookies
-	}
-
-	return browserCookiesMap
-}
-
+// canme sync removed
 func (c *cookieManager) readAllBrowserCookiesByYTDLP(ctx context.Context, browsers []string) map[string]*types.BrowserCookies {
 	browserCookiesMap := make(map[string]*types.BrowserCookies)
 
-	// available type to get cookies
+	// available type to get cookies: yt-dlp only
 	syncFrom := []string{"yt-dlp"}
 	osType := runtime.GOOS
-	if osType == "darwin" {
-		syncFrom = append(syncFrom, "canme")
-	}
 
 	// 遍历使用yt-dlp导出cookies为 export_[browser]_cookies.txt
 	dl := ytdlp.New()
-	ytdlpPath, err := c.YTDLPExecPath(ctx)
+	ytdlpExec, err := c.YTDLPExecPath(ctx)
 	if err != nil {
-		logger.GetLogger().Error("Failed to get ytdlp path: ", zap.Error(err))
+		logger.Error("Failed to get ytdlp path", zap.Error(err))
 		return browserCookiesMap
 	}
-	dl.SetExecutable(ytdlpPath)
+	dl.SetExecutable(ytdlpExec)
+	logger.Debug("ytdlp export: using executable", zap.String("exec", ytdlpExec))
 
-	cookiesPaths := make(map[string]string)
+	type agg struct {
+		paths []string
+	}
+	cookiesPaths := make(map[string]*agg) // 浏览器 => 导出文件路径列表
+	// 聚合每个浏览器的首要错误信息（来自 yt-dlp 的 stderr）
+	errMsgByBrowser := make(map[string]string)
+
 	for _, browser := range browsers {
+		// 每个浏览器独立收集错误摘要
+		var lastErrMsg string
+		// Representative path for UI
+		btype := consts.BrowserType(browser)
+		homeDir, _ := os.UserHomeDir()
+		var pathHint string
+		var cands []string
+		if paths := listCandidateCookiePaths(btype, homeDir); len(paths) > 0 {
+			cands = paths
+			pathHint = paths[0]
+		} else {
+			pathHint = GetCookieFilePath(btype)
+		}
+		// Avoid printing scanned paths; only log counts/summary
+		logger.Debug("ytdlp export: detected cookie locations",
+			zap.String("browser", string(btype)),
+			zap.Int("candidates", len(cands)),
+		)
+
 		eachBrowserCookies := types.BrowserCookies{
 			Browser:           browser,
-			Path:              gocookie.GetCookieFilePath(gocookie.BrowserType(browser)),
+			Path:              pathHint,
 			Status:            "syncing",
 			StatusDescription: "syncing cookies",
 			SyncFrom:          syncFrom,
@@ -289,7 +306,7 @@ func (c *cookieManager) readAllBrowserCookiesByYTDLP(ctx context.Context, browse
 			DomainCookies:     make(map[string]*types.DomainCookies),
 		}
 
-		ytdlpPath, err := c.YTDLPPath(ctx)
+		ytdlpDir, err := c.YTDLPPath(ctx)
 		if err != nil {
 			eachBrowserCookies.Status = "error"
 			eachBrowserCookies.StatusDescription = err.Error()
@@ -300,69 +317,256 @@ func (c *cookieManager) readAllBrowserCookiesByYTDLP(ctx context.Context, browse
 			browserCookiesMap[string(browser)] = &eachBrowserCookies
 			continue
 		}
+		// 针对 Windows/macOS，尝试多 Profile（Default, Profile *）
+		// 注：若已发现明确的 Profile，则不再追加空 Profile，避免重复导出导致多次系统弹窗（macOS 钥匙串）
+		// Safari（macOS）只有单一存储，yt-dlp 不接受 safari:<profile> 形式，这里强制仅用空 Profile
+		var profiles []string
+		homeDir, _ = os.UserHomeDir()
+		var candPaths []string
+		if osType == "darwin" && strings.EqualFold(browser, string(consts.Safari)) {
+			profiles = []string{""}
+		} else if osType == "windows" || osType == "darwin" {
+			// 扫描候选 cookie 文件以推断可用的 profile 名称
+			// 我们根据路径推断出 Profile 名称（Default/Profile X）
+			candPaths = listCandidateCookiePaths(consts.BrowserType(browser), homeDir)
+			var profSet = map[string]bool{}
+			for _, p := range candPaths {
+				var prof string
+				if osType == "windows" {
+					prof = deriveChromiumProfile(p)
+				} else {
+					// macOS: .../Chrome/<Profile>/(Network/)?Cookies
+					// 取上两级目录作为 Profile 名称
+					dir := filepath.Dir(p) // .../<Profile>/(Network)
+					// 若包含 Network，再上一级
+					base := filepath.Base(dir)
+					if base == "Network" {
+						prof = filepath.Base(filepath.Dir(dir))
+					} else {
+						prof = base
+					}
+				}
+				prof = strings.TrimSpace(prof)
+				if prof != "" && !profSet[prof] {
+					profSet[prof] = true
+				}
+			}
+			// 将 profSet 写回 profiles，若未发现任何 profile，则回退到空 Profile
+			for k := range profSet {
+				profiles = append(profiles, k)
+			}
+			if len(profiles) == 0 {
+				profiles = []string{""}
+			}
+		} else {
+			// 其他系统按旧逻辑：使用空 Profile 以兼容默认配置
+			profiles = []string{""}
+		}
+		// Do not print profile names derived from disk scan; just count
+		logger.Debug("ytdlp export: profiles",
+			zap.String("browser", browser),
+			zap.Int("profileCount", len(profiles)),
+		)
 
-		cookiePath := filepath.Join(ytdlpPath, fmt.Sprintf("export_%s_cookies.txt", browser))
-		dl.CookiesFromBrowser(browser)
-		dl.Cookies(cookiePath)
+		// 遍历 profile 进行导出。成功的合并到同一个 BrowserCookies
+		// map CanMe browser name -> yt-dlp expected name (lowercase)
+		toYtDlp := func(name string) string {
+			n := strings.ToLower(strings.TrimSpace(name))
+			switch n {
+			case "chrome":
+				return "chrome"
+			case "chromium":
+				return "chromium"
+			case "edge":
+				return "edge"
+			case "firefox":
+				return "firefox"
+			case "safari":
+				return "safari"
+			default:
+				return n
+			}
+		}
 
-		_, err = dl.Run(ctx)
-		// 因为yt-dlp的命令一定会报错，这里只检查有没有生成文件，如果有生成则通过，没有生成则填充yt-dlp的错误信息
-		if _, osErr := os.Stat(cookiePath); osErr != nil {
-			eachBrowserCookies.Status = "error"
-			eachBrowserCookies.StatusDescription = err.Error()
-			eachBrowserCookies.LastSyncTime = time.Now()
-			eachBrowserCookies.LastSyncStatus = "failed"
+		for _, prof := range profiles {
+			dlEach := ytdlp.New().Verbose()
+			dlEach.SetExecutable(ytdlpExec)
+			base := toYtDlp(browser)
+			browserSpec := base
+			if prof != "" {
+				browserSpec = fmt.Sprintf("%s:%s", base, prof)
+			}
+			cookiePath := filepath.Join(ytdlpDir, fmt.Sprintf("export_%s_%s_cookies.txt", base, strings.ReplaceAll(prof, " ", "_")))
+			dlEach.CookiesFromBrowser(browserSpec)
+			dlEach.Cookies(cookiePath)
+			// Windows: 显式传递关键环境变量，确保 yt-dlp 在相同用户上下文读取浏览器配置
+			if runtime.GOOS == "windows" {
+				for _, key := range []string{"LOCALAPPDATA", "APPDATA", "USERPROFILE", "HOMEDRIVE", "HOMEPATH"} {
+					if val := os.Getenv(key); val != "" {
+						dlEach.SetEnvVar(key, val)
+					}
+				}
+			}
+			logger.Debug("ytdlp export: running",
+				zap.String("browserSpec", browserSpec),
+				zap.String("out", cookiePath),
+			)
+			result, rerr := dlEach.Run(ctx)
+			if rerr != nil {
+				logger.Warn("ytdlp export: run error",
+					zap.String("browserSpec", browserSpec),
+					zap.String("out", cookiePath),
+					zap.Error(rerr),
+				)
+				if result != nil && result.Stderr != "" {
+					msg := result.Stderr
+					if len(msg) > 800 {
+						msg = msg[:800] + "..."
+					}
+					logger.Debug("ytdlp export: stderr", zap.String("stderr", msg))
+					// 提取形如 "ERROR: ..." 的首行作为用户可见错误
+					line := strings.SplitN(result.Stderr, "\n", 2)[0]
+					if idx := strings.Index(line, "ERROR:"); idx >= 0 {
+						short := strings.TrimSpace(line[idx:]) // 从 ERROR: 开始
+						// 去掉路径部分（例如 ": '/Users/...'")
+						cut := strings.Index(short, ": '")
+						if cut == -1 {
+							cut = strings.Index(short, ": /")
+						}
+						if cut > 0 {
+							short = strings.TrimSpace(strings.TrimSuffix(short[:cut], ":"))
+						}
+						if short != "" {
+							lastErrMsg = short
+						}
+					}
+				}
+				if lastErrMsg == "" {
+					// 退化：从 error 串提要
+					em := rerr.Error()
+					if i := strings.Index(em, "ERROR:"); i >= 0 {
+						short := strings.TrimSpace(em[i:])
+						if j := strings.Index(short, "\n"); j > 0 {
+							short = short[:j]
+						}
+						if k := strings.Index(short, ": '"); k > 0 {
+							short = strings.TrimSpace(strings.TrimSuffix(short[:k], ":"))
+						}
+						lastErrMsg = short
+					} else {
+						lastErrMsg = em
+					}
+				}
+				// 针对 macOS Safari 权限受限的友好提示
+				lowerErr := strings.ToLower(rerr.Error())
+				var lowerStderr string
+				if result != nil {
+					lowerStderr = strings.ToLower(result.Stderr)
+				}
+				if runtime.GOOS == "darwin" && strings.EqualFold(base, "safari") && (strings.Contains(lowerErr, "operation not permitted") || strings.Contains(lowerStderr, "operation not permitted")) {
+					// 不中断提取的错误文案，但保留提示供日志排查
+					if lastErrMsg == "" {
+						lastErrMsg = "ERROR: Operation not permitted"
+					}
+				}
+			} else if result != nil {
+				logger.Debug("ytdlp export: done",
+					zap.Int("exit", result.ExitCode),
+				)
+			}
+			if _, osErr := os.Stat(cookiePath); osErr != nil {
+				// 该 profile 失败，尝试下一个
+				logger.Warn("ytdlp export: output not found",
+					zap.String("browserSpec", browserSpec),
+					zap.String("out", cookiePath),
+					zap.Error(osErr),
+				)
+				continue
+			}
+			if cookiesPaths[browser] == nil {
+				cookiesPaths[browser] = &agg{}
+			}
+			cookiesPaths[browser].paths = append(cookiesPaths[browser].paths, cookiePath)
+		}
 
-			// save and continue
-			browserCookiesMap[string(browser)] = &eachBrowserCookies
-			continue
+		// 记录错误摘要（若有）以便在后续合并阶段展示
+		if strings.TrimSpace(lastErrMsg) != "" {
+			errMsgByBrowser[browser] = lastErrMsg
 		}
 
 		browserCookiesMap[string(browser)] = &eachBrowserCookies
-		cookiesPaths[browser] = cookiePath
 	}
 
-	if len(browserCookiesMap) == 0 {
-		// 删除对应的export_[browser]_cookies.txt文件
-		for _, cookiePath := range cookiesPaths {
-			err := os.Remove(cookiePath)
+	// 使用c.convertFromNetscape()转换为http.Cookie（合并多 profile 的导出）
+	for browser, item := range cookiesPaths {
+		var merged = make(map[string]*types.DomainCookies)
+		var ok bool
+		for _, cookiePath := range item.paths {
+			// Skip logging concrete cookie path to avoid printing scanned filenames
+			domainCookies, err := c.convertFromNetscape(cookiePath)
 			if err != nil {
-				logger.GetLogger().Error("Failed to remove export cookies file: ", zap.Error(err))
+				logger.Warn("ytdlp export: convert failed", zap.String("path", cookiePath), zap.Error(err))
+				continue
+			}
+			if domainCookies != nil {
+				ok = true
+				for d, dc := range domainCookies {
+					if merged[d] == nil {
+						merged[d] = &types.DomainCookies{Domain: d, Cookies: []*http.Cookie{}}
+					}
+					merged[d].Cookies = append(merged[d].Cookies, dc.Cookies...)
+				}
 			}
 		}
-		return browserCookiesMap
-	}
-
-	// 使用c.convertFromNetscape()转换为http.Cookie
-	for browser, cookiePath := range cookiesPaths {
-		domainCookies, err := c.convertFromNetscape(cookiePath)
-		if err != nil {
-			browserCookiesMap[browser].Status = "error"
-			browserCookiesMap[browser].StatusDescription = err.Error()
-			browserCookiesMap[browser].LastSyncTime = time.Now()
-			browserCookiesMap[browser].LastSyncStatus = "failed"
-			continue
-		}
-
-		if domainCookies != nil {
+		if ok {
+			logger.Debug("ytdlp export: merged domains",
+				zap.String("browser", browser),
+				zap.Int("domains", len(merged)),
+			)
 			browserCookiesMap[browser].Status = "synced"
 			browserCookiesMap[browser].StatusDescription = "cookies synced"
 			browserCookiesMap[browser].LastSyncTime = time.Now()
 			browserCookiesMap[browser].LastSyncStatus = "success"
-			browserCookiesMap[browser].DomainCookies = domainCookies
+			browserCookiesMap[browser].DomainCookies = merged
 		} else {
+			logger.Warn("ytdlp export: no cookies found after export",
+				zap.String("browser", browser),
+				zap.Int("attempts", len(item.paths)),
+			)
 			browserCookiesMap[browser].Status = "error"
-			browserCookiesMap[browser].StatusDescription = "no cookies found"
+			// 优先显示 yt-dlp 的 ERROR 首行，作为用户可见的失败原因
+			if msg := strings.TrimSpace(errMsgByBrowser[browser]); msg != "" {
+				browserCookiesMap[browser].StatusDescription = msg
+			} else {
+				browserCookiesMap[browser].StatusDescription = "no cookies found"
+			}
 			browserCookiesMap[browser].LastSyncTime = time.Now()
 			browserCookiesMap[browser].LastSyncStatus = "failed"
 		}
 	}
 
+	// 对于未出现在 cookiesPaths 的浏览器，标记为失败，避免状态停留在 "syncing"
+	for b, bc := range browserCookiesMap {
+		if _, ok := cookiesPaths[b]; !ok {
+			if bc != nil && strings.EqualFold(bc.LastSyncStatus, "syncing") {
+				bc.Status = "error"
+				if msg := strings.TrimSpace(errMsgByBrowser[b]); msg != "" {
+					bc.StatusDescription = msg
+				} else {
+					bc.StatusDescription = "no cookies found"
+				}
+				bc.LastSyncStatus = "failed"
+				bc.LastSyncTime = time.Now()
+			}
+		}
+	}
+
 	// 删除对应的export_[browser]_cookies.txt文件
-	for _, cookiePath := range cookiesPaths {
-		err := os.Remove(cookiePath)
-		if err != nil {
-			logger.GetLogger().Error("Failed to remove export cookies file: ", zap.Error(err))
+	for _, item := range cookiesPaths {
+		for _, cookiePath := range item.paths {
+			if err := os.Remove(cookiePath); err != nil {
+				logger.Error("Failed to remove export cookies file", zap.String("path", cookiePath), zap.Error(err))
+			}
 		}
 	}
 
@@ -489,8 +693,10 @@ func (c *cookieManager) generateDomainLookups(hostname string) []string {
 	if err == nil && registrableDomain != "" {
 		lookups = append(lookups, "."+registrableDomain)
 	} else {
-		logger.GetLogger().Info("Failed to get registrable domain: ", zap.String("hostname", hostname), zap.Error(err))
+		logger.Debug("Failed to get registrable domain", zap.String("hostname", hostname), zap.Error(err))
 	}
 
 	return lookups
 }
+
+// kooky removed

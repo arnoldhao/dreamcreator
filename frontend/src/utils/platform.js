@@ -5,6 +5,7 @@ let os = ''
 export async function loadEnvironment() {
     const env = await Environment()
     os = env.platform
+    try { document.documentElement.setAttribute('data-platform', os || '') } catch {}
 }
 
 export function isMacOS() {

@@ -45,12 +45,12 @@ func main() {
 
 	// log
 	defer logger.GetLogger().Sync()
-	logger.GetLogger().Info("CanMe Start!", zap.Time("now", time.Now()))
+	logger.Info("CanMe Start!", zap.Time("now", time.Now()))
 
 	// bolt storage
 	boltStorage, err := storage.NewBoltStorage()
 	if err != nil {
-		logger.GetLogger().Error("Error creating bolt storage", zap.Error(err))
+		logger.Error("Error creating bolt storage", zap.Error(err))
 	}
 
 	// Packages
@@ -76,7 +76,7 @@ func main() {
 
 	// API
 	// # Downtasks API
-	dtAPI := api.NewDowntasksAPI(dtService, eventBus, websocketService)
+	dtAPI := api.NewDowntasksAPI(dtService, subtitlesService, eventBus, websocketService)
 	// # Paths API
 	pathsAPI := api.NewPathsAPI(preferencesService, dtService)
 	// # Utils API
@@ -161,7 +161,7 @@ func main() {
 			cookiesAPI.WailsInit(ctx)
 			// MCP
 			if err := mcpServer.Start(ctx); err != nil {
-				logger.GetLogger().Error("Error starting MCP server", zap.Error(err))
+				logger.Error("Error starting MCP server", zap.Error(err))
 			}
 		},
 		OnDomReady: func(ctx context.Context) {
@@ -172,7 +172,13 @@ func main() {
 		OnShutdown: func(ctx context.Context) {
 			// 关闭下载任务服务
 			if err := dtService.Close(); err != nil {
-				logger.GetLogger().Error("Error closing downtasks service", zap.Error(err))
+				logger.Error("Error closing downtasks service", zap.Error(err))
+			}
+			// 关闭 Bolt 数据库，释放文件锁，便于开发环境重载
+			if boltStorage != nil {
+				if err := boltStorage.Close(); err != nil {
+					logger.Warn("Error closing bolt storage", zap.Error(err))
+				}
 			}
 		},
 		OnBeforeClose: func(ctx context.Context) (prevent bool) {
@@ -181,8 +187,8 @@ func main() {
 			return false
 		},
 		Windows: &windows.Options{
-			WebviewIsTransparent:              false,
-			WindowIsTranslucent:               false,
+			WebviewIsTransparent:              true,
+			WindowIsTranslucent:               true,
 			DisableWindowIcon:                 false,
 			DisableFramelessWindowDecorations: false,
 			WebviewUserDataPath:               "",
@@ -195,9 +201,10 @@ func main() {
 				Message: consts.APP_DESC,
 				Icon:    icon,
 			},
-			Appearance:           mac.DefaultAppearance,
-			WebviewIsTransparent: false,
-			WindowIsTranslucent:  false,
+			Appearance: mac.DefaultAppearance,
+			// Enable transparent webview + translucent window to support native vibrancy
+			WebviewIsTransparent: true,
+			WindowIsTranslucent:  true,
 		},
 		Linux: &linux.Options{
 			ProgramName:         consts.APP_NAME,
@@ -207,7 +214,7 @@ func main() {
 		},
 	})
 
-	if err != nil {
-		println("Error:", err.Error())
-	}
+    if err != nil {
+        logger.Error("App run error", zap.Error(err))
+    }
 }

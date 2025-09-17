@@ -16,7 +16,7 @@ var (
 	globalAtomicLevel zap.AtomicLevel = zap.NewAtomicLevelAt(zap.InfoLevel) // 默认Info级别
 	currentConfig     *Config                                               // 保存当前配置用于比较
 	configMutex       sync.RWMutex
-	initOnce          sync.Once // 保护currentConfig和globalLogger的更新
+	initOnce          sync.Once // 懒初始化默认配置
 )
 
 // InitLogger 初始化或重新初始化日志记录器
@@ -48,7 +48,9 @@ func InitLogger(cfg *Config) error {
 	if !needsCoreRebuild {
 		// 如果核心不需要重建（例如，只有Level字段在Config中变化，但Level已通过AtomicLevel更新）
 		// 我们仍然需要更新currentConfig以反映传入的cfg
-		currentConfig = cfg
+		// 保存副本，避免外部指针被修改造成别名问题
+		cfgCopy := *cfg
+		currentConfig = &cfgCopy
 		if globalLogger != nil {
 			// 使用已存在的logger（其级别已通过AtomicLevel更新）记录级别变更事件
 			globalLogger.Info("Logger level updated via AtomicLevel", zap.String("newLevel", cfg.Level))
@@ -100,38 +102,62 @@ func InitLogger(cfg *Config) error {
 	}
 
 	var newLogger *zap.Logger
+	var oldLogger *zap.Logger = globalLogger
 	if len(cores) == 0 {
-		// 如果没有配置任何core，可以创建一个无操作的logger或默认输出到控制台的logger
-		// 为确保globalLogger在首次初始化后不为nil，这里可以创建一个Nop logger
-		if globalLogger == nil { // 仅在首次初始化且没有core时
-			core := zapcore.NewNopCore()
-			newLogger = zap.New(core)
-		} else { // 如果不是首次初始化且没有新的core，则保留旧的logger
-			newLogger = globalLogger // 或者也可以选择设置为Nop logger
-		}
+		// 显式使用 Nop logger，确保禁用所有输出时生效
+		core := zapcore.NewNopCore()
+		newLogger = zap.New(core)
 	} else {
 		combinedCore := zapcore.NewTee(cores...)
-		newLogger = zap.New(combinedCore, zap.AddCaller(), zap.ErrorOutput(zapcore.AddSync(os.Stderr))) // 添加ErrorOutput以捕获zap内部错误
+		newLogger = zap.New(
+			combinedCore,
+			zap.AddCaller(),
+			zap.AddCallerSkip(1), // 适配 package 级封装函数，指向实际调用方
+			zap.ErrorOutput(zapcore.AddSync(os.Stderr)),
+		) // 添加ErrorOutput以捕获zap内部错误
 	}
 
 	globalLogger = newLogger
-	currentConfig = cfg // 保存新的配置状态
+	// 保存新的配置状态（值拷贝）
+	cfgCopy := *cfg
+	currentConfig = &cfgCopy // 保存新的配置状态
 
 	// 使用新的（或刚更新级别的）logger记录配置已更新
 	globalLogger.Info("Logger (re)configured", zap.Any("newConfig", cfg))
+	// 尝试刷新旧 logger 输出
+	if oldLogger != nil {
+		_ = oldLogger.Sync()
+	}
 	return nil
 }
 
 // GetLogger 获取全局logger实例
 func GetLogger() *zap.Logger {
+	configMutex.RLock()
+	if globalLogger != nil {
+		defer configMutex.RUnlock()
+		return globalLogger
+	}
+	configMutex.RUnlock()
+
 	initOnce.Do(func() {
+		if globalLogger != nil {
+			return
+		}
 		if err := InitLogger(DefaultConfig()); err != nil {
-			globalLogger = zap.NewExample()
+			configMutex.Lock()
+			defer configMutex.Unlock()
+			if globalLogger == nil {
+				globalLogger = zap.NewExample()
+			}
 		}
 	})
 
 	configMutex.RLock()
 	defer configMutex.RUnlock()
+	if globalLogger == nil {
+		return zap.NewExample()
+	}
 	return globalLogger
 }
 

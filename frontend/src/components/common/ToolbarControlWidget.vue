@@ -35,25 +35,17 @@ const handleClose = () => {
 
 <template>
     <div class="flex items-center justify-center">
-        <div class="tooltip tooltip-bottom" :data-tip="$t('menu.minimise')">
-            <div class="btn-wrapper" @click="handleMinimise">
-                <window-min />
-            </div>
+        <div class="btn-wrapper sr-icon-btn" :data-tooltip="$t('menu.minimise')" data-tip-pos="top" @click="handleMinimise">
+            <window-min />
         </div>
-        <div v-if="maximised" class="tooltip tooltip-bottom" :data-tip="$t('menu.restore')">
-            <div class="btn-wrapper" @click="handleMaximise">
-                <window-restore />
-            </div>
+        <div v-if="maximised" class="btn-wrapper sr-icon-btn" :data-tooltip="$t('menu.restore')" data-tip-pos="top" @click="handleMaximise">
+            <window-restore />
         </div>
-        <div v-else class="tooltip tooltip-bottom" :data-tip="$t('menu.maximise')">
-            <div class="btn-wrapper" @click="handleMaximise">
-                <window-max />
-            </div>
+        <div v-else class="btn-wrapper sr-icon-btn" :data-tooltip="$t('menu.maximise')" data-tip-pos="top" @click="handleMaximise">
+            <window-max />
         </div>
-        <div class="tooltip tooltip-bottom" :data-tip="$t('menu.close')">
-            <div class="btn-wrapper btn-wrapper-close" @click="handleClose">
-                <window-close />
-            </div>
+        <div class="btn-wrapper btn-wrapper-close sr-icon-btn" :data-tooltip="$t('menu.close')" data-tip-pos="top" @click="handleClose">
+            <window-close />
         </div>
     </div>
 </template>
@@ -70,20 +62,22 @@ const handleClose = () => {
 
     &:hover {
         cursor: pointer;
-        @apply bg-base-300;
+        background: var(--macos-gray-hover);
     }
 
     &:active {
-        @apply bg-base-200;
+        background: var(--macos-gray-active);
     }
 
     &.btn-wrapper-close {
         &:hover {
-            @apply bg-error;
+            background: var(--macos-danger-text);
+            color: #fff;
         }
 
         &:active {
-            @apply bg-error-content;
+            background: color-mix(in oklab, var(--macos-danger-text) 85%, black);
+            color: #fff;
         }
     }
 }

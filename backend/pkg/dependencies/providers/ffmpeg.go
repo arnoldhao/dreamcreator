@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+    "os/exec"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -23,10 +24,11 @@ type ffmpegProvider struct {
 
 // NewFFmpegProvider 创建FFmpeg提供者
 func NewFFmpegProvider(eventBus events.EventBus) dependencies.DependencyProvider {
-	cacheDir := filepath.Join(os.TempDir(), "canme", "ffmpeg")
-	return &ffmpegProvider{
-		BaseProvider: NewBaseProvider("FFmpeg", types.DependencyFFmpeg, cacheDir, eventBus),
-	}
+    // store in persistent per-user directory to avoid system cleaning
+    cacheDir := filepath.Join(persistentDepsRoot(), "ffmpeg")
+    return &ffmpegProvider{
+        BaseProvider: NewBaseProvider("FFmpeg", types.DependencyFFmpeg, cacheDir, eventBus),
+    }
 }
 
 // GetType 获取依赖类型
@@ -61,6 +63,12 @@ func (p *ffmpegProvider) Download(ctx context.Context, manager dependencies.Mana
 	if runtime.GOOS != "windows" {
 		if err := os.Chmod(execPath, 0755); err != nil {
 			return nil, err
+		}
+
+		// Remove macOS quarantine to avoid Gatekeeper slow verification
+		if runtime.GOOS == "darwin" {
+			_ = exec.Command("xattr", "-dr", "com.apple.quarantine", execPath).Run()
+			_ = exec.Command("xattr", "-dr", "com.apple.quarantine", filepath.Dir(execPath)).Run()
 		}
 	}
 

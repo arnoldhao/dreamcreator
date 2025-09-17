@@ -4,6 +4,7 @@
  */
 export const Project = {
     Name: 'CanMe',
+    Email: 'xunruhao@gmail.com',
     Twitter:'https://twitter.com/ArnoldHaoCA',
     Github: 'https://github.com/arnoldhao/CanMe',
     OfficialWebsite: 'https://canme.dreamapp.cc',

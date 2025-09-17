@@ -169,7 +169,7 @@
     <!-- 内容区域 -->
     <div class="content">
       <div class="subtitle-items">
-        <div v-for="(subtitle, index) in subtitles" :key="subtitle.id || index" class="subtitle-item">
+        <div v-for="(subtitle, index) in subtitles" :key="subtitle.id || index" class="subtitle-item" :class="{ 'is-editing': isEditingText(subtitle.id) }">
           <div class="item-header">
             <div class="item-controls">
               <span class="item-number">{{ index + 1 }}</span>
@@ -179,19 +179,31 @@
                     {{ formatDate(subtitle.start_time) }} → {{ formatDate(subtitle.end_time) }}
                   </div>
                   <div class="metrics-display">
-                    <div class="metric-item level-normal">
-                      <span class="metric-label">{{ $t('subtitle.list.duration') }}</span>
-                      <span class="metric-value">{{ formatSimpleDuration(subtitle.start_time, subtitle.end_time)
-                        }}</span>
-                    </div>
-                    <div v-if="getSubtitleGuideline(subtitle)" class="subtitle-metrics">
-                      <template v-for="(type, key) in { cps: 'CPS', wpm: 'WPM', cpl: 'CPL' }" :key="key">
-                        <div v-if="getSubtitleGuideline(subtitle)[key]"
-                          :class="['metric-item', getGuidelineLevelClass(getSubtitleGuideline(subtitle)[key].level)]">
-                          <span class="metric-label">{{ type }}</span>
-                          <span class="metric-value">{{ getSubtitleGuideline(subtitle)[key].current }}</span>
+                    <!-- unified metric group: dots collapsed; expand as capsule on hover (non-narrow) -->
+                    <div class="metric-group" :class="{ 'has-guidelines': !!getSubtitleGuideline(subtitle) }">
+                      <div class="dots">
+                        <!-- duration dot (always white) -->
+                        <span class="dot level-neutral has-tooltip" :data-tooltip="$t('subtitle.list.duration') + ': ' + formatSimpleDuration(subtitle.start_time, subtitle.end_time)"></span>
+                        <!-- guideline dots -->
+                        <template v-if="getSubtitleGuideline(subtitle)">
+                          <span class="dot" :class="getGuidelineLevelClass(getSubtitleGuideline(subtitle).cps.level)"></span>
+                          <span class="dot" :class="getGuidelineLevelClass(getSubtitleGuideline(subtitle).wpm.level)"></span>
+                          <span class="dot" :class="getGuidelineLevelClass(getSubtitleGuideline(subtitle).cpl.level)"></span>
+                        </template>
+                      </div>
+                      <div class="details" v-if="getSubtitleGuideline(subtitle)">
+                        <div class="capsule">
+                          <span class="item duration">
+                            <span class="v">{{ formatSimpleDuration(subtitle.start_time, subtitle.end_time) }}</span>
+                          </span>
+                          <span class="sep">•</span>
+                          <span class="item" :class="getGuidelineLevelClass(getSubtitleGuideline(subtitle).cps.level)"><span class="k">CPS</span><span class="v">{{ getSubtitleGuideline(subtitle).cps.current }}</span></span>
+                          <span class="sep">•</span>
+                          <span class="item" :class="getGuidelineLevelClass(getSubtitleGuideline(subtitle).wpm.level)"><span class="k">WPM</span><span class="v">{{ getSubtitleGuideline(subtitle).wpm.current }}</span></span>
+                          <span class="sep">•</span>
+                          <span class="item" :class="getGuidelineLevelClass(getSubtitleGuideline(subtitle).cpl.level)"><span class="k">CPL</span><span class="v">{{ getSubtitleGuideline(subtitle).cpl.current }}</span></span>
                         </div>
-                      </template>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -532,7 +544,7 @@ export default {
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 13px;
+  font-size: var(--fs-base);
   font-weight: 500;
   color: var(--macos-text-secondary);
   flex-shrink: 0;
@@ -567,8 +579,8 @@ export default {
 
 /* 统一的操作按钮样式 */
 .action-btn {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: 1px solid var(--macos-border);
   border-radius: 6px;
   background: var(--macos-background);
@@ -614,8 +626,8 @@ export default {
 
 /* 确保 tabs-right 中的按钮样式优先级 */
 .tabs-right .action-btn {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: 1px solid var(--macos-border);
   border-radius: 6px;
   background: var(--macos-background);
@@ -709,7 +721,7 @@ export default {
 }
 
 .subtitle-count {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   opacity: 0.75;
   flex-shrink: 0;
   font-weight: 400;
@@ -788,7 +800,7 @@ export default {
 }
 
 .item-number {
-  font-size: 12px;
+  font-size: var(--fs-sub);
   color: var(--macos-text-tertiary);
   font-weight: 500;
   min-width: 24px;
@@ -800,9 +812,9 @@ export default {
 }
 
 .time-range {
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--macos-text-primary);
-  font-family: 'Monaco', 'Menlo', monospace;
+  font-family: var(--font-mono);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -828,7 +840,7 @@ export default {
   background: var(--macos-background-secondary);
   color: var(--macos-text-secondary);
   border-radius: 4px;
-  font-size: 12px;
+  font-size: var(--fs-sub);
   font-weight: 500;
   border: 1px solid var(--macos-border);
   cursor: help;
@@ -846,7 +858,7 @@ export default {
   gap: 2px;
   padding: 2px 6px;
   border-radius: 8px;
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 600;
   border: 1px solid;
   min-width: fit-content;
@@ -855,12 +867,12 @@ export default {
 .metric-label {
   font-weight: 700;
   text-transform: uppercase;
-  font-size: 9px;
+  font-size: var(--fs-nano);
 }
 
 .metric-value {
   font-weight: 700;
-  font-size: 10px;
+  font-size: var(--fs-micro);
 }
 
 .metric-item.level-normal {
@@ -919,7 +931,7 @@ export default {
   border: 1px solid var(--macos-blue);
   border-radius: 4px;
   padding: 8px 12px;
-  font-size: 14px;
+  font-size: var(--fs-title);
   resize: vertical;
   min-height: 40px;
   background: var(--macos-background);
@@ -939,7 +951,7 @@ export default {
 
 .empty-state p {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-title);
 }
 
 .content::-webkit-scrollbar,
@@ -1097,7 +1109,7 @@ export default {
   
   .language-tab {
     padding: 4px 8px;
-    font-size: 12px;
+    font-size: var(--fs-sub);
     max-width: 60px;
     min-width: 50px;
     height: 28px;
@@ -1209,7 +1221,7 @@ export default {
 }
 
 .card-title {
-  font-size: 13px;
+  font-size: var(--fs-base);
   font-weight: 600;
   color: var(--macos-text-primary);
 }
@@ -1225,7 +1237,7 @@ export default {
   background: linear-gradient(135deg, var(--macos-blue) 0%, rgba(var(--macos-blue-rgb), 0.8) 100%);
   color: white;
   border-radius: 20px;
-  font-size: 13px;
+  font-size: var(--fs-base);
   font-weight: 600;
   margin-bottom: 12px;
   box-shadow: 0 2px 8px rgba(var(--macos-blue-rgb), 0.3);
@@ -1233,7 +1245,7 @@ export default {
 
 .standard-description {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-base);
   color: var(--macos-text-secondary);
   line-height: 1.5;
 }
@@ -1250,7 +1262,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
+  font-size: var(--fs-title);
   font-weight: 600;
   color: var(--macos-text-primary);
   margin: 0 0 16px 0;
@@ -1316,13 +1328,13 @@ export default {
 
 .metric-title h5 {
   margin: 0 0 3px 0;
-  font-size: 13px;
+  font-size: var(--fs-base);
   font-weight: 600;
   color: var(--macos-text-primary);
 }
 
 .metric-label {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 500;
   color: var(--macos-text-secondary);
   text-transform: uppercase;
@@ -1335,7 +1347,7 @@ export default {
 
 .metric-description p {
   margin: 0 0 12px 0;
-  font-size: 12px;
+  font-size: var(--fs-sub);
   color: var(--macos-text-secondary);
   line-height: 1.4;
 }
@@ -1373,15 +1385,15 @@ export default {
 }
 
 .threshold-label {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 500;
   color: var(--macos-text-primary);
 }
 
 .threshold-value {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 600;
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-family: var(--font-mono);
 }
 
 .threshold-item.normal .threshold-value {
@@ -1482,7 +1494,7 @@ export default {
   border-left: 4px solid var(--macos-blue);
   border-radius: 6px;
   margin-bottom: 16px;
-  font-size: 12px;
+  font-size: var(--fs-sub);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transition: all 0.2s ease;
 }

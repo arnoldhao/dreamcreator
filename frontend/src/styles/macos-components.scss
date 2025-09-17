@@ -1,7 +1,104 @@
 /* 系统字体 */
-.font-system {
-  font-family: v-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+.font-system { font-family: var(--font-sans); }
+
+/* 窗口/表层 */
+.macos-window {
+  background: var(--macos-background);
+  color: var(--macos-text-primary);
 }
+
+.macos-toolbar {
+  height: 38px;
+  -webkit-app-region: drag;
+  /* For Wails on Windows: declare draggable region via CSS var */
+  --wails-draggable: drag;
+  background: var(--macos-surface);
+  backdrop-filter: var(--macos-surface-blur);
+  /* no bottom border to avoid splitting ribbon from traffic lights */
+  display: flex;
+  align-items: center;
+  position: relative;
+  z-index: 10; /* ensure tooltips render above content */
+}
+
+.macos-toolbar .no-drag {
+  -webkit-app-region: no-drag;
+  /* Ensure Wails treats these as non-draggable on Windows */
+  --wails-draggable: no-drag;
+}
+
+/* Any interactive control inside the toolbar should not initiate window drag on Windows */
+.macos-toolbar :is(button, input, textarea, select, [role="button"], .toolbar-icon-btn) {
+  /* Prevent Chromium from treating controls inside a draggable area as draggable */
+  -webkit-app-region: no-drag;
+  /* Inform Wails (Windows) about non-draggable sub-areas */
+  --wails-draggable: no-drag;
+}
+
+.macos-content {
+  background: var(--macos-background);
+}
+
+/* 与左侧栏对齐的顶部延伸区 */
+.macos-toolbar-leftcap {
+  height: 100%;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--macos-divider-weak);
+  transition: width 180ms ease, background-color 180ms ease, border-color 180ms ease;
+  position: relative;
+}
+
+.macos-toolbar-rightcap {
+  height: 100%;
+  background: var(--sidebar-bg);
+  border-left: 1px solid var(--macos-divider-weak);
+  position: relative;
+  /* Match leftcap behavior so toolbar+inspector animate together */
+  transition: width 180ms ease, background-color 180ms ease, border-color 180ms ease;
+  overflow: hidden;
+}
+
+.macos-divider {
+  height: 1px;
+  width: 100%;
+  background: var(--macos-divider-weak);
+}
+
+.macos-card {
+  background: var(--macos-background);
+  border: 1px solid var(--macos-separator);
+  border-radius: 8px;
+  box-shadow: var(--macos-shadow-1);
+}
+
+/* 页面容器（类 macOS） */
+.macos-page {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 12px;
+  background: var(--macos-background);
+}
+
+.macos-page .card,
+.macos-page .macos-card {
+  background: var(--macos-background);
+  border: 1px solid var(--macos-separator);
+  border-radius: 8px;
+  box-shadow: var(--macos-shadow-1);
+}
+
+.macos-page .section {
+  @extend .macos-card;
+  padding: 12px;
+}
+
+.macos-page .btn,
+.macos-page .btn-primary,
+.macos-page .btn-outline { @extend .btn-macos; }
+.macos-page .btn-primary { @extend .btn-macos-primary; }
 
 // 基础按钮样式
 .btn-macos {
@@ -9,7 +106,7 @@
   align-items: center;
   justify-content: center;
   padding: 6px 16px;
-  font-size: 13px;
+  font-size: var(--fs-base);
   font-weight: 400;
   line-height: 1.2;
   border-radius: 6px;
@@ -43,7 +140,7 @@
 
   &:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--macos-blue) 30%, transparent);
   }
 }
 
@@ -111,13 +208,13 @@
   border-radius: 6px;
   background: var(--macos-background);
   color: var(--macos-text-primary);
-  font-size: 13px;
+  font-size: var(--fs-base);
   transition: all 0.15s ease;
 
   &:focus {
     outline: none;
     border-color: var(--macos-blue);
-    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--macos-blue) 30%, transparent);
   }
 
   &::placeholder {
@@ -176,15 +273,15 @@
 .btn-macos-sm {
   @extend .btn-macos;
   padding: 4px 12px;
-  font-size: 12px;
-  min-height: 24px;
+  font-size: var(--fs-sub);
+  min-height: 28px;
 }
 
 // 输入框尺寸变体
 .input-compact {
   @extend .input-macos;
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: var(--fs-sub);
 }
 
 .input-full {
@@ -254,4 +351,590 @@
       background: var(--macos-scrollbar-thumb-hover);
     }
   }
+}
+
+/* 侧边栏 (Source List) */
+.macos-sidebar {
+  width: 48px;
+  min-width: 48px;
+  /* Use sidebar secondary background to match toolbar left cap */
+  background: var(--sidebar-bg);
+  backdrop-filter: var(--macos-surface-blur);
+  border-right: 1px solid var(--macos-divider-weak);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6px 0;
+  transition: background-color 180ms ease, border-color 180ms ease, backdrop-filter 180ms ease;
+}
+
+.source-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.source-list-item {
+  width: 100%;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  border-radius: 8px;
+  color: var(--macos-text-secondary);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.source-list-item:hover {
+  background: var(--macos-gray-hover);
+}
+
+[data-theme="dark"] .source-list-item:hover {
+  background: var(--macos-gray-hover);
+}
+
+.source-list-item.active { background: color-mix(in oklab, var(--macos-blue) 18%, transparent); color: var(--macos-text-primary); font-weight: 600; }
+
+.source-list-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 标题文本 */
+.title-strong {
+  font-weight: 700;
+  color: var(--macos-text-primary);
+}
+
+/* Sidebar group title + search */
+.source-group-title {
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  color: var(--macos-text-tertiary);
+  letter-spacing: .3px;
+  padding: 6px 12px 4px 12px;
+  text-transform: uppercase;
+}
+
+.macos-search {
+  position: relative;
+  padding: 8px 10px 0 10px;
+}
+.macos-search input {
+  @extend .input-macos;
+  width: 100%;
+  padding-left: 28px;
+  height: 28px;
+}
+.macos-search .icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: var(--macos-text-tertiary);
+}
+
+/* 可访问性 focus ring */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.35);
+}
+
+/* 折叠容器（左右面板） */
+.collapsible-left,
+.collapsible-right {
+  transition: width 180ms ease;
+  overflow: hidden;
+}
+
+/* Modal (macOS sheet-like) */
+.modal {
+  background: rgba(0,0,0,0.25);
+  backdrop-filter: blur(10px);
+}
+.modal .modal-box {
+  background: var(--macos-background);
+  border: 1px solid var(--macos-separator);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+}
+
+/* Global macOS-style modal wrapper (shared by component-scoped modals) */
+.macos-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.2);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index: 2000;
+  padding: 16px;
+}
+
+/* Global segmented control */
+.segmented { display: inline-flex; background: var(--macos-background); border: 1px solid var(--macos-separator); border-radius: 8px; padding: 2px; }
+.seg-item { min-width: 34px; height: 28px; padding: 0 8px; border-radius: 6px; color: var(--macos-text-secondary); transition: background .15s ease, color .15s ease; display:inline-flex; align-items:center; justify-content:center; line-height: 1; }
+.seg-item:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); color: #fff; }
+.seg-item.active, .seg-item.active:hover { background: var(--macos-blue); color: #fff; }
+
+/* Global meta pill group */
+.meta-group { display:inline-flex; align-items:center; gap:8px; padding: 0 6px; border: 1px solid var(--macos-separator); border-radius: 999px; background: var(--macos-background); color: var(--macos-text-secondary); }
+.meta-group.small { height: 22px; font-size: var(--fs-sub); }
+.meta-group .item { display:inline-flex; align-items:center; gap: 4px; font-size: 11.5px; }
+.meta-group .divider-v { width: 1px; height: 12px; background: var(--macos-divider-weak); }
+
+/* Global, reusable group/box/row primitives (macOS inspector/detail pattern) */
+.macos-group { margin-top: 10px; }
+.macos-group-title {
+  font-size: var(--fs-sub);
+  color: var(--macos-text-secondary);
+  font-weight: 600;
+  letter-spacing: .2px;
+  padding-left: 10px;
+  margin-bottom: 6px;
+}
+.macos-box {
+  border: 1px solid var(--macos-separator);
+  border-radius: 10px;
+  background: var(--macos-background);
+  overflow: visible;
+}
+.macos-box.card-frosted {
+  border-color: rgba(255,255,255,0.22);
+  background: var(--macos-surface);
+  -webkit-backdrop-filter: var(--macos-surface-blur);
+  backdrop-filter: var(--macos-surface-blur);
+  box-shadow: var(--macos-shadow-2);
+}
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .macos-box.card-frosted { background: color-mix(in oklab, var(--macos-background) 92%, transparent); }
+}
+.macos-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: center;
+  min-height: 28px;
+  padding: 6px 10px;
+  gap: 10px;
+  position: relative;
+}
+.macos-row + .macos-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10px;
+  right: 10px;
+  height: 1px;
+  background: var(--macos-divider-weak);
+}
+.macos-row .k { color: var(--macos-text-secondary); font-size: var(--fs-sub); }
+.macos-row .v { color: var(--macos-text-primary); font-size: var(--fs-sub); min-width: 0; }
+
+/* 工具栏小按钮 */
+.toolbar-icon-btn {
+  -webkit-app-region: no-drag;
+  --wails-draggable: no-drag;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--macos-text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background 120ms ease;
+}
+.toolbar-icon-btn:hover {
+  background: var(--macos-gray-hover);
+}
+.toolbar-icon-btn:active {
+  background: var(--macos-gray-active);
+}
+
+.toolbar-icon-btn.active {
+  background: color-mix(in oklab, var(--macos-blue) 15%, transparent);
+  color: var(--macos-text-primary);
+}
+
+/* Inactive window traffic lights placeholder */
+/* 使用原生交通灯，不自绘占位 */
+
+/* macOS-like tooltips for toolbar buttons */
+.toolbar-icon-btn[data-tooltip] {
+  position: relative;
+}
+.toolbar-icon-btn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: -36px;
+  transform: translateX(-50%);
+  background: rgba(60,60,67,0.92);
+  color: #fff;
+  font-size: var(--fs-caption);
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+.toolbar-icon-btn[data-tooltip]::before { display: none; content: none; }
+.toolbar-icon-btn[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(2px);
+}
+.toolbar-icon-btn[data-tooltip]:hover::before {
+  opacity: 1;
+}
+
+/* optional: place tooltip above when needed */
+.toolbar-icon-btn[data-tooltip][data-tip-pos='top']::after {
+  bottom: auto;
+  top: -36px;
+}
+.toolbar-icon-btn[data-tooltip][data-tip-pos='top']::before { display: none; content: none; }
+
+/* align tooltip to the right edge of button (for rightmost actions) */
+.toolbar-icon-btn[data-tooltip][data-tip-align='right']::after {
+  left: auto;
+  right: 0;
+  transform: translateX(0);
+}
+.toolbar-icon-btn[data-tooltip][data-tip-align='right']:hover::after {
+  transform: translateY(2px);
+}
+.toolbar-icon-btn[data-tooltip][data-tip-align='right']::before {
+  left: auto;
+  right: 10px; /* place arrow near right edge */
+}
+.toolbar-icon-btn[data-tooltip][data-tip-align='right'][data-tip-pos='top']:hover::after {
+  transform: translateY(-2px);
+}
+
+/* Apply same tooltip behavior to sr-icon-btn inside content views */
+.sr-icon-btn[data-tooltip] { position: relative; z-index: 20; }
+.sr-icon-btn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: -36px;
+  transform: translateX(-50%);
+  background: rgba(60,60,67,0.92);
+  color: #fff;
+  font-size: var(--fs-caption);
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+  z-index: 2000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+.sr-icon-btn[data-tooltip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(2px); }
+.sr-icon-btn[data-tooltip]::before { display: none; content: none; }
+.sr-icon-btn[data-tooltip][data-tip-align='right']::after { left: auto; right: 0; transform: translateX(0); }
+.sr-icon-btn[data-tooltip][data-tip-align='right']:hover::after { transform: translateY(2px); }
+/* optional: place tooltip above for sr-icon-btn */
+.sr-icon-btn[data-tooltip][data-tip-pos='top']::after {
+  bottom: auto;
+  top: -36px;
+}
+.sr-icon-btn[data-tooltip][data-tip-pos='top']:hover::after {
+  transform: translateY(-2px);
+}
+
+/* Generic tooltip anchor for non-button elements (e.g., metric dots) */
+.has-tooltip[data-tooltip] { position: relative; }
+.has-tooltip[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: -30px;
+  transform: translateX(-50%);
+  background: rgba(60,60,67,0.92);
+  color: #fff;
+  font-size: var(--fs-caption);
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+.has-tooltip[data-tooltip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(2px); }
+.has-tooltip[data-tooltip][data-tip-pos='top']::after { bottom: auto; top: -30px; }
+.has-tooltip[data-tooltip][data-tip-pos='top']:hover::after { transform: translateX(-50%) translateY(-2px); }
+
+/* macOS-like badge styles for pages still using .badge markup */
+.macos-page .badge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(30,30,30,0.40);
+  -webkit-backdrop-filter: saturate(150%) blur(10px);
+  backdrop-filter: saturate(150%) blur(10px);
+  color: #fff;
+  font-size: var(--fs-caption);
+  line-height: 1;
+  vertical-align: middle;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.14) inset, 0 4px 12px rgba(0,0,0,0.24), 0 1px 3px rgba(0,0,0,0.18);
+}
+.macos-page .badge.badge-sm { height: 16px; padding: 0 6px; font-size: var(--fs-micro); }
+.macos-page .badge-success { border-color: var(--macos-success-text); color: var(--macos-success-text); background: var(--macos-success-bg); }
+.macos-page .badge-error { border-color: var(--macos-danger-text); color: var(--macos-danger-text); background: var(--macos-danger-bg); }
+.macos-page .badge-warning { border-color: #ff9f0a; color: #ff9f0a; background: rgba(255, 149, 0, 0.12); }
+.macos-page .badge-primary { border-color: var(--macos-blue); color: var(--macos-blue); background: color-mix(in oklab, var(--macos-blue) 12%, transparent); }
+.macos-page .badge-info { border-color: var(--macos-text-tertiary); color: var(--macos-text-secondary); background: var(--macos-background-secondary); }
+.macos-page .badge-ghost { border-color: var(--macos-separator); color: var(--macos-text-secondary); background: transparent; }
+
+/* Global badge styles (for components outside .macos-page) */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(30,30,30,0.40);
+  -webkit-backdrop-filter: saturate(150%) blur(10px);
+  backdrop-filter: saturate(150%) blur(10px);
+  color: #fff;
+  font-size: var(--fs-caption);
+  line-height: 1;
+  vertical-align: middle;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.14) inset, 0 4px 12px rgba(0,0,0,0.24), 0 1px 3px rgba(0,0,0,0.18);
+}
+.badge.badge-sm { height: 16px; padding: 0 6px; font-size: var(--fs-micro); }
+.badge-translucent { background: rgba(30,30,30,0.26); border-color: rgba(255,255,255,0.18); }
+.badge:hover { background: rgba(30,30,30,0.50); border-color: rgba(255,255,255,0.28); }
+.badge-success { border-color: var(--macos-success-text); color: var(--macos-success-text); background: var(--macos-success-bg); }
+.badge-error { border-color: var(--macos-danger-text); color: var(--macos-danger-text); background: var(--macos-danger-bg); }
+.badge-warning { border-color: #ff9f0a; color: #ff9f0a; background: rgba(255, 149, 0, 0.12); }
+.badge-primary { border-color: var(--macos-blue); color: var(--macos-blue); background: color-mix(in oklab, var(--macos-blue) 12%, transparent); }
+.badge-info { border-color: var(--macos-text-tertiary); color: var(--macos-text-secondary); background: var(--macos-background-secondary); }
+.badge-ghost { border-color: var(--macos-separator); color: var(--macos-text-secondary); background: transparent; }
+
+/* Global icon-only button variant (used for delete across app) */
+.icon-ghost { background: transparent !important; border: 0 !important; color: var(--macos-text-secondary); }
+.icon-ghost:hover { background: transparent !important; color: var(--macos-danger-text); }
+/* Glassy icon button for frosted UI */
+.icon-glass { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid var(--macos-separator); background: transparent; color: var(--macos-text-secondary); box-shadow: none; transition: background-color .2s ease, border-color .2s ease, color .12s ease, transform .12s ease; }
+.icon-glass:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); border-color: var(--macos-blue); color: #fff; transform: translateY(-0.5px); }
+.icon-glass:active { transform: scale(0.98); }
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) { .icon-glass { background: transparent; color: var(--macos-text-secondary); border-color: var(--macos-separator); box-shadow: none; } }
+/* Glassy filled button for frosted UI (neutral) */
+.btn-glass { display: inline-flex; align-items: center; justify-content: center; height: 28px; padding: 0 12px; gap: 8px; border-radius: 6px; border: 1px solid var(--macos-separator); background: transparent; color: var(--macos-text-primary); font-size: var(--fs-base); box-shadow: none; transition: background-color .2s ease, border-color .2s ease, color .12s ease, transform .12s ease; }
+.btn-glass:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); border-color: var(--macos-blue); color: #fff; transform: translateY(-0.5px); }
+.btn-glass:active { transform: scale(0.98); }
+.btn-glass:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: transparent;
+  color: var(--macos-text-secondary);
+  border-color: var(--macos-separator);
+  transform: none;
+}
+.btn-glass.btn-sm { height: 28px; padding: 0 12px; font-size: var(--fs-base); }
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) { .btn-glass { background: transparent; color: var(--macos-text-primary); border-color: var(--macos-separator); box-shadow: none; } }
+/* Classic override */
+[data-ui='classic'] .icon-glass { background: transparent !important; color: var(--macos-text-secondary) !important; border: 1px solid var(--macos-separator) !important; box-shadow: none !important; }
+[data-ui='classic'] .icon-glass:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
+[data-ui='classic'] .btn-glass { background: transparent !important; color: var(--macos-text-primary) !important; border: 1px solid var(--macos-separator) !important; box-shadow: none !important; }
+[data-ui='classic'] .btn-glass:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
+
+/* Primary variant that keeps the glass geometry but fills with primary color */
+.btn-glass.btn-primary { background: var(--macos-blue); border-color: var(--macos-blue); color: #fff; }
+.btn-glass.btn-primary:hover { background: var(--macos-blue-hover); border-color: var(--macos-blue-hover); color: #fff; transform: translateY(-0.5px); }
+.btn-glass.btn-primary:active { background: var(--macos-blue-active); border-color: var(--macos-blue-active); transform: scale(0.98); }
+.btn-glass.btn-primary:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: var(--macos-blue);
+  border-color: var(--macos-blue);
+  color: #fff;
+  transform: none;
+}
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .btn-glass.btn-primary { background: var(--macos-blue); color: #fff; border-color: var(--macos-blue); }
+}
+[data-ui='classic'] .btn-glass.btn-primary { background: var(--macos-blue) !important; border-color: var(--macos-blue) !important; color: #fff !important; }
+[data-ui='classic'] .btn-glass.btn-primary:hover { background: var(--macos-blue-hover) !important; border-color: var(--macos-blue-hover) !important; color: #fff !important; }
+
+/* Global simple color utilities */
+.text-primary { color: var(--macos-text-primary); }
+.text-secondary { color: var(--macos-text-secondary); }
+.text-tertiary { color: var(--macos-text-tertiary); }
+.bg-secondary { background: var(--macos-background-secondary); }
+
+/* Frosted translucent chips (global utility) */
+.chip-frosted {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(30,30,30,0.40);
+  -webkit-backdrop-filter: saturate(150%) blur(10px);
+  backdrop-filter: saturate(150%) blur(10px);
+  color: #fff;
+  font-size: var(--fs-micro);
+  line-height: 1;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.14) inset, 0 4px 12px rgba(0,0,0,0.24), 0 1px 3px rgba(0,0,0,0.18);
+  transition: background-color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .15s ease;
+}
+.chip-frosted:hover { background: rgba(30,30,30,0.50); border-color: rgba(255,255,255,0.32); transform: translateZ(0) scale(1.02); }
+.chip-frosted:active { transform: translateZ(0) scale(0.98); }
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .chip-frosted { background: rgba(255,255,255,0.14); color: #111; border-color: rgba(0,0,0,0.15); }
+}
+.chip-frosted .chip-label { white-space: nowrap; display: inline-flex; align-items: center; line-height: 1; height: 100%; }
+.chip-frosted .chip-dot { width: 6px; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.9); box-shadow: 0 0 0 1px rgba(255,255,255,0.2) inset; }
+/* optional inline action inside chips, e.g. edit/reselect; ensure readable in both UI styles */
+.chip-frosted .chip-action { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:4px; border:none; background:transparent; color: rgba(255,255,255,0.82); transition: background-color .12s ease, color .12s ease; }
+.chip-frosted .chip-action:hover { background: var(--macos-blue); color:#fff; }
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .chip-frosted .chip-action { color: var(--macos-text-secondary); }
+  .chip-frosted .chip-action:hover { background: var(--macos-blue); color: #fff; }
+}
+[data-ui='classic'] .chip-frosted .chip-action { color: var(--macos-text-secondary) !important; }
+[data-ui='classic'] .chip-frosted .chip-action:hover { background: var(--macos-blue) !important; color: #fff !important; }
+/* sizes */
+.chip-sm { height: 20px; padding: 0 8px; font-size: var(--fs-micro); }
+.chip-md { height: 22px; padding: 0 10px; font-size: var(--fs-micro); }
+.chip-lg { height: 24px; padding: 0 12px; font-size: var(--fs-caption); }
+.chip-frosted.chip-lg .chip-dot { width: 7px; height: 7px; }
+/* status color mapping using existing badge-* classes */
+.chip-frosted.badge-success .chip-dot { background: var(--macos-success-text); }
+.chip-frosted.badge-error .chip-dot { background: var(--macos-danger-text); }
+.chip-frosted.badge-warning .chip-dot { background: var(--macos-warning-text); }
+.chip-frosted.badge-primary .chip-dot { background: var(--macos-blue); }
+.chip-frosted.badge-info .chip-dot { background: var(--macos-text-secondary); }
+.chip-frosted.badge-ghost .chip-dot { background: rgba(255,255,255,0.9); }
+
+/* Frosted translucent card (global utility) */
+.card-frosted {
+  background: var(--macos-surface);
+  border: 1px solid rgba(255,255,255,0.22);
+  -webkit-backdrop-filter: var(--macos-surface-blur);
+  backdrop-filter: var(--macos-surface-blur);
+  box-shadow: var(--macos-shadow-2);
+}
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .card-frosted { background: color-mix(in oklab, var(--macos-background) 92%, transparent); }
+}
+
+/* Global UI style overrides: Classic mode */
+[data-ui='classic'] .card-frosted,
+[data-ui='classic'] .macos-card.card-frosted {
+  background: var(--macos-background) !important;
+  border: 1px solid var(--macos-separator) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: var(--macos-shadow-1) !important;
+}
+[data-ui='classic'] .card-frosted.card-translucent {
+  background: var(--macos-background) !important;
+}
+[data-ui='classic'] .chip-frosted {
+  background: var(--macos-background) !important;
+  border: 1px solid var(--macos-separator) !important;
+  color: var(--macos-text-secondary) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+[data-ui='classic'] .chip-frosted.chip-translucent {
+  /* Keep translucent chips unobtrusive in Classic: transparent at rest */
+  background: transparent !important;
+  border-color: var(--macos-separator) !important;
+  color: var(--macos-text-secondary) !important;
+  box-shadow: none !important;
+}
+[data-ui='classic'] .chip-frosted.chip-translucent:hover {
+  /* Accent-tinted hover in Classic as well */
+  background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important;
+  border-color: var(--macos-blue) !important;
+  color: var(--macos-text-primary) !important;
+}
+[data-ui='classic'] .badge,
+[data-ui='classic'] .macos-page .badge {
+  border: 1px solid var(--macos-separator) !important;
+  background: var(--macos-background) !important;
+  color: var(--macos-text-secondary) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+/* Variant: more translucent cards at rest, denser on hover */
+.card-frosted.card-translucent {
+  background: color-mix(in oklab, var(--macos-surface) 72%, transparent);
+  border-color: rgba(255,255,255,0.18);
+}
+.card-frosted.card-translucent:hover {
+  background: color-mix(in oklab, var(--macos-surface) 88%, transparent);
+  border-color: rgba(255,255,255,0.28);
+}
+
+/* Segmented control: use surface in frosted mode */
+[data-ui='frosted'] .segmented {
+  background: var(--macos-surface);
+  border: 1px solid rgba(255,255,255,0.22);
+  -webkit-backdrop-filter: var(--macos-surface-blur);
+  backdrop-filter: var(--macos-surface-blur);
+}
+
+/* Variant: more translucent at rest, denser on hover for readability */
+.chip-frosted.chip-translucent {
+  background: rgba(30,30,30,0.26);
+  border-color: rgba(255,255,255,0.18);
+}
+.chip-frosted.chip-translucent .chip-label { text-shadow: 0 1px 2px rgba(0,0,0,0.45); }
+.chip-frosted.chip-translucent:hover {
+  background: rgba(30,30,30,0.50);
+  border-color: rgba(255,255,255,0.28);
+}
+.chip-frosted.chip-translucent:active { transform: translateZ(0) scale(0.98); }
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .chip-frosted.chip-translucent { background: rgba(255,255,255,0.12); color: #111; border-color: rgba(0,0,0,0.15); }
+.chip-frosted.chip-translucent:hover {
+  /* Accent-tinted hover for subtle highlight */
+  background: color-mix(in oklab, var(--macos-blue) 22%, transparent);
+  border-color: var(--macos-blue);
+  color: #fff;
+}
 }

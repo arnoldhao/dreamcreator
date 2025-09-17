@@ -13,22 +13,24 @@ type WSRequestEventType string
 type WSResponseEventType string
 
 const (
-	// DOWNTASKS
-	EVENT_DOWNTASKS_PROGRESS    WSResponseEventType = "response_downtasks_progress"
-	EVENT_DOWNTASKS_SIGNAL      WSResponseEventType = "response_downtasks_signal"
-	EVENT_DOWNTASKS_INSTALLING  WSResponseEventType = "response_downtasks_installing"
-	EVENT_DOWNTASKS_COOKIE_SYNC WSResponseEventType = "response_downtasks_cookie_sync"
+    // DOWNTASKS
+    EVENT_DOWNTASKS_PROGRESS    WSResponseEventType = "response_downtasks_progress"
+    EVENT_DOWNTASKS_SIGNAL      WSResponseEventType = "response_downtasks_signal"
+    EVENT_DOWNTASKS_INSTALLING  WSResponseEventType = "response_downtasks_installing"
+    EVENT_DOWNTASKS_COOKIE_SYNC WSResponseEventType = "response_downtasks_cookie_sync"
+    EVENT_DOWNTASKS_STAGE       WSResponseEventType = "response_downtasks_stage"
 	// SUBTITLE
 	EVENT_SUBTITLE_PROGRESS WSResponseEventType = "response_subtitle_progress"
 )
 
 // Topics
 const (
-	// DOWNTASKS
-	TopicDowntasksProgress   = "downtasks.progress"
-	TopicDowntasksSignal     = "downtasks.signal"
-	TopicDowntasksInstalling = "downtasks.installing"
-	TopicDowntasksCookieSync = "downtasks.cookie_sync"
-	// SUBTITLE
-	TopicSubtitleProgress = "subtitle.progress"
+    // DOWNTASKS
+    TopicDowntasksProgress   = "downtasks.progress"
+    TopicDowntasksSignal     = "downtasks.signal"
+    TopicDowntasksInstalling = "downtasks.installing"
+    TopicDowntasksCookieSync = "downtasks.cookie_sync"
+    TopicDowntasksStage      = "downtasks.stage"
+    // SUBTITLE
+    TopicSubtitleProgress = "subtitle.progress"
 )

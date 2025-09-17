@@ -133,12 +133,27 @@ func (api *SubtitlesAPI) ExportSubtitleToFile(id, langCode, targetFormat string)
 	})
 
 	if err != nil {
+		msg := strings.ToLower(err.Error())
+		if strings.Contains(msg, "shellitem") || strings.Contains(msg, "cancel") || strings.Contains(msg, "canceled") || strings.Contains(msg, "cancelled") {
+			resp.Success = true
+			resp.Data = map[string]any{
+				"filePath":  "",
+				"fileName":  "",
+				"cancelled": true,
+			}
+			return
+		}
 		resp.Msg = err.Error()
 		return
 	}
 
 	if filePath == "" {
-		resp.Msg = "User canceled"
+		resp.Success = true
+		resp.Data = map[string]any{
+			"filePath":  "",
+			"fileName":  "",
+			"cancelled": true,
+		}
 		return
 	}
 
@@ -158,9 +173,10 @@ func (api *SubtitlesAPI) ExportSubtitleToFile(id, langCode, targetFormat string)
 
 	resp.Success = true
 	resp.Msg = "Save success"
-	resp.Data = map[string]string{
-		"filePath": filePath,
-		"fileName": filepath.Base(filePath),
+	resp.Data = map[string]any{
+		"filePath":  filePath,
+		"fileName":  filepath.Base(filePath),
+		"cancelled": false,
 	}
 	return
 }

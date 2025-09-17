@@ -12,8 +12,8 @@ node_modules
 frontend/dist
 frontend/wailsjs
 frontend/node_modules
+frontend/open-symbols
 node_modules
-
 .DS_Store
 .idea
 

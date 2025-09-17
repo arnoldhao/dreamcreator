@@ -1,55 +1,27 @@
 <template>
-  <div v-if="show" class="modal-overlay">
-    <div class="modal-container">
-      <!-- Modal头部 -->
+  <div v-if="show" class="macos-modal">
+    <div class="modal-card" @keydown.esc.stop.prevent="emit('close')" tabindex="-1">
+      <!-- Header: macOS traffic lights, no title text for minimal look -->
       <div class="modal-header">
-        <div class="header-content">
-          <div class="header-icon">
-            <v-icon name="fa-plus-circle"></v-icon>
+        <!-- sheet-like modal: no traffic lights -->
+        <div class="title-area">
+          <div class="mode-toggle" role="tablist" aria-label="Mode">
+            <button role="tab" :aria-selected="activeTab==='zhconvert'" :class="['seg-item', { active: activeTab==='zhconvert' }]" @click="activeTab='zhconvert'">{{ $t('subtitle.add_language.zhconvert') }}</button>
+            <button role="tab" :aria-selected="activeTab==='llm'" :class="['seg-item', { active: activeTab==='llm', disabled: true }]" @click="activeTab='llm'" disabled>{{ $t('subtitle.add_language.llm') }}</button>
           </div>
-          <h3 class="modal-title">{{ $t('subtitle.add_language.title') }}</h3>
         </div>
-        <button @click="$emit('close')" class="close-button">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
       </div>
 
-      <!-- 标签页导航 -->
-      <div class="tab-navigation">
-        <button @click="activeTab = 'zhconvert'" :class="['tab-button', { 'active': activeTab === 'zhconvert' }]">
-          <div class="tab-icon">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129">
-              </path>
-            </svg>
-          </div>
-          <span>{{ $t('subtitle.add_language.zhconvert') }}</span>
-        </button>
-
-        <button @click="activeTab = 'llm'" :class="['tab-button', { 'active': activeTab === 'llm' }]" disabled>
-          <div class="tab-icon">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z">
-              </path>
-            </svg>
-          </div>
-          <span>{{ $t('subtitle.add_language.llm') }}</span>
-          <span class="coming-soon-badge">{{ $t('subtitle.add_language.coming_soon') }}</span>
-        </button>
-      </div>
+      <!-- 标签页导航改为顶部模式切换，移除旧导航 -->
 
       <!-- Modal内容 -->
-      <div class="modal-content">
+      <div class="modal-body">
         <!-- ZHConvert 标签页 -->
         <div v-if="activeTab === 'zhconvert'" class="tab-content">
           <!-- 源语言选择 -->
           <div class="form-section">
             <h4 class="section-title">{{ $t('subtitle.add_language.source_language') }}</h4>
-            <select v-model="selectedSourceLanguage" class="select-macos">
+            <select v-model="selectedSourceLanguage" class="select-macos select-fixed">
               <option value="">{{ $t('subtitle.add_language.select_source_language') }}</option>
               <option v-for="lang in availableSourceLanguages" :key="lang.code" :value="lang.code">
                 {{ lang.name }}
@@ -72,7 +44,7 @@
               <p class="text-sm text-gray-500">{{ $t('subtitle.add_language.no_converters_available') }}</p>
             </div>
             <div v-else>
-              <select v-model="selectedConverter" class="select-macos">
+              <select v-model="selectedConverter" class="select-macos select-fixed">
                 <option value="">{{ $t('subtitle.add_language.select_converter') }}</option>
                 <option v-for="converter in converters" :key="converter" :value="converter">
                   {{ getConverterDisplayName(converter) }}
@@ -107,17 +79,14 @@
             <p class="coming-soon-description">{{ $t('subtitle.add_language.llm_description') }}</p>
           </div>
         </div>
-      </div>
-
-      <!-- Modal底部 -->
-      <div class="modal-footer">
-        <button @click="$emit('close')" class="btn-macos-secondary btn-macos-sm">
-          {{ $t('common.cancel') }}
-        </button>
-        <button @click="handleConvert" class="btn-macos-primary btn-macos-sm" :disabled="!canConvert">
-          <div v-if="converting" class="loading-spinner"></div>
-          {{ converting ? $t('subtitle.add_language.converting') : $t('subtitle.add_language.start_convert') }}
-        </button>
+        <!-- Inline centered actions below content -->
+        <div class="actions-center">
+          <button @click="emit('close')" class="btn-glass">{{ $t('common.cancel') }}</button>
+          <button @click="handleConvert" class="btn-glass btn-primary" :disabled="!canConvert">
+            <div v-if="converting" class="loading-spinner"></div>
+            {{ converting ? $t('subtitle.add_language.converting') : $t('subtitle.add_language.start_convert') }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -275,85 +244,39 @@ watch(() => props.show, (newValue) => {
     loadConverters()
   }
 })
-</script>
+ </script>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 50;
-  padding: 1rem;
-  animation: fadeIn 0.2s ease-out;
-}
+/* use global .macos-modal */
 
-.modal-container {
-  background: var(--macos-background);
-  border-radius: 12px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  max-width: 600px;
-  width: 100%;
-  max-height: 85vh;
-  overflow: hidden;
-  border: 1px solid var(--macos-separator);
-  animation: slideInUp 0.3s ease-out;
-}
+.modal-card { background: var(--macos-background); border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); max-width: 640px; width: 100%; max-height: 85vh; overflow: hidden; border: 1px solid var(--macos-separator); animation: slideInUp 0.3s ease-out; }
+.modal-header { display:flex; align-items:center; justify-content: space-between; padding: 10px 12px; background: var(--macos-background-secondary); border-bottom: 1px solid var(--macos-separator); }
+.traffic-lights { display:flex; align-items:center; gap:6px; margin-right: 6px; -webkit-app-region: no-drag; --wails-draggable: no-drag; }
+.traffic-lights .light { width: 10px; height:10px; border-radius: 50%; display:inline-block; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); }
+.traffic-lights .red { background:#ff5f56; }
+.traffic-lights .yellow { background:#d9d9d9; }
+.traffic-lights .green { background:#d9d9d9; }
+.traffic-lights .clickable { cursor: pointer; }
+.traffic-lights .disabled { opacity: .6; cursor: default; }
+.title-area { flex:1; min-width: 0; display:flex; align-items:center; justify-content:flex-end; }
+.modal-body { padding: 16px; padding-bottom: 12px; max-height: calc(85vh - 120px); overflow-y: auto; }
+.actions-center { display:flex; align-items:center; justify-content:center; gap:10px; margin-top: 16px; }
 
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  background: var(--macos-background-secondary);
-  border-bottom: 1px solid var(--macos-separator);
-}
+/* Mode toggle (header center) */
+.mode-toggle { display:inline-flex; align-items:center; background: var(--macos-background); border: 1px solid var(--macos-separator); border-radius: 8px; padding: 2px; gap: 2px; }
+.mode-toggle .seg-item { min-width: 80px; height: 28px; padding: 0 10px; border-radius: 6px; font-size: var(--fs-sub); color: var(--macos-text-secondary); background: transparent; border: none; cursor: pointer; }
+.mode-toggle .seg-item:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); color: #fff; }
+.mode-toggle .seg-item.active { background: var(--macos-blue); color: #fff; }
+.mode-toggle .seg-item.disabled { opacity: .6; cursor: not-allowed; }
 
-.header-content {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.header-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: var(--macos-blue);
-  border-radius: 8px;
-  color: white;
-}
-
-.modal-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--macos-text-primary);
-  margin: 0;
-}
-
-.close-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  color: var(--macos-text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.close-button:hover {
-  background: var(--macos-gray-hover);
-  color: var(--macos-text-primary);
-}
+/* Compact selects */
+/* Fixed select width to align visuals with Export inspector */
+.select-fixed { width: 250px; }
+/* Ensure fixed width wins over local .select-macos { width:100% } */
+.select-macos.select-fixed { width: 250; max-width: 250px; }
+/* Boxed sections for consistent macOS-like grouping */
+.form-section { border: 1px solid var(--macos-separator); border-radius: 10px; padding: 12px; background: var(--macos-background); }
+.form-section + .form-section { margin-top: 10px; }
 
 .tab-navigation {
   display: flex;
@@ -371,7 +294,7 @@ watch(() => props.show, (newValue) => {
   border: none;
   background: transparent;
   color: var(--macos-text-secondary);
-  font-size: 14px;
+  font-size: var(--fs-title);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -410,7 +333,7 @@ watch(() => props.show, (newValue) => {
 }
 
 .coming-soon-badge {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   padding: 2px 6px;
   background: var(--macos-orange);
   color: white;
@@ -435,7 +358,7 @@ watch(() => props.show, (newValue) => {
 }
 
 .section-title {
-  font-size: 14px;
+  font-size: var(--fs-title);
   font-weight: 600;
   color: var(--macos-text-primary);
   margin: 0 0 12px 0;
@@ -448,14 +371,14 @@ watch(() => props.show, (newValue) => {
   border-radius: 6px;
   background: var(--macos-background);
   color: var(--macos-text-primary);
-  font-size: 14px;
+  font-size: var(--fs-title);
   transition: border-color 0.2s ease;
 }
 
 .select-macos:focus {
   outline: none;
   border-color: var(--macos-blue);
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--macos-blue) 15%, transparent);
 }
 
 .loading-state {
@@ -497,7 +420,7 @@ watch(() => props.show, (newValue) => {
 }
 
 .converter-option.active {
-  background: rgba(0, 122, 255, 0.1);
+  background: color-mix(in oklab, var(--macos-blue) 10%, var(--macos-background));
   border-color: var(--macos-blue);
 }
 
@@ -516,9 +439,10 @@ watch(() => props.show, (newValue) => {
 }
 
 .converter-description {
-  font-size: 12px;
+  font-size: var(--fs-sub);
   color: var(--macos-text-secondary);
 }
+
 
 .converter-description-box {
   display: flex;
@@ -526,11 +450,11 @@ watch(() => props.show, (newValue) => {
   gap: 8px;
   margin-top: 12px;
   padding: 12px;
-  background: var(--macos-blue-light);
-  border: 1px solid var(--macos-blue-border);
+  background: color-mix(in oklab, var(--macos-blue) 10%, var(--macos-background));
+  border: 1px solid color-mix(in oklab, var(--macos-blue) 20%, transparent);
   border-radius: 6px;
-  font-size: 13px;
-  color: var(--macos-blue-text);
+  font-size: var(--fs-base);
+  color: color-mix(in oklab, var(--macos-blue) 80%, var(--macos-text-secondary));
 }
 
 .description-icon {
@@ -543,16 +467,7 @@ watch(() => props.show, (newValue) => {
   flex: 1;
 }
 
-/* 如果没有定义这些 CSS 变量，可以使用具体颜色 */
-.converter-description-box {
-  background: rgba(0, 122, 255, 0.1);
-  border: 1px solid rgba(0, 122, 255, 0.2);
-  color: #0066cc;
-}
-
-.description-icon {
-  color: #007AFF;
-}
+/* 删除了固定蓝色回退，统一使用变量以支持自定义主题色 */
 
 .coming-soon-content {
   display: flex;
@@ -575,20 +490,12 @@ watch(() => props.show, (newValue) => {
 }
 
 .coming-soon-description {
-  font-size: 14px;
+  font-size: var(--fs-title);
   color: var(--macos-text-secondary);
   margin: 0;
 }
 
-.modal-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 20px;
-  background: var(--macos-background-secondary);
-  border-top: 1px solid var(--macos-separator);
-}
+/* remove legacy footer visuals */
 
 .loading-spinner {
   width: 16px;

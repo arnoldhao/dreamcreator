@@ -1,0 +1,139 @@
+/*
+  macOS design tokens (defaults)
+  These act as initial CSS variable values to avoid FOUC before runtime theme injection.
+  Runtime overrides come from utils/theme.js (applyMacosTheme).
+*/
+
+:root {
+  /* Fonts */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  /* Font sizes */
+  --fs-base: 13px;     /* primary body/control text */
+  --fs-sub: 12px;      /* secondary/body small */
+  --fs-caption: 11px;  /* badges/captions */
+  --fs-micro: 10px;    /* micro badges, rare */
+  --fs-title: 14px;    /* small titles / emphasis */
+  --fs-nano: 9px;      /* ultra small labels */
+  /* Colors - Light */
+  --macos-blue: #007AFF;
+  --macos-blue-hover: #0056CC;
+  --macos-blue-active: #004499;
+  --macos-gray: #F2F2F7;
+  --macos-gray-hover: #E5E5EA;
+  --macos-gray-active: #D1D1D6;
+  --macos-text-primary: #000000;
+  --macos-text-secondary: #3C3C43;
+  --macos-text-tertiary: #3C3C4399;
+  --macos-border: #C6C6C8;
+  --macos-separator: #C6C6C8;
+  --macos-background: #FFFFFF;
+  --macos-background-secondary: #F2F2F7;
+  /* Additional layered background for panels/cards */
+  --macos-background-tertiary: #F7F7FA;
+
+  /* Convenience RGB tuple for accent-derived effects */
+  --macos-blue-rgb: 0, 122, 255;
+
+  /* Brand tints as tokens (for badges/labels) */
+  --brand-netflix: #E50914;
+  --brand-bbc: #003366;
+  --brand-ade: #22C55E;
+
+  /* Status */
+  --macos-success-bg: rgba(52, 199, 89, 0.15);
+  --macos-success-text: #34c759;
+  --macos-warning-bg: rgba(255, 149, 0, 0.15);
+  --macos-warning-text: #ff9500;
+  --macos-danger-bg: rgba(255, 69, 58, 0.15);
+  --macos-danger-text: #ff453a;
+
+  /* Scrollbar */
+  --macos-scrollbar-thumb: rgba(0, 0, 0, 0.2);
+  --macos-scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
+  /* translucent overlays */
+  --macos-hover-translucent: rgba(0,0,0,0.06);
+
+  /* Surfaces/Materials/Shadows/Dividers */
+  --macos-surface: rgba(255, 255, 255, 0.75);
+  --macos-surface-opaque: #ffffff;
+  --macos-surface-blur: saturate(180%) blur(20px);
+  --macos-shadow-1: 0 1px 2px rgba(0,0,0,0.08);
+  --macos-shadow-2: 0 6px 18px rgba(0,0,0,0.06);
+  --macos-divider-weak: rgba(60,60,67,0.15);
+  --macos-divider-strong: rgba(60,60,67,0.29);
+  /* unified sidebar background for toolbar left cap + ribbon */
+  --sidebar-bg: var(--macos-background-secondary);
+
+  /* Brand colors */
+  --brand-chrome: #1a73e8;
+  --brand-firefox: #ff9500;
+  --brand-safari: #0fb5ee;
+  --brand-edge: #0b84ed;
+
+  /* Subtitle ext colors */
+  --ext-srt: var(--macos-blue);
+  --ext-ass: #8e8ce7;
+  --ext-vtt: #16a34a;
+  --ext-itt: #ff9f0a;
+}
+
+[data-theme="dark"] {
+  --macos-blue: #0A84FF;
+  --macos-blue-hover: #409CFF;
+  --macos-blue-active: #0A84FF;
+  --macos-gray: #1C1C1E;
+  --macos-gray-hover: #2C2C2E;
+  --macos-gray-active: #3A3A3C;
+  --macos-text-primary: #FFFFFF;
+  --macos-text-secondary: #EBEBF5;
+  --macos-text-tertiary: #EBEBF599;
+  --macos-border: #38383A;
+  --macos-separator: #38383A;
+  --macos-background: #000000;
+  --macos-background-secondary: #1C1C1E;
+  /* Additional layered background for panels/cards */
+  --macos-background-tertiary: #2C2C2E;
+
+  /* Convenience RGB tuple for accent-derived effects */
+  --macos-blue-rgb: 10, 132, 255;
+
+  /* Brand tints as tokens (for badges/labels) */
+  --brand-netflix: #E50914;
+  --brand-bbc: #003366;
+  --brand-ade: #22C55E;
+
+  --macos-success-bg: rgba(52, 199, 89, 0.15);
+  --macos-success-text: #30d158;
+  --macos-warning-bg: rgba(255, 149, 0, 0.15);
+  --macos-warning-text: #ff9f0a;
+  --macos-danger-bg: rgba(255, 69, 58, 0.15);
+  --macos-danger-text: #ff453a;
+
+  --macos-scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --macos-scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
+  /* translucent overlays */
+  --macos-hover-translucent: rgba(255,255,255,0.08);
+
+  --macos-surface: rgba(22,22,24, 0.6);
+  --macos-surface-opaque: #1C1C1E;
+  --macos-surface-blur: saturate(180%) blur(20px);
+  --macos-shadow-1: 0 1px 2px rgba(0,0,0,0.5);
+  --macos-shadow-2: 0 10px 30px rgba(0,0,0,0.35);
+  --macos-divider-weak: rgba(235,235,245,0.1);
+  --macos-divider-strong: rgba(235,235,245,0.18);
+  /* unified sidebar background for toolbar left cap + ribbon */
+  --sidebar-bg: var(--macos-background-secondary);
+
+  /* Brand colors */
+  --brand-chrome: #1a73e8;
+  --brand-firefox: #ff9f0a;
+  --brand-safari: #0fb5ee;
+  --brand-edge: #0b84ed;
+
+  /* Subtitle ext colors */
+  --ext-srt: var(--macos-blue);
+  --ext-ass: #8e8ce7;
+  --ext-vtt: #16a34a;
+  --ext-itt: #ff9f0a;
+}

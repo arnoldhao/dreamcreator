@@ -17,26 +17,21 @@ const state = reactive({
     {
       label: 'ribbon.download',
       key: navOptions.DOWNLOAD,
-      icon: 'ri-download-cloud-line',
+      icon: 'download',
     },
     {
       label: 'ribbon.subtitle',
       key: navOptions.SUBTITLE,
-      icon: 'md-subtitles-outlined',
+      icon: 'captions',
     },
   ],
   
-  // 底部菜单选项
+  // 底部菜单选项（移除主题切换）
   bottomMenuOptions: [
-    {
-      label: 'bottom.theme',
-      key: 'theme',
-      icon: 'ri-sun-line', // 默认图标，会根据主题动态变化
-    },
     {
       label: 'bottom.settings',
       key: navOptions.SETTINGS,
-      icon: 'ri-settings-3-line',
+      icon: 'settings',
     },
   ]
 })
@@ -50,13 +45,8 @@ const actions = {
     }
   },
   
-  // 更新主题图标
-  updateThemeIcon(isDark) {
-    const themeOption = state.bottomMenuOptions.find(option => option.key === 'theme')
-    if (themeOption) {
-      themeOption.icon = isDark ? 'ri-moon-line' : 'ri-sun-line'
-    }
-  }
+  // 预留：后续可添加底部项操作
+  
 }
 
 // 导出导航管理器
@@ -79,6 +69,6 @@ export default function useNavStore() {
     
     // 操作方法
     setNav: actions.setNav,
-    updateThemeIcon: actions.updateThemeIcon
+    
   }
 }

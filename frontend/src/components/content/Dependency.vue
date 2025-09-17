@@ -1,150 +1,73 @@
 <template>
-    <div class="dependency-manager h-full bg-base-100 font-system flex flex-col">
-        <!-- 标题栏 -->
-        <div class="header-bar">
-            <div class="header-content">
-                <div class="header-left">
-                    <div class="header-icon">
-                        <v-icon class="w-5 h-5 text-base-content/60" name="md-settings-outlined"></v-icon>
-                    </div>
-                    <h1 class="header-title">{{ $t('settings.dependency.title') }}</h1>
-                </div>
-
-                <div class="header-right">
-                    <button @click="validateDependencies" class="header-btn" :disabled="isCheckUpdatesDisabled">
-                        <v-icon class="w-4 h-4" name="md-refresh-outlined"></v-icon>
-                        <span class="header-btn-text">{{ $t('settings.dependency.validate') }}</span>
-                    </button>
-
-                    <button @click="checkUpdates" class="header-btn" :disabled="isCheckUpdatesDisabled">
-                        <v-icon class="w-4 h-4" name="md-refresh-outlined"></v-icon>
-                        <span class="header-btn-text">{{ $t('settings.dependency.check_updates') }}</span>
-                    </button>
-                </div>
+  <div class="sr-right">
+    <div class="sr-card p-0">
+      <div class="sr-card-body">
+        <div v-for="(dep, key) in dependencies" :key="key">
+          <!-- 主行：名称 + 状态 + 操作 -->
+          <div class="sr-row dep-row">
+            <div class="dep-left">
+              <span class="dep-dot" :class="{
+                ok: dep.available && !dep.needUpdate,
+                warn: dep.available && dep.needUpdate,
+                err: !dep.available
+              }"></span>
+              <span class="dep-name">{{ dep.name }}</span>
+              <span v-if="dep.available" class="dep-badge dep-ok">{{ $t('settings.dependency.installed') }}</span>
+              <span v-else class="dep-badge dep-miss">{{ $t('settings.dependency.not_installed') }}</span>
+              <span v-if="dep.needUpdate" class="dep-badge dep-warn">{{ $t('settings.dependency.update') }}</span>
             </div>
-        </div>
-
-        <!-- 主内容区域 -->
-        <div class="flex-1 p-4 space-y-4 overflow-y-auto">
-            <!-- 依赖卡片 -->
-            <div v-for="(dep, key) in dependencies" :key="key" class="card-macos">
-                <!-- 卡片头部 -->
-                <div class="card-header">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-3 h-3 rounded-full" :class="{
-                            'bg-green-500': dep.available && !dep.needUpdate,
-                            'bg-orange-400': dep.available && dep.needUpdate,
-                            'bg-red-500': !dep.available
-                        }"></div>
-                        <h3 class="font-medium text-base-content">{{ dep.name }}</h3>
-                        <span v-if="dep.available" class="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">
-                            {{ $t('settings.dependency.installed') }}
-                        </span>
-                        <span v-else class="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700">
-                            {{ $t('settings.dependency.not_installed') }}
-                        </span>
-                    </div>
-
-                    <div class="flex items-center space-x-2">
-                        <!-- 操作按钮区域 -->
-                        <template v-if="dep.available">
-                            <button v-if="dep.needUpdate && !dep.installing"
-                                @click="showMirrorSelector(key, 'update')" class="btn-macos btn-primary" :disabled="isCheckUpdatesDisabled">
-                                <v-icon class="w-4 h-4 mr-2" name="md-upgrade-outlined"></v-icon>
-                                {{ $t('settings.dependency.update') }}
-                            </button>
-
-                            <!-- 如果正在安装，显示安装状态，包含更新状态 -->
-                            <button v-else-if="dep.installing" class="btn-macos" disabled>
-                                <div
-                                    class="w-4 h-4 mr-2 border-2 border-primary border-t-transparent rounded-full animate-spin">
-                                </div>
-                                {{ $t('settings.dependency.installing') }}
-                            </button>
-                        </template>
-
-                        <template v-else>
-                            <!-- Repair按钮 -->
-                            <button @click="repairDependency(key)" :disabled="isCheckUpdatesDisabled"
-                                class="btn-macos btn-primary">
-                                <v-icon v-if="!dep.installing" class="w-4 h-4 mr-2"
-                                    name="md-download-outlined"></v-icon>
-                                <div v-else
-                                    class="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin">
-                                </div>
-                                {{ dep.installing ? $t('settings.dependency.repairing') :
-                                    $t('settings.dependency.repair') }}
-                            </button>
-
-                            <!-- Install按钮 -->
-                            <button @click="showMirrorSelector(key, 'install')" :disabled="isCheckUpdatesDisabled"
-                                class="btn-macos btn-primary">
-                                <v-icon v-if="!dep.installing" class="w-4 h-4 mr-2"
-                                    name="md-download-outlined"></v-icon>
-                                <div v-else
-                                    class="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin">
-                                </div>
-                                {{ dep.installing ? $t('settings.dependency.installing') :
-                                    $t('settings.dependency.install') }}
-                            </button>
-                        </template>
-                    </div>
-                </div>
-
-                <!-- 卡片内容 -->
-                <div v-if="dep.available" class="card-content">
-                    <!-- 版本信息 -->
-                    <div class="config-item">
-                        <label class="item-label">{{ $t('settings.dependency.version') }}</label>
-                        <div class="item-content">
-                            <span class="item-value">{{ dep.version }}</span>
-                            <span v-if="dep.needUpdate" class="item-action text-xs text-orange-600">
-                                → {{ dep.latestVersion }}
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- 路径信息 -->
-                    <div class="config-item">
-                        <label class="item-label">{{ $t('settings.dependency.path') }}</label>
-                        <div class="item-content">
-                            <span class="item-value" :title="dep.path">{{ dep.path }}</span>
-                            <button @click="openDirectory(dep.path)"
-                                class="item-action btn btn-sm btn-ghost btn-square">
-                                <v-icon class="w-4 h-4 text-base-content/60" name="oi-file-directory"></v-icon>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 进度显示区域 - 支持安装和更新 -->
-                <div v-if="dep.installing" class="card-content border-t border-base-300">
-                    <!-- 进度条 -->
-                    <div class="space-y-2">
-                        <div class="flex items-center justify-between text-sm">
-                            <span class="text-base-content/70">{{ $t('settings.dependency.status.progress') }}</span>
-                            <span class="text-base-content/70">
-                                {{ dep.installProgress }}
-                            </span>
-                        </div>
-
-                        <!-- 进度条 -->
-                        <div class="w-full bg-base-200 rounded-full h-2">
-                            <div class="bg-primary h-2 rounded-full transition-all duration-300"
-                                :style="{ width: getProgressPercentage(dep) + '%' }"></div>
-                        </div>
-                    </div>
-                </div>
+            <div class="sr-control control-short dep-actions">
+              <template v-if="dep.available">
+                <button v-if="dep.needUpdate && !dep.installing" @click="showMirrorSelector(key, 'update')" class="btn-glass">
+                  <Icon name="arrow-left-right" class="w-4 h-4 mr-1" /> {{ $t('settings.dependency.update') }}
+                </button>
+                <button v-else-if="dep.installing" class="btn-glass" disabled>
+                  <div class="btn-spinner mr-2"></div>{{ $t('settings.dependency.installing') }}
+                </button>
+              </template>
+              <template v-else>
+                <button class="btn-glass" @click="repairDependency(key)" :disabled="isCheckUpdatesDisabled">
+                  <Icon name="download" class="w-4 h-4 mr-1" /> {{ $t('settings.dependency.repair') }}
+                </button>
+                <button class="btn-glass" @click="showMirrorSelector(key, 'install')" :disabled="isCheckUpdatesDisabled">
+                  <Icon name="download" class="w-4 h-4 mr-1" /> {{ $t('settings.dependency.install') }}
+                </button>
+              </template>
             </div>
-        </div>
+          </div>
 
-        <!-- 镜像选择模态框 -->
-        <div v-if="showMirrorModal" class="modal-overlay" @click="closeMirrorModal">
+          <!-- 元信息行：版本与路径（可打开） -->
+          <div class="sr-row dep-meta dep-row-sm" v-if="dep.available">
+            <!-- 左侧：版本信息（左对齐） -->
+            <div class="dep-meta-left">
+              <span class="meta-item">{{ $t('settings.dependency.version') }}: {{ dep.version || '-' }}<template v-if="dep.needUpdate"> → {{ dep.latestVersion }}</template></span>
+            </div>
+            <!-- 右侧：路径（右对齐） + 打开 -->
+            <div class="sr-control control-short dep-meta-right">
+              <span class="meta-item path" :title="dep.path">{{ dep.path }}</span>
+              <button class="icon-glass" type="button" :disabled="!dep.path" @click="openDirectory(dep.path)" title="Open">
+                <Icon name="folder" class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <!-- 进度行 -->
+          <div class="sr-row dep-progress" v-if="dep.installing">
+            <div class="dep-progress-bar"><div class="dep-progress-fill" :style="{ width: getProgressPercentage(dep) + '%' }"></div></div>
+            <div class="sr-control control-short"><span class="meta-item">{{ dep.installProgress }}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <!-- 镜像选择模态框 -->
+    <div v-if="showMirrorModal" class="macos-modal" @click="closeMirrorModal">
             <div class="modal-macos" @click.stop>
                 <div class="modal-header">
                     <h3>{{ $t('settings.dependency.select_mirror') }}</h3>
-                    <button @click="closeMirrorModal" class="btn-icon">
-                        <v-icon class="w-4 h-4" name="md-close"></v-icon>
+                    <button @click="closeMirrorModal" class="icon-glass" title="Close">
+                        <Icon class="w-4 h-4" name="close"></Icon>
                     </button>
                 </div>
 
@@ -155,10 +78,9 @@
                             <div class="flex items-center justify-between">
                                 <div>
                                     <div class="font-medium">{{ mirror.name }}</div>
-                                    <div class="text-sm text-base-content/60">{{ mirror.description }}</div>
+                                    <div class="text-sm text-secondary">{{ mirror.description }}</div>
                                 </div>
-                                <span v-if="mirror.recommended"
-                                    class="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
+                                <span v-if="mirror.recommended" class="recommend-badge">
                                     {{ $t('settings.dependency.recommended') }}
                                 </span>
                             </div>
@@ -167,25 +89,25 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button @click="closeMirrorModal" class="btn-macos">
+                    <button @click="closeMirrorModal" class="btn-glass">
                         {{ $t('common.cancel') }}
                     </button>
-                    <button @click="performAction" class="btn-macos btn-primary" :disabled="!selectedMirror">
+                    <button @click="performAction" class="btn-glass" :disabled="!selectedMirror">
                         {{ currentAction === 'install' ? $t('settings.dependency.install') :
                             $t('settings.dependency.update') }}
                     </button>
                 </div>
             </div>
-        </div>
-    </div>
+  </div>
 </template>
 
 <script>
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { ListMirrors } from 'wailsjs/go/api/DependenciesAPI'
 import { OpenDirectory } from 'wailsjs/go/systems/Service'
 import { useI18n } from 'vue-i18n'
 import useDependenciesStore from '@/stores/dependencies'
+import eventBus from '@/utils/eventBus.js'
 
 export default {
     name: 'Dependency',
@@ -247,7 +169,7 @@ export default {
                 }
             } catch (error) {
                 console.error('Failed to load mirrors:', error)
-                message.error(t('settings.dependency.load_mirrors_failed'))
+                $message?.error?.(t('settings.dependency.load_mirrors_failed'))
             }
         }
 
@@ -287,7 +209,9 @@ export default {
         // 打开目录
         const openDirectory = async (path) => {
             try {
-                await OpenDirectory(path)
+                const p = (path || '').trim()
+                if (!p) return
+                await OpenDirectory(p)
             } catch (error) {
                 console.error('Failed to open directory:', error)
             }
@@ -302,8 +226,21 @@ export default {
         }
 
         // 组件挂载
+        const onQuickValidate = () => dependenciesStore.quickValidateDependencies(true)
+
         onMounted(async () => {
-            await dependenciesStore.loadDependencies()
+            // 进入依赖页先做一次快速校验，体验更好；需要深度校验可用工具栏按钮触发
+            await dependenciesStore.quickValidateDependencies(false)
+            // toolbar actions
+            eventBus.on('dependency:validate', validateDependencies)
+            eventBus.on('dependency:quick-validate', onQuickValidate)
+            eventBus.on('dependency:check-updates', checkUpdates)
+        })
+
+        onUnmounted(() => {
+            eventBus.off('dependency:validate', validateDependencies)
+            eventBus.off('dependency:quick-validate', onQuickValidate)
+            eventBus.off('dependency:check-updates', checkUpdates)
         })
 
         return {
@@ -330,155 +267,49 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-/* macOS 风格样式 */
+.sr-right { font-size: var(--fs-base); background: var(--macos-background); padding: 12px; min-height: 100%; }
+.sr-card { border: 1px solid var(--macos-separator); border-radius: 10px; background: color-mix(in oklab, var(--macos-background) 97%, var(--macos-text-secondary) 3%); }
+/* list rows inside card */
+.sr-card .sr-row { display: grid; grid-template-columns: 1fr 160px; align-items: center; gap: 12px; padding: 8px 6px; min-height: 36px; border-bottom: 1px solid var(--macos-divider-weak); margin: 0 8px; }
+.sr-card .sr-row:last-child { border-bottom: none; }
+.dep-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dep-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--macos-divider-weak); }
+.dep-dot.ok { background: #30d158; }
+.dep-dot.warn { background: #ff9f0a; }
+.dep-dot.err { background: #ff453a; }
+.dep-name { font-size: var(--fs-base); font-weight: 600; color: var(--macos-text-primary); margin-right: 4px; }
+  .dep-badge { font-size: var(--fs-sub); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--macos-separator); background: transparent; color: var(--macos-text-secondary); box-shadow: none; }
+.dep-badge.dep-ok { border-color: #30d158; }
+.dep-badge.dep-warn { border-color: #ff9f0a; }
+.dep-badge.dep-miss { border-color: #ff453a; }
+.sr-icon-btn { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:6px; background:transparent; border:1px solid transparent; color: var(--macos-text-secondary); }
+.sr-icon-btn:hover { background: var(--macos-gray-hover); }
+.sr-icon-btn:active { background: var(--macos-gray-active); }
+.dep-meta-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.meta-item { font-size: var(--fs-sub); color: var(--macos-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meta-item.path { max-width: 60ch; }
+.dep-meta-right { display: inline-flex; align-items: center; gap: 8px; width: 160px; justify-content: flex-end; min-width: 0; }
+.dep-meta-right .meta-item.path { flex: 1; text-align: right; }
+.dep-row-sm { min-height: 30px; padding: 6px 6px; }
+.dep-progress-bar { height: 2px; width: 100%; background: var(--macos-divider-weak); border-radius: 999px; overflow: hidden; }
+.dep-progress-fill { height: 100%; background: var(--macos-blue); }
+/* subtle text */
+.text-secondary { color: var(--macos-text-secondary); }
+/* Modal (macOS look) */
+/* use global .macos-modal */
+.modal-macos { background: var(--macos-background); border: 1px solid var(--macos-separator); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.35); width: 100%; max-width: 440px; overflow: hidden; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--macos-background-secondary); border-bottom: 1px solid var(--macos-separator); }
+.modal-content { padding: 12px; max-height: 60vh; overflow-y: auto; }
+.modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 14px; background: var(--macos-background-secondary); border-top: 1px solid var(--macos-separator); }
+.mirror-option { padding: 10px 12px; border: 1px solid var(--macos-separator); border-radius: 8px; background: var(--macos-background); cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+.mirror-option:hover { background: var(--macos-gray-hover); }
+.mirror-option.selected { border-color: var(--macos-blue); background: color-mix(in oklab, var(--macos-blue) 12%, transparent); }
+.recommend-badge { font-size: var(--fs-sub); padding: 2px 8px; border-radius: 999px; background: color-mix(in oklab, var(--macos-blue) 12%, transparent); color: var(--macos-blue); }
+/* spinner tuned for button visibility */
+.btn-spinner { width: 14px; height: 14px; border: 2px solid transparent; border-top-color: currentColor; border-right-color: currentColor; border-radius: 50%; animation: spin .8s linear infinite; }
 
-/* 基础按钮样式 */
-%btn-base {
-    @apply px-4 py-2 text-sm font-medium rounded-lg border transition-colors duration-150;
-    @apply focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary;
-
-    &:disabled {
-        @apply opacity-50 cursor-not-allowed;
-    }
-}
-
-/* 基础头部样式 */
-%header-base {
-    @apply px-4 py-3 border-base-300 flex items-center justify-between;
-}
-
-.btn-macos {
-    @extend %btn-base;
-    @apply border-base-300 bg-base-100 text-base-content;
-    @apply hover:bg-base-200 active:bg-base-300;
-
-    &.btn-primary {
-        @apply bg-primary text-primary-content border-primary;
-        @apply hover:bg-primary/90 active:bg-primary/80;
-    }
-}
-
-.btn-icon {
-    @apply p-2 rounded-lg border-0 bg-transparent text-base-content/60;
-    @apply hover:bg-base-200 hover:text-base-content transition-colors duration-150;
-}
-
-.card-macos {
-    @apply bg-base-100 border border-base-300 rounded-xl shadow-sm;
-
-    .card-header {
-        @extend %header-base;
-        @apply border-b;
-    }
-
-    .card-content {
-        @apply p-4 space-y-4;
-    }
-}
-
-.header-bar {
-    @apply bg-base-100/80 backdrop-blur-sm border-b border-base-200;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.header-content {
-    @apply px-6 py-4 flex items-center justify-between;
-}
-
-.header-left {
-    @apply flex items-center space-x-3;
-}
-
-.header-icon {
-    @apply w-8 h-8 rounded-lg bg-base-200/50 flex items-center justify-center;
-}
-
-.header-title {
-    @apply text-lg font-semibold text-base-content tracking-tight;
-}
-
-.header-right {
-    @apply flex items-center space-x-3;
-}
-
-.header-btn {
-    @extend %btn-base;
-    @apply border-base-300/50 bg-base-100 flex items-center space-x-2;
-    @apply hover:bg-base-200 hover:border-base-300 active:bg-base-300;
-    @apply transition-all duration-150 ease-out;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-
-    &:disabled {
-        @apply hover:bg-base-100 hover:border-base-300/50;
-    }
-}
-
-.header-btn-text {
-    @apply hidden sm:inline;
-}
-
-.config-item {
-    @apply flex items-center py-2 px-1 border-b border-base-200/50 last:border-b-0;
-    min-height: 36px;
-
-    .item-label {
-        @apply text-sm font-medium text-base-content/80;
-        width: 80px;
-        flex-shrink: 0;
-        text-align: left;
-        margin-right: 16px;
-    }
-
-    .item-content {
-        @apply flex items-center flex-1 min-w-0 justify-end;
-        min-height: 24px;
-
-        .item-value {
-            @apply text-sm text-base-content truncate;
-            text-align: right;
-            line-height: 24px;
-        }
-
-        .item-action {
-            @apply ml-2 flex-shrink-0;
-
-            &.btn {
-                min-height: 24px;
-                height: 24px;
-                padding: 2px;
-            }
-        }
-    }
-}
-
-.modal-overlay {
-    @apply fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50;
-}
-
-.modal-macos {
-    @apply bg-base-100 rounded-xl shadow-xl border border-base-300 w-full max-w-md mx-4;
-
-    .modal-header {
-        @extend %header-base;
-        @apply border-b;
-    }
-
-    .modal-content {
-        @apply p-4 max-h-96 overflow-y-auto;
-    }
-
-    .modal-footer {
-        @extend %header-base;
-        @apply border-t justify-end space-x-2;
-    }
-}
-
-.mirror-option {
-    @apply p-3 rounded-lg border border-base-300 cursor-pointer transition-colors duration-150;
-    @apply hover:bg-base-200;
-
-    &.selected {
-        @apply border-primary bg-primary/5;
-    }
-}
+/* Dependency actions: keep buttons on one line and match macOS style */
+.dep-row { grid-template-columns: 1fr auto !important; }
+.dep-actions { width: auto !important; display: inline-flex; gap: 8px; justify-content: flex-end; }
+.dep-actions .btn-glass { height: 28px; padding: 0 10px; }
 </style>

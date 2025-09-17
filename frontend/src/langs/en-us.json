@@ -12,6 +12,7 @@
     "delete": "Delete",
     "delete_confirm": "Delete Confirm",
     "delete_success": "Delete Success",
+    "delete_confirm_detail": "Are you sure to delete \"{title}\"?",
     "delete_failed": "Delete Failed",
     "copy": "Copy",
     "copy_success": "Copy Success",
@@ -19,13 +20,25 @@
     "start": "Start",
     "info": "Info",
     "refresh": "Refresh",
+    "edit": "Edit",
+    "parse": "Parse",
+    "select": "Select",
+    "paste": "Paste",
+    "invalid_url": "Invalid URL",
+    "clipboard_read_failed": "Failed to read clipboard",
     "refreshing": "Refreshing...",
     "refresh_success": "Refresh Success",
     "refresh_failed": "Refresh Failed",
     "sync": "Sync",
     "loading": "Loading...",
     "unknown_duration": "Unknown Duration",
-    "unknown_size": "Unknown Size"
+    "unknown_size": "Unknown Size",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "load_more": "Load More",
+    "custom": "Custom",
+    "change": "Change",
+    "not_set": "Not Set"
   },
   "cookies": {
     "status": {
@@ -60,7 +73,9 @@
     "days_ago": "{count} days ago",
     "sync_with": "Use {type} to sync",
     "sync_started": "Sync started",
-    "sync_start_error": "Sync start error"
+    "sync_start_error": "Sync start error",
+    "panel_hint": "Manage and sync browser cookies here.",
+    "open_full_view": "Open Full View"
   },
   "dialogue": {
     "app_name": "CanMe",
@@ -113,6 +128,7 @@
   },
   "ribbon": {
     "download": "Download",
+    "download_new": "Download",
     "subtitle": "Subtitle",
     "theme": "theme",
     "settings": "Settings"
@@ -120,6 +136,20 @@
   "bottom": {
     "settings": "Settings",
     "theme": "Theme"
+  },
+  "sidebar": {
+    "main": "Library",
+    "utilities": "Utilities",
+    "search_placeholder": "Search",
+    "open_sidebar": "Open Sidebar",
+    "close_sidebar": "Close Sidebar"
+  },
+  "inspector": {
+    "title": "Inspector",
+    "empty": {
+      "detail_title": "Detail",
+      "detail_hint": "Please select a task"
+    }
   },
   "settings": {
     "model_provider": "Model Provider",
@@ -136,7 +166,14 @@
     },
     "general": {
       "name": "General",
+      "appearance": "Appearance",
+      "ui_style": "UI Style",
+      "ui_style_classic": "Classic",
+      "ui_style_frosted": "Frosted",
       "theme": "Theme",
+      "appearance_light": "Light",
+      "appearance_dark": "Dark",
+      "appearance_auto": "Auto",
       "language": "Language",
       "font": "Font",
       "font_tip": "Select or input font name",
@@ -178,7 +215,12 @@
       "data_path": "Data Path",
       "listend": "Listened"
     },
-    "about": "About",
+    "about": {
+      "title": "About",
+      "changelog": "Changelog",
+      "auto_check_update": "Auto Check Updates on Launch"
+    },
+    "acknowledgments": "Acknowledgments",
     "dependency": {
       "status": {
         "processing": "Processing...",
@@ -196,6 +238,8 @@
         "progress": "Progress"
       },
       "title": "Dependency",
+      "quick_validate": "Quick Validate",
+      "quick_validate_success": "Quick validate completed",
       "check_updates": "Check Updates",
       "not_installed": "Not Installed",
       "installed": "Installed",
@@ -215,6 +259,7 @@
       "recommended": "Recommended",
       "load_mirrors_failed": "Load Mirrors Failed",
       "validate": "Validate",
+      "quick_validating": "Quick Validating",
       "validating": "Validating",
       "validate_success": "Validate Success",
       "validate_failed": "Validate Failed",
@@ -224,6 +269,7 @@
       "repair_failed": "Repair Failed"
     }
   },
+  
   "message": {
     "copy": "Copy",
     "copy_content": "Copy Content",
@@ -264,6 +310,7 @@
     "download_info": "Download Info",
     "download_settings": "Download Settings",
     "output_files": "Output Files",
+    "output_info": "Output Info",
     "source": "Source",
     "uploader": "Uploader",
     "extractor": "Extractor",
@@ -286,6 +333,8 @@
     "downloading_desc": "Downloading video file from source",
     "translating_desc": "Translating subtitle file",
     "embedding_desc": "Embedding subtitle into video",
+    "merging": "Merging",
+    "finalizing": "Finalizing",
     "completed_desc": "Download completed",
     "failed_desc": "Download failed",
     "cancelled_desc": "Task cancelled",
@@ -302,6 +351,7 @@
     "video_quality": "Video Quality",
     "select_video_quality": "Select Video Quality",
     "subtitle_language": "Subtitle Language",
+    "all_subtitles": "All Subtitles",
     "no_subtitles": "No Subtitles",
     "subtitles": "Subtitles",
     "selected": "Selected",
@@ -312,6 +362,15 @@
     "translate_desc": "Translate subtitle file",
     "process_video": "Process Video",
     "process_video_desc": "Embed subtitle into video",
+    "process": "Process",
+    "download_process": "Download Process",
+    "subtitle_process": "Subtitle Process",
+    "status_label": "Status",
+    "stage_video": "Video",
+    "stage_subtitles": "Subtitles",
+    "stage_merge": "Merge",
+    "stage_finalize": "Finalize",
+    "processing": "Processing",
     "complete": "Complete",
     "complete_desc": "Processing completed and saved",
     "parse_failed": "Parse failed",
@@ -328,11 +387,15 @@
     "no_transcoding": "No Transcoding",
     "video_formats": "Videos",
     "audio_formats": "Audios",
-    "checking_cookies": "Checking Cookies"
+    "checking_cookies": "Checking Cookies",
+    "output": "Output",
+    "settings": "Settings",
+    "output_dir": "Output Directory"
   },
   "subtitle": {
     "title": "Subtitle",
-    "common": {
+  "common": {
+    "custom": "Custom",
       "select_sub_file": "Select Subtitle File",
       "lang": "Language",
       "open_file": "Open File",
@@ -350,8 +413,10 @@
       "confirm": "Confirm",
       "cancel": "Cancel",
       "open": "Open",
+      "edit": "Edit",
       "close": "Close",
       "not_set": "Not Set"
+      ,"none": "None"
     },
     "welcome": {
       "title": "Welcome to Subtitle",
@@ -368,6 +433,7 @@
       "current_standard": "Current Standard",
       "current_standard_info": "Current Standard Info",
       "metrics_explanation": "Metrics Explanation",
+      "current_metrics": "Current Metrics",
       "cps": "CPS",
       "cps_fullname": "Characters Per Second",
       "cps_desc": "A key indicator for measuring subtitle reading speed",
@@ -390,10 +456,14 @@
       "ade_standard_desc": "ADE subtitle standards, balancing speed and quality requirements",
       "no_caption_rn": "No Caption",
       "duration": "Duration",
-      "unknown": "Unknown"
+      "unknown": "Unknown",
+      "cues": "Cues",
+      "total_cues": "Total {count} cues"
     },
     "export": {
       "title": "Export Subtitle",
+      "summary": "Summary",
+      "detail": "Export Detail",
       "format": "Format",
       "parameters": "Parameters",
       "resolution": "Resolution",
@@ -427,6 +497,11 @@
       "no_imported_sub_found": "No imported subtitle found",
       "remove_from_history": "Remove from history",
       "remove_all_history": "Remove all history"
+    },
+    "group": {
+      "today": "Today",
+      "this_week": "This Week",
+      "earlier": "Earlier"
     },
     "import": {
       "title": "Import Subtitle",

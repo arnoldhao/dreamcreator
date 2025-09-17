@@ -1,12 +1,12 @@
 <template>
     <div class="proxied-image-wrapper" :style="{ width: width, height: height }">
       <!-- 加载中状态 -->
-      <div v-if="isLoading" class="loading-placeholder flex items-center justify-center w-full h-full bg-base-200 text-base-content/30">
-        <v-icon name="ri-loader-4-line" class="animate-spin w-5 h-5"></v-icon>
+      <div v-if="isLoading" class="loading-placeholder flex items-center justify-center w-full h-full">
+        <Icon name="spinner" class="animate-spin w-5 h-5"></Icon>
       </div>
       <!-- 加载错误或无有效 URL 状态 -->
-      <div v-else-if="hasError || !imageDataUrl" class="error-placeholder flex items-center justify-center w-full h-full bg-base-200 text-base-content/30">
-        <v-icon :name="errorIcon" class="w-5 h-5"></v-icon>
+      <div v-else-if="hasError || !imageDataUrl" class="error-placeholder flex items-center justify-center w-full h-full">
+        <Icon :name="resolvedErrorIcon" class="w-5 h-5" />
       </div>
       <!-- 图片加载成功 -->
       <img
@@ -20,7 +20,8 @@
   </template>
   
   <script setup>
-  import { ref, watch, onMounted } from 'vue'
+  import { ref, watch, onMounted, computed } from 'vue'
+  import Icon from '@/components/base/Icon.vue'
   // 确保从正确的路径导入 GetImage
   import { GetImage } from 'wailsjs/go/api/UtilsAPI'
   import { useLoggerStore } from '@/stores/logger'
@@ -49,30 +50,52 @@
     // 错误时显示的图标
     errorIcon: {
       type: String,
-      default: 'ri-image-line' // 默认图标
+      default: 'image' // 语义默认图标
     }
   })
   
   const logger = useLoggerStore()
-  
+
   const imageDataUrl = ref(null) // 存储最终的 Data URL
   const isLoading = ref(false)   // 加载状态
   const hasError = ref(false)    // 错误状态
+  // 解析错误图标（兼容旧 name）
+  const resolvedErrorIcon = computed(() => {
+    const v = props.errorIcon || 'image'
+    // 兼容旧用法（ri-*）到语义
+    if (v.startsWith('ri-')) {
+      if (v.includes('video')) return 'video'
+      if (v.includes('image')) return 'image'
+      return 'image'
+    }
+    return v
+  })
+
+  const sanitizeUrl = (val) => {
+    if (typeof val !== 'string') return ''
+    let s = val.trim()
+    // 去掉可能误传入的包裹引号
+    if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+      s = s.slice(1, -1).trim()
+    }
+    return s
+  }
   
   // 核心逻辑：获取图片 Data URL
   const fetchImageData = async (url) => {
+    const safe = sanitizeUrl(url)
     // 1. 检查输入 URL
-    if (!url || typeof url !== 'string') {
+    if (!safe) {
       imageDataUrl.value = null
       isLoading.value = false
       hasError.value = true // 标记为错误，因为没有有效 URL
       logger.warn('ProxiedImage: Invalid src provided:', url)
       return
     }
-  
+
     // 2. 如果已经是 Data URL，直接使用
-    if (url.startsWith('data:image')) {
-      imageDataUrl.value = url
+    if (safe.startsWith('data:image')) {
+      imageDataUrl.value = safe
       isLoading.value = false
       hasError.value = false
       return
@@ -84,15 +107,17 @@
     imageDataUrl.value = null // 清空旧数据
   
     try {
-      // 确保 URL 是 https (如果需要)
-      const correctedUrl = url.startsWith('http:') ? url.replace('http:', 'https:') : url;
+      // 保持原始协议，部分站点仅允许 http 或会对 https 做热链校验
+      const requestUrl = safe
+      // removed verbose fetch start logging
       // 调用后端代理
-      const response = await GetImage(correctedUrl)
+      const response = await GetImage(requestUrl)
       if (response.success) {
         const result = JSON.parse(response.data)
         if (result.base64Data && result.contentType) {
             imageDataUrl.value = `data:${result.contentType};base64,${result.base64Data}`
             hasError.value = false
+            // removed verbose fetch success logging
         } else {
             // 后端返回的数据格式无效
              throw new Error('Invalid data received from proxy, base64Data or contentType is missing')
@@ -102,7 +127,7 @@
         throw new Error(response.msg)
       }
     } catch (error) {
-      logger.error('ProxiedImage: Failed to fetch image via proxy for url:', url, 'Error:', error)
+      logger.error('ProxiedImage: Failed to fetch image via proxy', { src: url, error: String(error) })
       hasError.value = true
       imageDataUrl.value = null // 确保错误时不显示旧图片
     } finally {
@@ -140,5 +165,10 @@
   
   .image-content {
     display: block; /* 避免 img 底部空隙 */
+  }
+  .loading-placeholder,
+  .error-placeholder {
+    background: var(--macos-background-secondary);
+    color: var(--macos-text-tertiary);
   }
   </style>

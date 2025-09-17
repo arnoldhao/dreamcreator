@@ -162,9 +162,43 @@ type DtTaskStatus struct {
 	Speed         string  `json:"speed,omitempty"`         // 下载速度
 	EstimatedTime string  `json:"estimatedTime,omitempty"` // 预计剩余时间
 
-	// 时间戳
-	CreatedAt int64 `json:"createdAt"`
-	UpdatedAt int64 `json:"updatedAt"`
+    // 时间戳
+    CreatedAt int64 `json:"createdAt"`
+    UpdatedAt int64 `json:"updatedAt"`
+
+    // Process groups (persisted across refresh)
+    DownloadProcess DownloadProcess `json:"downloadProcess,omitempty"`
+    SubtitleProcess SubtitleProcess `json:"subtitleProcess,omitempty"`
+    TranscodeProcess TranscodeProcess `json:"transcodeProcess,omitempty"`
+}
+
+// DownloadProcess 持久化下载阶段状态
+type DownloadProcess struct {
+    Video    string `json:"video,omitempty"`    // idle|working|done|error
+    Merge    string `json:"merge,omitempty"`    // idle|working|done|error
+    Finalize string `json:"finalize,omitempty"` // idle|working|done|error
+    Speed         string `json:"speed,omitempty"`
+    EstimatedTime string `json:"estimatedTime,omitempty"`
+}
+
+// SubtitleProcess 持久化字幕阶段状态
+type SubtitleProcess struct {
+    Status    string   `json:"status,omitempty"`    // idle|working|done|error
+    Format    string   `json:"format,omitempty"`
+    OutputDir string   `json:"outputDir,omitempty"`
+    Files     []string `json:"files,omitempty"`
+    ProjectID string   `json:"projectId,omitempty"` // 导入到字幕模块后的项目ID（预留）
+    Languages []string `json:"languages,omitempty"`
+    // Projects maps language code (when detectable from filename) to subtitle project ID
+    Projects  map[string]string `json:"projects,omitempty"`
+}
+
+// TranscodeProcess 预留的转码阶段
+type TranscodeProcess struct {
+    Status     string   `json:"status,omitempty"`
+    OutputDir  string   `json:"outputDir,omitempty"`
+    OutputFiles []string `json:"outputFiles,omitempty"`
+    JobID      string   `json:"jobId,omitempty"`
 }
 
 // UpdateFromProgress updates the task status based on progress information
@@ -178,15 +212,17 @@ func (t *DtTaskStatus) UpdateFromProgress(progress *DtProgress) {
 		t.Percentage = progress.Percentage
 	}
 
-	// 更新下载速度
-	if progress.Speed != "" {
-		t.Speed = progress.Speed
-	}
+    // 更新下载速度
+    if progress.Speed != "" {
+        t.Speed = progress.Speed
+        t.DownloadProcess.Speed = progress.Speed
+    }
 
 	// 更新预计剩余时间
-	if progress.EstimatedTime != "" {
-		t.EstimatedTime = progress.EstimatedTime
-	}
+    if progress.EstimatedTime != "" {
+        t.EstimatedTime = progress.EstimatedTime
+        t.DownloadProcess.EstimatedTime = progress.EstimatedTime
+    }
 
 	// Update error information if present
 	if progress.Error != "" {
@@ -200,10 +236,25 @@ type FillTaskInfo struct {
 }
 
 type DTSignal struct {
-	ID      string      `json:"id"`
-	Type    string      `json:"type"`
-	Stage   DtTaskStage `json:"stage"` // 当前处理阶段
-	Refresh bool        `json:"refresh"`
+    ID      string      `json:"id"`
+    Type    string      `json:"type"`
+    Stage   DtTaskStage `json:"stage"` // 当前处理阶段
+    Refresh bool        `json:"refresh"`
+}
+
+// DTStageEvent 用于阶段化可观测事件（无强制百分比）
+// kind: video|audio|subtitle|merge|finalize|translate|embed
+// action: start|complete|error|progress（progress 可选）
+type DTStageEvent struct {
+    ID      string  `json:"id"`
+    Kind    string  `json:"kind"`
+    Action  string  `json:"action"`
+    Lang    string  `json:"lang,omitempty"`
+    File    string  `json:"file,omitempty"`
+    Message string  `json:"message,omitempty"`
+    Percent float64 `json:"percent,omitempty"`
+    Speed   string  `json:"speed,omitempty"`
+    ETA     string  `json:"eta,omitempty"`
 }
 
 type DTCookieSyncStatus string

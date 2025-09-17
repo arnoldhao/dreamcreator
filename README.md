@@ -1,5 +1,5 @@
 <div align="center">
-<a href="https://github.com/arnoldhao/canme/"><img src="build/appicon.png" width="150"/></a>
+  <a href="https://github.com/arnoldhao/canme/"><img src="build/appicon.png" width="140" alt="CanMe logo" /></a>
 </div>
 
 <h1 align="center">CanMe</h1>
@@ -10,150 +10,135 @@
 </p>
 
 <div align="center">
-  <img src="https://img.shields.io/github/v/tag/arnoldhao/canme?label=version" alt="Version" />
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey" alt="Platform" />
-  <img src="https://img.shields.io/badge/tech-Go%20%7C%20Vue3-green" alt="Tech" />
-  <img src="https://img.shields.io/badge/subtitle-ITT%20%7C%20SRT%20%7C%20FCPXML-blue" alt="Subtitle" />
+  <img src="https://img.shields.io/github/v/tag/arnoldhao/canme?label=version" alt="Latest tag" />
+  <img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License" />
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey" alt="Supported platforms" />
+  <img src="https://img.shields.io/badge/stack-Go%20%E2%80%A2%20Wails%20%E2%80%A2%20Vue3-green" alt="Tech stack" />
 </div>
 
-<p align="center">
-  <strong>CanMe is a comprehensive multilingual video download manager with advanced subtitle processing capabilities and a fluid user experience.</strong>
-</p>
+<br />
 
-<p align="center">
-  <strong>Built on <a href="https://github.com/yt-dlp/yt-dlp">yt-dlp</a>, supporting multiple video platforms with real-time download progress, multilingual interface, and professional subtitle workflow.</strong>
-</p>
+CanMe is an open-source desktop toolkit for downloading online media and running a reproducible subtitle workflow. The backend is implemented in Go (Wails) with BoltDB persistence and WebSocket messaging; the frontend is a Vue 3 / Tailwind interface. The project focuses on reliable downloads and transparent subtitle processing, with room to expand into auxiliary tooling as it matures.
 
 <div align="center">
-  <img src="images/ui_en.png" width="80%" alt="CanMe UI" />
+  <img src="images/ui_en.png" width="85%" alt="CanMe user interface" />
 </div>
 
-<br/>
+## Table of Contents
+- [Highlights](#highlights)
+- [Feature Overview](#feature-overview)
+- [Getting Started](#getting-started)
+- [Build from Source](#build-from-source)
+- [Usage Notes](#usage-notes)
+- [Roadmap](#roadmap)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
 
-## ✨ Core Features
+## Highlights
+- Desktop binaries for Windows 10+ and macOS 10.15+, packaged with yt-dlp and FFmpeg
+- Explicit dependency manager: version pinning, checksum verification, mirrors, and auto-heal
+- BoltDB-backed metadata store for downloads, cookie snapshots, and subtitle projects
+- Real-time status streaming over WebSocket to a Vue 3 + Pinia UI with bilingual i18n
+- Apache License 2.0, active refactoring toward modular AI translation hooks and cookie tooling
 
-### 🎬 Video Download Engine
-- **Multi-platform Support** - Download from various video platforms with yt-dlp integration
-- **Real-time Progress** - Live download status with detailed progress indicators
-- **Format Selection** - Choose from available video/audio quality options
-- **Batch Processing** - Queue multiple downloads with smart management
+## Feature Overview
 
-### 📝 Advanced Subtitle System
-- **📥 Import Support** - ITT and SRT subtitle format import
-- **📤 Export Formats** - Export to SRT and FCPXML for professional editing
-- **🔄 Auto-extraction** - Automatically download video subtitles when available
-- **🎯 Precision Timing** - Maintain accurate subtitle synchronization
+### Acquisition Pipeline
+- **Multi-source downloads:** yt-dlp wrapper with per-task format selection, staged progress events (probe → fetch → merge → finalize)
+- **Proxy-aware execution:** per-app HTTP/SOCKS proxy including PAC support and Windows elevation helpers
+- **Dependency watchdog:** background checks for yt-dlp/FFmpeg availability, mirror fallback, and hash validation
 
-### 🌐 User Experience
-- **Multilingual Interface** - Complete English and Chinese language support
-- **Cross-platform** - Native support for Windows and macOS
-- **Modern UI** - Clean design built with Vue3 + TailwindCSS + DaisyUI
-- **MCP Integration** - Model Context Protocol support for LLM workflows
+### Subtitle Capabilities
+- **Import formats:** `.srt`, `.vtt/.webvtt`, `.ass/.ssa`, `.itt` via dedicated parsers (`backend/core/subtitles/format.go`)
+- **Normalization:** configurable text processing (punctuation cleanup, trimming, zh Hans⇄Hant conversion through `pkg/zhconvert`)
+- **Quality analysis:** heuristics evaluating timing gaps, segment length, and character density (`quality_assessor.go`)
+- **Project store:** subtitle data is persisted as `types.SubtitleProject` with language indexes for instant lookups and diffing
+- **Export formats:** SRT, VTT, ASS/SSA, ITT, Final Cut Pro XML; export configs auto-fill frame rate, resolutions, and track metadata
+- **Translation staging:** backend task lifecycle reserves a `translate` phase (`service.go:675+`, `translateSubtitles`) ready for pluggable MT/LLM adapters; current builds emit placeholders without calling external APIs
+- **Embedding hooks:** conversion routines feed FFmpeg mux steps to burn or attach tracks during post-processing
 
-### 🔧 Technical Capabilities
-- **Video Recoding** - Convert between different video/audio formats
-- **Proxy Support** - Network proxy configuration for global access
-- **Local Storage** - Efficient local data management with BBolt
-- **WebSocket Communication** - Real-time updates and notifications
+### Cookie Management
+- Scoped browser scanners for Chromium-based profiles on Windows/macOS; results stored by browser with status and sync history
+- Netscape-format export for yt-dlp and manual inspection, optional per-domain filtering, and cleanup of temporary exports
+- WebSocket notifications for sync progress so the UI can surface granular status and errors
 
-## 🚀 Getting Started
+### Media Conversion
+- FFmpeg runners with presets for remuxing, audio extraction, and subtitle attachment; dependency metadata cached for repeated runs
+- Task classification (`video`, `subtitle`, `other`) to keep ancillary files grouped in the UI’s download inspector
+
+## Getting Started
 
 ### Prerequisites
-- **System Requirements** - Windows 10+ or macOS 10.15+
-- **Dependencies** - All required dependencies (yt-dlp, FFmpeg) are automatically managed by CanMe
+- Windows 10 or later, or macOS 10.15 or later
+- Sufficient storage for target downloads; FFmpeg temp files may require additional space
+- No manual dependency installation is required; CanMe downloads and validates yt-dlp/FFmpeg on first launch
 
-### Installation
+### Install Packages
+1. Download the latest release from [GitHub Releases](https://github.com/arnoldhao/canme/releases)
+2. Extract the archive to a writable directory
+3. Launch the application
 
-#### 📦 Download & Basic Setup
-1. Download the latest release for your platform from [GitHub Releases](https://github.com/arnoldhao/canme/releases)
-2. Extract the downloaded archive to your preferred location
+#### macOS Gatekeeper
+Unsigned builds require manual confirmation:
+- Control-click the app → **Open**, or
+- Remove the quarantine flag:
+  ```bash
+  sudo xattr -rd com.apple.quarantine /path/to/CanMe.app
+  ```
 
-#### 🍎 macOS Installation
+#### Windows SmartScreen
+- Choose **More info → Run anyway** the first time you launch the unsigned binary
 
-**⚠️ Important for macOS Users**
+### Dependency Management
+- yt-dlp and FFmpeg live under the app’s managed cache; damaged binaries are redownloaded with SHA validation
+- Chrome/Edge cookie sync may need elevated privileges on Windows; the UI surfaces when elevation is required
 
-Due to the lack of Apple Developer Certificate, both Intel and ARM64 versions require additional steps:
+## Build from Source
 
-##### First Launch Setup
-1. **Right-click** on the CanMe app and select **"Open"**
-2. Click **"Open"** in the security dialog that appears
-3. If you see "CanMe cannot be opened because it is from an unidentified developer":
-   - Go to **System Preferences** → **Security & Privacy** → **General**
-   - Click **"Open Anyway"** next to the CanMe warning message
-   - Enter your admin password when prompted
+> Use the release artifacts for day-to-day work. Build steps below target contributors.
 
-##### Alternative Method (Terminal)
-If the above doesn't work, you can use Terminal:
+### Requirements
+- Go 1.24+
+- Node.js 18+ (with npm or pnpm)
+- Wails CLI (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+
+### Steps
 ```bash
-sudo xattr -rd com.apple.quarantine /path/to/CanMe.app
+# Backend modules
+go mod tidy
+
+# Frontend assets
+cd frontend
+npm install
+npm run build
+cd ..
+
+# Desktop bundle
+wails build
 ```
 
-#### 🔧 Built-in Dependency Management
-- yt-dlp & FFmpeg : Automatically managed - no manual installation required
-- Chrome Cookies : Automatic synchronization support for enhanced platform access
-- Network Proxy : Built-in proxy configuration for global access
+For hot reloading, run `wails dev` in the repository root and `npm run dev` inside `frontend` to attach Vite’s dev server.
 
-#### 🪟 Windows Installation
-1. Extract the downloaded archive
-2. Run CanMe.exe directly - no additional setup required
-3. Windows Defender may show a warning - click "More info" → "Run anyway"
+## Usage Notes
+- Sign in to streaming services in Chrome/Edge before running **Cookies → Sync** to capture fresh authentication
+- The scheduler parallelizes metadata fetches but serializes heavy merge/transcode steps to avoid I/O contention
+- Subtitle imports appear in the Subtitle workspace; review segments, run quality checks, then trigger translation once adapters are configured
+- Configure proxy settings in **Preferences → Network** if downloads return geo-errors or throttled responses
 
-### 🚀 Ready to Use
-Once installed, CanMe is ready to use with:
+## Roadmap
+Upcoming work is tracked via GitHub issues/projects. Current focus areas:
+- Wire the translation stage to external AI services with sensible retry policies and audit logging
+- Expand cookie tooling with manual import/export, conflict resolution, and sandboxed scraping helpers
+- Provide FFmpeg preset catalogues (platform/social-specific) and batch conversion scripts
 
-- ✅ Zero Configuration - All dependencies automatically managed
-- ✅ Chrome Cookie Sync - Seamless access to authenticated content (macOS)
-- ✅ Multi-platform Support - Download from various video platforms
-- ✅ Professional Subtitle Tools - ITT/SRT import, SRT/FCPXML export
+## License
 
-### 🔍 Troubleshooting macOS Issues
-- "App is damaged" : Use the Terminal command above to remove quarantine attributes
-- Permission denied : Ensure you have admin privileges and try the System Preferences method
-- App won't start : Check Console.app for detailed error messages General Issues
-- Download failures : Check your internet connection and proxy settings
-- Missing features : Ensure you downloaded the latest version
-- Performance issues : Close other resource-intensive applications
+CanMe is distributed under the Apache License 2.0. See `LICENSE` for the full text.
 
-### ⚠️ System Requirements
-- 💾 **Storage**: Adequate disk space for downloads and processing
+## Acknowledgements
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp)
+- [FFmpeg](https://ffmpeg.org/)
+- [Wails](https://wails.io/)
+- [Vue](https://vuejs.org/)
+- [TailwindCSS](https://tailwindcss.com/)
 
-### 📌 Known Limitations
-- YouTube subtitle downloads may not show progress updates (downloads complete successfully)
-- Download pause/resume functionality planned for future releases
-- Some platforms may require additional authentication
-
-## 🔮 Development Roadmap
-
-### 🎯 Short-term Goals
-- **Enhanced Subtitle Pipeline**
-  - 🤖 AI-powered subtitle translation
-  - 📺 Direct subtitle embedding in videos
-  - 🔄 Batch subtitle processing
-  - 🎨 Subtitle styling and formatting options
-
-### 🚀 Long-term Vision
-- **AI-Enhanced Workflow**
-  - 💬 Intelligent content assistant
-  - 📝 Educational tools (language learning, essay review)
-  - 📊 Content analysis and recommendations
-  - 🧠 Smart content categorization
-
-## 🛠️ Technical Stack
-
-- **Backend**: Go with Wails framework
-- **Frontend**: Vue3 + TailwindCSS + DaisyUI
-- **Video Processing**: yt-dlp + FFmpeg
-- **Storage**: BBolt embedded database
-- **Communication**: WebSocket for real-time updates
-
-## 📖 Project Philosophy
-
-> CanMe represents a journey in modern application development, combining robust backend engineering with elegant frontend design. This project serves as both a practical tool and a learning platform, exploring the intersection of video processing, user experience design, and cross-platform development.
-
-## 🤝 Contributing
-
-As a personal learning project, CanMe welcomes feedback and suggestions. While the codebase continues to evolve, your understanding and patience with ongoing improvements are appreciated.
-
----
-
-<p align="center">© 2025 <a href="https://github.com/arnoldhao">Arnold Hao</a>. All rights reserved.</p>

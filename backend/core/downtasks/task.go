@@ -40,8 +40,14 @@ func NewTaskManager(ctx context.Context, boltStorage *storage.BoltStorage) *Task
 			err := tm.storage.InitializeOrRestoreDefaultConversionFormats(true)
 			if err != nil {
 				logger.Error("Failed to initialize default conversion formats", zap.Error(err))
+			} else {
+				refreshed := tm.ListAllConversionFormats()
+				total := 0
+				for _, group := range refreshed {
+					total += len(group)
+				}
+				logger.Info("Default conversion formats initialized", zap.Int("groups", len(refreshed)), zap.Int("total", total))
 			}
-			logger.Info("Default conversion formats initialized", zap.Int("count", len(formats)))
 		}
 	}
 
@@ -77,21 +83,22 @@ func (tm *TaskManager) Path() string {
 
 // GetTask 获取任务状态
 func (tm *TaskManager) GetTask(id string) *types.DtTaskStatus {
+	// Fast path: read lock to check existing
 	tm.taskMutex.RLock()
-	defer tm.taskMutex.RUnlock()
-
-	// 首先尝试从内存中获取
-	if task, ok := tm.tasks[id]; ok {
+	task, ok := tm.tasks[id]
+	tm.taskMutex.RUnlock()
+	if ok {
 		return task
 	}
 
-	// 如果内存中没有，且存储可用，尝试从存储中获取
+	// Slow path: fetch from storage (no lock held while doing I/O)
 	if tm.storage != nil {
-		task, err := tm.storage.GetTask(id)
-		if err == nil {
-			// 将任务添加到内存中
-			tm.tasks[id] = task
-			return task
+		if loaded, err := tm.storage.GetTask(id); err == nil && loaded != nil {
+			// Upgrade to write lock to cache into memory
+			tm.taskMutex.Lock()
+			tm.tasks[id] = loaded
+			tm.taskMutex.Unlock()
+			return loaded
 		}
 	}
 
@@ -141,6 +148,36 @@ func (tm *TaskManager) UpdateTask(task *types.DtTaskStatus) {
 				zap.Error(err))
 		}
 	}
+}
+
+// UpdateTaskWith applies a mutation function to a task under write lock,
+// persists it when storage is available, and returns the updated task.
+func (tm *TaskManager) UpdateTaskWith(id string, fn func(*types.DtTaskStatus)) *types.DtTaskStatus {
+	tm.taskMutex.Lock()
+	defer tm.taskMutex.Unlock()
+
+	t, ok := tm.tasks[id]
+	if !ok && tm.storage != nil {
+		if loaded, err := tm.storage.GetTask(id); err == nil && loaded != nil {
+			tm.tasks[id] = loaded
+			t = loaded
+		}
+	}
+	if t == nil {
+		return nil
+	}
+	if fn != nil {
+		fn(t)
+	}
+	t.UpdatedAt = time.Now().Unix()
+	if tm.storage != nil {
+		if err := tm.storage.SaveTask(t); err != nil {
+			logger.Error("Failed to update task via UpdateTaskWith",
+				zap.String("id", id),
+				zap.Error(err))
+		}
+	}
+	return t
 }
 
 // ListTasks 列出所有任务

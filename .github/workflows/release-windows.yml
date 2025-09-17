@@ -8,7 +8,7 @@ on:
       tag:
         description: 'Version tag'
         required: true
-        default: '0.1.17'
+        default: '0.1.18'
 
 jobs:
   release:
@@ -81,8 +81,8 @@ jobs:
           mkdir -p backend/embedded/binaries
           
           # 设置版本常量(与consts/mirrors.go中的版本保持一致)
-          YTDLP_VERSION="2025.05.22"
-          FFMPEG_VERSION="7.1.1-5"
+          YTDLP_VERSION="2025.09.05"
+          FFMPEG_VERSION="7.1.1-7"
           ARCH="${{ steps.normalise_platform.outputs.arch }}"
           
           # 下载yt-dlp

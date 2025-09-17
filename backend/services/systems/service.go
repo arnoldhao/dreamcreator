@@ -4,9 +4,11 @@ import (
 	"CanMe/backend/consts"
 	"CanMe/backend/services/preferences"
 	"CanMe/backend/types"
-	"CanMe/backend/utils"
 	"context"
+	"os"
+	"os/exec"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -70,6 +72,14 @@ func (s *Service) OpenDirectoryDialog(title string) (resp types.JSResp) {
 		Title: title,
 	})
 	if err != nil {
+		// Windows may return an error like "shellitem is nil" when user cancels.
+		// Treat cancellation as a benign result to align with macOS behaviour.
+		msg := strings.ToLower(err.Error())
+		if strings.Contains(msg, "shellitem") || strings.Contains(msg, "cancel") || strings.Contains(msg, "canceled") || strings.Contains(msg, "cancelled") {
+			resp.Success = true
+			resp.Data = map[string]any{"path": ""}
+			return
+		}
 		resp.Msg = err.Error()
 		return
 	}
@@ -87,19 +97,80 @@ func (s *Service) OpenDirectory(path string) {
 	wailsRuntime.BrowserOpenURL(s.ctx, url)
 }
 
+// OpenPath opens a file (or directory) with the system default application
+func (s *Service) OpenPath(path string) (resp types.JSResp) {
+	if path == "" {
+		resp.Msg = "path is empty"
+		return
+	}
+	if _, err := os.Stat(path); err != nil {
+		resp.Msg = err.Error()
+		return
+	}
+	go func() {
+		var cmd *exec.Cmd
+		switch runtime.GOOS {
+		case "darwin":
+			cmd = exec.Command("open", path)
+		case "windows":
+			// Suppress console window on Windows when opening files
+			cmd = winOpenCmd(path)
+		default:
+			cmd = exec.Command("xdg-open", path)
+		}
+		_ = cmd.Start()
+	}()
+	resp.Success = true
+	return
+}
+
 // SelectFile open file dialog to select a file
 func (s *Service) SelectFile(title string, extensions []string) (resp types.JSResp) {
-	filters := utils.SliceMap(extensions, func(i int) wailsRuntime.FileFilter {
-		return wailsRuntime.FileFilter{
-			Pattern: "*." + extensions[i],
+	// Build Windows/macOS friendly filters: include DisplayName and an aggregated pattern
+	var filters []wailsRuntime.FileFilter
+	if len(extensions) > 0 {
+		// sanitize, dedupe, and build patterns
+		seen := map[string]bool{}
+		pats := make([]string, 0, len(extensions))
+		for _, e := range extensions {
+			ext := strings.TrimSpace(strings.TrimPrefix(strings.ToLower(e), "."))
+			if ext == "" || seen[ext] {
+				continue
+			}
+			seen[ext] = true
+			pats = append(pats, "*."+ext)
 		}
-	})
+		if len(pats) > 0 {
+			agg := strings.Join(pats, ";")
+			filters = append(filters, wailsRuntime.FileFilter{
+				DisplayName: "Supported Files (" + strings.Join(pats, ";") + ")",
+				Pattern:     agg,
+			})
+			// individual filters
+			for _, p := range pats {
+				ext := strings.TrimPrefix(p, "*.")
+				filters = append(filters, wailsRuntime.FileFilter{
+					DisplayName: strings.ToUpper(ext) + " Files (*." + ext + ")",
+					Pattern:     p,
+				})
+			}
+		}
+		// Always include All Files at the end
+		filters = append(filters, wailsRuntime.FileFilter{DisplayName: "All Files (*.*)", Pattern: "*.*"})
+	}
+
 	filepath, err := wailsRuntime.OpenFileDialog(s.ctx, wailsRuntime.OpenDialogOptions{
 		Title:           title,
 		ShowHiddenFiles: true,
 		Filters:         filters,
 	})
 	if err != nil {
+		msg := strings.ToLower(err.Error())
+		if strings.Contains(msg, "shellitem") || strings.Contains(msg, "cancel") || strings.Contains(msg, "canceled") || strings.Contains(msg, "cancelled") {
+			resp.Success = true
+			resp.Data = map[string]any{"path": ""}
+			return
+		}
 		resp.Msg = err.Error()
 		return
 	}
@@ -112,11 +183,36 @@ func (s *Service) SelectFile(title string, extensions []string) (resp types.JSRe
 
 // SaveFile open file dialog to save a file
 func (s *Service) SaveFile(title string, defaultName string, extensions []string) (resp types.JSResp) {
-	filters := utils.SliceMap(extensions, func(i int) wailsRuntime.FileFilter {
-		return wailsRuntime.FileFilter{
-			Pattern: "*." + extensions[i],
+	// Reuse the same friendly filters as SelectFile
+	var filters []wailsRuntime.FileFilter
+	if len(extensions) > 0 {
+		seen := map[string]bool{}
+		pats := make([]string, 0, len(extensions))
+		for _, e := range extensions {
+			ext := strings.TrimSpace(strings.TrimPrefix(strings.ToLower(e), "."))
+			if ext == "" || seen[ext] {
+				continue
+			}
+			seen[ext] = true
+			pats = append(pats, "*."+ext)
 		}
-	})
+		if len(pats) > 0 {
+			agg := strings.Join(pats, ";")
+			filters = append(filters, wailsRuntime.FileFilter{
+				DisplayName: "Supported Files (" + strings.Join(pats, ";") + ")",
+				Pattern:     agg,
+			})
+			for _, p := range pats {
+				ext := strings.TrimPrefix(p, "*.")
+				filters = append(filters, wailsRuntime.FileFilter{
+					DisplayName: strings.ToUpper(ext) + " Files (*." + ext + ")",
+					Pattern:     p,
+				})
+			}
+		}
+		filters = append(filters, wailsRuntime.FileFilter{DisplayName: "All Files (*.*)", Pattern: "*.*"})
+	}
+
 	filepath, err := wailsRuntime.SaveFileDialog(s.ctx, wailsRuntime.SaveDialogOptions{
 		Title:           title,
 		ShowHiddenFiles: true,
@@ -124,6 +220,12 @@ func (s *Service) SaveFile(title string, defaultName string, extensions []string
 		Filters:         filters,
 	})
 	if err != nil {
+		msg := strings.ToLower(err.Error())
+		if strings.Contains(msg, "shellitem") || strings.Contains(msg, "cancel") || strings.Contains(msg, "canceled") || strings.Contains(msg, "cancelled") {
+			resp.Success = true
+			resp.Data = map[string]any{"path": ""}
+			return
+		}
 		resp.Msg = err.Error()
 		return
 	}

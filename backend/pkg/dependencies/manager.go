@@ -1,17 +1,17 @@
 package dependencies
 
 import (
-	"bytes"
-	"context"
-	"errors"
-	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"path/filepath"
-	"runtime"
-	"sync"
-	"time"
+    "bytes"
+    "context"
+    "errors"
+    "fmt"
+    "io"
+    "net/http"
+    "os"
+    "path/filepath"
+    "runtime"
+    "sync"
+    "time"
 
 	"CanMe/backend/embedded"
 	"CanMe/backend/pkg/events"
@@ -54,27 +54,32 @@ func NewManager(eventBus events.EventBus, proxyManager proxy.ProxyManager, boltS
 
 // InitializeDefaultDependencies 初始化默认依赖信息
 func (m *manager) InitializeDefaultDependencies() error {
-	// 分别检查每个依赖是否存在，如果不存在则初始化
+    // 没有持久化存储时跳过初始化（开发/测试环境允许不初始化）
+    if m.boltStorage == nil {
+        logger.Warn("Skip initializing dependencies: bolt storage is nil")
+        return nil
+    }
+    // 分别检查每个依赖是否存在，如果不存在则初始化
 
 	// 检查 yt-dlp 依赖
-	ytdlpInfo, err := m.boltStorage.GetDependency(types.DependencyYTDLP)
-	if err != nil || ytdlpInfo == nil {
-		err = m.initializeFromEmbedded(types.DependencyYTDLP)
-		if err != nil {
-			logger.Error("Failed to initialize yt-dlp dependency", zap.Error(err))
-			return err
-		}
-	}
+    ytdlpInfo, err := m.boltStorage.GetDependency(types.DependencyYTDLP)
+    if err != nil || ytdlpInfo == nil || m.validator.ValidateFile(ytdlpInfo.ExecPath) != nil {
+        err = m.initializeFromEmbedded(types.DependencyYTDLP)
+        if err != nil {
+            logger.Error("Failed to initialize yt-dlp dependency", zap.Error(err))
+            return err
+        }
+    }
 
 	// 检查 ffmpeg 依赖
-	ffmpegInfo, err := m.boltStorage.GetDependency(types.DependencyFFmpeg)
-	if err != nil || ffmpegInfo == nil {
-		err = m.initializeFromEmbedded(types.DependencyFFmpeg)
-		if err != nil {
-			logger.Error("Failed to initialize ffmpeg dependency", zap.Error(err))
-			return err
-		}
-	}
+    ffmpegInfo, err := m.boltStorage.GetDependency(types.DependencyFFmpeg)
+    if err != nil || ffmpegInfo == nil || m.validator.ValidateFile(ffmpegInfo.ExecPath) != nil {
+        err = m.initializeFromEmbedded(types.DependencyFFmpeg)
+        if err != nil {
+            logger.Error("Failed to initialize ffmpeg dependency", zap.Error(err))
+            return err
+        }
+    }
 
 	return nil
 }
@@ -366,6 +371,37 @@ func (m *manager) ValidateDependencies(ctx context.Context) error {
 	return nil
 }
 
+// QuickValidate 仅快速验证：检查本地可执行文件是否存在且可执行，不做版本比对或远程请求
+func (m *manager) QuickValidate(ctx context.Context) (map[types.DependencyType]*types.DependencyInfo, error) {
+    if m.boltStorage == nil {
+        return nil, errors.New("bolt storage not initialized")
+    }
+
+    stored, err := m.boltStorage.ListAllDependencies()
+    if err != nil {
+        return nil, fmt.Errorf("failed to list dependencies: %w", err)
+    }
+
+    results := make(map[types.DependencyType]*types.DependencyInfo)
+
+    for _, dep := range stored {
+        // copy
+        updated := *dep
+        if err := m.validator.ValidateFile(dep.ExecPath); err != nil {
+            updated.Available = false
+        } else {
+            updated.Available = true
+        }
+        // persist
+        if err := m.boltStorage.SaveDependency(&updated); err != nil {
+            // keep going but record into results
+        }
+        results[updated.Type] = &updated
+    }
+
+    return results, nil
+}
+
 // RepairDependency 修复依赖
 func (m *manager) RepairDependency(ctx context.Context, depType types.DependencyType) error {
 	return m.initializeFromEmbedded(depType)
@@ -500,17 +536,27 @@ func getEmbeddedBinary(depType types.DependencyType) (fileByte []byte, version s
 	return fileByte, version, nil
 }
 
+func persistentDepsRoot() string {
+    base, err := os.UserConfigDir()
+    if err != nil || base == "" {
+        base = os.TempDir()
+    }
+    root := filepath.Join(base, "CanMe", "deps")
+    _ = os.MkdirAll(root, 0o755)
+    return root
+}
+
 func execPath(depType types.DependencyType, version string) (string, error) {
-	cacheDir := filepath.Join(os.TempDir(), "canme", string(depType))
-	execName := string(depType)
-	if runtime.GOOS == "windows" {
-		execName += ".exe"
-	}
+    cacheDir := filepath.Join(persistentDepsRoot(), string(depType))
+    execName := string(depType)
+    if runtime.GOOS == "windows" {
+        execName += ".exe"
+    }
 
-	execPath := filepath.Join(cacheDir, fmt.Sprintf("%s-%s", string(depType), version), execName)
-	if err := os.MkdirAll(filepath.Dir(execPath), 0755); err != nil {
-		return "", err
-	}
+    execPath := filepath.Join(cacheDir, fmt.Sprintf("%s-%s", string(depType), version), execName)
+    if err := os.MkdirAll(filepath.Dir(execPath), 0755); err != nil {
+        return "", err
+    }
 
-	return execPath, nil
+    return execPath, nil
 }

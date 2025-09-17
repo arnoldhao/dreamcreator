@@ -1,8 +1,9 @@
 package subtitles
 
 import (
-	"CanMe/backend/pkg/textmetrics"
-	"CanMe/backend/types"
+    "CanMe/backend/pkg/textmetrics"
+    "CanMe/backend/types"
+    "math"
 )
 
 // QualityAssessor 字幕质量评估器
@@ -50,28 +51,47 @@ func (qa *QualityAssessorImpl) AssessSegmentQuality(segment *types.SubtitleSegme
 
 // AssessSubtitleQuality 评估字幕质量
 func (qa *QualityAssessorImpl) AssessSubtitleQuality(
-	text string,
-	duration float64,
-	standard types.GuideLineStandard,
-	isKidsContent bool,
+    text string,
+    duration float64,
+    standard types.GuideLineStandard,
+    isKidsContent bool,
 ) *types.SubtitleGuideline {
-	// 获取推荐的阅读速度
-	maxCPS, maxWPM := qa.textCalculator.GetReadingSpeed(text, isKidsContent)
+    // 获取推荐的阅读速度
+    maxCPS, maxWPM := qa.textCalculator.GetReadingSpeed(text, isKidsContent)
 
-	// 计算实际指标
-	charCount := qa.textCalculator.CountCharacters(text)
-	wordCount := qa.textCalculator.CountWords(text)
-	maxLineLength := qa.textCalculator.CountMaxLineLength(text)
+    // 依据文本类型选择度量口径
+    isIdeographic := qa.textCalculator.IsPrimarilyIdeographic(text)
 
-	// 计算速度
-	currentCPS := int(float64(charCount) / duration)
-	currentWPM := int(float64(wordCount) / duration * 60)
+    var charCount int
+    var maxLineLength int
+    if isIdeographic {
+        // 对表意文字：使用 UTF-8 字节数作为字符密度的近似
+        charCount = qa.textCalculator.CountCharactersBytes(text)
+        maxLineLength = qa.textCalculator.CountMaxLineLengthBytes(text)
+    } else {
+        // 非表意文字：使用码点数
+        charCount = qa.textCalculator.CountCharacters(text)
+        maxLineLength = qa.textCalculator.CountMaxLineLength(text)
+    }
 
-	return &types.SubtitleGuideline{
-		CPS: &types.Guideline{
-			Current: currentCPS,
-			Level:   qa.evaluateLevel(currentCPS, maxCPS),
-		},
+    // 计算 CPS：四舍五入
+    currentCPS := int(math.Round(float64(charCount) / duration))
+
+    // 计算 WPM
+    var currentWPM int
+    if isIdeographic {
+        // 表意文字：用每条字幕约等于 1 "word" 的等价指标，避免异常大值
+        currentWPM = int(math.Round(60.0 / duration))
+    } else {
+        wordCount := qa.textCalculator.CountWords(text)
+        currentWPM = int(math.Round(float64(wordCount) / duration * 60.0))
+    }
+
+    return &types.SubtitleGuideline{
+        CPS: &types.Guideline{
+            Current: currentCPS,
+            Level:   qa.evaluateLevel(currentCPS, maxCPS),
+        },
 		WPM: &types.Guideline{
 			Current: currentWPM,
 			Level:   qa.evaluateLevel(currentWPM, maxWPM),

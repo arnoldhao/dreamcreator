@@ -149,38 +149,58 @@ type FCPXMLTextStyleAttr struct {
 
 // IttDocument itt格式字幕
 type IttDocument struct {
-	XMLName             xml.Name `xml:"tt"`
-	TimeBase            string   `xml:"timeBase,attr"`
-	FrameRate           string   `xml:"frameRate,attr"`
-	FrameRateMultiplier string   `xml:"frameRateMultiplier,attr"`
-	DropMode            string   `xml:"dropMode,attr"`
-	Head                struct {
-		Metadata struct {
-			Title     string `xml:"title"`
-			Copyright string `xml:"copyright"`
-			Language  string `xml:"language"`
-			TcFormat  string `xml:"tcFormat"`
-		} `xml:"metadata"`
-		Styling struct {
-			Styles []struct {
-				ID              string  `xml:"id,attr"`
-				FontFamily      string  `xml:"fontFamily"`
-				FontSize        float64 `xml:"fontSize"`
-				Color           string  `xml:"color"`
-				TextAlign       string  `xml:"textAlign"`
-				BackgroundColor string  `xml:"backgroundColor"`
-			} `xml:"style"`
-		} `xml:"styling"`
-	} `xml:"head"`
-	Body struct {
-		Div []struct {
-			P []struct {
-				Begin   string `xml:"begin,attr"`
-				End     string `xml:"end,attr"`
-				Style   string `xml:"style,attr"`
-				Speaker string `xml:"speaker,attr"`
-				Content string `xml:",chardata"`
-			} `xml:"p"`
-		} `xml:"div"`
-	} `xml:"body"`
+    XMLName             xml.Name `xml:"tt"`
+    // Namespaces and parameters per TTML/iTT	n
+    Xmlns               string   `xml:"xmlns,attr,omitempty"`
+    XmlnsTtp            string   `xml:"xmlns:ttp,attr,omitempty"`
+    XmlnsTts            string   `xml:"xmlns:tts,attr,omitempty"`
+    XmlnsTtm            string   `xml:"xmlns:ttm,attr,omitempty"`
+    XmlLang             string   `xml:"xml:lang,attr,omitempty"`
+    TtpTimeBase         string   `xml:"timeBase,attr,omitempty"`
+    TtpFrameRate        string   `xml:"frameRate,attr,omitempty"`
+    TtpFrameRateMultiplier string `xml:"frameRateMultiplier,attr,omitempty"`
+    TtpDropMode         string   `xml:"dropMode,attr,omitempty"`
+    Head                struct {
+        Metadata struct {
+            Title     string `xml:"title,omitempty"`
+            Copyright string `xml:"copyright,omitempty"`
+            Tool      string `xml:"agent,omitempty"`
+        } `xml:"metadata"`
+        Styling struct {
+            Styles []struct {
+                XMLID           string  `xml:"xml:id,attr,omitempty"`
+                TtsFontFamily   string  `xml:"fontFamily,attr,omitempty"`
+                TtsFontSize     string  `xml:"fontSize,attr,omitempty"`
+                TtsTextAlign    string  `xml:"textAlign,attr,omitempty"`
+                TtsColor        string  `xml:"color,attr,omitempty"`
+                TtsBackground   string  `xml:"backgroundColor,attr,omitempty"`
+                TtsFontStyle    string  `xml:"fontStyle,attr,omitempty"`
+                TtsFontWeight   string  `xml:"fontWeight,attr,omitempty"`
+            } `xml:"style"`
+        } `xml:"styling"`
+        Layout struct {
+            Regions []struct {
+                XMLID     string `xml:"xml:id,attr"`
+                TtsOrigin string `xml:"origin,attr,omitempty"`
+                TtsExtent string `xml:"extent,attr,omitempty"`
+                TtsDisplayAlign string `xml:"displayAlign,attr,omitempty"`
+                TtsWritingMode  string `xml:"writingMode,attr,omitempty"`
+            } `xml:"region"`
+        } `xml:"layout"`
+    } `xml:"head"`
+    Body struct {
+        Style    string `xml:"style,attr,omitempty"`
+        Region   string `xml:"region,attr,omitempty"`
+        TtsColor string `xml:"color,attr,omitempty"`
+        Div []struct {
+            P []struct {
+                Begin   string `xml:"begin,attr"`
+                End     string `xml:"end,attr"`
+                Region  string `xml:"region,attr,omitempty"`
+                Style   string `xml:"style,attr,omitempty"`
+                Speaker string `xml:"speaker,attr,omitempty"`
+                Content string `xml:",chardata"`
+            } `xml:"p"`
+        } `xml:"div"`
+    } `xml:"body"`
 }

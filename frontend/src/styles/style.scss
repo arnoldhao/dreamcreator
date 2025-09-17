@@ -16,12 +16,19 @@ html {
     user-select: none;
 }
 
+/* Improve text rendering on Windows WebView2 */
+html[data-platform="windows"] {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
 body {
     margin: 0;
     padding: 0;
     background-color: #0000;
     line-height: 1.5;
-    font-family: v-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    font-family: var(--font-sans);
     overflow: hidden;
 }
 
@@ -154,9 +161,8 @@ body {
     }
 }
 
-.modal-backdrop {
-    --wails-draggable: drag;
-}
+/* Avoid marking generic modal backdrops as draggable on Windows.
+   If a draggable overlay is needed, set it explicitly in the component. */
 
 .tabs .tabs-nav {
     line-height: 1.3;

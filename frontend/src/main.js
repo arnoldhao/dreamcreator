@@ -3,65 +3,19 @@ import { createApp, nextTick } from 'vue'
 import App from './App.vue'
 import './index.css'
 import './styles/style.scss'
+import './styles/macos-tokens.scss'
 import './styles/macos-components.scss'
 import { i18n } from '@/utils/i18n.js'
-import { initThemeSystem } from '@/utils/theme.js'
+import { initThemeSystem, applyUIStyle } from '@/utils/theme.js'
 import { setupDiscreteApi } from '@/utils/discrete.js'
 import usePreferencesStore from 'stores/preferences.js'
 import useDependenciesStore from 'stores/dependencies.js'
 import { loadEnvironment } from '@/utils/platform.js'
-import { OhVueIcon, addIcons } from 'oh-vue-icons'
+import Icon from '@/components/base/Icon.vue'
 import WebSocketService from '@/services/websocket'
 import { useDtStore } from '@/handlers/downtasks'
 
-// 导入所有图标包
-import * as AiIcons from 'oh-vue-icons/icons/ai'
-import * as BiIcons from 'oh-vue-icons/icons/bi'
-import * as CoIcons from 'oh-vue-icons/icons/co'
-import * as CiIcons from 'oh-vue-icons/icons/ci'
-import * as FaIcons from 'oh-vue-icons/icons/fa'
-import * as FcIcons from 'oh-vue-icons/icons/fc'
-import * as FiIcons from 'oh-vue-icons/icons/fi'
-import * as GiIcons from 'oh-vue-icons/icons/gi'
-import * as HiIcons from 'oh-vue-icons/icons/hi'
-import * as IoIcons from 'oh-vue-icons/icons/io'
-import * as LaIcons from 'oh-vue-icons/icons/la'
-import * as MdIcons from 'oh-vue-icons/icons/md'
-import * as OiIcons from 'oh-vue-icons/icons/oi'
-import * as PiIcons from 'oh-vue-icons/icons/pi'
-import * as PrIcons from 'oh-vue-icons/icons/pr'
-import * as PxIcons from 'oh-vue-icons/icons/px'
-import * as RiIcons from 'oh-vue-icons/icons/ri'
-import * as SiIcons from 'oh-vue-icons/icons/si'
-import * as ViIcons from 'oh-vue-icons/icons/vi'
-import * as WiIcons from 'oh-vue-icons/icons/wi'
-
-// 合并所有图标
-const allIcons = Object.values({
-    ...AiIcons,
-    ...BiIcons,
-    ...CoIcons,
-    ...CiIcons,
-    ...FaIcons,
-    ...FcIcons,
-    ...FiIcons,
-    ...GiIcons,
-    ...HiIcons,
-    ...IoIcons,
-    ...LaIcons,
-    ...MdIcons,
-    ...OiIcons,
-    ...PiIcons,
-    ...PrIcons,
-    ...PxIcons,
-    ...RiIcons,
-    ...SiIcons,
-    ...ViIcons,
-    ...WiIcons
-})
-
-// 注册所有图标
-addIcons(...allIcons)
+// 已迁移为语义化 + 本地 open-symbols，无需 oh-vue-icons 注册
 
 async function setupApp() {
     // 初始化主题系统
@@ -70,8 +24,9 @@ async function setupApp() {
     app.use(i18n)
     app.use(createPinia())
 
-    // Register OhVueIcon component globally
-    app.component("v-icon", OhVueIcon);
+    // 全局注册：统一使用语义化 <Icon name="..." />；同时别名 v-icon 指向 Icon 兼容历史调用
+    app.component("v-icon", Icon);
+    app.component("Icon", Icon);
 
     // 1. 启动永不断开的WebSocket连接
     WebSocketService.startAutoReconnect();
@@ -102,6 +57,7 @@ async function setupApp() {
     await loadEnvironment()
     const prefStore = usePreferencesStore()
     await prefStore.loadPreferences()
+    try { applyUIStyle(prefStore?.general?.uiStyle || 'frosted') } catch {}
     await setupDiscreteApi()
     app.config.errorHandler = (err, instance, info) => {
         nextTick().then(() => {

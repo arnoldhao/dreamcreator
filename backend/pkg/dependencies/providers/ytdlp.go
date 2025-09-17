@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+    "os/exec"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -23,10 +24,11 @@ type ytdlpProvider struct {
 
 // NewYTDLPProvider 创建YTDLP提供者
 func NewYTDLPProvider(eventBus events.EventBus) dependencies.DependencyProvider {
-	cacheDir := filepath.Join(os.TempDir(), "canme", "yt-dlp")
-	return &ytdlpProvider{
-		BaseProvider: NewBaseProvider("YT-DLP", types.DependencyYTDLP, cacheDir, eventBus),
-	}
+    // store in persistent per-user directory to avoid system cleaning
+    cacheDir := filepath.Join(persistentDepsRoot(), "yt-dlp")
+    return &ytdlpProvider{
+        BaseProvider: NewBaseProvider("YT-DLP", types.DependencyYTDLP, cacheDir, eventBus),
+    }
 }
 
 func (p *ytdlpProvider) GetType() types.DependencyType {
@@ -65,6 +67,12 @@ func (p *ytdlpProvider) Download(ctx context.Context, manager dependencies.Manag
 	if runtime.GOOS != "windows" {
 		if err := os.Chmod(execPath, 0755); err != nil {
 			return nil, err
+		}
+
+		// Remove macOS quarantine to avoid Gatekeeper slow verification
+		if runtime.GOOS == "darwin" {
+			_ = exec.Command("xattr", "-dr", "com.apple.quarantine", execPath).Run()
+			_ = exec.Command("xattr", "-dr", "com.apple.quarantine", filepath.Dir(execPath)).Run()
 		}
 	}
 

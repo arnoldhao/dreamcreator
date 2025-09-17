@@ -52,7 +52,9 @@ const usePreferencesStore = defineStore('preferences', {
             windowMaximised: false,
         },
         general: {
-            theme: 'auto',
+            appearance: 'auto', // light/dark/auto
+            theme: 'blue', // accent color
+            uiStyle: 'frosted', // 'frosted' | 'classic'
             language: 'auto',
             checkUpdate: true,
             skipVersion: '',
@@ -77,19 +79,19 @@ const usePreferencesStore = defineStore('preferences', {
             return ':'
         },
 
-        themeOption() {
+        appearanceOption() {
             return [
                 {
                     value: 'light',
-                    label: 'preferences.general.theme_light',
+                    label: 'settings.general.appearance_light',
                 },
                 {
                     value: 'dark',
-                    label: 'preferences.general.theme_dark',
+                    label: 'settings.general.appearance_dark',
                 },
                 {
                     value: 'auto',
-                    label: 'preferences.general.theme_auto',
+                    label: 'settings.general.appearance_auto',
                 },
             ]
         },
@@ -124,7 +126,7 @@ const usePreferencesStore = defineStore('preferences', {
         },
 
         isDark() {
-            const theme = get(this.general, 'theme', 'auto')
+            const theme = get(this.general, 'appearance', 'auto')
             if (theme === 'auto') {
                 return systemDarkMode.value
             }
@@ -150,7 +152,26 @@ const usePreferencesStore = defineStore('preferences', {
             const { success, data } = await GetPreferences()
             if (success) {
                 this.lastPref = cloneDeep(data)
-                this._applyPreferences(data)
+                // migrate: old general.theme (auto/light/dark) -> general.appearance
+                const migrated = cloneDeep(data)
+                try {
+                    const g = migrated.general || {}
+                    if (g && typeof g.theme === 'string' && ['auto','light','dark'].includes(g.theme)) {
+                        // move to appearance
+                        g.appearance = g.appearance || g.theme
+                        // set a default accent theme if none present
+                        g.theme = g.theme && ['auto','light','dark'].includes(g.theme) ? 'blue' : (g.theme || 'blue')
+                        migrated.general = g
+                    } else {
+                        // ensure defaults exist
+                        if (!g.appearance) g.appearance = 'auto'
+                        if (!g.theme) g.theme = 'blue'
+                        migrated.general = g
+                    }
+                    // ensure uiStyle default (new)
+                    if (!g.uiStyle) g.uiStyle = 'frosted'
+                } catch (e) {}
+                this._applyPreferences(migrated)
                 const proxy = get(data, 'proxy')
                 if (proxy === undefined) {
                     set(data, 'proxy', {
@@ -288,7 +309,8 @@ const usePreferencesStore = defineStore('preferences', {
         async checkForUpdate(manual = false) {
             let msgRef = null
             if (manual) {
-                msgRef = $message.loading(i18nGlobal.t('menu.check_update'), { duration: 0 })
+                // show a lightweight persistent notification while checking
+                msgRef = $notification.info({ title: i18nGlobal.t('menu.check_update'), content: i18nGlobal.t('common.loading'), duration: 0, closable: true })
             }
             try {
                 const { success, data = {} } = await CheckForUpdate()
@@ -299,14 +321,17 @@ const usePreferencesStore = defineStore('preferences', {
                         compareVersion(latest, version) > 0 &&
                         !isEmpty(pageUrl)
                     ) {
+                        // show sticky update card with actions
                         const notiRef = $notification.show({
                             title: i18nGlobal.t('dialogue.upgrade.title'),
                             content: i18nGlobal.t('dialogue.upgrade.new_version_tip', { ver: latest }),
+                            duration: 0,
+                            closable: true,
                             action: (destroy) => {
-                                // 使用 DaisyUI 组件代替 Naive UI 组件
+                                // 使用自定义 macOS 风格组件渲染操作按钮
                                 return h('div', { class: 'flex flex-row gap-2 mt-2' }, [
                                     h('button', {
-                                        class: 'btn btn-sm btn-outline',
+                                        class: 'btn-glass btn-sm',
                                         onClick: () => {
                                             // skip this update
                                             this.general.skipVersion = latest
@@ -315,11 +340,11 @@ const usePreferencesStore = defineStore('preferences', {
                                         }
                                     }, i18nGlobal.t('dialogue.upgrade.skip')),
                                     h('button', {
-                                        class: 'btn btn-sm btn-outline',
+                                        class: 'btn-glass btn-sm',
                                         onClick: destroy
                                     }, i18nGlobal.t('dialogue.upgrade.later')),
                                     h('button', {
-                                        class: 'btn btn-sm btn-primary',
+                                        class: 'btn-glass btn-primary btn-sm',
                                         onClick: () => BrowserOpenURL(pageUrl)
                                     }, i18nGlobal.t('dialogue.upgrade.download_now'))
                                 ])
@@ -328,14 +353,11 @@ const usePreferencesStore = defineStore('preferences', {
                         return
                     }
                 }
-
-                if (manual) {
-                    $message.info(i18nGlobal.t('dialogue.upgrade.no_update'))
-                }
+                if (manual) { $notification.info({ title: i18nGlobal.t('menu.check_update'), content: i18nGlobal.t('dialogue.upgrade.no_update'), duration: 3200 }) }
             } finally {
                 nextTick().then(() => {
                     if (msgRef != null) {
-                        msgRef.close()
+                        msgRef.close && msgRef.close()
                         msgRef = null
                     }
                 })

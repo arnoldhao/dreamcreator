@@ -130,7 +130,7 @@ func (s *Service) ZHConvertSubtitle(id string, origin, converterString string) e
 		// zhconvert
 		convertedSubs, err := s.zhConverter.ConvertMultiple(originSubs, converter)
 		if err != nil {
-			logger.GetLogger().Info("zhconvert failed", zap.Error(err))
+            logger.Info("zhconvert failed", zap.Error(err))
 			// 保存转换失败的元数据
 			s.handleSubtitleChange(sub, converter, err)
 			// return

@@ -62,12 +62,22 @@ func (api *DependenciesAPI) DependenciesReady() (resp *types.JSResp) {
 }
 
 func (api *DependenciesAPI) ValidateDependencies() (resp *types.JSResp) {
-	err := api.downtasksService.ValidateDependencies()
-	if err != nil {
-		return &types.JSResp{Msg: err.Error()}
-	}
+    err := api.downtasksService.ValidateDependencies()
+    if err != nil {
+        return &types.JSResp{Msg: err.Error()}
+    }
 
-	return &types.JSResp{Success: true}
+    return &types.JSResp{Success: true}
+}
+
+// QuickValidateDependencies 仅快速验证本地可执行是否可用
+func (api *DependenciesAPI) QuickValidateDependencies() types.JSResp {
+    results, err := api.downtasksService.QuickValidateDependencies()
+    if err != nil {
+        return types.JSResp{Success: false, Msg: err.Error()}
+    }
+    data, _ := json.Marshal(results)
+    return types.JSResp{Success: true, Data: string(data)}
 }
 
 // UpdateDependencyWithMirror 使用指定镜像更新依赖

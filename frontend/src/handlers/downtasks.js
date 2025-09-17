@@ -7,20 +7,27 @@ export const useDtStore = defineStore('downtasks', {
     taskProgressMap: {}, // 任务进度映射
     progressCallbacks: [], // 进度回调函数
     signalCallbacks: [], // 信号回调函数
+    stageCallbacks: [], // 阶段事件回调
     installingCallbacks: [], // 安装回调函数
     cookieSyncCallbacks: [], // cookie 同步回调函数
     subtitleProgressCallbacks: [], // 字幕进度回调函数
+    wsInited: false, // WebSocket 监听是否已初始化（避免重复注册）
   }),
   actions: {
     // 初始化 WebSocket 事件处理
     init() {
+      if (this.wsInited) return
       WebSocketService.addListener(WS_NAMESPACE.DOWNTASKS, this.handleDowntasksCallback)
       WebSocketService.addListener(WS_NAMESPACE.SUBTITLES, this.handleSubtitleCallback)
+      this.wsInited = true
     },
     // 清理 WebSocket 事件处理
     cleanup() {
+      if (!this.wsInited) return
       WebSocketService.removeListener(WS_NAMESPACE.DOWNTASKS, this.handleDowntasksCallback)
-      WebSocketService.removeListener(WS_NAMESPACE.SUBTITLE, this.handleSubtitleCallback)
+      // 修正命名空间，确保与 init 对应
+      WebSocketService.removeListener(WS_NAMESPACE.SUBTITLES, this.handleSubtitleCallback)
+      this.wsInited = false
     },
     // 处理 WebSocket 回调
     handleDowntasksCallback(data) {
@@ -32,10 +39,27 @@ export const useDtStore = defineStore('downtasks', {
           this.handleSignal(data.data)
           break
         case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_INSTALLING:
+          // 安装进度事件：
+          // 1) 始终通知依赖安装回调（Settings/Dependency 用）
           this.handleInstalling(data.data)
+          // 2) 仅当是下载任务侧的“刷新信号”才广播给通用 signal 回调，避免依赖安装也触发内容页频繁刷新
+          try {
+            const payload = data?.data || {}
+            const id = String(payload.id || payload.ID || '')
+            const isDependency = id.startsWith('dep-') || typeof payload.type === 'string' && ['yt-dlp','ffmpeg'].includes(String(payload.type).toLowerCase())
+            const shouldRefresh = payload.refresh === true // 后端 DTSignal: json:"refresh" -> JS: payload.refresh
+            if (shouldRefresh && !isDependency) {
+              this.handleSignal(payload)
+            }
+          } catch (e) {
+            // 忽略保护性错误，不影响主流程
+          }
           break
         case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_COOKIE_SYNC:
           this.handleCookieSync(data.data)
+          break
+        case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_STAGE:
+          this.handleStage(data.data)
           break
         default:
           console.warn('Unknown event:', data.event)
@@ -61,6 +85,30 @@ export const useDtStore = defineStore('downtasks', {
           callback(innerData)
         } catch (error) {
           console.error('Signal callback error:', error)
+        }
+      })
+    },
+    // 阶段事件（无强制百分比）
+    handleStage(innerData) {
+      // persist per-task stage status for list/cards
+      try {
+        const id = innerData?.id
+        if (id) {
+          const kind = String(innerData.kind || '').toLowerCase()
+          const action = String(innerData.action || '').toLowerCase()
+          if (!this.taskProgressMap[id]) this.taskProgressMap[id] = {}
+          if (!this.taskProgressMap[id]._stages) this.taskProgressMap[id]._stages = { video: 'idle', subtitle: 'idle', merge: 'idle', finalize: 'idle' }
+          if (['video','subtitle','merge','finalize'].includes(kind)) {
+            this.taskProgressMap[id]._stages[kind] = (action === 'complete') ? 'done' : (action === 'error' ? 'error' : 'working')
+          }
+        }
+      } catch (e) { /* ignore */ }
+      // callbacks
+      this.stageCallbacks.forEach((callback) => {
+        try {
+          callback(innerData)
+        } catch (error) {
+          console.error('Stage callback error:', error)
         }
       })
     },
@@ -128,6 +176,9 @@ export const useDtStore = defineStore('downtasks', {
     unregisterSignalCallback(callback) {
       this.signalCallbacks = this.signalCallbacks.filter((cb) => cb !== callback)
     },
+    // 注册/取消 阶段回调
+    registerStageCallback(callback) { this.stageCallbacks.push(callback) },
+    unregisterStageCallback(callback) { this.stageCallbacks = this.stageCallbacks.filter((cb) => cb !== callback) },
     // 注册安装回调
     registerInstallingCallback(callback) {
       this.installingCallbacks.push(callback)

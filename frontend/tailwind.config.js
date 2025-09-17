@@ -1,5 +1,3 @@
-import daisyui from 'daisyui'
-
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -7,13 +5,12 @@ export default {
     "./src/**/*.{vue,js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        sans: ['var(--font-sans)'],
+        mono: ['var(--font-mono)'],
+      },
+    },
   },
-  plugins: [
-    daisyui
-  ],
-  daisyui: {
-    themes: ["light", "dark"],
-    darkTheme: "dark",
-  },
+  plugins: [],
 }

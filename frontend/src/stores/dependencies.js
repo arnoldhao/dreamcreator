@@ -1,18 +1,19 @@
 import { defineStore } from 'pinia'
-import { ListDependencies, InstallDependencyWithMirror, UpdateDependencyWithMirror, CheckUpdates, ListMirrors, ValidateDependencies, RepairDependency } from 'wailsjs/go/api/DependenciesAPI'
+import { ListDependencies, InstallDependencyWithMirror, UpdateDependencyWithMirror, CheckUpdates, ListMirrors, ValidateDependencies, RepairDependency, QuickValidateDependencies } from 'wailsjs/go/api/DependenciesAPI'
 import { useDtStore } from '@/handlers/downtasks'
 import { i18nGlobal } from '@/utils/i18n.js'
 import WebSocketService from '@/services/websocket'
 
 const useDependenciesStore = defineStore('dependencies', {
-    state: () => ({
-        dependencies: {
-            'yt-dlp': {
-                // frontend-only properties
-                installing: false, // 是否在安装
-                installProgress: '', // 安装进度
-                installProgressPercent: 0, // 安装进度百分比
-                installed: false, // 是否安装
+        state: () => ({
+            dependencies: {
+                'yt-dlp': {
+                    // frontend-only properties
+                    installing: false, // 是否在安装
+                    installProgress: '', // 安装进度
+                    installProgressPercent: 0, // 安装进度百分比
+                    currentAction: '', // 'install' | 'update' | ''
+                    installed: false, // 是否安装
                 // backend properties
                 type: 'yt-dlp',
                 name: 'YT-DLP', // 添加显示名称
@@ -23,12 +24,13 @@ const useDependenciesStore = defineStore('dependencies', {
                 latestVersion: '',
                 needUpdate: false,
             },
-            'ffmpeg': {
-                // frontend-only properties
-                installing: false,
-                installProgress: '',
-                installProgressPercent: 0,
-                installed: false,
+                'ffmpeg': {
+                    // frontend-only properties
+                    installing: false,
+                    installProgress: '',
+                    installProgressPercent: 0,
+                    currentAction: '',
+                    installed: false,
                 // backend properties
                 type: 'ffmpeg',
                 name: 'FFmpeg', // 添加显示名称
@@ -129,18 +131,28 @@ const useDependenciesStore = defineStore('dependencies', {
                                 this.dependencies[depType].installProgress = this.t('settings.dependency.status.installCancelled')
                                 // refresh
                                 this.dependencies[depType].installing = false
+                                this.dependencies[depType].currentAction = ''
                                 await this.loadDependencies()
                                 break
                             case 'installFailed':
                                 this.dependencies[depType].installProgress = this.t('settings.dependency.status.installFailed')
                                 // refresh
                                 this.dependencies[depType].installing = false
+                                this.dependencies[depType].currentAction = ''
                                 await this.loadDependencies()
                                 break
                             case 'installCompleted':
                                 this.dependencies[depType].installProgress = this.t('settings.dependency.status.installCompleted')
                                 // refresh
                                 this.dependencies[depType].installing = false
+                                // toast success based on action
+                                const action = this.dependencies[depType].currentAction
+                                if (action === 'update') {
+                                    $message.success(this.t('settings.dependency.update_success'))
+                                } else {
+                                    $message.success(this.t('settings.dependency.install_success'))
+                                }
+                                this.dependencies[depType].currentAction = ''
                                 await this.loadDependencies()
                                 break
                             default:
@@ -169,6 +181,7 @@ const useDependenciesStore = defineStore('dependencies', {
 
             this.dependencies[type].installing = true;
             this.dependencies[type].installProgress = this.t('settings.dependency.installing');
+            this.dependencies[type].currentAction = 'install';
 
             try {
                 const response = await InstallDependencyWithMirror(type, version, mirror);
@@ -191,6 +204,7 @@ const useDependenciesStore = defineStore('dependencies', {
 
             this.dependencies[type].installing = true
             this.dependencies[type].installProgress = this.t('settings.dependency.updating')
+            this.dependencies[type].currentAction = 'update'
 
             try {
                 const response = await UpdateDependencyWithMirror(type, mirror)
@@ -303,6 +317,35 @@ const useDependenciesStore = defineStore('dependencies', {
             } finally {
                 await this.loadDependencies()
                 this.validating = false
+            }
+        },
+
+        async quickValidateDependencies(showToast = false) {
+            try {
+                const response = await QuickValidateDependencies()
+                if (!response.success) throw new Error(response.msg || 'Quick validate failed')
+                // merge into store
+                const parsed = JSON.parse(response.data || '{}')
+                Object.entries(parsed).forEach(([type, info]) => {
+                    if (this.dependencies[type]) {
+                        Object.assign(this.dependencies[type], {
+                            available: info.available,
+                            path: info.path,
+                            execPath: info.execPath,
+                            version: info.version,
+                            latestVersion: info.latestVersion,
+                            needUpdate: info.needUpdate,
+                            installed: info.available
+                        })
+                    }
+                })
+                if (showToast) {
+                    $message.success(this.t('settings.dependency.quick_validate_success'))
+                }
+                return true
+            } catch (e) {
+                $message.error(e.message || 'Quick validate failed')
+                return false
             }
         },
 

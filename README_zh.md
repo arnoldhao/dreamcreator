@@ -1,5 +1,5 @@
 <div align="center">
-<a href="https://github.com/arnoldhao/canme/"><img src="build/appicon.png" width="150"/></a>
+  <a href="https://github.com/arnoldhao/canme/"><img src="build/appicon.png" width="140" alt="CanMe 标志" /></a>
 </div>
 
 <h1 align="center">CanMe</h1>
@@ -10,151 +10,134 @@
 </p>
 
 <div align="center">
-  <img src="https://img.shields.io/github/v/tag/arnoldhao/canme?label=version" alt="版本" />
+  <img src="https://img.shields.io/github/v/tag/arnoldhao/canme?label=version" alt="最新版本" />
+  <img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="许可证" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey" alt="平台" />
-  <img src="https://img.shields.io/badge/tech-Go%20%7C%20Vue3-green" alt="技术" />
-  <img src="https://img.shields.io/badge/subtitle-ITT%20%7C%20SRT%20%7C%20FCPXML-blue" alt="字幕" />
+  <img src="https://img.shields.io/badge/stack-Go%20%E2%80%A2%20Wails%20%E2%80%A2%20Vue3-green" alt="技术栈" />
 </div>
 
-<p align="center">
-  <strong>CanMe 是一款功能强大的多语言视频下载管理工具，具备高级字幕处理功能和流畅的用户体验。</strong>
-</p>
+<br />
 
-<p align="center">
-  <strong>基于 <a href="https://github.com/yt-dlp/yt-dlp">yt-dlp</a>，支持多个视频平台，提供实时下载进度、多语言界面和专业字幕工作流。</strong>
-</p>
+CanMe 是一个开源的视频下载与字幕处理桌面工具。后端使用 Go + Wails，结合 BoltDB 持久化与 WebSocket 消息；前端基于 Vue 3 + Tailwind。项目重点围绕可重复的下载流程与可审计的字幕处理，后续会在辅助能力上继续迭代。
 
 <div align="center">
-  <img src="images/ui_en.png" width="80%" alt="CanMe 界面" />
+  <img src="images/ui_en.png" width="85%" alt="CanMe 界面" />
 </div>
 
-<br/>
+## 目录
+- [项目亮点](#项目亮点)
+- [功能概览](#功能概览)
+- [快速开始](#快速开始)
+- [从源码构建](#从源码构建)
+- [使用说明](#使用说明)
+- [路线图](#路线图)
+- [许可证](#许可证)
+- [致谢](#致谢)
 
-## ✨ 核心功能
+## 项目亮点
+- 提供 Windows 10+/macOS 10.15+ 桌面发行版，内置 yt-dlp 与 FFmpeg
+- 依赖管理器负责版本固定、校验、镜像回落与自动修复
+- 使用 BoltDB 存储下载任务、Cookie 快照与字幕工程，确保数据可追踪
+- Vue 3 + Pinia UI 通过 WebSocket 实时呈现状态，内置中英文双语
+- Apache License 2.0 授权，正在拆分 AI 翻译与 Cookie 模块以便扩展
 
-### 🎬 视频下载引擎
-- **多平台支持** - 集成 yt-dlp，支持多种视频平台下载
-- **实时进度** - 实时显示下载状态和详细进度
-- **格式选择** - 支持选择视频/音频质量
-- **批量处理** - 支持多任务下载与智能管理
+## 功能概览
 
-### 📝 高级字幕系统
-- **📥 导入支持** - 支持 ITT 和 SRT 字幕格式
-- **📤 导出格式** - 可导出为 SRT 和 FCPXML，适配专业编辑
-- **🔄 自动提取** - 自动下载视频字幕（若可用）
-- **🎯 精准同步** - 保持字幕时间轴精准对齐
+### 下载管线
+- **多平台下载：** 基于 yt-dlp 的封装，支持逐任务格式选择与阶段化进度（探测 → 下载 → 合并 → 完成）
+- **代理感知：** 支持全局 HTTP/SOCKS 代理、PAC、Windows 提权等场景
+- **依赖监控：** 背景校验 yt-dlp/FFmpeg 是否可用，损坏时自动重新下载并验证哈希
 
-### 🌐 用户体验
-- **多语言界面** - 完整支持英文和中文
-- **跨平台** - 原生支持 Windows 和 macOS
-- **现代化界面** - 基于 Vue3 + TailwindCSS + DaisyUI 打造简洁设计
-- **MCP 集成** - 支持模型上下文协议，适配大模型工作流
+### 字幕能力
+- **导入格式：** 通过专用解析器支持 `.srt`、`.vtt/.webvtt`、`.ass/.ssa`、`.itt`（参见 `backend/core/subtitles/format.go`）
+- **文本规范化：** 可配置标点清理、空白处理、繁简转换（`pkg/zhconvert`）
+- **质量评估：** `quality_assessor.go` 提供时序间隔、片段长度、字符密度等指标
+- **工程建模：** 以 `types.SubtitleProject` 持久化字幕，包含语言索引与导出配置
+- **导出格式：** 支持 SRT、VTT、ASS/SSA、ITT、Final Cut Pro XML，并自动补全帧率、分辨率、轨道元数据
+- **翻译阶段：** 下载任务生命周期预留 `translate` 阶段（`service.go:675+`），可挂接外部 MT/LLM 适配器；当前默认返回占位结果，避免误触发外部调用
+- **嵌入接口：** 转码管线可在 FFmpeg 阶段烧录或附加字幕轨
 
-### 🔧 技术能力
-- **视频转码** - 支持多种视频/音频格式转换
-- **代理支持** - 提供网络代理配置，适配全球访问
-- **本地存储** - 使用 BBolt 高效管理本地数据
-- **WebSocket 通信** - 实时更新与通知
+### Cookie 管理
+- 扫描 Chromium 系浏览器配置文件，按浏览器记录状态与同步历史
+- 导出 Netscape Cookie 供 yt-dlp 或高级调试使用，可针对域名筛选并清理中间文件
+- 通过事件总线推送同步进度，前端实时展示状态与错误信息
 
-## 🚀 快速上手
+### 媒体转换
+- 基于 FFmpeg 的常用转封装、音频提取、字幕附加预设，并缓存依赖元数据
+- 任务分类（`video`/`subtitle`/`other`）方便在下载面板中筛选附属文件
+
+## 快速开始
 
 ### 前提条件
-- **系统要求** - Windows 10+ 或 macOS 10.15+
-- **依赖管理** - CanMe 自动管理所有依赖（yt-dlp、FFmpeg）
+- Windows 10 或 macOS 10.15 及以上
+- 足够的磁盘空间以满足视频与 FFmpeg 临时文件需求
+- 首次启动自动下载并校验 yt-dlp 与 FFmpeg，无需手动安装
 
 ### 安装
+1. 在 [GitHub Releases](https://github.com/arnoldhao/canme/releases) 下载最新版本
+2. 解压到可写目录
+3. 启动应用
 
-#### 📦 下载与基础设置
-1. 从 [GitHub Releases](https://github.com/arnoldhao/canme/releases) 下载对应平台的最新版本
-2. 解压到任意位置
+#### macOS Gatekeeper
+未签名版本需要手动确认：
+- 右键应用选择 **打开**，或
+- 使用终端移除隔离属性：
+  ```bash
+  sudo xattr -rd com.apple.quarantine /path/to/CanMe.app
+  ```
 
-#### 🍎 macOS 安装
+#### Windows SmartScreen
+- 首次运行时点击 **更多信息 → 仍要运行**
 
-**⚠️ macOS 用户注意**
+### 依赖管理
+- yt-dlp、FFmpeg 保存在应用的托管缓存目录，并执行 SHA 校验
+- Windows 同步浏览器 Cookie 时可能需要管理员权限，界面会提示是否需要提升权限
 
-由于未使用 Apple 开发者证书，Intel 和 ARM64 版本需额外步骤：
+## 从源码构建
+> 普通用户可直接使用发行版。以下步骤面向开发者与贡献者。
 
-##### 首次启动设置
-1. **右键** CanMe 应用，选择 **"打开"**
-2. 在弹出的安全提示中点击 **"打开"**
-3. 若提示“无法打开，因为来自未识别的开发者”：
-   - 打开 **系统设置** → **安全与隐私** → **通用**
-   - 在 CanMe 警告旁点击 **"仍要打开"**
-   - 输入管理员密码
+### 环境要求
+- Go 1.24+
+- Node.js 18+（配合 npm 或 pnpm）
+- Wails CLI（`go install github.com/wailsapp/wails/v2/cmd/wails@latest`）
 
-##### 替代方法（终端）
-若上述方法无效，可使用终端：
+### 构建流程
 ```bash
-sudo xattr -rd com.apple.quarantine /path/to/CanMe.app
+# 后端模块
+go mod tidy
+
+# 前端资源
+cd frontend
+npm install
+npm run build
+cd ..
+
+# 构建桌面应用
+wails build
 ```
 
-#### 🔧 内置依赖管理
-- yt-dlp & FFmpeg：自动管理，无需手动安装
-- Chrome Cookies：支持自动同步，提升平台访问能力
-- 网络代理：内置代理配置，支持全球访问
+如需热更新，可在仓库根目录运行 `wails dev`，并在 `frontend` 中执行 `npm run dev` 以启用 Vite 开发服务器。
 
-#### 🪟 Windows 安装
-1. 解压下载的压缩包
-2. 直接运行 CanMe.exe，无需额外设置
-3. Windows Defender 可能提示警告，点击“更多信息” → “仍要运行”
+## 使用说明
+- 先在 Chrome / Edge 登录目标站点，再在 **Cookies → 同步** 中刷新认证
+- 调度器并行获取元数据，但会串行执行重型合并和转码，避免磁盘竞争
+- 导入的字幕工程在字幕工作台展示，可先检查质量评分，再接入翻译适配器执行 `translate` 阶段
+- 若下载异常或受地区限制，可在 **偏好设置 → 网络** 中配置代理
 
-### 🚀 即可使用
-安装完成后，CanMe 提供：
-- ✅ 零配置 - 自动管理所有依赖
-- ✅ Chrome Cookie 同步 - 无缝访问需认证内容（macOS）
-- ✅ 多平台支持 - 支持多个视频平台下载
-- ✅ 专业字幕工具 - 支持 ITT/SRT 导入，SRT/FCPXML 导出
+## 路线图
+进度可在 GitHub Issues/Projects 中查看。近期重点：
+- 为翻译阶段接入外部 AI 服务，并补充重试与审计日志
+- 扩展 Cookie 工具：手动导入导出、冲突解决、沙箱化抓取
+- 提供 FFmpeg 预设目录（面向平台/社交媒体）和批量转换脚本
 
-### 🔍 macOS 问题排查
-- “应用已损坏”：使用终端命令移除隔离属性
-- 权限被拒绝：确保有管理员权限，尝试系统设置方法
-- 应用无法启动：查看 Console.app 获取详细错误信息
+## 许可证
 
-### 通用问题
-- 下载失败：检查网络连接和代理设置
-- 功能缺失：确保使用最新版本
-- 性能问题：关闭其他高资源占用应用
+CanMe 依据 Apache License 2.0 发布，详见 `LICENSE` 文件。
 
-### ⚠️ 系统要求
-- 💾 **存储**：需足够空间用于下载和处理
+## 致谢
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp)
+- [FFmpeg](https://ffmpeg.org/)
+- [Wails](https://wails.io/)
+- [Vue](https://vuejs.org/)
+- [TailwindCSS](https://tailwindcss.com/)
 
-### 📌 已知限制
-- YouTube 字幕下载可能无进度显示（下载可正常完成）
-- 下载暂停/恢复功能将在未来版本支持
-- 部分平台可能需额外认证
-
-## 🔮 开发路线图
-
-### 🎯 短期目标
-- **增强字幕处理**
-  - 🤖 AI 驱动的字幕翻译
-  - 📺 字幕直接嵌入视频
-  - 🔄 批量字幕处理
-  - 🎨 字幕样式与格式化选项
-
-### 🚀 长期愿景
-- **AI 增强工作流**
-  - 💬 智能内容助手
-  - 📝 教育工具（语言学习、作文审阅）
-  - 📊 内容分析与推荐
-  - 🧠 智能内容分类
-
-## 🛠️ 技术栈
-
-- **后端**：Go + Wails 框架
-- **前端**：Vue3 + TailwindCSS + DaisyUI
-- **视频处理**：yt-dlp + FFmpeg
-- **存储**：BBolt 嵌入式数据库
-- **通信**：WebSocket 实现实时更新
-
-## 📖 项目理念
-
-> CanMe 是现代应用开发的探索之旅，融合了稳健的后端工程与优雅的前端设计。作为实用工具与学习平台，它致力于探索视频处理、用户体验设计与跨平台开发的交集。
-
-## 🤝 贡献
-
-CanMe 作为个人学习项目，欢迎反馈与建议。代码库持续完善，感谢您的理解与耐心。
-
----
-
-<p align="center">© 2025 <a href="https://github.com/arnoldhao">Arnold Hao</a>. 保留所有权利。</p>

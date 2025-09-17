@@ -17,16 +17,18 @@ type Preferences struct {
 }
 
 func NewPreferences() Preferences {
-	return Preferences{
-		Behavior: PreferencesBehavior{
-			WindowWidth:  consts.DEFAULT_WINDOW_WIDTH,
-			WindowHeight: consts.DEFAULT_WINDOW_HEIGHT,
-		},
-		General: PreferencesGeneral{
-			Theme:       "auto",
-			Language:    "auto",
-			CheckUpdate: true,
-		},
+    return Preferences{
+        Behavior: PreferencesBehavior{
+            WindowWidth:  consts.DEFAULT_WINDOW_WIDTH,
+            WindowHeight: consts.DEFAULT_WINDOW_HEIGHT,
+        },
+        General: PreferencesGeneral{
+            Appearance:  "auto",
+            Theme:       "blue",
+            UiStyle:     "frosted",
+            Language:    "auto",
+            CheckUpdate: true,
+        },
 		Proxy: proxy.Config{
 			Type: "system", // default use system proxy
 		},
@@ -48,10 +50,15 @@ type PreferencesBehavior struct {
 }
 
 type PreferencesGeneral struct {
-	Theme       string `json:"theme" yaml:"theme"`
-	Language    string `json:"language" yaml:"language"`
-	CheckUpdate bool   `json:"checkUpdate" yaml:"check_update"`
-	SkipVersion string `json:"skipVersion" yaml:"skip_version,omitempty"`
+    // Appearance controls light/dark/auto color scheme
+    Appearance  string `json:"appearance" yaml:"appearance"`
+    // Theme controls accent/highlight color (e.g., blue, purple)
+    Theme       string `json:"theme" yaml:"theme"`
+    // UiStyle controls UI material style: 'frosted' | 'classic'
+    UiStyle     string `json:"uiStyle" yaml:"ui_style"`
+    Language    string `json:"language" yaml:"language"`
+    CheckUpdate bool   `json:"checkUpdate" yaml:"check_update"`
+    SkipVersion string `json:"skipVersion" yaml:"skip_version,omitempty"`
 }
 
 type ListendInfo struct {

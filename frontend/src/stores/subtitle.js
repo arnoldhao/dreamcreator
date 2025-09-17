@@ -10,6 +10,8 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     const isLoading = ref(false)
     const error = ref(null)
     const lastRefreshTime = ref(0)
+    // Pending project to open when Subtitle view mounts
+    const pendingOpenProjectId = ref(null)
 
     // Actions
     const fetchProjects = async (options = {}) => {
@@ -63,6 +65,8 @@ export const useSubtitleStore = defineStore('subtitle', () => {
         }
     }
 
+    const setPendingOpenProjectId = (id) => { pendingOpenProjectId.value = id }
+
     const updateProject = (updatedProject) => {
         const index = projects.value.findIndex(p => p.id === updatedProject.id)
         if (index !== -1) {
@@ -84,11 +88,13 @@ export const useSubtitleStore = defineStore('subtitle', () => {
         currentLanguage,
         isLoading,
         error,
+        pendingOpenProjectId,
 
         // Actions
         fetchProjects,
         setCurrentProject,
         updateProject,
-        refreshProjects
+        refreshProjects,
+        setPendingOpenProjectId
     }
 })

@@ -46,7 +46,7 @@ func (s *Service) Start(ctx context.Context) error {
 
 	sseServer := server.NewSSEServer(s.svr, server.WithBaseURL(fmt.Sprintf("http://localhost:%v", consts.MCP_SERVER_PORT)))
 	if err := sseServer.Start(fmt.Sprintf(":%v", consts.MCP_SERVER_PORT)); err != nil {
-		logger.Debug("Server error: %v", zap.Error(err))
+		logger.Error("SSE server start failed", zap.Int("port", consts.MCP_SERVER_PORT), zap.Error(err))
 	}
 
 	return nil

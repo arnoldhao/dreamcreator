@@ -5,7 +5,7 @@ import (
 	"CanMe/backend/pkg/logger"
 	"CanMe/backend/types"
 	"fmt"
-	"log"
+	"go.uber.org/zap"
 	"reflect"
 	"strings"
 	"sync"
@@ -20,7 +20,7 @@ type PreferencesStorage struct {
 
 func NewPreferences() *PreferencesStorage {
 	storage := NewLocalStore(consts.PREFERENCES_FILE_NAME)
-	log.Printf("preferences path: %s\n", storage.ConfPath)
+	logger.Debug("preferences path", zap.String("path", storage.ConfPath))
 	return &PreferencesStorage{
 		storage: storage,
 	}
@@ -45,6 +45,35 @@ func (p *PreferencesStorage) getPreferences() (ret types.Preferences) {
 	// 如果 logger 配置为空，使用默认配置
 	if reflect.DeepEqual(ret.Logger, logger.Config{}) {
 		ret.Logger = *logger.DefaultConfig()
+	}
+
+	// 迁移：将旧的 General.Theme (auto/light/dark) 映射到 General.Appearance
+	migrated := false
+	if ret.General.Appearance == "" {
+		// if theme carried old appearance value
+		switch strings.ToLower(ret.General.Theme) {
+		case "auto", "light", "dark":
+			ret.General.Appearance = ret.General.Theme
+			ret.General.Theme = "blue"
+			migrated = true
+		default:
+			// no appearance defined, set defaults
+			ret.General.Appearance = "auto"
+			if ret.General.Theme == "" {
+				ret.General.Theme = "blue"
+			}
+		}
+	} else {
+		// ensure theme has a default if missing
+		if ret.General.Theme == "" {
+			ret.General.Theme = "blue"
+			migrated = true
+		}
+	}
+
+	if migrated {
+		// best-effort persist migration so future loads are clean
+		_ = p.savePreferences(&ret)
 	}
 
 	return

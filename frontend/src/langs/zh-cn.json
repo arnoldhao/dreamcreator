@@ -12,21 +12,35 @@
     "delete": "删除",
     "delete_confirm": "删除确认",
     "delete_success": "删除成功",
+    "delete_confirm_detail": "确认删除「{title}」吗？",
     "delete_failed": "删除失败",
     "copy": "复制",
     "copy_success": "复制成功",
     "copy_failed": "复制失败",
     "start": "开始",
     "info": "信息",
+    "edit": "编辑",
     "refresh": "刷新",
+    "parse": "解析",
+    "select": "选择",
+    "paste": "粘贴",
+    "invalid_url": "URL 不合法",
+    "clipboard_read_failed": "无法读取剪贴板",
     "refreshing": "刷新中...",
     "refresh_success": "刷新成功",
     "refresh_failed": "刷新失败",
     "sync": "同步",
     "loading": "加载中...",
     "unknown_duration": "未知时长",
-    "unknown_size": "未知大小"
+    "unknown_size": "未知大小",
+    "expand": "展开",
+    "collapse": "收起",
+    "load_more": "加载更多",
+    "custom": "自定义",
+    "change": "更改",
+    "not_set": "未设置"
   },
+  
   "cookies": {
     "status": {
       "unknown": "未知",
@@ -60,7 +74,9 @@
     "days_ago": "{count} 天前",
     "sync_with": "使用 {type} 同步",
     "sync_started": "同步已开始",
-    "sync_start_error": "同步启动错误"
+    "sync_start_error": "同步启动错误",
+    "panel_hint": "在此管理与同步浏览器 Cookies。",
+    "open_full_view": "打开全视图"
   },
   "dialogue": {
     "app_name": "CanMe",
@@ -113,6 +129,7 @@
   },
   "ribbon": {
     "download": "视频下载",
+    "download_new": "视频下载（新）",
     "subtitle": "字幕",
     "theme": "主题",
     "settings": "设置"
@@ -120,6 +137,20 @@
   "bottom": {
     "settings": "设置",
     "theme": "主题"
+  },
+  "sidebar": {
+    "main": "主菜单",
+    "utilities": "工具",
+    "search_placeholder": "搜索",
+    "open_sidebar": "打开侧边栏",
+    "close_sidebar": "关闭侧边栏"
+  },
+  "inspector": {
+    "title": "侧边栏",
+    "empty": {
+      "detail_title": "详情",
+      "detail_hint": "请选择任务"
+    }
   },
   "settings": {
     "model_provider": "模型服务",
@@ -136,7 +167,14 @@
     },
     "general": {
       "name": "通用设置",
+      "appearance": "外观",
+      "ui_style": "界面风格",
+      "ui_style_classic": "经典",
+      "ui_style_frosted": "磨砂",
       "theme": "主题",
+      "appearance_light": "浅色",
+      "appearance_dark": "深色",
+      "appearance_auto": "自动",
       "language": "语言",
       "font": "字体",
       "font_tip": "选择或输入字体名称",
@@ -177,7 +215,12 @@
       "data_path": "数据路径",
       "listend": "已监听"
     },
-    "about": "关于我们",
+    "about": {
+      "title": "关于我们",
+      "changelog": "更新日志",
+      "auto_check_update": "启动时自动检查更新"
+    },
+    "acknowledgments": "致谢",
     "dependency": {
       "status": {
         "processing": "处理中...",
@@ -197,6 +240,8 @@
         "progress": "进度"
       },
       "title": "依赖",
+      "quick_validate": "快速校验",
+      "quick_validate_success": "快速校验完成",
       "check_updates": "检查更新",
       "not_installed": "未安装",
       "installed": "已安装",
@@ -216,6 +261,7 @@
       "recommended": "推荐",
       "load_mirrors_failed": "加载镜像失败",
       "validate": "验证",
+      "quick_validating": "快速校验中",
       "validating": "验证中",
       "validate_success": "验证成功",
       "validate_failed": "验证失败",
@@ -225,6 +271,7 @@
       "repair_failed": "修复失败"
     }
   },
+  
   "message": {
     "copy": "复制",
     "copy_content": "复制内容",
@@ -287,6 +334,8 @@
     "downloading_desc": "从来源下载视频文件",
     "translating_desc": "翻译字幕文件",
     "embedding_desc": "将字幕嵌入视频",
+    "merging": "合并中",
+    "finalizing": "收尾中",
     "completed_desc": "下载完成",
     "failed_desc": "下载失败",
     "cancelled_desc": "任务取消",
@@ -303,6 +352,7 @@
     "video_quality": "视频质量",
     "select_video_quality": "选择视频质量",
     "subtitle_language": "字幕语言",
+    "all_subtitles": "全部字幕",
     "no_subtitles": "无字幕",
     "subtitles": "字幕",
     "selected": "已选",
@@ -313,6 +363,15 @@
     "translate_desc": "翻译字幕文件",
     "process_video": "处理视频",
     "process_video_desc": "将字幕嵌入视频",
+    "process": "处理流程",
+    "download_process": "下载流程",
+    "subtitle_process": "字幕流程",
+    "status_label": "状态",
+    "stage_video": "视频",
+    "stage_subtitles": "字幕",
+    "stage_merge": "合并",
+    "stage_finalize": "收尾",
+    "processing": "处理中",
     "complete": "完成",
     "complete_desc": "处理完成并保存",
     "parse_failed": "解析失败",
@@ -329,11 +388,16 @@
     "no_transcoding": "不转码",
     "video_formats": "视频格式",
     "audio_formats": "音频格式",
-    "checking_cookies": "正在检查 Cookies"
+    "checking_cookies": "正在检查 Cookies",
+    "output": "输出",
+    "settings": "设置",
+    "output_dir": "输出目录",
+    "output_info": "输出信息"
   },
   "subtitle": {
     "title": "字幕",
-    "common": {
+  "common": {
+    "custom": "自定义",
       "select_sub_file": "选择字幕文件",
       "lang": "语言",
       "open_file": "打开文件",
@@ -351,8 +415,10 @@
       "confirm": "确认",
       "cancel": "取消",
       "open": "打开",
+      "edit": "编辑",
       "close": "关闭",
-      "not_set": "未设置"
+      "not_set": "未设置",
+      "none": "无"
     },
     "welcome": {
       "title": "欢迎使用字幕功能",
@@ -369,6 +435,7 @@
       "current_standard": "当前标准",
       "current_standard_info": "当前标准信息",
       "metrics_explanation": "指标说明",
+      "current_metrics": "当前指标",
       "cps": "CPS 字符/秒",
       "cps_fullname": "每秒字符数",
       "cps_desc": "衡量字幕阅读速度的关键指标",
@@ -391,10 +458,14 @@
       "ade_standard_desc": "ADE 字幕标准，平衡速度和质量要求",
       "no_caption_rn": "暂无字幕",
       "duration": "时长",
-      "unknown": "未知"
+      "unknown": "未知",
+      "cues": "字幕条目",
+      "total_cues": "共 {count} 条字幕"
     },
     "export": {
       "title": "导出字幕",
+      "summary": "摘要",
+      "detail": "导出详情",
       "format": "格式",
       "parameters": "参数",
       "resolution": "分辨率",
@@ -428,6 +499,11 @@
       "no_imported_sub_found": "未找到导入的字幕",
       "remove_from_history": "从历史记录中移除",
       "remove_all_history": "清除所有历史记录"
+    },
+    "group": {
+      "today": "今天",
+      "this_week": "本周",
+      "earlier": "更早"
     },
     "import": {
       "title": "导入字幕",
