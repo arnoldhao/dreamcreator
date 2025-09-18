@@ -4,6 +4,8 @@ on:
 
 jobs:
   publish:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: release-drafter/release-drafter@v6
