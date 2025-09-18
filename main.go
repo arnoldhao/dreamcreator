@@ -45,7 +45,7 @@ func main() {
 
 	// log
 	defer logger.GetLogger().Sync()
-	logger.Info("CanMe Start!", zap.Time("now", time.Now()))
+	logger.Info("CanMe Start!", zap.String("Version", consts.APP_VERSION), zap.Time("now", time.Now()))
 
 	// bolt storage
 	boltStorage, err := storage.NewBoltStorage()
@@ -214,7 +214,7 @@ func main() {
 		},
 	})
 
-    if err != nil {
-        logger.Error("App run error", zap.Error(err))
-    }
+	if err != nil {
+		logger.Error("App run error", zap.Error(err))
+	}
 }

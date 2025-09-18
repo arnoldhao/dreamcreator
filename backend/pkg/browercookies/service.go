@@ -89,7 +89,7 @@ func (c *cookieManager) Sync(ctx context.Context, syncFrom string, browsers []st
 		firstErrMsg = "no cookies found"
 	}
 	logger.Warn("cookies.Sync complete", zap.Bool("success", false), zap.String("error", firstErrMsg))
-	return fmt.Errorf(firstErrMsg)
+	return errors.New(firstErrMsg)
 }
 
 // ListAllCookies retrieves all cached cookies, grouped by browser.

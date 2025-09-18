@@ -3,8 +3,9 @@ package consts
 // App Info
 const APP_NAME = "CanMe"
 const APP_DESC = "CanMe is a comprehensive multilingual video download manager with a fluid user experience and powerful content processing capabilities.\n\nCopyright 2025"
-const APP_VERSION = "0.1.18"
 const BBOLT_DB_NAME = "canme.db"
+
+var APP_VERSION = "dev"
 
 // App Config File
 const PREFERENCES_FILE_NAME = "preferences.yaml"

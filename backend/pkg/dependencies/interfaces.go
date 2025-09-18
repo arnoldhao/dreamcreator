@@ -50,12 +50,12 @@ type Manager interface {
 	List(ctx context.Context) (map[types.DependencyType]*types.DependencyInfo, error)
 	// DependenciesReady 检查所有依赖是否已准备好
 	DependenciesReady(ctx context.Context) (bool, error)
-    // ValidateDependencies 验证所有依赖可用性
-    ValidateDependencies(ctx context.Context) error
-    // QuickValidate 仅快速验证本地可执行是否可用
-    QuickValidate(ctx context.Context) (map[types.DependencyType]*types.DependencyInfo, error)
-    // RepairDependency 修复指定依赖
-    RepairDependency(ctx context.Context, depType types.DependencyType) error
+	// ValidateDependencies 验证所有依赖可用性
+	ValidateDependencies(ctx context.Context) error
+	// QuickValidate 仅快速验证本地可执行是否可用
+	QuickValidate(ctx context.Context) (map[types.DependencyType]*types.DependencyInfo, error)
+	// RepairDependency 修复指定依赖
+	RepairDependency(ctx context.Context, depType types.DependencyType) error
 }
 
 // Downloader 下载器接口

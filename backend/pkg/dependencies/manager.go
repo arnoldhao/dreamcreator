@@ -1,17 +1,17 @@
 package dependencies
 
 import (
-    "bytes"
-    "context"
-    "errors"
-    "fmt"
-    "io"
-    "net/http"
-    "os"
-    "path/filepath"
-    "runtime"
-    "sync"
-    "time"
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sync"
+	"time"
 
 	"CanMe/backend/embedded"
 	"CanMe/backend/pkg/events"
@@ -27,6 +27,7 @@ import (
 // manager 依赖管理器实现
 type manager struct {
 	providers    map[types.DependencyType]DependencyProvider
+	memoryCache  map[types.DependencyType]*types.DependencyInfo
 	downloader   Downloader
 	validator    Validator
 	mu           sync.RWMutex
@@ -44,6 +45,7 @@ func NewManager(eventBus events.EventBus, proxyManager proxy.ProxyManager, boltS
 
 	return &manager{
 		providers:    make(map[types.DependencyType]DependencyProvider),
+		memoryCache:  make(map[types.DependencyType]*types.DependencyInfo),
 		downloader:   downloader,
 		validator:    NewValidator(pushEvent),
 		proxyManager: proxyManager,
@@ -54,32 +56,32 @@ func NewManager(eventBus events.EventBus, proxyManager proxy.ProxyManager, boltS
 
 // InitializeDefaultDependencies 初始化默认依赖信息
 func (m *manager) InitializeDefaultDependencies() error {
-    // 没有持久化存储时跳过初始化（开发/测试环境允许不初始化）
-    if m.boltStorage == nil {
-        logger.Warn("Skip initializing dependencies: bolt storage is nil")
-        return nil
-    }
-    // 分别检查每个依赖是否存在，如果不存在则初始化
+	// 没有持久化存储时跳过初始化（开发/测试环境允许不初始化）
+	if m.boltStorage == nil {
+		logger.Warn("Skip initializing dependencies: bolt storage is nil")
+		return nil
+	}
+	// 分别检查每个依赖是否存在，如果不存在则初始化
 
 	// 检查 yt-dlp 依赖
-    ytdlpInfo, err := m.boltStorage.GetDependency(types.DependencyYTDLP)
-    if err != nil || ytdlpInfo == nil || m.validator.ValidateFile(ytdlpInfo.ExecPath) != nil {
-        err = m.initializeFromEmbedded(types.DependencyYTDLP)
-        if err != nil {
-            logger.Error("Failed to initialize yt-dlp dependency", zap.Error(err))
-            return err
-        }
-    }
+	ytdlpInfo, err := m.boltStorage.GetDependency(types.DependencyYTDLP)
+	if err != nil || ytdlpInfo == nil || m.validator.ValidateFile(ytdlpInfo.ExecPath) != nil {
+		err = m.initializeFromEmbedded(types.DependencyYTDLP)
+		if err != nil {
+			logger.Error("Failed to initialize yt-dlp dependency", zap.Error(err))
+			return err
+		}
+	}
 
 	// 检查 ffmpeg 依赖
-    ffmpegInfo, err := m.boltStorage.GetDependency(types.DependencyFFmpeg)
-    if err != nil || ffmpegInfo == nil || m.validator.ValidateFile(ffmpegInfo.ExecPath) != nil {
-        err = m.initializeFromEmbedded(types.DependencyFFmpeg)
-        if err != nil {
-            logger.Error("Failed to initialize ffmpeg dependency", zap.Error(err))
-            return err
-        }
-    }
+	ffmpegInfo, err := m.boltStorage.GetDependency(types.DependencyFFmpeg)
+	if err != nil || ffmpegInfo == nil || m.validator.ValidateFile(ffmpegInfo.ExecPath) != nil {
+		err = m.initializeFromEmbedded(types.DependencyFFmpeg)
+		if err != nil {
+			logger.Error("Failed to initialize ffmpeg dependency", zap.Error(err))
+			return err
+		}
+	}
 
 	return nil
 }
@@ -111,26 +113,81 @@ func (m *manager) GetHTTPClient() *http.Client {
 
 // Get 获取依赖信息
 func (m *manager) Get(ctx context.Context, depType types.DependencyType) (*types.DependencyInfo, error) {
-	// 尝试从 bbolt 存储读取
+	var lastErr error
+
+	// 优先检查内存缓存（用于无持久化场景）
+	m.mu.RLock()
+	if cached := m.memoryCache[depType]; cached != nil {
+		m.mu.RUnlock()
+		return cached, nil
+	}
+	m.mu.RUnlock()
+
+	// 优先尝试从 bbolt 存储读取
 	if m.boltStorage != nil {
 		if stored, err := m.boltStorage.GetDependency(depType); err == nil {
-			// check if can exec
-			if err := m.validator.ValidateFile(stored.ExecPath); err != nil {
-				logger.Warn("Dependency is not valid",
+			// 校验已缓存依赖是否仍然有效
+			if validateErr := m.validator.ValidateFile(stored.ExecPath); validateErr == nil {
+				return stored, nil
+			} else {
+				logger.Warn("Dependency cached entry invalid, fallback to provider",
 					zap.String("type", string(depType)),
-					zap.Error(err))
+					zap.Error(validateErr))
+				lastErr = validateErr
 			}
-			return stored, nil
 		} else {
 			logger.Warn("Failed to get dependency from storage",
 				zap.String("type", string(depType)),
 				zap.Error(err))
+			lastErr = err
+		}
+	} else {
+		lastErr = errors.New("bolt storage is nil")
+	}
 
+	provider := m.GetProvider(depType)
+	if provider == nil {
+		if lastErr != nil {
+			return nil, lastErr
+		}
+		return nil, fmt.Errorf("dependency provider not found: %s", depType)
+	}
+
+	type checker interface {
+		Check(ctx context.Context, manager Manager) (*types.DependencyInfo, error)
+	}
+
+	var info *types.DependencyInfo
+	if c, ok := provider.(checker); ok {
+		var err error
+		info, err = c.Check(ctx, m)
+		if err != nil {
+			if lastErr != nil {
+				return nil, lastErr
+			}
 			return nil, err
 		}
 	} else {
-		return nil, fmt.Errorf("read: %s error, bolt storage is nil", string(depType))
+		if lastErr != nil {
+			return nil, lastErr
+		}
+		return nil, fmt.Errorf("dependency provider %s does not support status check", depType)
 	}
+
+	if m.boltStorage != nil {
+		if err := m.boltStorage.SaveDependency(info); err != nil {
+			logger.Warn("Failed to persist dependency info", zap.Error(err))
+			m.mu.Lock()
+			m.memoryCache[depType] = info
+			m.mu.Unlock()
+		}
+	} else {
+		m.mu.Lock()
+		m.memoryCache[depType] = info
+		m.mu.Unlock()
+	}
+
+	return info, nil
 }
 
 // 修改Install方法
@@ -373,33 +430,33 @@ func (m *manager) ValidateDependencies(ctx context.Context) error {
 
 // QuickValidate 仅快速验证：检查本地可执行文件是否存在且可执行，不做版本比对或远程请求
 func (m *manager) QuickValidate(ctx context.Context) (map[types.DependencyType]*types.DependencyInfo, error) {
-    if m.boltStorage == nil {
-        return nil, errors.New("bolt storage not initialized")
-    }
+	if m.boltStorage == nil {
+		return nil, errors.New("bolt storage not initialized")
+	}
 
-    stored, err := m.boltStorage.ListAllDependencies()
-    if err != nil {
-        return nil, fmt.Errorf("failed to list dependencies: %w", err)
-    }
+	stored, err := m.boltStorage.ListAllDependencies()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list dependencies: %w", err)
+	}
 
-    results := make(map[types.DependencyType]*types.DependencyInfo)
+	results := make(map[types.DependencyType]*types.DependencyInfo)
 
-    for _, dep := range stored {
-        // copy
-        updated := *dep
-        if err := m.validator.ValidateFile(dep.ExecPath); err != nil {
-            updated.Available = false
-        } else {
-            updated.Available = true
-        }
-        // persist
-        if err := m.boltStorage.SaveDependency(&updated); err != nil {
-            // keep going but record into results
-        }
-        results[updated.Type] = &updated
-    }
+	for _, dep := range stored {
+		// copy
+		updated := *dep
+		if err := m.validator.ValidateFile(dep.ExecPath); err != nil {
+			updated.Available = false
+		} else {
+			updated.Available = true
+		}
+		// persist
+		if err := m.boltStorage.SaveDependency(&updated); err != nil {
+			// keep going but record into results
+		}
+		results[updated.Type] = &updated
+	}
 
-    return results, nil
+	return results, nil
 }
 
 // RepairDependency 修复依赖
@@ -537,26 +594,26 @@ func getEmbeddedBinary(depType types.DependencyType) (fileByte []byte, version s
 }
 
 func persistentDepsRoot() string {
-    base, err := os.UserConfigDir()
-    if err != nil || base == "" {
-        base = os.TempDir()
-    }
-    root := filepath.Join(base, "CanMe", "deps")
-    _ = os.MkdirAll(root, 0o755)
-    return root
+	base, err := os.UserConfigDir()
+	if err != nil || base == "" {
+		base = os.TempDir()
+	}
+	root := filepath.Join(base, "CanMe", "deps")
+	_ = os.MkdirAll(root, 0o755)
+	return root
 }
 
 func execPath(depType types.DependencyType, version string) (string, error) {
-    cacheDir := filepath.Join(persistentDepsRoot(), string(depType))
-    execName := string(depType)
-    if runtime.GOOS == "windows" {
-        execName += ".exe"
-    }
+	cacheDir := filepath.Join(persistentDepsRoot(), string(depType))
+	execName := string(depType)
+	if runtime.GOOS == "windows" {
+		execName += ".exe"
+	}
 
-    execPath := filepath.Join(cacheDir, fmt.Sprintf("%s-%s", string(depType), version), execName)
-    if err := os.MkdirAll(filepath.Dir(execPath), 0755); err != nil {
-        return "", err
-    }
+	execPath := filepath.Join(cacheDir, fmt.Sprintf("%s-%s", string(depType), version), execName)
+	if err := os.MkdirAll(filepath.Dir(execPath), 0755); err != nil {
+		return "", err
+	}
 
-    return execPath, nil
+	return execPath, nil
 }
