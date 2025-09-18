@@ -12,6 +12,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Go backend
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.24.0' }   # 与 README 要求一致
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.1
+      - name: Prepare embedded binaries
+        shell: bash
+        run: ./scripts/fetch-embedded-binaries.sh --platform linux/amd64
+      - name: Generate Wails bindings
+        run: wails generate module
+
       # Frontend
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
@@ -22,13 +33,6 @@ jobs:
           npm run lint --if-present
           npm run typecheck --if-present
           npm run build --if-present
-
-      # Go backend
-      - uses: actions/setup-go@v5
-        with: { go-version: '1.24.0' }   # 与 README 要求一致
-      - name: Prepare embedded binaries
-        shell: bash
-        run: ./scripts/fetch-embedded-binaries.sh --platform linux/amd64
       - name: Go vet & test
         run: |
           go vet ./...
@@ -46,6 +50,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with: { go-version: '1.24' }
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.1
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
 
@@ -58,14 +64,14 @@ jobs:
             ./scripts/fetch-embedded-binaries.sh --platform windows/amd64
           fi
 
+      - name: Generate Wails bindings
+        run: wails generate module
+
       - name: Build frontend
         working-directory: frontend
         run: |
           npm ci
           npm run build
-
-      - name: Install wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       # 预览包不从 tag 注入版本，这里统一用 dev（只做功能体验）
       - name: Build app (preview)
