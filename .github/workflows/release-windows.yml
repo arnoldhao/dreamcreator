@@ -3,12 +3,6 @@ name: Release Windows App
 on:
   release:
     types: [ published ]
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Version tag'
-        required: true
-        default: '0.1.18'
 
 jobs:
   release:
@@ -46,13 +40,9 @@ jobs:
         id: normalise_version
         shell: bash
         run: |
-          if [ "${{ github.event.release.tag_name }}" == "" ]; then
-            version=$(echo ${{ github.event.inputs.tag }} | sed -e 's/v//g')
-            echo "version=$version" >> "$GITHUB_OUTPUT"
-          else
-            version=$(echo ${{ github.event.release.tag_name }} | sed -e 's/v//g')
-            echo "version=$version" >> "$GITHUB_OUTPUT"
-          fi
+          raw_tag="${{ github.event.release.tag_name }}"
+          version="${raw_tag#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Setup Go
         uses: actions/setup-go@v5
