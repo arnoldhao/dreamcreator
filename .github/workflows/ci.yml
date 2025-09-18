@@ -12,17 +12,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Go backend
-      - uses: actions/setup-go@v5
-        with: { go-version: '1.24.0' }   # 与 README 要求一致
-      - name: Prepare embedded binaries
-        shell: bash
-        run: ./scripts/fetch-embedded-binaries.sh --platform linux/amd64
-      - name: Go vet & test
-        run: |
-          go vet ./...
-          go test ./... -v
-
       # Frontend
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
@@ -33,6 +22,17 @@ jobs:
           npm run lint --if-present
           npm run typecheck --if-present
           npm run build --if-present
+
+      # Go backend
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.24.0' }   # 与 README 要求一致
+      - name: Prepare embedded binaries
+        shell: bash
+        run: ./scripts/fetch-embedded-binaries.sh --platform linux/amd64
+      - name: Go vet & test
+        run: |
+          go vet ./...
+          go test ./... -v
 
   package-preview:
     # 给 PR 打上 label: preview-binaries 才跑“真实打包”，并把包放到 Artifacts 里供你下载体验
