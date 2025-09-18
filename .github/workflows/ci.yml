@@ -15,6 +15,9 @@ jobs:
       # Go backend
       - uses: actions/setup-go@v5
         with: { go-version: '1.24.0' }   # 与 README 要求一致
+      - name: Prepare embedded binaries
+        shell: bash
+        run: ./scripts/fetch-embedded-binaries.sh --platform linux/amd64
       - name: Go vet & test
         run: |
           go vet ./...
@@ -45,6 +48,15 @@ jobs:
         with: { go-version: '1.24' }
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
+
+      - name: Prepare embedded binaries
+        shell: bash
+        run: |
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            ./scripts/fetch-embedded-binaries.sh --platform darwin/arm64
+          else
+            ./scripts/fetch-embedded-binaries.sh --platform windows/amd64
+          fi
 
       - name: Build frontend
         working-directory: frontend

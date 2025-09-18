@@ -57,3 +57,4 @@ coverage/
 
 # bash script
 *.sh
+!/scripts/*.sh

@@ -65,42 +65,10 @@ jobs:
       - name: Download embedded binaries
         shell: bash
         run: |
-          # 创建binaries目录
-          mkdir -p backend/embedded/binaries
-          
-          # 设置版本常量(与consts/mirrors.go中的版本保持一致)
-          YTDLP_VERSION="2025.09.05"
-          FFMPEG_VERSION="121021-g05b6b30ee1"
-          ARCH="${{ steps.normalise_platform.outputs.arch }}"
-          
-          # 下载yt-dlp
-          echo "Downloading yt-dlp for darwin/$ARCH..."
-          if [ "$ARCH" = "amd64" ]; then
-            YTDLP_FILENAME="yt-dlp_macos"
-          else
-            YTDLP_FILENAME="yt-dlp_macos"
-          fi
-          
-          curl -L "https://github.com/yt-dlp/yt-dlp/releases/download/$YTDLP_VERSION/$YTDLP_FILENAME" \
-            -o "backend/embedded/binaries/yt-dlp_${YTDLP_VERSION}_darwin_${ARCH}"
-          chmod +x "backend/embedded/binaries/yt-dlp_${YTDLP_VERSION}_darwin_${ARCH}"
-          
-          # 下载FFmpeg
-          echo "Downloading FFmpeg for darwin/$ARCH..."
-          if [ "$ARCH" = "amd64" ]; then
-            FFMPEG_URL="https://evermeet.cx/ffmpeg/ffmpeg-${FFMPEG_VERSION}.zip"
-          else
-            FFMPEG_URL="https://evermeet.cx/ffmpeg/ffmpeg-${FFMPEG_VERSION}.zip"
-          fi
-          
-          # 下载并解压FFmpeg
-          curl -L "$FFMPEG_URL" -o ffmpeg.zip
-          unzip -q ffmpeg.zip
-          mv ffmpeg "backend/embedded/binaries/ffmpeg_${FFMPEG_VERSION}_darwin_${ARCH}"
-          chmod +x "backend/embedded/binaries/ffmpeg_${FFMPEG_VERSION}_darwin_${ARCH}"
-          rm ffmpeg.zip
-          
-          # 验证文件
+          ./scripts/fetch-embedded-binaries.sh \
+            --platform "${{ matrix.platform }}" \
+            --ytdlp-version "$YTDLP_VERSION" \
+            --ffmpeg-version "$FFMPEG_VERSION"
           echo "Downloaded binaries:"
           ls -la backend/embedded/binaries/
 
