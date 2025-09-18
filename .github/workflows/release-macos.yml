@@ -119,7 +119,7 @@ jobs:
         shell: bash
         run: |
           CGO_ENABLED=1 wails build -platform ${{ matrix.platform }} \
-          -ldflags "-X main.version=${{ steps.normalise_version.outputs.version }}"
+          -ldflags "-X CanMe/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }}"
 
       - name: Checkout create-image
         uses: actions/checkout@v4

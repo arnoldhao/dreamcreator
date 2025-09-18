@@ -1,0 +1,30 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+
+categories:
+  - title: '✨ Features'
+    labels: ['type: feature', 'feat']
+  - title: '🐞 Fixes'
+    labels: ['type: bug', 'fix', 'bug']
+  - title: '⚙️ Refactor/Perf'
+    labels: ['refactor', 'perf']
+  - title: '🧰 Chore/Build/CI'
+    labels: ['chore', 'build', 'ci', 'deps']
+
+change-template: '- $TITLE (#$NUMBER) by @$AUTHOR'
+change-title-escapes: '\<*_&'
+
+template: |
+  ## 中文
+  $CHANGES
+
+  ## English
+  $CHANGES
+
+version-resolver:
+  major: { labels: ['breaking', 'type: breaking'] }
+  minor: { labels: ['type: feature', 'feat'] }
+  patch: { labels: ['type: bug', 'fix', 'bug', 'chore', 'build', 'ci', 'refactor', 'perf', 'deps'] }
+  default: patch
+
+exclude-labels: ['skip-changelog']

@@ -136,7 +136,7 @@ jobs:
         run: |
           CGO_ENABLED=1 wails build -clean -platform ${{ matrix.platform }} \
           -webview2 embed \
-          -ldflags "-X main.version=v${{ steps.normalise_version.outputs.version }}"
+          -ldflags "-X CanMe/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }}"
 
       - name: Compress portable binary
         working-directory: ./build/bin
@@ -154,7 +154,7 @@ jobs:
         run: |
           CGO_ENABLED=1 wails build -clean -platform ${{ matrix.platform }} \
           -nsis -webview2 embed \
-          -ldflags "-X main.version=v${{ steps.normalise_version.outputs.version }}"
+          -ldflags "-X CanMe/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }}"
 
       # - name: Codesign Windows NSIS installer
       #   working-directory: ./build/bin

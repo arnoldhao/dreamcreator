@@ -1,0 +1,77 @@
+name: CI
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Lint/Test/Build (fast)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Go backend
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.24.0' }   # 与 README 要求一致
+      - name: Go vet & test
+        run: |
+          go vet ./...
+          go test ./... -v
+
+      # Frontend
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Frontend install & lint & build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint --if-present
+          npm run typecheck --if-present
+          npm run build --if-present
+
+  package-preview:
+    # 给 PR 打上 label: preview-binaries 才跑“真实打包”，并把包放到 Artifacts 里供你下载体验
+    if: contains(toJson(github.event.pull_request.labels), 'preview-binaries')
+    needs: ci
+    strategy:
+      matrix: { os: [macos-latest, windows-latest] }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.24' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      # 预览包不从 tag 注入版本，这里统一用 dev（只做功能体验）
+      - name: Build app (preview)
+        shell: bash
+        run: |
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            wails build -platform darwin/arm64 -ldflags "-X CanMe/backend/consts.APP_VERSION=dev"
+            tar -czf CanMe_preview_mac_arm64.tgz -C build/bin "canme.app" || tar -czf CanMe_preview_mac_arm64.tgz -C build/bin "CanMe.app"
+          else
+            wails build -platform windows/amd64 -webview2 embed -ldflags "-X CanMe/backend/consts.APP_VERSION=dev"
+            powershell -Command "Compress-Archive build/bin/CanMe.exe CanMe_preview_win_x64.zip"
+          fi
+
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CanMe-preview-${{ matrix.os }}
+          path: |
+            *.tgz
+            *.zip
+          if-no-files-found: ignore

@@ -1,0 +1,17 @@
+name: semantic-pr-title
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat, fix, perf, refactor, docs, chore, build, ci
+          requireScope: false
+          wip: true
