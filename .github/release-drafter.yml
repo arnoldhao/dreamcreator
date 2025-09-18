@@ -15,10 +15,6 @@ change-template: '- $TITLE (#$NUMBER) by @$AUTHOR'
 change-title-escapes: '\<*_&'
 
 template: |
-  ## 中文
-  $CHANGES
-
-  ## English
   $CHANGES
 
 version-resolver:
