@@ -20,6 +20,10 @@ jobs:
       - name: Prepare embedded binaries
         shell: bash
         run: ./scripts/fetch-embedded-binaries.sh --platform linux/amd64
+      - name: Ensure frontend dist placeholder
+        run: |
+          mkdir -p frontend/dist
+          touch frontend/dist/.placeholder
       - name: Generate Wails bindings
         run: wails generate module
 
@@ -63,6 +67,11 @@ jobs:
           else
             ./scripts/fetch-embedded-binaries.sh --platform windows/amd64
           fi
+
+      - name: Ensure frontend dist placeholder
+        run: |
+          mkdir -p frontend/dist
+          touch frontend/dist/.placeholder
 
       - name: Generate Wails bindings
         run: wails generate module
