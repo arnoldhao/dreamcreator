@@ -485,12 +485,13 @@ const formatQualities = (formats) => {
   const audioFormats = []
 
   formats.forEach(format => {
-    const hasVideo = format.vcodec && format.vcodec !== 'none'
-    const hasAudio = format.acodec && format.acodec !== 'none'
-    const hasSize = format.filesize || format.filesize_approx
+    const hasVideo = format?.vcodec && format.vcodec !== 'none'
+    const hasAudio = format?.acodec && format.acodec !== 'none'
+    const hasSize = format?.filesize || format?.filesize_approx
 
     // Skip formats without size information
     if (!hasSize) return
+
     const formatInfo = {
       ...format,
       hasVideo,

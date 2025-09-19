@@ -407,8 +407,9 @@ func (s *Service) ParseURL(url string, browser string) (*ytdlp.ExtractedInfo, er
 	}
 
 	// 添加选项
-	dl.SkipDownload()   // 不下载视频，只获取信息
-	dl.DumpSingleJSON() // 使用 DumpSingleJSON 获取结构化的 JSON 输出
+	dl.SkipDownload().
+		DumpSingleJSON().
+		NoPlaylist() // 保持与下载流程一致，避免返回整份播放列表
 
 	// 运行 yt-dlp 命令
 	result, err := dl.Run(s.ctx, url)
@@ -422,10 +423,43 @@ func (s *Service) ParseURL(url string, browser string) (*ytdlp.ExtractedInfo, er
 		return nil, err
 	}
 
-	// 缓存元数据
-	s.cacheMetadata(url, &info)
+	// 尝试将 playlist/multi-video 结果归一为首个可播放视频
+	primary := s.selectPrimaryEntry(&info)
+	if primary == nil {
+		primary = &info
+	}
 
-	return &info, nil
+	// 缓存元数据
+	s.cacheMetadata(url, primary)
+
+	return primary, nil
+}
+
+func (s *Service) selectPrimaryEntry(info *ytdlp.ExtractedInfo) *ytdlp.ExtractedInfo {
+	if info == nil {
+		return nil
+	}
+
+	// 若当前结果自身包含可用格式，则直接返回
+	if len(info.Formats) > 0 || len(info.Entries) == 0 {
+		return info
+	}
+
+	// 优先返回第一个具备 formats 的条目
+	for _, entry := range info.Entries {
+		if entry != nil && len(entry.Formats) > 0 {
+			return entry
+		}
+	}
+
+	// 回退：若所有条目缺少 formats，返回首个非空条目以供后续流程继续
+	for _, entry := range info.Entries {
+		if entry != nil {
+			return entry
+		}
+	}
+
+	return info
 }
 
 func (s *Service) getVideoMetadata(url, browser string) (*ytdlp.ExtractedInfo, error) {
