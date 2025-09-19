@@ -15,6 +15,7 @@ import (
 	"CanMe/backend/services/preferences"
 	"CanMe/backend/services/systems"
 	"CanMe/backend/storage"
+	"CanMe/backend/utils"
 	"context"
 	"embed"
 	"fmt"
@@ -109,6 +110,43 @@ func main() {
 	}
 
 	// Create application with options
+
+	// Windows options: enable Acrylic only when the platform supports it; otherwise run opaque.
+	var winOpts *windows.Options
+	if runtime.GOOS == "windows" {
+		if utils.WindowsSupportsAcrylic() {
+			winOpts = &windows.Options{
+				WebviewIsTransparent:              true,
+				WindowIsTranslucent:               true,
+				BackdropType:                      windows.Acrylic,
+				DisableWindowIcon:                 false,
+				DisableFramelessWindowDecorations: false,
+				WebviewUserDataPath:               "",
+				Theme:                             windows.SystemDefault,
+			}
+		} else {
+			winOpts = &windows.Options{
+				WebviewIsTransparent:              false,
+				WindowIsTranslucent:               false,
+				BackdropType:                      windows.None,
+				DisableWindowIcon:                 false,
+				DisableFramelessWindowDecorations: false,
+				WebviewUserDataPath:               "",
+				Theme:                             windows.SystemDefault,
+			}
+		}
+	} else {
+		// Non-Windows builds ignore this, but keep a default object to satisfy the field.
+		winOpts = &windows.Options{
+			WebviewIsTransparent:              true,
+			WindowIsTranslucent:               true,
+			DisableWindowIcon:                 false,
+			DisableFramelessWindowDecorations: false,
+			WebviewUserDataPath:               "",
+			Theme:                             windows.SystemDefault,
+		}
+	}
+
 	err = wails.Run(&options.App{
 		Title:                    consts.APP_NAME,
 		Width:                    windowWidth,
@@ -186,14 +224,7 @@ func main() {
 			preferencesService.SaveWindowPosition(x, y)
 			return false
 		},
-		Windows: &windows.Options{
-			WebviewIsTransparent:              true,
-			WindowIsTranslucent:               true,
-			DisableWindowIcon:                 false,
-			DisableFramelessWindowDecorations: false,
-			WebviewUserDataPath:               "",
-			Theme:                             windows.SystemDefault,
-		},
+		Windows: winOpts,
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarHiddenInset(),
 			About: &mac.AboutInfo{

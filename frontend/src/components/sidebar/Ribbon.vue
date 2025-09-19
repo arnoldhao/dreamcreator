@@ -1,5 +1,5 @@
 <template>
-  <aside class="macos-sidebar" :style="{ width: widthPx, minWidth: widthPx }">
+  <aside class="macos-sidebar" :class="{ 'ribbon-frosted': uiFrosted }" :style="asideStyle">
     <!-- Main source list -->
     <div class="pl-2 pr-2 pt-1">
       <div v-for="(m, i) in navStore.menuOptions" :key="i" class="source-row"
@@ -42,10 +42,12 @@ import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import useNavStore from 'stores/nav.js'
 import useLayoutStore from '@/stores/layout.js'
 import useSettingsStore from '@/stores/settings.js'
+import usePreferencesStore from '@/stores/preferences.js'
 
 const navStore = useNavStore()
 const layout = useLayoutStore()
 const settings = useSettingsStore()
+const prefStore = usePreferencesStore()
 
 const props = defineProps({
   value: {
@@ -61,6 +63,21 @@ const props = defineProps({
 const emit = defineEmits(['update:value'])
 
 const widthPx = computed(() => `${props.width}px`)
+const uiFrosted = computed(() => (prefStore?.general?.uiStyle || 'frosted') === 'frosted')
+const isDarkMode = computed(() => !!prefStore?.isDark)
+// 根据明暗主题调整毛玻璃底色（仅 ribbon 区域）
+const ribbonFrostedBg = computed(() => isDarkMode.value ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.28)')
+const asideStyle = computed(() => ({
+  width: widthPx.value,
+  minWidth: widthPx.value,
+  ...(uiFrosted.value
+    ? {
+        '--ribbon-bg': ribbonFrostedBg.value,
+        WebkitBackdropFilter: 'var(--macos-surface-blur)',
+        backdropFilter: 'var(--macos-surface-blur)'
+      }
+    : {})
+}))
 
 // Settings popover state
 const showSettingsMenu = ref(false)
@@ -94,6 +111,16 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 <style lang="scss" scoped>
 .macos-sidebar { height: 100%; }
 
+/* Frosted variant for ribbon area only when UI style is frosted */
+.macos-sidebar.ribbon-frosted {
+  /* 具体底色使用组件传入的变量，强制覆盖所有主题色染色 */
+  background: var(--ribbon-bg, rgba(0,0,0,0.28)) !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: var(--macos-surface-blur);
+  backdrop-filter: var(--macos-surface-blur);
+  isolation: isolate; /* 防止外层混色影响 */
+}
+
 .ribbon-header {
   height: 36px;
   display: flex;
@@ -117,6 +144,10 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 .source-row-icon { width: 18px; height: 18px; margin-right: 8px; color: var(--macos-text-secondary); }
 .source-row:hover .source-row-icon, .source-row.active .source-row-icon { color: #fff; }
 .source-row-label { font-size: var(--fs-base); line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Light + frosted: improve clarity by using primary text color by default */
+[data-ui="frosted"][data-theme="light"] .macos-sidebar .source-row { color: var(--macos-text-primary); }
+[data-ui="frosted"][data-theme="light"] .macos-sidebar .source-row-icon { color: var(--macos-text-primary); }
 
 /* macOS-style popover */
 .macos-popover {
