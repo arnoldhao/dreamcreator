@@ -136,6 +136,93 @@ const leftCapWidth = computed(() => {
   return `${w}px`
 })
 
+// UI style: frosted/classic comes from preferences
+const uiFrosted = computed(() => (prefStore?.general?.uiStyle || 'frosted') === 'frosted')
+const isDarkMode = computed(() => !!prefStore?.isDark)
+
+// ribbon/left-cap 的毛玻璃底色，按明暗主题区分
+const ribbonFrostedBg = computed(() => isDarkMode.value ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.28)')
+
+// Left cap dynamic style: in frosted mode we paint background via a unified toolbar stripe overlay to avoid flicker
+const leftCapStyle = computed(() => {
+  const base = { width: leftCapWidth.value }
+  if (!layout.ribbonVisible) {
+    // Let the parent toolbar background paint this area for a perfect match
+    return {
+      ...base,
+      borderRight: 'none',
+      background: 'transparent',
+      backdropFilter: 'none',
+      WebkitBackdropFilter: 'none'
+    }
+  }
+  // ribbon visible
+  if (uiFrosted.value) {
+    // Background is painted by toolbar-left-stripe overlay; keep left cap transparent but with divider
+    return {
+      ...base,
+      borderRight: '1px solid var(--macos-divider-weak)',
+      background: 'transparent',
+      backdropFilter: 'none',
+      WebkitBackdropFilter: 'none',
+      isolation: 'isolate',
+      mixBlendMode: 'normal'
+    }
+  }
+  // classic
+  return {
+    ...base,
+    borderRight: '1px solid var(--macos-divider-weak)',
+    background: 'var(--sidebar-bg)'
+  }
+})
+
+// Opaque layer to repaint middle+right backgrounds when opening a transparent hole under ribbon
+const opaqueLayerStyle = computed(() => {
+  if (!uiFrosted.value) return { display: 'none' }
+  // Offset equals ribbon width when visible, otherwise 0
+  const left = layout.ribbonVisible ? layout.ribbonWidth : 0
+  return { left: left + 'px' }
+})
+
+// Background for the whole window: make only the left ribbon stripe transparent in frosted mode
+const windowBgVars = computed(() => {
+  if (!uiFrosted.value || !layout.ribbonVisible) return {}
+  const w = Math.max(0, Number(layout.ribbonWidth) || 0)
+  const bg = `linear-gradient(to right, transparent 0, transparent ${w}px, var(--macos-background) ${w}px, var(--macos-background) 100%)`
+  return { '--window-bg': bg }
+})
+
+// Toolbar painting: remove toolbar's own frosted background under left cap and repaint middle+right
+const toolbarBgOverride = computed(() => {
+  // classic: 使用默认样式
+  if (!uiFrosted.value) return {}
+  // frosted + ribbon 可见：清空 toolbar 自身底色，由我们分区绘制（左透右不透）
+  if (layout.ribbonVisible) {
+    return { background: 'transparent', backdropFilter: 'none', WebkitBackdropFilter: 'none' }
+  }
+  // frosted + ribbon 关闭：标题栏整体不透明，颜色与内容保持一致
+  return { background: 'var(--macos-surface-opaque)', backdropFilter: 'none', WebkitBackdropFilter: 'none' }
+})
+
+const toolbarLayerStyle = computed(() => {
+  if (!uiFrosted.value || !layout.ribbonVisible) return { display: 'none' }
+  return { left: (layout.ribbonWidth || 0) + 'px' }
+})
+
+// Unified left frosted stripe for toolbar to match ribbon area; animates as one block
+const toolbarLeftStripeStyle = computed(() => {
+  if (!uiFrosted.value) return { display: 'none' }
+  const bg = layout.ribbonVisible ? ribbonFrostedBg.value : 'var(--macos-surface-opaque)'
+  const blur = layout.ribbonVisible ? 'var(--macos-surface-blur)' : 'none'
+  return {
+    width: (layout.ribbonVisible ? (layout.ribbonWidth || 0) + 'px' : '0px'),
+    background: bg,
+    backdropFilter: blur,
+    WebkitBackdropFilter: blur,
+  }
+})
+
 const logoPaddingLeft = ref(10)
 // Top fade under toolbar when content scrolls
 const pageScrollEl = ref(null)
@@ -329,15 +416,19 @@ function onModalClick(act) {
 
 <template>
   <!-- app content-->
-  <div class="relative min-h-screen macos-window" :class="[{ 'loading': props.loading }]">
+  <div class="relative min-h-screen macos-window" :class="[{ 'loading': props.loading }]" :style="windowBgVars">
     <div id="app-content-wrapper" class="flex flex-col h-screen"
       :class="[ hideRadius ? '' : 'rounded-xl', isWindows() ? '' : 'overflow-hidden' ]">
       <!-- title bar -->
-      <div id="app-toolbar" class="macos-toolbar w-full" style="--wails-draggable: drag"
+      <div id="app-toolbar" class="macos-toolbar w-full" style="--wails-draggable: drag" :style="toolbarBgOverride"
         @dblclick="WindowToggleMaximise">
+        <!-- Unified left frosted stripe to match ribbon; animates with left cap width -->
+        <div v-if="uiFrosted" class="toolbar-left-stripe" :style="toolbarLeftStripeStyle"></div>
+        <!-- Paint-only layer for toolbar middle+right when frosted: keeps them opaque while left cap stays translucent -->
+        <div v-if="uiFrosted && layout.ribbonVisible" class="toolbar-opaque-layer" :style="toolbarLayerStyle"></div>
         <!-- left cap to extend sidebar background and host the ribbon toggle -->
         <div class="macos-toolbar-leftcap"
-             :style="{ width: leftCapWidth, borderRight: layout.ribbonVisible ? '1px solid var(--macos-divider-weak)' : 'none', background: layout.ribbonVisible ? 'var(--sidebar-bg)' : 'transparent' }">
+             :style="leftCapStyle">
           <!-- Windows: render mac-style traffic lights at top-left -->
           <div v-if="isWindows()" class="no-drag" style="position:absolute; left:8px; top:0; bottom:0; display:flex; align-items:center;">
             <ToolbarTrafficLights />
@@ -471,7 +562,9 @@ function onModalClick(act) {
       </div>
 
       <!-- content -->
-      <div id="app-content" class="flex flex-1 min-h-0 overflow-hidden macos-content" style="--wails-draggable: none">
+      <div id="app-content" class="flex flex-1 min-h-0 overflow-hidden macos-content" style="--wails-draggable: none" :style="uiFrosted ? { '--window-bg': 'transparent', '--content-bg': 'transparent' } : {}">
+        <!-- Paint-only layer for middle+right when frosted: keeps them opaque while ribbon stays translucent -->
+        <div v-if="uiFrosted" class="content-opaque-layer" :style="opaqueLayerStyle"></div>
         <!-- left ribbon (collapsible) -->
         <div class="collapsible-left" :style="{ width: (layout.ribbonVisible ? layout.ribbonWidth : 0) + 'px' }">
           <ribbon v-model:value="navStore.currentNav" :width="layout.ribbonWidth" />
@@ -517,6 +610,52 @@ function onModalClick(act) {
 .loading {
   @apply animate-pulse;
 }
+
+/* Repaint layer for middle+right when frosted UI is active */
+.content-opaque-layer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: 0; /* will be overridden by inline style to ribbon width */
+  background: var(--macos-background);
+  z-index: -1;
+  pointer-events: none; /* do not intercept input */
+  transition: left 180ms ease;
+}
+
+/* Toolbar repaint layer for middle+right in frosted mode */
+.toolbar-opaque-layer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: 0; /* overridden by inline style to leftCapWidth */
+  background: var(--macos-surface);
+  -webkit-backdrop-filter: var(--macos-surface-blur);
+  backdrop-filter: var(--macos-surface-blur);
+  z-index: -1;
+  pointer-events: none;
+  transition: left 180ms ease;
+}
+
+/* Left frosted stripe for toolbar to visually unify with ribbon */
+.toolbar-left-stripe {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  z-index: -1;
+  pointer-events: none;
+  transition: width 180ms ease, background 180ms ease, backdrop-filter 180ms ease;
+}
+
+/* Anchor the opaque layer to content bounds */
+#app-content { position: relative; }
 
 .content-container {
   border-top-left-radius: 0;
@@ -564,4 +703,7 @@ function onModalClick(act) {
 #app-content .page-scroll.scrolled::before { opacity: 1; }
 /* Ensure content can scroll past floating controls on subtitle edit page */
 #app-content .page-scroll.pad-bottom-for-fab { padding-bottom: 48px !important; }
+
+/* Light + frosted: make left-cap ribbon toggle icon use primary text color for clarity */
+[data-ui="frosted"][data-theme="light"] .macos-toolbar-leftcap .toolbar-icon-btn { color: var(--macos-text-primary); }
 </style>

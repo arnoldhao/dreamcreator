@@ -3,7 +3,8 @@
 
 /* 窗口/表层 */
 .macos-window {
-  background: var(--macos-background);
+  /* Allow window background to be overridden for partial transparency use-cases */
+  background: var(--window-bg, var(--macos-background));
   color: var(--macos-text-primary);
 }
 
@@ -36,7 +37,8 @@
 }
 
 .macos-content {
-  background: var(--macos-background);
+  /* Allow content background to be overridden to open a hole under ribbon */
+  background: var(--content-bg, var(--macos-background));
 }
 
 /* 与左侧栏对齐的顶部延伸区 */
@@ -44,7 +46,7 @@
   height: 100%;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--macos-divider-weak);
-  transition: width 180ms ease, background-color 180ms ease, border-color 180ms ease;
+  transition: width 180ms ease, background 180ms ease, background-color 180ms ease, border-color 180ms ease;
   position: relative;
 }
 
@@ -366,6 +368,11 @@
   justify-content: space-between;
   padding: 6px 0;
   transition: background-color 180ms ease, border-color 180ms ease, backdrop-filter 180ms ease;
+}
+
+/* Frosted 模式下，侧边栏默认使用透明底，交给组件内联样式决定明暗毛玻璃色 */
+[data-ui='frosted'] .macos-sidebar {
+  background: transparent;
 }
 
 .source-list {

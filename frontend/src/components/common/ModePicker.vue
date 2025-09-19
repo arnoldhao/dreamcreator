@@ -25,8 +25,8 @@ defineProps({ defaultChoice: { type: String, default: 'custom' } })
 .mode-btn .icon { display:block; }
 .mode-btn .label { font-weight: 600; }
 
-/* Dark theme tuning: reduce brightness for better readability */
-:global([data-theme="dark"]) .mode-picker .mode-btn.primary {
+/* Dark theme (scoped): restrict to this component only */
+[data-theme="dark"] .mode-picker .mode-btn.primary {
   background: color-mix(in oklab, var(--macos-blue) 18%, #1c1c1e);
   border-color: color-mix(in oklab, var(--macos-blue) 65%, #1c1c1e);
   color: var(--macos-text-primary);
