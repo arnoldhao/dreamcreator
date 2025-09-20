@@ -58,8 +58,9 @@ CanMe 是一个开源的视频下载与字幕处理桌面工具。后端使用 G
 - **嵌入接口：** 转码管线可在 FFmpeg 阶段烧录或附加字幕轨
 
 ### Cookie 管理
-- 扫描 Chromium 系浏览器配置文件，按浏览器记录状态与同步历史
+- 覆盖 Windows/macOS 上的 Chrome、Chromium、Edge、Firefox、Safari、Brave、Opera、Vivaldi，并为每个浏览器记录状态与同步历史
 - 导出 Netscape Cookie 供 yt-dlp 或高级调试使用，可针对域名筛选并清理中间文件
+- 支持手动维护集合，可粘贴 Netscape 文本、浏览器 DevTools 导出的 JSON 数组，或直接粘贴 `Cookie:` 头串，在无需浏览器同步的情况下进行合并或覆盖
 - 通过事件总线推送同步进度，前端实时展示状态与错误信息
 
 ### 媒体转换
@@ -119,7 +120,7 @@ wails build
 如需热更新，可在仓库根目录运行 `wails dev`，并在 `frontend` 中执行 `npm run dev` 以启用 Vite 开发服务器。
 
 ## 使用说明
-- 先在 Chrome / Edge 登录目标站点，再在 **Cookies → 同步** 中刷新认证
+- 先在 Chrome / Edge 登录目标站点，再在 **Cookies → 同步** 中刷新认证；若暂时无法同步，也可以在手动集合中粘贴 Netscape/JSON/Header 数据
 - 调度器并行获取元数据，但会串行执行重型合并和转码，避免磁盘竞争
 - 导入的字幕工程在字幕工作台展示，可先检查质量评分，再接入翻译适配器执行 `translate` 阶段
 - 若下载异常或受地区限制，可在 **偏好设置 → 网络** 中配置代理
@@ -140,4 +141,3 @@ CanMe 依据 Apache License 2.0 发布，详见 `LICENSE` 文件。
 - [Wails](https://wails.io/)
 - [Vue](https://vuejs.org/)
 - [TailwindCSS](https://tailwindcss.com/)
-

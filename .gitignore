@@ -16,6 +16,7 @@ frontend/open-symbols
 node_modules
 .DS_Store
 .idea
+.gocache
 
 *.code-workspace
 

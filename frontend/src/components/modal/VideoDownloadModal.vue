@@ -76,7 +76,7 @@
                 v-model:url="url"
                 :variant="'hero'"
                 :browser-options="browserOptions"
-                :is-loading-browsers="isLoadingBrowsers"
+                :is-loading-browsers="isLoadingProviders"
                 :trailing-visible="true"
                 :show-select="false"
                 :show-parse="true"
@@ -255,8 +255,8 @@ const urlBar = ref(null)
 // single URL bar (hero)
 const selectedBrowserLabel = ref('')
 const defaultBrowserOption = computed(() => {
-  const list = availableBrowsers.value || []
-  return list.length > 0 ? list[0] : '无浏览器'
+  const list = availableProviders.value || []
+  return list.length > 0 ? list[0].id : ''
 })
 
 // Watch modal visibility
@@ -296,51 +296,107 @@ const availableTranscodeFormats = ref({ video: [], audio: [] })
 const selectedTranscodeFormat = ref(0) // New state for transcoding
 const quickSelectedTranscodeFormat = ref(0) // New state for transcoding
 const browser = ref('')
-const availableBrowsers = ref([])
-const isLoadingBrowsers = ref(false)
+const availableProviders = ref([])
+const isLoadingProviders = ref(false)
 
 // quick mode data
 const video = ref('best')
 const bestCaption = ref(false)
 const startingQuick = ref(false)
 
-// 浏览器选项计算属性
-const browserOptions = computed(() => {
-  const options = [{ value: '', label: '无' }]
-  if (availableBrowsers.value && availableBrowsers.value.length > 0) {
-    availableBrowsers.value.forEach(browser => {
-      options.push({ value: browser, label: browser })
+const noneProviderLabel = computed(() => t('download.provider_none'))
+const manualProviderBadge = computed(() => t('download.provider_badge_manual'))
+
+const normaliseProviders = (raw) => {
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!Array.isArray(parsed)) return []
+
+    const unique = new Map()
+    parsed.forEach((item) => {
+      if (typeof item === 'string') {
+        const id = item.trim()
+        if (!id) return
+        unique.set(id, {
+          id,
+          label: id,
+          source: 'yt-dlp',
+          kind: 'browser'
+        })
+        return
+      }
+
+      if (!item || typeof item !== 'object') return
+      const id = String(item.id || item.browser || '').trim()
+      if (!id) return
+      const rawSource = String(item.source || '').trim().toLowerCase()
+      const rawKind = String(item.kind || '').trim().toLowerCase()
+      const source = rawSource || (rawKind === 'manual' ? 'manual' : 'yt-dlp')
+      const label = String(item.label || item.name || item.browser || id).trim() || id
+      unique.set(id, {
+        id,
+        label,
+        source,
+        kind: rawKind || (source === 'manual' ? 'manual' : 'browser')
+      })
     })
+
+    return Array.from(unique.values())
+  } catch (err) {
+    console.error('Failed to parse cookie providers:', err)
+    return []
   }
-  return options
+}
+
+const providerOptions = computed(() => {
+  const base = [{ value: '', label: noneProviderLabel.value, source: '', kind: 'none', badge: '' }]
+  const providers = Array.isArray(availableProviders.value) ? availableProviders.value : []
+  providers.forEach((provider) => {
+    if (!provider || !provider.id) return
+    const badge = provider.source === 'manual' ? manualProviderBadge.value : ''
+    base.push({
+      value: provider.id,
+      label: provider.label || provider.id,
+      source: provider.source || '',
+      kind: provider.kind || (provider.source === 'manual' ? 'manual' : 'browser'),
+      badge
+    })
+  })
+  return base
 })
 
-// 获取可用浏览器的方法
-const fetchAvailableBrowsers = async (url) => {
-  if (!url) {
-    availableBrowsers.value = []
+const browserOptions = computed(() => providerOptions.value.map(({ value, label }) => ({ value, label })))
+const chipOptions = computed(() => providerOptions.value)
+
+// 获取可用 Cookie 提供者的方法（浏览器或手动集合）
+const fetchCookieProviders = async (url) => {
+  const targetUrl = (url || '').trim()
+  if (!targetUrl) {
+    availableProviders.value = []
     browser.value = ''
+    selectedBrowserLabel.value = ''
     return
   }
 
   try {
-    isLoadingBrowsers.value = true
-    const response = await GetBrowserByDomain(url)
+    isLoadingProviders.value = true
+    const response = await GetBrowserByDomain(targetUrl)
     if (response.success) {
-      const browsers = JSON.parse(response.data)
-      availableBrowsers.value = browsers || []
-      // 重置browser选择
+      availableProviders.value = normaliseProviders(response.data)
       browser.value = ''
+      selectedBrowserLabel.value = ''
     } else {
-      availableBrowsers.value = []
+      availableProviders.value = []
       browser.value = ''
+      selectedBrowserLabel.value = ''
     }
   } catch (error) {
-    console.error('Failed to fetch browsers:', error)
-    availableBrowsers.value = []
+    console.error('Failed to fetch cookie providers:', error)
+    availableProviders.value = []
     browser.value = ''
+    selectedBrowserLabel.value = ''
   } finally {
-    isLoadingBrowsers.value = false
+    isLoadingProviders.value = false
   }
 }
 
@@ -364,7 +420,7 @@ const handleUrlUpdate = (newUrl) => {
     if ((newUrl || '').trim()) {
       viewStep.value = 'input'
     } else {
-      availableBrowsers.value = []
+      availableProviders.value = []
       browser.value = ''
       viewStep.value = 'input'
     }
@@ -406,8 +462,6 @@ const truncatedUrl = computed(() => {
   if (!u) return ''
   return u.length > 42 ? u.slice(0, 19) + '…' + u.slice(-18) : u
 })
-const chipOptions = computed(() => ['无浏览器', ...(availableBrowsers.value || [])])
-
 // 标记是否是由 Parse/Paste 主动触发的检测流程
 const detectInitiated = ref(false)
 const validUrlForTitle = computed(() => isValidHttpUrl((url.value || '').trim()))
@@ -417,7 +471,7 @@ async function onParseClick() {
   if (!isValidHttpUrl(u)) { try { $message?.error?.('URL 不合法') } catch {} ; return }
   detectInitiated.value = true
   viewStep.value = 'detecting'
-  await fetchAvailableBrowsers(u)
+  await fetchCookieProviders(u)
 }
 
 async function onPasteClick() {
@@ -447,23 +501,27 @@ async function onPasteClick() {
   }, step)
 }
 
-// 浏览器可用 → 切换到 cookies/模式 阶段
-watch([url, availableBrowsers, isLoadingBrowsers], () => {
+// 可用的 Cookie 提供者就绪 → 切换到 cookies/模式 阶段
+watch([url, availableProviders, isLoadingProviders], () => {
   if (!detectInitiated.value) return
-  if ((url.value || '').trim() && !isLoadingBrowsers.value) {
-    if ((availableBrowsers.value || []).length > 0) {
+  if ((url.value || '').trim() && !isLoadingProviders.value) {
+    if ((availableProviders.value || []).length > 0) {
       viewStep.value = browser.value ? 'mode' : 'cookies'
       detectInitiated.value = false
-    } else if ((availableBrowsers.value || []).length === 0) {
+    } else if ((availableProviders.value || []).length === 0) {
       viewStep.value = 'cookies'
       detectInitiated.value = false
     }
   }
 })
 
-// 选择浏览器 → 进入模式选择
+// 选择 Cookie 提供者 → 进入模式选择
 watch(browser, (b) => {
-  if ((b || '').length) viewStep.value = 'mode'
+  if ((b || '').length) {
+    const provider = (availableProviders.value || []).find(item => item && item.id === b)
+    selectedBrowserLabel.value = provider?.label || b
+    viewStep.value = 'mode'
+  }
 })
 
 // Ensure default quality selected when entering custom options
@@ -822,7 +880,7 @@ const resetToInput = () => {
   url.value = ''
   browser.value = ''
   selectedBrowserLabel.value = ''
-  availableBrowsers.value = []
+  availableProviders.value = []
   videoData.value = null
   selectedQuality.value = null
   selectedSubtitles.value = []
@@ -839,8 +897,13 @@ const reselectBrowser = () => {
 }
 
 const onPickBrowser = (opt) => {
-  // record display label even for '无浏览器'
-  selectedBrowserLabel.value = opt || '无浏览器'
+  if (opt && typeof opt === 'object') {
+    selectedBrowserLabel.value = opt.label || opt.value || noneProviderLabel.value
+  } else if (typeof opt === 'string') {
+    selectedBrowserLabel.value = opt || noneProviderLabel.value
+  } else {
+    selectedBrowserLabel.value = noneProviderLabel.value
+  }
   // show mode selection next; default highlight is custom (not auto-select)
   viewStep.value = 'mode'
 }
@@ -866,7 +929,7 @@ const resetForm = () => {
   url.value = ''
   browser.value = ''
   selectedBrowserLabel.value = ''
-  availableBrowsers.value = []
+  availableProviders.value = []
   viewStep.value = 'input'
 
   // custom-mode related

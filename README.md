@@ -58,8 +58,9 @@ CanMe is an open-source desktop toolkit for downloading online media and running
 - **Embedding hooks:** conversion routines feed FFmpeg mux steps to burn or attach tracks during post-processing
 
 ### Cookie Management
-- Scoped browser scanners for Chromium-based profiles on Windows/macOS; results stored by browser with status and sync history
+- Scoped browser scanners for Chrome, Chromium, Edge, Firefox, Safari, Brave, Opera, and Vivaldi on Windows/macOS; results stored by browser with status and sync history
 - Netscape-format export for yt-dlp and manual inspection, optional per-domain filtering, and cleanup of temporary exports
+- Manual cookie collections that accept Netscape text, JSON arrays exported from browser devtools, or raw `Cookie:` header strings—merge or replace data without running a browser sync
 - WebSocket notifications for sync progress so the UI can surface granular status and errors
 
 ### Media Conversion
@@ -120,7 +121,7 @@ wails build
 For hot reloading, run `wails dev` in the repository root and `npm run dev` inside `frontend` to attach Vite’s dev server.
 
 ## Usage Notes
-- Sign in to streaming services in Chrome/Edge before running **Cookies → Sync** to capture fresh authentication
+- Sign in to streaming services in Chrome/Edge before running **Cookies → Sync** to capture fresh authentication, or build a manual collection by pasting Netscape/JSON/header data when the browser flow is not possible
 - The scheduler parallelizes metadata fetches but serializes heavy merge/transcode steps to avoid I/O contention
 - Subtitle imports appear in the Subtitle workspace; review segments, run quality checks, then trigger translation once adapters are configured
 - Configure proxy settings in **Preferences → Network** if downloads return geo-errors or throttled responses
@@ -141,4 +142,3 @@ CanMe is distributed under the Apache License 2.0. See `LICENSE` for the full te
 - [Wails](https://wails.io/)
 - [Vue](https://vuejs.org/)
 - [TailwindCSS](https://tailwindcss.com/)
-

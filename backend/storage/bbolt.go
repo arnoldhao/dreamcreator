@@ -15,12 +15,13 @@ import (
 )
 
 var (
-	taskBucket       = []byte("tasks")
-	imageBucket      = []byte("images")       // 用于存储图片的桶
-	formatBucket     = []byte("formats")      // 用于存储格式的桶
-	subtitleBucket   = []byte("subtitles")    // 用于存储字幕的桶
-	dependencyBucket = []byte("dependencies") // 用于存储依赖信息的桶
-	cookiesBucket    = []byte("cookies")      // 用于存储浏览器Cookie的桶
+	taskBucket          = []byte("tasks")
+	imageBucket         = []byte("images")       // 用于存储图片的桶
+	formatBucket        = []byte("formats")      // 用于存储格式的桶
+	subtitleBucket      = []byte("subtitles")    // 用于存储字幕的桶
+	dependencyBucket    = []byte("dependencies") // 用于存储依赖信息的桶
+	cookiesBucketV2     = []byte("cookies_v2")   // 用于存储新的 Cookie 集合
+	legacyCookiesBucket = []byte("cookies")      // 历史 Cookie 桶，启动时清理
 	// other buckets...
 )
 
@@ -77,8 +78,15 @@ func NewBoltStorage() (*BoltStorage, error) {
 		if _, err := tx.CreateBucketIfNotExists(dependencyBucket); err != nil {
 			return err
 		}
-		// create cookies bucket
-		if _, err := tx.CreateBucketIfNotExists(cookiesBucket); err != nil {
+
+		// drop legacy cookies bucket if still present
+		if legacy := tx.Bucket(legacyCookiesBucket); legacy != nil {
+			if err := tx.DeleteBucket(legacyCookiesBucket); err != nil {
+				return err
+			}
+		}
+		// create cookies_v2 bucket
+		if _, err := tx.CreateBucketIfNotExists(cookiesBucketV2); err != nil {
 			return err
 		}
 		// create other buckets...
@@ -504,69 +512,91 @@ func (s *BoltStorage) UpdateDependencyVersion(depType types.DependencyType, vers
 	})
 }
 
-// SaveCookies 保存Cookie信息到存储
-func (s *BoltStorage) SaveCookies(browser string, browsercookies *types.BrowserCookies) error {
+// SaveCookieCollection 写入或更新 Cookie 集合
+func (s *BoltStorage) SaveCookieCollection(collection *types.CookieCollection) error {
+	if collection == nil || collection.ID == "" {
+		return fmt.Errorf("collection or collection id is empty")
+	}
+
+	collection.UpdatedAt = time.Now()
+	if collection.CreatedAt.IsZero() {
+		collection.CreatedAt = collection.UpdatedAt
+	}
+
 	return s.db.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(cookiesBucket)
-
-		encoded, err := json.Marshal(browsercookies)
+		b := tx.Bucket(cookiesBucketV2)
+		encoded, err := json.Marshal(collection)
 		if err != nil {
-			return fmt.Errorf("failed to marshal browsercookies %s: %w", browser, err)
+			return fmt.Errorf("failed to marshal collection %s: %w", collection.ID, err)
 		}
-
-		return b.Put([]byte(browser), encoded)
+		return b.Put([]byte(collection.ID), encoded)
 	})
 }
 
-// GetCookies 根据浏览器类型获取Cookie信息
-func (s *BoltStorage) GetCookies(browser string) (*types.BrowserCookies, error) {
-	var browsercookies *types.BrowserCookies
+// DeleteCookieCollection 删除指定集合
+func (s *BoltStorage) DeleteCookieCollection(id string) error {
+	if id == "" {
+		return fmt.Errorf("collection id is empty")
+	}
 
-	err := s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(cookiesBucket)
-		data := b.Get([]byte(browser))
-		if data == nil {
-			return fmt.Errorf("cookies not found: %s", browser)
-		}
-
-		return json.Unmarshal(data, &browsercookies)
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(cookiesBucketV2)
+		return b.Delete([]byte(id))
 	})
+}
 
+// GetCookieCollection 返回指定 ID 的集合
+func (s *BoltStorage) GetCookieCollection(id string) (*types.CookieCollection, error) {
+	if id == "" {
+		return nil, fmt.Errorf("collection id is empty")
+	}
+
+	var collection *types.CookieCollection
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(cookiesBucketV2)
+		data := b.Get([]byte(id))
+		if data == nil {
+			return fmt.Errorf("cookies collection not found: %s", id)
+		}
+		return json.Unmarshal(data, &collection)
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	return browsercookies, nil
+	return collection, nil
 }
 
-// ListAllCookies 获取所有Cookie信息
-func (s *BoltStorage) ListAllCookies() (map[string]*types.BrowserCookies, error) {
-	cookiesMap := make(map[string]*types.BrowserCookies)
+// ListCookieCollections 返回所有存储的集合
+func (s *BoltStorage) ListCookieCollections() ([]*types.CookieCollection, error) {
+	var collections []*types.CookieCollection
 
 	err := s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(cookiesBucket)
-
+		b := tx.Bucket(cookiesBucketV2)
 		return b.ForEach(func(k, v []byte) error {
-			var browsercookies *types.BrowserCookies
-			if err := json.Unmarshal(v, &browsercookies); err != nil {
+			var collection *types.CookieCollection
+			if err := json.Unmarshal(v, &collection); err != nil {
 				return err
 			}
-			cookiesMap[string(k)] = browsercookies
+			collections = append(collections, collection)
 			return nil
 		})
 	})
-
 	if err != nil {
 		return nil, err
 	}
-
-	return cookiesMap, nil
+	return collections, nil
 }
 
-// DeleteCookies 删除指定浏览器类型的Cookie信息
-func (s *BoltStorage) DeleteCookies(browser string) error {
-	return s.db.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(cookiesBucket)
-		return b.Delete([]byte(browser))
-	})
+// FindCookieCollectionByBrowser 按浏览器名称查找集合（source 匹配 yt-dlp）
+func (s *BoltStorage) FindCookieCollectionByBrowser(browser string) (*types.CookieCollection, error) {
+	all, err := s.ListCookieCollections()
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range all {
+		if c != nil && c.Source == types.CookieSourceYTDLP && c.Browser == browser {
+			return c, nil
+		}
+	}
+	return nil, fmt.Errorf("cookies collection not found for browser: %s", browser)
 }
