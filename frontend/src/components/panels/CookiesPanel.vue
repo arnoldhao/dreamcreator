@@ -5,7 +5,7 @@
       <button class="search-link flex-1" @click="showModal = true">
         <Icon name="search" class="w-4 h-4" />
         <span class="placeholder">{{ $t('cookies.search_placeholder') }}</span>
-        <Icon name="open" class="w-4 h-4 ml-auto text-[var(--macos-text-tertiary)]" />
+        <!-- <Icon name="open" class="w-4 h-4 ml-auto text-[var(--macos-text-tertiary)]" /> -->
       </button>
       <button class="icon-glass" :data-tooltip="$t('common.refresh')" @click="fetchCookies" :disabled="isLoading">
         <Icon name="refresh" class="w-4 h-4" :class="{ spinning: isLoading }" />
@@ -26,7 +26,7 @@
     </div>
 
     <!-- empty -->
-    <div v-else-if="!filteredBrowsers.length" class="p-6 text-center text-sm text-[var(--macos-text-secondary)]">
+    <div v-else-if="!visibleBrowserCollections.length" class="p-6 text-center text-sm text-[var(--macos-text-secondary)]">
       <div class="w-10 h-10 rounded-full bg-[var(--macos-background)] border border-[var(--macos-separator)] mx-auto mb-2 flex items-center justify-center">
         <Icon name="globe" class="w-5 h-5 text-[var(--macos-text-tertiary)]" />
       </div>
@@ -36,43 +36,43 @@
 
     <!-- list -->
     <div v-else class="p-3 pt-2 flex flex-col gap-2">
-      <div v-for="browser in filteredBrowsers" :key="browser" class="ck-box" :class="brandClass(browser)">
+      <div v-for="collection in visibleBrowserCollections" :key="collection?.id || collection?.browser" class="ck-box" :class="brandClass(collection?.browser)">
         <!-- Single-column: icon inline with name; status at right; rows centered where needed -->
         <div class="ck-row single">
           <div class="main">
             <div class="title-row">
-              <div class="title name-with-icon" :title="browser">
-                <Icon :name="getBrowserSemanticIcon(browser)" class="mini-icon" />
-                <span class="one-line">{{ browser }}</span>
+              <div class="title name-with-icon" :title="collection?.browser">
+                <Icon :name="getBrowserSemanticIcon(collection?.browser)" class="mini-icon" />
+                <span class="one-line">{{ collection?.browser || collection?.name }}</span>
               </div>
               <!-- 将胶囊直接作为 flex 子项，使用 margin-left:auto 推到右侧，并在胶囊自身限制宽度 -->
-              <div v-if="getSyncStatusText(browser)"
+              <div v-if="getSyncStatusText(collection)"
                    class="chip-frosted chip-sm chip-translucent status-pill trunc push-right"
-                   :class="statusPillClass(browser)" @click.stop="showStatus(browser)">
+                   :class="statusPillClass(collection)" @click.stop="showStatus(collection)">
                 <span class="chip-dot"></span>
-                <span class="chip-label one-line">{{ getSyncStatusText(browser) }}</span>
+                <span class="chip-label one-line">{{ getSyncStatusText(collection) }}</span>
               </div>
             </div>
             <div class="info-row">
               <div class="meta-group small nowrap flex-1 min-w-0">
-                <div class="item"><Icon name="database" class="w-3.5 h-3.5" />{{ getBrowserCookieCount(browser) }}</div>
+                <div class="item"><Icon name="database" class="w-3.5 h-3.5" />{{ getBrowserCookieCount(collection) }}</div>
                 <div class="divider-v"></div>
-                <div class="item"><Icon name="globe" class="w-3.5 h-3.5" />{{ getDomainCount(browser) }}</div>
-                <div v-if="getLastSyncTime(browser)" class="divider-v"></div>
-                <div v-if="getLastSyncTime(browser)" class="item flex-1 min-w-0">
+                <div class="item"><Icon name="globe" class="w-3.5 h-3.5" />{{ getDomainCount(collection) }}</div>
+                <div v-if="getLastSyncTime(collection)" class="divider-v"></div>
+                <div v-if="getLastSyncTime(collection)" class="item flex-1 min-w-0">
                   <Icon name="clock" class="w-3.5 h-3.5" />
-                  <span class="truncate" :title="formatSyncTime(getLastSyncTime(browser))">{{ formatSyncTime(getLastSyncTime(browser)) }}</span>
+                  <span class="truncate" :title="formatSyncTime(getLastSyncTime(collection))">{{ formatSyncTime(getLastSyncTime(collection)) }}</span>
                 </div>
                 <div class="divider-v"></div>
                 <div class="item flex-none">
-                  <span :class="statusTextClass(browser)" :title="getStatusText(browser)">{{ getStatusText(browser) }}</span>
+                  <span :class="statusTextClass(collection)" :title="getStatusText(collection)">{{ getStatusText(collection) }}</span>
                 </div>
               </div>
             </div>
             <div class="actions">
-              <template v-if="!syncingBrowsers.has(browser)">
+              <template v-if="collection?.browser && !syncingBrowsers.has(collection.browser)">
                 <div class="segmented ops-actions">
-                  <button class="seg-item yt" :disabled="syncingBrowsers.has(browser)" @click.stop="syncCookies('yt-dlp', [browser])">
+                  <button class="seg-item yt" :disabled="syncingBrowsers.has(collection.browser)" @click.stop="syncCookies('yt-dlp', [collection.browser])">
                     <Icon name="terminal" class="w-4 h-4 icon" />
                     <span class="label">{{ $t('cookies.sync_with', { type: 'yt-dlp' }) }}</span>
                   </button>
@@ -90,29 +90,109 @@
       </div>
     </div>
 
-    <!-- footer summary -->
     <div class="p-3 pt-1 flex justify-center">
       <div class="meta-group">
         <div class="item">
-          <span class="num">{{ filteredBrowsers.length }}</span>
+          <span class="num">{{ visibleBrowserCollections.length }}</span>
           <span class="label">{{ $t('cookies.browsers') }}</span>
         </div>
         <div class="divider-v"></div>
         <div class="item">
-          <span class="label">{{ $t('cookies.total_cookies', { count: totalCookiesCount }) }}</span>
+          <span class="label">{{ $t('cookies.total_cookies', { count: (visibleBrowserCollections || []).reduce((sum, col) => sum + getBrowserCookieCount(col), 0) }) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="manual-section px-3 pb-3">
+      <div class="manual-header">
+        <span>{{ $t('cookies.manual_section_title') }}</span>
+        <button class="btn-glass" @click="openManualModal('create', null)">
+          <Icon name="plus" class="w-3.5 h-3.5" />
+          <span>{{ $t('cookies.manual_add_button') }}</span>
+        </button>
+      </div>
+
+      <div v-if="manualCollections.length" class="manual-list flex flex-col gap-2">
+        <div v-for="manual in manualCollections" :key="manual?.id || manual?.name" class="ck-box manual-entry">
+          <div class="ck-row single">
+            <div class="main">
+              <div class="title-row">
+                <div class="title name-with-icon" :title="manual?.name || $t('cookies.manual_default_name')">
+                  <Icon name="layers" class="mini-icon" />
+                  <span class="one-line">{{ manual?.name || $t('cookies.manual_default_name') }}</span>
+                </div>
+              </div>
+
+              <div class="info-row">
+                <div class="meta-group small nowrap flex-1 min-w-0">
+                  <div class="item"><Icon name="database" class="w-3.5 h-3.5" />{{ getBrowserCookieCount(manual) }}</div>
+                  <div class="divider-v"></div>
+                  <div class="item"><Icon name="globe" class="w-3.5 h-3.5" />{{ getDomainCount(manual) }}</div>
+                  <div v-if="getCollectionUpdated(manual)" class="divider-v"></div>
+                  <div v-if="getCollectionUpdated(manual)" class="item flex-1 min-w-0">
+                    <Icon name="clock" class="w-3.5 h-3.5" />
+                    <span class="truncate" :title="formatSyncTime(getCollectionUpdated(manual))">{{ formatSyncTime(getCollectionUpdated(manual)) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="actions">
+                <div class="segmented ops-actions">
+                  <button class="seg-item" @click.stop="openManualModal('edit', manual)">
+                    <Icon name="edit" class="w-4 h-4 icon" />
+                    <span class="label">{{ $t('cookies.manual_edit_coming') }}</span>
+                  </button>
+                  <button class="seg-item" @click.stop="exportManualCollection(manual)">
+                    <Icon name="file-copy" class="w-4 h-4 icon" />
+                    <span class="label">{{ $t('common.copy') }}</span>
+                  </button>
+                  <button class="seg-item danger" @click.stop="deleteManualCollection(manual)">
+                    <Icon name="trash" class="w-4 h-4 icon" />
+                    <span class="label">{{ $t('common.delete') }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="manual-empty">
+        <div class="empty-icon"><Icon name="layers" class="w-6 h-6" /></div>
+        <div class="title">{{ $t('cookies.manual_empty_title') }}</div>
+      </div>
+    </div>
+
+    <div class="p-3 pt-1 flex justify-center">
+      <div class="meta-group">
+        <div class="item">
+          <span class="num">{{ manualCollections.length }}</span>
+          <span class="label">{{ $t('cookies.manual_collection_sets') }}</span>
+        </div>
+        <div class="divider-v"></div>
+        <div class="item">
+          <span class="label">{{ $t('cookies.total_cookies', { count: (manualCollections || []).reduce((sum, col) => sum + getBrowserCookieCount(col), 0) }) }}</span>
         </div>
       </div>
     </div>
   </div>
     <CookiesSearchModal :show="showModal" @close="showModal = false" />
+    <ManualCookiesModal
+      :show="showManualModal"
+      :mode="manualModalMode"
+      :collection="manualEditing"
+      @close="closeManualModal"
+      @submit="handleManualSubmit"
+    />
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ListAllCookies, SyncCookies } from 'wailsjs/go/api/CookiesAPI'
+import { ListAllCookies, SyncCookies, CreateManualCollection, UpdateManualCollection, DeleteCookieCollection, ExportCookieCollection } from 'wailsjs/go/api/CookiesAPI'
 import { useDtStore } from '@/handlers/downtasks'
 import CookiesSearchModal from '@/components/modal/CookiesSearchModal.vue'
+import ManualCookiesModal from '@/components/modal/ManualCookiesModal.vue'
 import { isWindows } from '@/utils/platform.js'
 
 // Declare custom events to avoid extraneous listener warnings on fragment roots
@@ -122,79 +202,83 @@ const { t } = useI18n()
 const dtStore = useDtStore()
 
 const isLoading = ref(false)
-const browsers = ref([])
-const cookiesByBrowser = ref({})
+const browserCollections = ref([])
+const manualCollections = ref([])
 const syncingBrowsers = ref(new Set())
 const showModal = ref(false)
+const showManualModal = ref(false)
+const manualModalMode = ref('create')
+const manualEditing = ref(null)
 const winAdminHint = ref('')
 
-const filteredBrowsers = computed(() => browsers.value || [])
+const visibleBrowserCollections = computed(() => (browserCollections.value || []).filter(Boolean))
 
-const totalCookiesCount = computed(() => (browsers.value || []).reduce((sum, b) => sum + getBrowserCookieCount(b), 0))
+const totalCookiesCount = computed(() => {
+  const browserTotal = (visibleBrowserCollections.value || []).reduce((sum, col) => sum + getBrowserCookieCount(col), 0)
+  const manualTotal = (manualCollections.value || []).reduce((sum, col) => sum + getBrowserCookieCount(col), 0)
+  return browserTotal + manualTotal
+})
 
 // no expand in inspector
 
-function getBrowserCookieCount(browser) {
-  const data = cookiesByBrowser.value[browser]
-  if (!data || !data.domain_cookies) return 0
-  return Object.values(data.domain_cookies).reduce((acc, d) => acc + (Array.isArray(d.cookies) ? d.cookies.length : 0), 0)
+function getBrowserCookieCount(collection) {
+  const domains = collection?.domain_cookies
+  if (!domains) return 0
+  return Object.values(domains).reduce((acc, d) => acc + (Array.isArray(d.cookies) ? d.cookies.length : 0), 0)
 }
 
-function getDomainCount(browser) {
-  const data = cookiesByBrowser.value[browser]
-  if (!data || !data.domain_cookies) return 0
-  return Object.keys(data.domain_cookies).length
+function getDomainCount(collection) {
+  const domains = collection?.domain_cookies
+  if (!domains) return 0
+  return Object.keys(domains).length
 }
 
-function getStatusText(browser) {
-  const s = cookiesByBrowser.value[browser]?.status
-  const map = { synced: t('cookies.status.synced'), never: t('cookies.status.never'), syncing: t('cookies.status.syncing'), error: t('cookies.status.error') }
-  return map[s] || t('cookies.status.unknown')
+function getStatusText(collection) {
+  const status = collection?.status
+  const map = { synced: t('cookies.status.synced'), never: t('cookies.status.never'), syncing: t('cookies.status.syncing'), error: t('cookies.status.error'), manual: t('cookies.status.manual') }
+  return map[status] || t('cookies.status.unknown')
 }
 
-function statusBadge(browser) {
-  const s = cookiesByBrowser.value[browser]?.status
-  return ({ synced: 'badge-success', never: 'badge-ghost', syncing: 'badge-info', error: 'badge-error' }[s]) || 'badge-ghost'
-}
-
-function statusTextClass(browser) {
-  const s = cookiesByBrowser.value[browser]?.status
+function statusTextClass(collection) {
+  const status = collection?.status
   const map = {
     synced: 'text-[var(--macos-success-text)]',
     error: 'text-[var(--macos-danger-text)]',
     syncing: 'text-[var(--macos-text-secondary)]',
-    never: 'text-[var(--macos-text-secondary)]'
+    never: 'text-[var(--macos-text-secondary)]',
+    manual: 'text-[var(--macos-text-primary)]'
   }
-  return map[s] || 'text-[var(--macos-text-secondary)]'
+  return map[status] || 'text-[var(--macos-text-secondary)]'
 }
 
-function getSyncStatusText(browser) {
-  const data = cookiesByBrowser.value[browser]
-  const st = data?.last_sync_status
+function getSyncStatusText(collection) {
+  const st = collection?.last_sync_status
   if (!st) return ''
   if (st === 'success') return t('cookies.sync_success')
-  if (st === 'failed') return t('cookies.sync_error', { msg: data?.status_description })
+  if (st === 'failed') return t('cookies.sync_error', { msg: collection?.status_description })
+  if (st === 'manual') return t('cookies.status.manual')
   return ''
 }
 
-function getSyncStatusClass(browser) {
-  const data = cookiesByBrowser.value[browser]
-  const st = data?.last_sync_status
+function getSyncStatusClass(collection) {
+  const st = collection?.last_sync_status
   if (!st) return ''
   return st === 'success' ? 'text-green-600' : (st === 'failed' ? 'text-red-600' : '')
 }
 
-function getSyncStatusIcon(browser) {
-  const data = cookiesByBrowser.value[browser]
-  const st = data?.last_sync_status
+function getSyncStatusIcon(collection) {
+  const st = collection?.last_sync_status
   if (st === 'success') return 'status-success'
   if (st === 'failed') return 'status-error'
   return 'status-warning'
 }
 
-function getSyncFromOptions(browser) {
-  const data = cookiesByBrowser.value[browser]
-  return data?.sync_from || ['yt-dlp']
+function getSyncFromOptions(collection) {
+  return collection?.sync_from || ['yt-dlp']
+}
+
+function getCollectionUpdated(collection) {
+  return collection?.updated_at || collection?.last_sync_time || collection?.created_at || null
 }
 
 // no per-cookie rendering in inspector
@@ -205,9 +289,11 @@ async function fetchCookies() {
     const res = await ListAllCookies()
     if (!res?.success) throw new Error(res?.msg || 'Fetch failed')
     const data = JSON.parse(res.data || '{}') || {}
-    cookiesByBrowser.value = data
-    browsers.value = Object.keys(data)
-    if (isWindows() && (!browsers.value || browsers.value.length === 0)) {
+    const browsers = Array.isArray(data.browser_collections) ? data.browser_collections : []
+    const manuals = Array.isArray(data.manual_collections) ? data.manual_collections : []
+    browserCollections.value = browsers
+    manualCollections.value = manuals
+    if (isWindows() && browsers.length === 0) {
       winAdminHint.value = 'No browser cookies detected. On Windows, avoid running as Administrator; run as the same normal user who uses the browser.'
     } else {
       winAdminHint.value = ''
@@ -252,12 +338,13 @@ function getBrowserSemanticIcon(name) {
   return 'globe'
 }
 
-function getLastSyncTime(browser) {
-  return cookiesByBrowser.value[browser]?.last_sync_time || null
+function getLastSyncTime(collection) {
+  return collection?.last_sync_time || null
 }
 
 function formatSyncTime(syncTime) {
   if (!syncTime) return ''
+  if (typeof syncTime === 'string' && syncTime.startsWith('0001-01-01')) return ''
   const date = new Date(syncTime)
   const now = new Date()
   const diffMs = now - date
@@ -278,24 +365,143 @@ onUnmounted(() => {})
 
 function brandClass(name) {
   const n = String(name || '').toLowerCase()
-  if (n.includes('chrome')) return 'brand-chrome'
+  if (n.includes('chrome') || n.includes('chromium') || n.includes('brave') || n.includes('vivaldi')) return 'brand-chrome'
   if (n.includes('firefox')) return 'brand-firefox'
   if (n.includes('safari')) return 'brand-safari'
   if (n.includes('edge')) return 'brand-edge'
+  if (n.includes('opera')) return 'brand-opera'
   return ''
 }
 
-function statusPillClass(browser) {
-  const c = getSyncStatusClass(browser)
+function statusPillClass(collection) {
+  const c = getSyncStatusClass(collection)
   if (c === 'text-green-600') return 'badge-success'
   if (c === 'text-red-600') return 'badge-error'
   return 'badge-info'
 }
 
-function showStatus(browser) {
-  const text = getSyncStatusText(browser)
+function showStatus(collection) {
+  const text = getSyncStatusText(collection)
   if (!text) return
   try { $dialog?.info?.({ title: t('cookies.title'), content: text }) } catch { alert(text) }
+}
+
+function openManualModal(mode = 'create', collection = null) {
+  manualModalMode.value = mode
+  manualEditing.value = collection ? { ...collection } : null
+  showManualModal.value = true
+}
+
+function closeManualModal() {
+  manualEditing.value = null
+  showManualModal.value = false
+}
+
+async function handleManualSubmit(payload) {
+  const isEdit = manualModalMode.value === 'edit' && manualEditing.value?.id
+  const normalizedName = normalizeCollectionName(payload?.name)
+  const finalPayload = {
+    ...payload,
+    name: normalizedName
+  }
+  try {
+    if (isEdit) {
+      const res = await UpdateManualCollection(manualEditing.value.id, finalPayload)
+      if (!res?.success) throw new Error(res?.msg || 'update failed')
+      const updated = safeParseJSON(res?.data)
+      if (updated) {
+        manualEditing.value = updated
+      }
+      $message?.success?.(t('common.saved'))
+    } else {
+      const res = await CreateManualCollection(finalPayload)
+      if (!res?.success) throw new Error(res?.msg || 'create failed')
+      const created = safeParseJSON(res?.data)
+      if (created) {
+        manualEditing.value = created
+        manualModalMode.value = 'edit'
+      }
+      $message?.success?.(t('common.saved'))
+    }
+    fetchCookies()
+  } catch (e) {
+    $message?.error?.(t('common.save_failed') + ': ' + (e?.message || String(e)))
+  }
+}
+
+function safeParseJSON(data) {
+  if (!data) return null
+  try {
+    return typeof data === 'string' ? JSON.parse(data) : data
+  } catch (error) {
+    console.warn('Failed to parse manual collection payload', error)
+    return null
+  }
+}
+
+function normalizeCollectionName(rawName) {
+  return (rawName || '').trim()
+}
+
+function deleteManualCollection(collection) {
+  if (!collection?.id) return
+
+  const executeDelete = async () => {
+    try {
+      const res = await DeleteCookieCollection(collection.id)
+      if (!res?.success) throw new Error(res?.msg || 'delete failed')
+      if (window.$message?.success) window.$message.success(t('common.deleted'))
+      else $message?.success?.(t('common.deleted'))
+      fetchCookies()
+    } catch (e) {
+      const msg = t('common.delete_failed') + ': ' + (e?.message || String(e))
+      if (window.$message?.error) window.$message.error(msg)
+      else $message?.error?.(msg)
+    }
+  }
+
+  if (window?.$dialog?.confirm) {
+    window.$dialog.confirm(t('cookies.manual_delete_confirm'), {
+      title: t('common.confirm'),
+      positiveText: t('common.delete'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => { executeDelete() }
+    })
+    return
+  }
+
+  if (window.confirm(t('cookies.manual_delete_confirm'))) {
+    executeDelete()
+  }
+}
+
+async function exportManualCollection(collection) {
+  if (!collection?.id) return
+  try {
+    const res = await ExportCookieCollection(collection.id)
+    if (!res?.success) throw new Error(res?.msg || 'export failed')
+    const text = res.data || ''
+    if (!text) {
+      $message?.warning?.(t('cookies.manual_export_empty'))
+      return
+    }
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      $message?.success?.(t('cookies.manual_export_copied'))
+    } else {
+      const temp = document.createElement('textarea')
+      temp.value = text
+      temp.style.position = 'fixed'
+      temp.style.opacity = '0'
+      document.body.appendChild(temp)
+      temp.select()
+      document.execCommand('copy')
+      document.body.removeChild(temp)
+      $message?.success?.(t('cookies.manual_export_copied'))
+    }
+  } catch (e) {
+    $message?.error?.(t('cookies.manual_export_failed') + ': ' + (e?.message || String(e)))
+  }
 }
 </script>
 
@@ -363,6 +569,9 @@ function showStatus(browser) {
 .ops-actions .seg-item:hover .label, .ops-actions .seg-item:active .label, .ops-actions .seg-item.working .label { max-width: 120px; opacity: 1; transform: translateX(0); color: var(--macos-blue); }
 .ops-actions .seg-item:hover .icon { transform: translateX(-2px); }
 .ops-actions .seg-item.yt { border: 1px solid transparent; }
+.ops-actions .seg-item.danger { color: #ff3b30; }
+.ops-actions .seg-item.danger .label { color: #ff3b30; }
+.ops-actions .seg-item.danger:hover .label, .ops-actions .seg-item.danger:active .label { color: #ff3b30; }
 /* removed canme button */
 .one-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .table-wrap { overflow-x: auto; border-top: 1px solid var(--macos-divider-weak); }
@@ -411,6 +620,7 @@ thead { background: var(--macos-background-secondary); }
 .brand-firefox .bicon { border-color: var(--brand-firefox); color: var(--brand-firefox); background: color-mix(in oklab, var(--brand-firefox) 10%, var(--macos-background)); }
 .brand-safari .bicon { border-color: var(--brand-safari); color: var(--brand-safari); background: color-mix(in oklab, var(--brand-safari) 10%, var(--macos-background)); }
 .brand-edge .bicon { border-color: var(--brand-edge); color: var(--brand-edge); background: color-mix(in oklab, var(--brand-edge) 10%, var(--macos-background)); }
+.brand-opera .bicon { border-color: #ff1b2d; color: #ff1b2d; background: color-mix(in oklab, #ff1b2d 10%, var(--macos-background)); }
 .brand-chrome .mini-icon { color: var(--brand-chrome); }
 .brand-firefox .mini-icon { color: var(--brand-firefox); }
 .brand-safari .mini-icon { color: var(--brand-safari); }
@@ -419,8 +629,24 @@ thead { background: var(--macos-background-secondary); }
 .brand-firefox .mini-icon { color: #ff9500; }
 .brand-safari .mini-icon { color: #0fb5ee; }
 .brand-edge .mini-icon { color: #0b84ed; }
+.brand-opera .mini-icon { color: #ff1b2d; }
 
 /* header/meta utilities for panel */
 .icon-tonal { width: 28px; height: 28px; display:inline-flex; align-items:center; justify-content:center; border-radius: 6px; border: 1px solid var(--macos-separator); background: var(--macos-background); color: var(--macos-text-secondary); }
 .meta-group .item .num { color: var(--macos-text-primary); font-weight: 600; }
+
+.manual-section { display:flex; flex-direction: column; gap: 8px; }
+.manual-header { font-size: 13px; font-weight: 600; color: var(--macos-text-secondary); padding: 0 2px; display:flex; align-items:center; justify-content: space-between; }
+.manual-header .btn-glass { display:inline-flex; align-items:center; gap: 6px; }
+.manual-list .ck-box { border-style: solid; }
+.manual-entry .actions { margin-top: 10px; }
+.manual-entry .ops-actions .seg-item { min-width: 32px; }
+.manual-entry .ops-actions .seg-item.danger { color: #ff3b30; }
+.manual-entry .ops-actions .seg-item.danger:hover { background: rgba(255,76,58,0.12); color: #ff3b30; }
+.manual-empty { border: 1px dashed var(--macos-separator); border-radius: 10px; padding: 28px 18px; text-align: center; color: var(--macos-text-secondary); display:flex; flex-direction: column; gap: 10px; align-items:center; justify-content:center; }
+.manual-empty .empty-icon { width: 46px; height: 46px; border-radius: 14px; border: 1px solid var(--macos-separator); display:flex; align-items:center; justify-content:center; background: color-mix(in oklab, var(--macos-background) 92%, var(--macos-separator)); color: var(--macos-text-tertiary); }
+.manual-empty .title { font-weight: 600; color: var(--macos-text-primary); }
+.manual-empty .desc { font-size: 12px; color: var(--macos-text-secondary); max-width: 320px; }
+.btn-danger { border: 1px solid rgba(255,76,58,0.4); background: rgba(255,76,58,0.1); color: #ff3b30; border-radius: 8px; padding: 6px 12px; font-size: 12px; transition: background .2s ease; }
+.btn-danger:hover { background: rgba(255,76,58,0.18); }
 </style>

@@ -9,6 +9,7 @@ export const ICON_MAP = {
   globe: 'globe',
   database: 'database',
   clock: 'clock',
+  layers: 'layers',
   folder: 'folder-open',
   'file-copy': 'copy',
   'download-cloud': 'cloud-download',

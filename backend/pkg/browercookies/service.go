@@ -12,12 +12,14 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"CanMe/backend/pkg/dependencies"
 
+	"github.com/google/uuid"
 	"github.com/lrstanley/go-ytdlp"
 	"go.uber.org/zap"
 	"golang.org/x/net/publicsuffix"
@@ -28,6 +30,12 @@ import (
 type cookieManager struct {
 	storage    *storage.BoltStorage
 	depManager dependencies.Manager
+}
+
+const defaultManualCollectionBaseName = "Custom Set"
+
+func browserCollectionID(browser string) string {
+	return "browser:" + strings.ToLower(strings.TrimSpace(browser))
 }
 
 func NewCookieManager(storage *storage.BoltStorage, depManager dependencies.Manager) CookieManager {
@@ -48,18 +56,16 @@ func (c *cookieManager) Sync(ctx context.Context, syncFrom string, browsers []st
 		zap.String("os", runtime.GOOS),
 	)
 
-	browserCookiesMap := make(map[string]*types.BrowserCookies)
+	collections := make(map[string]*types.CookieCollection)
 	if syncFrom == "canme" {
-		// deprecated
 		return fmt.Errorf("canme cookies sync is not supported; please use yt-dlp")
 	} else if syncFrom == "yt-dlp" {
-		// do not block elevated; return direct error from yt-dlp
-		browserCookiesMap = c.readAllBrowserCookiesByYTDLP(ctx, browsers)
+		collections = c.readAllBrowserCollectionsByYTDLP(ctx, browsers)
 	} else {
 		return fmt.Errorf("unsupported syncFrom: %s", syncFrom)
 	}
 
-	if len(browserCookiesMap) == 0 {
+	if len(collections) == 0 {
 		return fmt.Errorf("no browser cookies found")
 	}
 
@@ -67,16 +73,25 @@ func (c *cookieManager) Sync(ctx context.Context, syncFrom string, browsers []st
 	anySuccess := false
 	var firstErrMsg string
 
-	for browser, cookies := range browserCookiesMap {
-		if browser != "" && cookies != nil {
-			err := c.storage.SaveCookies(browser, cookies)
+	for browser, collection := range collections {
+		if browser != "" && collection != nil {
+			if collection.ID == "" {
+				collection.ID = browserCollectionID(browser)
+			}
+			collection.Source = types.CookieSourceYTDLP
+			collection.Browser = browser
+			if collection.Name == "" {
+				collection.Name = browser
+			}
+
+			err := c.storage.SaveCookieCollection(collection)
 			if err != nil {
 				logger.Error("Failed to save cookies for browser", zap.String("browser", browser), zap.Error(err))
 			}
-			if strings.EqualFold(cookies.LastSyncStatus, "success") {
+			if strings.EqualFold(collection.LastSyncStatus, "success") {
 				anySuccess = true
 			} else if firstErrMsg == "" {
-				firstErrMsg = cookies.StatusDescription
+				firstErrMsg = collection.StatusDescription
 			}
 		}
 	}
@@ -92,139 +107,224 @@ func (c *cookieManager) Sync(ctx context.Context, syncFrom string, browsers []st
 	return errors.New(firstErrMsg)
 }
 
-// ListAllCookies retrieves all cached cookies, grouped by browser.
-func (c *cookieManager) ListAllCookies() (map[string]*types.BrowserCookies, error) {
+// ListAllCookies 返回所有 Cookie 集合，包含浏览器与手动来源。
+func (c *cookieManager) ListAllCookies() (*types.CookieCollections, error) {
 	if c.storage == nil {
 		return nil, errors.New("storage is not initialized")
 	}
 
-	// available type to get cookies: yt-dlp only
-	syncFrom := []string{"yt-dlp"}
-	osType := runtime.GOOS
+	storedCollections, err := c.storage.ListCookieCollections()
+	if err != nil {
+		return nil, err
+	}
 
-	var currentBrowsers []*types.BrowserCookies
-	allBrowsers := []consts.BrowserType{consts.Chrome, consts.Chromium, consts.Firefox, consts.Edge, consts.Safari}
-	for _, browser := range allBrowsers {
-		homeDir, _ := os.UserHomeDir()
-		// 扫描多 Profile 的候选路径，取第一个存在的作为展示路径
-		var firstPath string
-		var paths []string
-		if osType == "windows" {
-			paths = listCandidateCookiePaths(browser, homeDir)
-		} else if osType == "darwin" { // 暂不预支持 Linux
-			paths = listCandidateCookiePaths(browser, homeDir)
+	manualCollections := make([]*types.CookieCollection, 0)
+	storedByBrowser := make(map[string]*types.CookieCollection)
+
+	for _, collection := range storedCollections {
+		if collection == nil {
+			continue
 		}
+		switch collection.Source {
+		case types.CookieSourceManual:
+			manualCollections = append(manualCollections, collection)
+		case types.CookieSourceYTDLP, "":
+			key := strings.ToLower(collection.Browser)
+			storedByBrowser[key] = collection
+		}
+	}
+
+	osType := runtime.GOOS
+	allBrowsers := []consts.BrowserType{
+		consts.Chrome,
+		consts.Chromium,
+		consts.Edge,
+		consts.Firefox,
+		consts.Safari,
+		consts.Brave,
+		consts.Opera,
+		consts.Vivaldi,
+	}
+
+	browserCollections := make([]*types.CookieCollection, 0, len(allBrowsers))
+
+	for _, browser := range allBrowsers {
+		browserName := string(browser)
+		key := strings.ToLower(browserName)
+
+		homeDir, _ := os.UserHomeDir()
+		paths := listCandidateCookiePaths(browser, homeDir)
+		var firstPath string
 		if len(paths) > 0 {
 			firstPath = paths[0]
 		} else {
-			// 回退单一路径（兼容旧逻辑）
 			p := GetCookieFilePath(browser)
 			if _, err := os.Stat(p); err == nil {
 				firstPath = p
 			}
 		}
 
-		if firstPath != "" {
-			currentBrowsers = append(currentBrowsers, &types.BrowserCookies{
-				Browser:           string(browser),
-				Path:              firstPath,
-				Status:            "never",
-				StatusDescription: "never sync cookies",
-				SyncFrom:          syncFrom,
-				LastSyncFrom:      "never",
-				LastSyncTime:      time.Time{},
-				LastSyncStatus:    "never syncd",
-				DomainCookies:     nil,
-			})
-		} else {
-			logger.Info("No cookie store detected for browser", zap.String("browser", string(browser)))
+		existing := storedByBrowser[key]
+		if existing != nil {
+			if existing.ID == "" {
+				existing.ID = browserCollectionID(browserName)
+			}
+			if existing.Name == "" {
+				existing.Name = browserName
+			}
+			if existing.Source == "" {
+				existing.Source = types.CookieSourceYTDLP
+			}
+			if existing.Browser == "" {
+				existing.Browser = browserName
+			}
+			if firstPath != "" && existing.Path == "" {
+				existing.Path = firstPath
+			}
+			if len(existing.SyncFrom) == 0 {
+				existing.SyncFrom = []string{string(types.CookieSourceYTDLP)}
+			}
+			browserCollections = append(browserCollections, existing)
+			continue
 		}
+
+		if firstPath == "" {
+			logger.Debug("No cookie store detected", zap.String("browser", browserName))
+			continue
+		}
+
+		browserCollections = append(browserCollections, &types.CookieCollection{
+			ID:                browserCollectionID(browserName),
+			Name:              browserName,
+			Browser:           browserName,
+			Path:              firstPath,
+			Source:            types.CookieSourceYTDLP,
+			Status:            "never",
+			StatusDescription: "never sync cookies",
+			SyncFrom:          []string{string(types.CookieSourceYTDLP)},
+			LastSyncFrom:      "never",
+			LastSyncTime:      time.Time{},
+			LastSyncStatus:    "never synced",
+			DomainCookies:     nil,
+		})
 	}
 
-	// Windows 高权限运行提示：添加描述，便于前端展示指引
-	if osType == "windows" {
-		if utils.WindowsIsElevated() {
-			for _, bc := range currentBrowsers {
-				if bc != nil {
+	if osType == "windows" && utils.WindowsIsElevated() {
+		for _, bc := range browserCollections {
+			if bc != nil {
+				if bc.Status == "never" || bc.StatusDescription == "" {
 					bc.StatusDescription = "Running as Administrator may block cookie decryption. Please run as a normal user."
 				}
 			}
 		}
 	}
 
-	savedCookies, err := c.storage.ListAllCookies()
-	if err != nil {
-		return nil, err
-	}
-
-	// merge currentBrowsers and savedCookies
-	for _, browser := range currentBrowsers {
-		if savedCookies[browser.Browser] == nil {
-			savedCookies[browser.Browser] = browser
-		}
-	}
-
-	return savedCookies, nil
+	return &types.CookieCollections{
+		BrowserCollections: browserCollections,
+		ManualCollections:  manualCollections,
+	}, nil
 }
 
-func (c *cookieManager) GetBrowserByDomain(domain string) ([]string, error) {
+func (c *cookieManager) GetBrowserByDomain(domain string) ([]*types.CookieProvider, error) {
 	if c.storage == nil {
 		return nil, errors.New("storage is not initialized")
 	}
-
-	allCookies, err := c.ListAllCookies()
-	if err != nil {
-		return nil, err
-	}
-
-	var browsers []string
-	for browser, _ := range allCookies {
-		c, err := c.GetCookiesByDomain(browser, domain)
-		if err != nil {
-			continue
-		}
-		if len(c) > 0 {
-			browsers = append(browsers, browser)
-		}
-	}
-
-	if len(browsers) == 0 {
-		return nil, fmt.Errorf("no browser found for domain: %s", domain)
-	}
-
-	return browsers, nil
-}
-
-// GetCookiesByDomain retrieves cookies for a specific domain from a specified browser's cache.
-func (c *cookieManager) GetCookiesByDomain(browser, domain string) ([]*http.Cookie, error) {
-	if c.storage == nil {
-		return nil, errors.New("storage is not initialized")
-	}
-	if browser == "" {
-		return nil, errors.New("browser must be specified")
-	}
+	domain = strings.TrimSpace(domain)
 	if domain == "" {
 		return nil, errors.New("domain must be specified")
 	}
 
-	// Fetch cookies only for the specified browser, which is much more efficient.
-	storedCookies, err := c.storage.GetCookies(browser)
+	storedCollections, err := c.storage.ListCookieCollections()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list cookies for browser %s: %w \n", browser, err)
+		return nil, err
 	}
 
-	// 生成domain的lookup列表
-	var domainCookies []*http.Cookie
-	domainLookups := c.generateDomainLookups(domain)
+	lookups := c.generateDomainLookups(domain)
+	providers := make([]*types.CookieProvider, 0)
+	seen := make(map[string]struct{})
 
-	// 遍历lookup列表，找到第一个匹配的domain
-	for _, lookup := range domainLookups {
-		if cookies := storedCookies.DomainCookies[lookup]; cookies != nil && len(cookies.Cookies) > 0 {
-			domainCookies = append(domainCookies, cookies.Cookies...)
+	for _, collection := range storedCollections {
+		if collection == nil {
+			continue
+		}
+		if !c.collectionMatchesDomain(collection, lookups) {
+			continue
+		}
+
+		switch collection.Source {
+		case types.CookieSourceManual:
+			label := strings.TrimSpace(collection.Name)
+			if label == "" {
+				label = "Manual Cookies"
+			}
+			providers = append(providers, &types.CookieProvider{
+				ID:     collection.ID,
+				Label:  label,
+				Source: types.CookieSourceManual,
+				Kind:   "manual",
+			})
+		case types.CookieSourceYTDLP, "":
+			browserName := strings.TrimSpace(collection.Browser)
+			if browserName == "" {
+				continue
+			}
+			key := strings.ToLower(browserName)
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+			label := browserName
+			if strings.TrimSpace(collection.Name) != "" {
+				label = collection.Name
+			}
+			providers = append(providers, &types.CookieProvider{
+				ID:     browserName,
+				Label:  label,
+				Source: types.CookieSourceYTDLP,
+				Kind:   "browser",
+			})
 		}
 	}
 
-	return domainCookies, nil
+	if len(providers) == 0 {
+		return nil, fmt.Errorf("no cookie provider found for domain: %s", domain)
+	}
+
+	return providers, nil
+}
+
+// GetCookiesByDomain retrieves cookies for a specific domain from a specified provider's cache.
+func (c *cookieManager) GetCookiesByDomain(providerID, domain string) ([]*http.Cookie, error) {
+	if c.storage == nil {
+		return nil, errors.New("storage is not initialized")
+	}
+	providerID = strings.TrimSpace(providerID)
+	if providerID == "" {
+		return nil, errors.New("provider must be specified")
+	}
+	if strings.TrimSpace(domain) == "" {
+		return nil, errors.New("domain must be specified")
+	}
+
+	domainLookups := c.generateDomainLookups(domain)
+
+	if strings.HasPrefix(providerID, string(types.CookieSourceManual)+":") {
+		collection, err := c.storage.GetCookieCollection(providerID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get manual collection %s: %w", providerID, err)
+		}
+		if collection == nil || collection.Source != types.CookieSourceManual {
+			return nil, fmt.Errorf("collection %s is not manual", providerID)
+		}
+		return c.extractCookiesForLookups(collection, domainLookups), nil
+	}
+
+	storedCollection, err := c.storage.FindCookieCollectionByBrowser(providerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cookies for browser %s: %w", providerID, err)
+	}
+
+	return c.extractCookiesForLookups(storedCollection, domainLookups), nil
 }
 
 func (c *cookieManager) GetNetscapeCookiesByDomain(browser, domain string) (string, error) {
@@ -232,7 +332,7 @@ func (c *cookieManager) GetNetscapeCookiesByDomain(browser, domain string) (stri
 		return "", errors.New("storage is not initialized")
 	}
 	if browser == "" {
-		return "", errors.New("browser must be specified")
+		return "", errors.New("provider must be specified")
 	}
 	if domain == "" {
 		return "", errors.New("domain must be specified")
@@ -246,12 +346,400 @@ func (c *cookieManager) GetNetscapeCookiesByDomain(browser, domain string) (stri
 	return c.convertToNetscape(cookies), nil
 }
 
-// readAllBrowserCookies reads all cookies from all supported browsers and groups them by browser name.
-// canme sync removed
+func (c *cookieManager) collectionMatchesDomain(collection *types.CookieCollection, lookups []string) bool {
+	if collection == nil {
+		return false
+	}
+	return len(c.extractCookiesForLookups(collection, lookups)) > 0
+}
 
-// canme sync removed
-func (c *cookieManager) readAllBrowserCookiesByYTDLP(ctx context.Context, browsers []string) map[string]*types.BrowserCookies {
-	browserCookiesMap := make(map[string]*types.BrowserCookies)
+func (c *cookieManager) extractCookiesForLookups(collection *types.CookieCollection, lookups []string) []*http.Cookie {
+	type candidate struct {
+		cookie   *http.Cookie
+		priority int
+		order    int
+	}
+
+	if collection == nil || collection.DomainCookies == nil || len(collection.DomainCookies) == 0 {
+		return nil
+	}
+
+	lookupPriorities := make(map[string]int, len(lookups))
+	preferredDomains := make(map[int]string, len(lookups))
+	for idx, lookup := range lookups {
+		norm := c.normalizeDomainKey(lookup)
+		if norm == "" {
+			continue
+		}
+		if _, exists := lookupPriorities[norm]; !exists {
+			lookupPriorities[norm] = idx
+			preferredDomains[idx] = norm
+		}
+	}
+
+	if len(lookupPriorities) == 0 {
+		return nil
+	}
+
+	candidates := make(map[string]candidate)
+	orderSeed := 0
+
+	for key, bucket := range collection.DomainCookies {
+		if bucket == nil || len(bucket.Cookies) == 0 {
+			continue
+		}
+
+		normKey := c.normalizeDomainKey(key)
+		priority, ok := lookupPriorities[normKey]
+		if !ok {
+			continue
+		}
+
+		preferredDomain := preferredDomains[priority]
+
+		for _, cookie := range bucket.Cookies {
+			if cookie == nil {
+				continue
+			}
+
+			mapKey := strings.ToLower(cookie.Name) + "|" + cookie.Path
+			existing, exists := candidates[mapKey]
+			replace := false
+
+			if !exists {
+				replace = true
+				orderSeed++
+			} else if priority < existing.priority {
+				replace = true
+			} else if priority == existing.priority {
+				if preferCookieForDomain(cookie, existing.cookie, preferredDomain) {
+					replace = true
+				}
+			}
+
+			if replace {
+				order := existing.order
+				if !exists {
+					order = orderSeed
+				}
+				candidates[mapKey] = candidate{cookie: cookie, priority: priority, order: order}
+			}
+		}
+	}
+
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	items := make([]candidate, 0, len(candidates))
+	for _, cand := range candidates {
+		items = append(items, cand)
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].priority != items[j].priority {
+			return items[i].priority < items[j].priority
+		}
+		return items[i].order < items[j].order
+	})
+
+	result := make([]*http.Cookie, 0, len(items))
+	for _, cand := range items {
+		result = append(result, cand.cookie)
+	}
+
+	return result
+}
+
+func (c *cookieManager) normalizeDomainKey(domain string) string {
+	trimmed := strings.TrimSpace(strings.ToLower(domain))
+	trimmed = strings.TrimPrefix(trimmed, ".")
+	return trimmed
+}
+
+func preferCookieForDomain(newCookie, oldCookie *http.Cookie, preferredDomain string) bool {
+	if newCookie == nil {
+		return false
+	}
+	if oldCookie == nil {
+		return true
+	}
+
+	newDomain := sanitizeCookieDomain(newCookie.Domain)
+	oldDomain := sanitizeCookieDomain(oldCookie.Domain)
+
+	if preferredDomain != "" {
+		if newDomain == preferredDomain && oldDomain != preferredDomain {
+			return true
+		}
+		if oldDomain == preferredDomain && newDomain != preferredDomain {
+			return false
+		}
+	}
+
+	newHostOnly := cookieIsHostOnly(newCookie.Domain)
+	oldHostOnly := cookieIsHostOnly(oldCookie.Domain)
+	if newHostOnly && !oldHostOnly {
+		return true
+	}
+	if oldHostOnly && !newHostOnly {
+		return false
+	}
+
+	if !newCookie.Expires.IsZero() && oldCookie.Expires.IsZero() {
+		return true
+	}
+	if newCookie.Expires.IsZero() && !oldCookie.Expires.IsZero() {
+		return false
+	}
+	if newCookie.Expires.After(oldCookie.Expires) {
+		return true
+	}
+	if oldCookie.Expires.After(newCookie.Expires) {
+		return false
+	}
+
+	// 默认使用最新值覆盖，避免返回旧的 profile 数据
+	return true
+}
+
+func sanitizeCookieDomain(domain string) string {
+	d := strings.ToLower(strings.TrimSpace(domain))
+	d = strings.TrimPrefix(d, "#httponly_")
+	return strings.TrimPrefix(d, ".")
+}
+
+func cookieIsHostOnly(domain string) bool {
+	d := strings.TrimSpace(domain)
+	if d == "" {
+		return false
+	}
+	return !strings.HasPrefix(d, ".")
+}
+
+func (c *cookieManager) CreateManualCollection(payload *types.ManualCollectionPayload) (*types.CookieCollection, error) {
+	if c.storage == nil {
+		return nil, errors.New("storage is not initialized")
+	}
+	if payload == nil {
+		return nil, errors.New("payload is required")
+	}
+
+	domainCookies, err := manualPayloadToDomainCookies(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(domainCookies) == 0 {
+		return nil, errors.New("no cookies provided")
+	}
+
+	id := "manual:" + uuid.NewString()
+	name := strings.TrimSpace(payload.Name)
+	if name == "" {
+		var err error
+		name, err = c.generateDefaultManualCollectionName("")
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if err := c.ensureUniqueManualCollectionName(name, ""); err != nil {
+			return nil, err
+		}
+	}
+
+	collection := &types.CookieCollection{
+		ID:                id,
+		Name:              name,
+		Browser:           "",
+		Path:              "",
+		Source:            types.CookieSourceManual,
+		Status:            "manual",
+		StatusDescription: "manual collection",
+		SyncFrom:          []string{string(types.CookieSourceManual)},
+		LastSyncFrom:      string(types.CookieSourceManual),
+		LastSyncTime:      time.Now(),
+		LastSyncStatus:    "manual",
+		DomainCookies:     domainCookies,
+	}
+
+	if err := c.storage.SaveCookieCollection(collection); err != nil {
+		return nil, err
+	}
+
+	return collection, nil
+}
+
+func (c *cookieManager) UpdateManualCollection(id string, payload *types.ManualCollectionPayload) (*types.CookieCollection, error) {
+	if c.storage == nil {
+		return nil, errors.New("storage is not initialized")
+	}
+	if strings.TrimSpace(id) == "" {
+		return nil, errors.New("collection id is required")
+	}
+
+	collection, err := c.storage.GetCookieCollection(id)
+	if err != nil {
+		return nil, err
+	}
+	if collection == nil || collection.Source != types.CookieSourceManual {
+		return nil, fmt.Errorf("collection %s is not manual", id)
+	}
+
+	if payload != nil {
+		if nameRaw := payload.Name; nameRaw != "" {
+			trimmed := strings.TrimSpace(nameRaw)
+			if trimmed == "" {
+				generated, err := c.generateDefaultManualCollectionName(collection.ID)
+				if err != nil {
+					return nil, err
+				}
+				collection.Name = generated
+			} else {
+				if err := c.ensureUniqueManualCollectionName(trimmed, collection.ID); err != nil {
+					return nil, err
+				}
+				collection.Name = trimmed
+			}
+		}
+		domainCookies, err := manualPayloadToDomainCookies(payload)
+		if err != nil {
+			return nil, err
+		}
+		if len(domainCookies) > 0 {
+			if payload.Replace {
+				collection.DomainCookies = domainCookies
+			} else {
+				collection.DomainCookies = mergeDomainCookies(collection.DomainCookies, domainCookies)
+			}
+		}
+	}
+
+	if strings.TrimSpace(collection.Name) == "" {
+		generated, err := c.generateDefaultManualCollectionName(collection.ID)
+		if err != nil {
+			return nil, err
+		}
+		collection.Name = generated
+	}
+
+	if err := c.ensureUniqueManualCollectionName(collection.Name, collection.ID); err != nil {
+		return nil, err
+	}
+
+	collection.Status = "manual"
+	collection.StatusDescription = "manual collection"
+	collection.LastSyncFrom = string(types.CookieSourceManual)
+	collection.LastSyncStatus = "manual"
+	collection.LastSyncTime = time.Now()
+
+	if err := c.storage.SaveCookieCollection(collection); err != nil {
+		return nil, err
+	}
+
+	return collection, nil
+}
+
+func (c *cookieManager) DeleteCollection(id string) error {
+	if c.storage == nil {
+		return errors.New("storage is not initialized")
+	}
+	if strings.TrimSpace(id) == "" {
+		return errors.New("collection id is required")
+	}
+	return c.storage.DeleteCookieCollection(id)
+}
+
+func (c *cookieManager) ensureUniqueManualCollectionName(name string, excludeID string) error {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return errors.New("collection name cannot be empty")
+	}
+	collections, err := c.storage.ListCookieCollections()
+	if err != nil {
+		return err
+	}
+	lowerName := strings.ToLower(trimmed)
+	for _, col := range collections {
+		if col == nil {
+			continue
+		}
+		if excludeID != "" && strings.EqualFold(col.ID, excludeID) {
+			continue
+		}
+		existingName := strings.TrimSpace(col.Name)
+		if existingName == "" {
+			continue
+		}
+		if strings.ToLower(existingName) == lowerName {
+			return fmt.Errorf("collection name already exists")
+		}
+	}
+	return nil
+}
+
+func (c *cookieManager) generateDefaultManualCollectionName(excludeID string) (string, error) {
+	collections, err := c.storage.ListCookieCollections()
+	if err != nil {
+		return "", err
+	}
+	base := defaultManualCollectionBaseName
+	existing := make(map[string]struct{})
+	for _, col := range collections {
+		if col == nil {
+			continue
+		}
+		if excludeID != "" && strings.EqualFold(col.ID, excludeID) {
+			continue
+		}
+		name := strings.TrimSpace(col.Name)
+		if name == "" {
+			continue
+		}
+		existing[strings.ToLower(name)] = struct{}{}
+	}
+
+	candidate := base
+	index := 2
+	for {
+		if _, ok := existing[strings.ToLower(candidate)]; !ok {
+			return candidate, nil
+		}
+		candidate = fmt.Sprintf("%s %d", base, index)
+		index++
+	}
+}
+
+func (c *cookieManager) ExportCollectionNetscape(id string) (string, error) {
+	if c.storage == nil {
+		return "", errors.New("storage is not initialized")
+	}
+	if strings.TrimSpace(id) == "" {
+		return "", errors.New("collection id is required")
+	}
+
+	collection, err := c.storage.GetCookieCollection(id)
+	if err != nil {
+		return "", err
+	}
+	if collection == nil {
+		return "", fmt.Errorf("collection not found: %s", id)
+	}
+
+	var all []*http.Cookie
+	for _, dc := range collection.DomainCookies {
+		if dc == nil {
+			continue
+		}
+		all = append(all, dc.Cookies...)
+	}
+
+	return c.convertToNetscape(all), nil
+}
+
+// readAllBrowserCollectionsByYTDLP 使用 yt-dlp 导出浏览器 cookies。
+func (c *cookieManager) readAllBrowserCollectionsByYTDLP(ctx context.Context, browsers []string) map[string]*types.CookieCollection {
+	browserCookiesMap := make(map[string]*types.CookieCollection)
 
 	// available type to get cookies: yt-dlp only
 	syncFrom := []string{"yt-dlp"}
@@ -294,9 +782,12 @@ func (c *cookieManager) readAllBrowserCookiesByYTDLP(ctx context.Context, browse
 			zap.Int("candidates", len(cands)),
 		)
 
-		eachBrowserCookies := types.BrowserCookies{
+		eachBrowserCookies := &types.CookieCollection{
+			ID:                browserCollectionID(browser),
+			Name:              browser,
 			Browser:           browser,
 			Path:              pathHint,
+			Source:            types.CookieSourceYTDLP,
 			Status:            "syncing",
 			StatusDescription: "syncing cookies",
 			SyncFrom:          syncFrom,
@@ -314,7 +805,7 @@ func (c *cookieManager) readAllBrowserCookiesByYTDLP(ctx context.Context, browse
 			eachBrowserCookies.LastSyncStatus = "failed"
 
 			// save and continue
-			browserCookiesMap[string(browser)] = &eachBrowserCookies
+			browserCookiesMap[string(browser)] = eachBrowserCookies
 			continue
 		}
 		// 针对 Windows/macOS，尝试多 Profile（Default, Profile *）
@@ -368,7 +859,7 @@ func (c *cookieManager) readAllBrowserCookiesByYTDLP(ctx context.Context, browse
 			zap.Int("profileCount", len(profiles)),
 		)
 
-		// 遍历 profile 进行导出。成功的合并到同一个 BrowserCookies
+		// 遍历 profile 进行导出。成功的结果合并到同一个 CookieCollection
 		// map CanMe browser name -> yt-dlp expected name (lowercase)
 		toYtDlp := func(name string) string {
 			n := strings.ToLower(strings.TrimSpace(name))
@@ -494,7 +985,7 @@ func (c *cookieManager) readAllBrowserCookiesByYTDLP(ctx context.Context, browse
 			errMsgByBrowser[browser] = lastErrMsg
 		}
 
-		browserCookiesMap[string(browser)] = &eachBrowserCookies
+		browserCookiesMap[string(browser)] = eachBrowserCookies
 	}
 
 	// 使用c.convertFromNetscape()转换为http.Cookie（合并多 profile 的导出）
@@ -503,7 +994,7 @@ func (c *cookieManager) readAllBrowserCookiesByYTDLP(ctx context.Context, browse
 		var ok bool
 		for _, cookiePath := range item.paths {
 			// Skip logging concrete cookie path to avoid printing scanned filenames
-			domainCookies, err := c.convertFromNetscape(cookiePath)
+			domainCookies, err := c.convertFromNetscapeFile(cookiePath)
 			if err != nil {
 				logger.Warn("ytdlp export: convert failed", zap.String("path", cookiePath), zap.Error(err))
 				continue
@@ -578,14 +1069,24 @@ func (c *cookieManager) convertToNetscape(cookies []*http.Cookie) string {
 	b.WriteString("# Netscape HTTP Cookie File\n\n")
 
 	for _, cookie := range cookies {
+		domain := cookie.Domain
+		if strings.HasPrefix(domain, "#HttpOnly_") {
+			domain = strings.TrimPrefix(domain, "#HttpOnly_")
+		}
+
 		flag := "FALSE"
-		if strings.HasPrefix(cookie.Domain, ".") {
+		if strings.HasPrefix(domain, ".") {
 			flag = "TRUE"
 		}
 
 		secure := "FALSE"
 		if cookie.Secure {
 			secure = "TRUE"
+		}
+
+		domainField := domain
+		if cookie.HttpOnly {
+			domainField = "#HttpOnly_" + strings.TrimPrefix(domain, "#HttpOnly_")
 		}
 
 		var expiration int64
@@ -595,7 +1096,7 @@ func (c *cookieManager) convertToNetscape(cookies []*http.Cookie) string {
 
 		line := fmt.Sprintf(
 			"%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
-			cookie.Domain,
+			domainField,
 			flag,
 			cookie.Path,
 			secure,
@@ -609,38 +1110,45 @@ func (c *cookieManager) convertToNetscape(cookies []*http.Cookie) string {
 	return b.String()
 }
 
-// convertFromNetscape parses a Netscape cookie format string and returns []*http.Cookie
-func (c *cookieManager) convertFromNetscape(netscapeData string) (map[string]*types.DomainCookies, error) {
-	byte, err := os.ReadFile(netscapeData)
+func (c *cookieManager) convertFromNetscapeFile(path string) (map[string]*types.DomainCookies, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
+	return parseNetscapeBytes(data)
+}
 
+func parseNetscapeBytes(data []byte) (map[string]*types.DomainCookies, error) {
 	domainCookies := make(map[string]*types.DomainCookies)
-	lines := strings.Split(string(byte), "\n")
+	lines := strings.Split(string(data), "\n")
 
 	for _, line := range lines {
-		// Skip empty lines and comments
 		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
+		if line == "" {
 			continue
 		}
 
-		// Split by tab characters
+		httpOnly := false
+		lower := strings.ToLower(line)
+		if strings.HasPrefix(lower, "#httponly_") {
+			httpOnly = true
+			line = line[len("#HttpOnly_"):]
+		} else if strings.HasPrefix(line, "#") {
+			continue
+		}
+
 		fields := strings.Split(line, "\t")
 		if len(fields) != 7 {
-			continue // Skip malformed lines
+			continue
 		}
 
 		domain := fields[0]
-		// flag := fields[1]
 		path := fields[2]
 		secure := fields[3]
 		expirationStr := fields[4]
 		name := fields[5]
 		value := fields[6]
 
-		// Create http.Cookie
 		cookie := &http.Cookie{
 			Name:   name,
 			Value:  value,
@@ -648,41 +1156,126 @@ func (c *cookieManager) convertFromNetscape(netscapeData string) (map[string]*ty
 			Path:   path,
 		}
 
-		// Set secure flag
-		if secure == "TRUE" {
+		if strings.EqualFold(secure, "TRUE") {
 			cookie.Secure = true
 		}
+		cookie.HttpOnly = httpOnly
 
-		// Parse expiration time
-		if expirationStr != "0" {
+		if expirationStr != "0" && expirationStr != "" {
 			if expiration, err := strconv.ParseInt(expirationStr, 10, 64); err == nil {
-				// 验证时间戳范围，避免超出 Go 时间范围
-				// Unix 时间戳范围：1970-01-01 到 2038-01-19 (32位) 或更大范围 (64位)
-				// 但 Go 的 time.Time JSON 序列化要求年份在 [0,9999] 范围内
-				minTimestamp := int64(0)            // 1970-01-01
-				maxTimestamp := int64(253402300799) // 9999-12-31 23:59:59 UTC
-
+				minTimestamp := int64(0)
+				maxTimestamp := int64(253402300799)
 				if expiration >= minTimestamp && expiration <= maxTimestamp {
 					cookie.Expires = time.Unix(expiration, 0)
 				} else {
-					// 可设置为零值（永不过期）
-					cookie.Expires = time.Time{} // 零值表示会话 cookie
+					cookie.Expires = time.Time{}
 				}
 			}
 		}
 
 		if domainCookies[domain] == nil {
-			domainCookies[domain] = &types.DomainCookies{
-				Domain:  domain,
-				Cookies: []*http.Cookie{},
-			}
-		} else {
-			domainCookies[domain].Cookies = append(domainCookies[domain].Cookies, cookie)
+			domainCookies[domain] = &types.DomainCookies{Domain: domain, Cookies: []*http.Cookie{}}
 		}
 
+		domainCookies[domain].Cookies = append(domainCookies[domain].Cookies, cookie)
 	}
 
 	return domainCookies, nil
+}
+
+func manualPayloadToDomainCookies(payload *types.ManualCollectionPayload) (map[string]*types.DomainCookies, error) {
+	result := make(map[string]*types.DomainCookies)
+	if payload == nil {
+		return result, nil
+	}
+
+	if strings.TrimSpace(payload.Netscape) != "" {
+		parsed, err := parseNetscapeBytes([]byte(payload.Netscape))
+		if err != nil {
+			return nil, err
+		}
+		return parsed, nil
+	}
+
+	for _, item := range payload.Cookies {
+		domain := strings.TrimSpace(item.Domain)
+		name := strings.TrimSpace(item.Name)
+		if domain == "" || name == "" {
+			continue
+		}
+
+		path := item.Path
+		if strings.TrimSpace(path) == "" {
+			path = "/"
+		}
+
+		cookie := &http.Cookie{
+			Name:     name,
+			Value:    item.Value,
+			Domain:   domain,
+			Path:     path,
+			Secure:   item.Secure,
+			HttpOnly: item.HTTPOnly,
+		}
+		if item.Expires > 0 {
+			cookie.Expires = time.Unix(item.Expires, 0)
+		}
+
+		if result[domain] == nil {
+			result[domain] = &types.DomainCookies{Domain: domain, Cookies: []*http.Cookie{}}
+		}
+		result[domain].Cookies = append(result[domain].Cookies, cookie)
+	}
+
+	return result, nil
+}
+
+func mergeDomainCookies(dest map[string]*types.DomainCookies, src map[string]*types.DomainCookies) map[string]*types.DomainCookies {
+	if dest == nil && len(src) == 0 {
+		return dest
+	}
+	if dest == nil {
+		dest = make(map[string]*types.DomainCookies)
+	}
+
+	for domain, dc := range src {
+		if dc == nil {
+			continue
+		}
+		if dest[domain] == nil {
+			dest[domain] = &types.DomainCookies{Domain: domain, Cookies: []*http.Cookie{}}
+		}
+
+		existing := dest[domain]
+		keySet := make(map[string]struct{})
+		for _, cookie := range existing.Cookies {
+			if cookie == nil {
+				continue
+			}
+			key := fmt.Sprintf("%s|%s", cookie.Name, cookie.Path)
+			keySet[key] = struct{}{}
+		}
+
+		for _, cookie := range dc.Cookies {
+			if cookie == nil {
+				continue
+			}
+			key := fmt.Sprintf("%s|%s", cookie.Name, cookie.Path)
+			if _, exists := keySet[key]; exists {
+				// replace existing cookie with the new value
+				for idx, existingCookie := range existing.Cookies {
+					if existingCookie != nil && existingCookie.Name == cookie.Name && existingCookie.Path == cookie.Path {
+						existing.Cookies[idx] = cookie
+						break
+					}
+				}
+				continue
+			}
+			existing.Cookies = append(existing.Cookies, cookie)
+		}
+	}
+
+	return dest
 }
 
 func (c *cookieManager) generateDomainLookups(hostname string) []string {

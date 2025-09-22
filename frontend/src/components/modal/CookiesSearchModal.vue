@@ -240,8 +240,17 @@ async function fetchCookies() {
     const res = await ListAllCookies()
     if (!res?.success) throw new Error(res?.msg || 'Fetch failed')
     const data = JSON.parse(res.data || '{}') || {}
-    cookiesByBrowser.value = data
-    browsers.value = Object.keys(data)
+    const browserCols = Array.isArray(data.browser_collections) ? data.browser_collections : []
+    const map = {}
+    const list = []
+    browserCols.forEach(col => {
+      if (col?.browser) {
+        map[col.browser] = col
+        list.push(col.browser)
+      }
+    })
+    cookiesByBrowser.value = map
+    browsers.value = list
   } catch (e) {
     $message?.error?.(t('cookies.fetch_error', { msg: e?.message || String(e) }))
   } finally {
@@ -261,7 +270,7 @@ function getDomainCount(browser) {
 }
 function getStatusText(browser) {
   const s = cookiesByBrowser.value[browser]?.status
-  const map = { synced: t('cookies.status.synced'), never: t('cookies.status.never'), syncing: t('cookies.status.syncing'), error: t('cookies.status.error') }
+  const map = { synced: t('cookies.status.synced'), never: t('cookies.status.never'), syncing: t('cookies.status.syncing'), error: t('cookies.status.error'), manual: t('cookies.status.manual') }
   return map[s] || t('cookies.status.unknown')
 }
 function isBrowserSyncing(browser) {
@@ -277,7 +286,8 @@ function statusTextClass(browser) {
     synced: 'text-[var(--macos-success-text)]',
     error: 'text-[var(--macos-danger-text)]',
     syncing: 'text-[var(--macos-text-secondary)]',
-    never: 'text-[var(--macos-text-secondary)]'
+    never: 'text-[var(--macos-text-secondary)]',
+    manual: 'text-[var(--macos-text-primary)]'
   }
   return map[s] || 'text-[var(--macos-text-secondary)]'
 }
@@ -311,15 +321,17 @@ function showStatus(browser) {
 }
 function brandClass(name) {
   const n = String(name || '').toLowerCase()
-  if (n.includes('chrome')) return 'brand-chrome'
+  if (n.includes('chrome') || n.includes('chromium') || n.includes('brave') || n.includes('vivaldi')) return 'brand-chrome'
   if (n.includes('firefox')) return 'brand-firefox'
   if (n.includes('safari')) return 'brand-safari'
   if (n.includes('edge')) return 'brand-edge'
+  if (n.includes('opera')) return 'brand-opera'
   return ''
 }
 function getLastSyncTime(browser) { return cookiesByBrowser.value[browser]?.last_sync_time || null }
 function formatSyncTime(syncTime) {
   if (!syncTime) return ''
+  if (typeof syncTime === 'string' && syncTime.startsWith('0001-01-01')) return ''
   const date = new Date(syncTime), now = new Date()
   const diffMs = now - date
   const mins = Math.floor(diffMs / (1000 * 60))
@@ -547,8 +559,10 @@ thead { background: var(--macos-background-secondary); }
 .brand-firefox .bicon { border-color: #ff9500; color: #ff9500; background: color-mix(in oklab, #ff9500 10%, var(--macos-background)); }
 .brand-safari .bicon { border-color: #0fb5ee; color: #0fb5ee; background: color-mix(in oklab, #0fb5ee 10%, var(--macos-background)); }
 .brand-edge .bicon { border-color: #0b84ed; color: #0b84ed; background: color-mix(in oklab, #0b84ed 10%, var(--macos-background)); }
+.brand-opera .bicon { border-color: #ff1b2d; color: #ff1b2d; background: color-mix(in oklab, #ff1b2d 10%, var(--macos-background)); }
 .brand-chrome .mini-icon { color: #1a73e8; }
 .brand-firefox .mini-icon { color: #ff9500; }
 .brand-safari .mini-icon { color: #0fb5ee; }
 .brand-edge .mini-icon { color: #0b84ed; }
+.brand-opera .mini-icon { color: #ff1b2d; }
 </style>
