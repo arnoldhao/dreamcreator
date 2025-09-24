@@ -7,7 +7,8 @@ jobs:
   check:
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write
+      statuses: write
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v6
