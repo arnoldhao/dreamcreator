@@ -63,15 +63,15 @@ func analyzeUnicodeStats(text string) UnicodeStats {
 		stats.Total++
 
 		switch {
-        case unicode.Is(unicode.Han, r):
-            counts.han++
-            // 简繁体特征分析（修正：仅使用典型差异字与扩展区/兼容区来计分）
-            if isSimplifiedOnlyChar(r) {
-                counts.simplifiedScore += 1.0
-            }
-            if isTraditionalChar(r) {
-                counts.traditionalScore += 1.0
-            }
+		case unicode.Is(unicode.Han, r):
+			counts.han++
+			// 简繁体特征分析（修正：仅使用典型差异字与扩展区/兼容区来计分）
+			if isSimplifiedOnlyChar(r) {
+				counts.simplifiedScore += 1.0
+			}
+			if isTraditionalChar(r) {
+				counts.traditionalScore += 1.0
+			}
 		case unicode.Is(unicode.Hiragana, r):
 			counts.hiragana++
 		case unicode.Is(unicode.Katakana, r):
@@ -112,8 +112,8 @@ func analyzeUnicodeStats(text string) UnicodeStats {
 	stats.Devanagari = float64(counts.devanagari) / total
 	stats.Hebrew = float64(counts.hebrew) / total
 	stats.Greek = float64(counts.greek) / total
-    stats.Simplified = counts.simplifiedScore / float64(counts.han+1)
-    stats.Traditional = counts.traditionalScore / float64(counts.han+1)
+	stats.Simplified = counts.simplifiedScore / float64(counts.han+1)
+	stats.Traditional = counts.traditionalScore / float64(counts.han+1)
 
 	return stats
 }
@@ -141,17 +141,17 @@ func classifyLanguage(stats UnicodeStats, text string) string {
 	if stats.Hiragana > threshold || stats.Katakana > threshold {
 		return "Japanese"
 	}
-    if stats.Han > threshold {
-        // 简繁体中文区分：拉开敏感度，避免轻微差值误判
-        diff := stats.Traditional - stats.Simplified
-        if diff > 0.02 { // 传统特征明显更多
-            return "Chinese (Traditional)"
-        }
-        if (stats.Simplified - stats.Traditional) > 0.02 {
-            return "Chinese (Simplified)"
-        }
-        return "Chinese"
-    }
+	if stats.Han > threshold {
+		// 简繁体中文区分：拉开敏感度，避免轻微差值误判
+		diff := stats.Traditional - stats.Simplified
+		if diff > 0.02 { // 传统特征明显更多
+			return "Chinese (Traditional)"
+		}
+		if (stats.Simplified - stats.Traditional) > 0.02 {
+			return "Chinese (Simplified)"
+		}
+		return "Chinese"
+	}
 	if stats.Cyrillic > threshold {
 		return "Russian"
 	}
@@ -626,16 +626,18 @@ func isSimplifiedOnlyChar(r rune) bool { return strings.ContainsRune(simplifiedO
 
 // 倾向繁体：典型繁体差异字 或 落在扩展/兼容区（弱证据）
 func isTraditionalChar(r rune) bool {
-    if strings.ContainsRune(traditionalOnly, r) { return true }
-    if (r >= 0x3400 && r <= 0x4DBF) || // CJK扩展A
-       (r >= 0x20000 && r <= 0x2A6DF) || // 扩展B
-       (r >= 0x2A700 && r <= 0x2B73F) || // 扩展C
-       (r >= 0x2B740 && r <= 0x2B81F) || // 扩展D
-       (r >= 0x2B820 && r <= 0x2CEAF) || // 扩展E
-       (r >= 0xF900 && r <= 0xFAFF) { // 兼容汉字
-        return true
-    }
-    return false
+	if strings.ContainsRune(traditionalOnly, r) {
+		return true
+	}
+	if (r >= 0x3400 && r <= 0x4DBF) || // CJK扩展A
+		(r >= 0x20000 && r <= 0x2A6DF) || // 扩展B
+		(r >= 0x2A700 && r <= 0x2B73F) || // 扩展C
+		(r >= 0x2B740 && r <= 0x2B81F) || // 扩展D
+		(r >= 0x2B820 && r <= 0x2CEAF) || // 扩展E
+		(r >= 0xF900 && r <= 0xFAFF) { // 兼容汉字
+		return true
+	}
+	return false
 }
 
 // getLanguageCode 获取语言代码

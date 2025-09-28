@@ -1,13 +1,13 @@
 package api
 
 import (
-	"CanMe/backend/consts"
-	"CanMe/backend/core/subtitles"
-	"CanMe/backend/pkg/events"
-	"CanMe/backend/pkg/logger"
-	"CanMe/backend/pkg/websockets"
-	"CanMe/backend/types"
 	"context"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/core/subtitles"
+	"dreamcreator/backend/pkg/events"
+	"dreamcreator/backend/pkg/logger"
+	"dreamcreator/backend/pkg/websockets"
+	"dreamcreator/backend/types"
 	"fmt"
 	"os"
 	"path/filepath"

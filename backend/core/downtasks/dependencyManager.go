@@ -1,7 +1,7 @@
 package downtasks
 
 import (
-	"CanMe/backend/types"
+	"dreamcreator/backend/types"
 )
 
 // GetYTDLPPath 获取 yt-dlp 可执行文件的文件夹路径
@@ -51,16 +51,16 @@ func (s *Service) DependenciesReady() (bool, error) {
 
 // ValidateDependencies 验证所有依赖可用性
 func (s *Service) ValidateDependencies() error {
-    return s.depManager.ValidateDependencies(s.ctx)
+	return s.depManager.ValidateDependencies(s.ctx)
 }
 
 func (s *Service) RepairDependency(depType types.DependencyType) error {
-    return s.depManager.RepairDependency(s.ctx, depType)
+	return s.depManager.RepairDependency(s.ctx, depType)
 }
 
 // QuickValidateDependencies 仅快速验证本地可执行是否可用
 func (s *Service) QuickValidateDependencies() (map[types.DependencyType]*types.DependencyInfo, error) {
-    return s.depManager.QuickValidate(s.ctx)
+	return s.depManager.QuickValidate(s.ctx)
 }
 
 // executablePath 获取可执行文件的文件夹路径

@@ -1,16 +1,16 @@
 package websockets
 
 import (
-	"CanMe/backend/consts"
-	"CanMe/backend/types"
 	"context"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/types"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
-	"CanMe/backend/pkg/logger"
+	"dreamcreator/backend/pkg/logger"
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"

@@ -10,10 +10,10 @@ import (
 	"runtime"
 	"strings"
 
-	"CanMe/backend/pkg/dependencies"
-	"CanMe/backend/pkg/events"
-	"CanMe/backend/pkg/logger"
-	"CanMe/backend/types"
+	"dreamcreator/backend/pkg/dependencies"
+	"dreamcreator/backend/pkg/events"
+	"dreamcreator/backend/pkg/logger"
+	"dreamcreator/backend/types"
 
 	"go.uber.org/zap"
 )

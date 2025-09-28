@@ -1,10 +1,10 @@
 package dependencies
 
 import (
-	"CanMe/backend/consts"
-	"CanMe/backend/pkg/events"
-	"CanMe/backend/types"
 	"context"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/pkg/events"
+	"dreamcreator/backend/types"
 	"fmt"
 	"time"
 

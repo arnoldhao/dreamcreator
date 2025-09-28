@@ -1,9 +1,9 @@
 package dependencies
 
 import (
-	"CanMe/backend/pkg/proxy"
-	"CanMe/backend/types"
 	"context"
+	"dreamcreator/backend/pkg/proxy"
+	"dreamcreator/backend/types"
 	"net/http"
 )
 

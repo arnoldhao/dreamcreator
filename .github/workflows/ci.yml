@@ -87,17 +87,18 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ runner.os }}" == "macOS" ]]; then
-            wails build -platform darwin/arm64 -ldflags "-X CanMe/backend/consts.APP_VERSION=dev"
-            tar -czf CanMe_preview_mac_arm64.tgz -C build/bin "canme.app" || tar -czf CanMe_preview_mac_arm64.tgz -C build/bin "CanMe.app"
+            wails build -platform darwin/arm64 -ldflags "-X dreamcreator/backend/consts.APP_VERSION=dev"
+            tar -czf DreamCreator_preview_mac_arm64.tgz -C build/bin "dreamcreator.app" || \
+            tar -czf DreamCreator_preview_mac_arm64.tgz -C build/bin "DreamCreator.app"
           else
-            wails build -platform windows/amd64 -webview2 embed -ldflags "-X CanMe/backend/consts.APP_VERSION=dev"
-            powershell -Command "Compress-Archive build/bin/CanMe.exe CanMe_preview_win_x64.zip"
+            wails build -platform windows/amd64 -webview2 embed -ldflags "-X dreamcreator/backend/consts.APP_VERSION=dev"
+            powershell -Command "Compress-Archive build/bin/DreamCreator.exe DreamCreator_preview_win_x64.zip"
           fi
 
       - name: Upload preview artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CanMe-preview-${{ matrix.os }}
+          name: DreamCreator-preview-${{ matrix.os }}
           path: |
             *.tgz
             *.zip

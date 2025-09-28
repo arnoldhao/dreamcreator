@@ -96,14 +96,14 @@ func parseSemanticVersion(v string) (*Version, error) {
 	patchPart := parts[2]
 	var patch, suffix int
 	var hasSuffix bool
-	
+
 	if dashIndex := strings.Index(patchPart, "-"); dashIndex != -1 {
 		// 有后缀的情况
 		patch, err = strconv.Atoi(patchPart[:dashIndex])
 		if err != nil {
 			return nil, ErrInvalidVersion
 		}
-		
+
 		suffix, err = strconv.Atoi(patchPart[dashIndex+1:])
 		if err != nil {
 			return nil, ErrInvalidVersion
@@ -240,7 +240,7 @@ func (v *Version) compareSemanticVersion(other *Version) int {
 	if v.patch != other.patch {
 		return compareInt(v.patch, other.patch)
 	}
-	
+
 	// 比较后缀
 	if v.hasSuffix && other.hasSuffix {
 		// 两个都有后缀，比较后缀数字
@@ -252,7 +252,7 @@ func (v *Version) compareSemanticVersion(other *Version) int {
 		// 只有 other 有后缀，other 被认为是预发布版本，v 大于 other
 		return 1
 	}
-	
+
 	// 两个都没有后缀，版本相等
 	return 0
 }

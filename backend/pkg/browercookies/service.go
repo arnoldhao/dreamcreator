@@ -1,11 +1,11 @@
 package browercookies
 
 import (
-	"CanMe/backend/consts"
-	"CanMe/backend/pkg/logger"
-	"CanMe/backend/storage"
-	"CanMe/backend/types"
 	"context"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/pkg/logger"
+	"dreamcreator/backend/storage"
+	"dreamcreator/backend/types"
 	"errors"
 	"fmt"
 	"net/http"
@@ -17,14 +17,14 @@ import (
 	"strings"
 	"time"
 
-	"CanMe/backend/pkg/dependencies"
+	"dreamcreator/backend/pkg/dependencies"
 
 	"github.com/google/uuid"
 	"github.com/lrstanley/go-ytdlp"
 	"go.uber.org/zap"
 	"golang.org/x/net/publicsuffix"
 
-	"CanMe/backend/utils"
+	"dreamcreator/backend/utils"
 )
 
 type cookieManager struct {
@@ -57,8 +57,8 @@ func (c *cookieManager) Sync(ctx context.Context, syncFrom string, browsers []st
 	)
 
 	collections := make(map[string]*types.CookieCollection)
-	if syncFrom == "canme" {
-		return fmt.Errorf("canme cookies sync is not supported; please use yt-dlp")
+	if syncFrom == "dreamcreator" {
+		return fmt.Errorf("dreamcreator cookies sync is not supported; please use yt-dlp")
 	} else if syncFrom == "yt-dlp" {
 		collections = c.readAllBrowserCollectionsByYTDLP(ctx, browsers)
 	} else {
@@ -860,7 +860,7 @@ func (c *cookieManager) readAllBrowserCollectionsByYTDLP(ctx context.Context, br
 		)
 
 		// 遍历 profile 进行导出。成功的结果合并到同一个 CookieCollection
-		// map CanMe browser name -> yt-dlp expected name (lowercase)
+		// map dreamcreator browser name -> yt-dlp expected name (lowercase)
 		toYtDlp := func(name string) string {
 			n := strings.ToLower(strings.TrimSpace(name))
 			switch n {

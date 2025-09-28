@@ -21,7 +21,7 @@
       <template v-if="current === 'about'">
         <div class="about-wrap">
           <img :src="iconUrl" alt="app icon" class="about-icon" />
-          <div class="about-title">CanMe <span class="ver">v{{ appVersion }}</span></div>
+          <div class="about-title">{{ Project.Name }}（{{ Project.DisplayNameZh }}） <span class="ver">v{{ appVersion }}</span></div>
           <div class="about-links">
             <a href="#" @click.prevent="openWebsite" class="link-text" :title="$t('dialogue.about.official_website')">{{ $t('dialogue.about.official_website') }}</a>
           </div>

@@ -105,7 +105,7 @@ jobs:
         shell: bash
         run: |
           CGO_ENABLED=1 wails build -platform ${{ matrix.platform }} \
-          -ldflags "-X CanMe/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }}"
+          -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }}"
 
       - name: Checkout create-image
         uses: actions/checkout@v4
@@ -118,29 +118,36 @@ jobs:
         shell: bash
         working-directory: ./build
         run: |
-          mv bin/canme.app "bin/CanMe.app"
+          app_bundle=$(find bin -maxdepth 1 -type d -iname 'dreamcreator.app' | head -n1)
+          if [[ -z "$app_bundle" ]]; then
+            echo "DreamCreator.app not found" >&2
+            exit 1
+          fi
+          if [[ "$app_bundle" != "bin/DreamCreator.app" ]]; then
+            mv "$app_bundle" "bin/DreamCreator.app"
+          fi
           ./create-dmg/create-dmg \
             --skip-jenkins \
             --no-internet-enable \
-            --volname "CanMe" \
-            --volicon "bin/CanMe.app/Contents/Resources/iconfile.icns" \
+            --volname "DreamCreator" \
+            --volicon "bin/DreamCreator.app/Contents/Resources/iconfile.icns" \
             --text-size 12 \
             --window-pos 400 400 \
             --window-size 660 450 \
             --icon-size 80 \
-            --icon "CanMe.app" 180 180 \
-            --hide-extension "CanMe.app" \
+            --icon "DreamCreator.app" 180 180 \
+            --hide-extension "DreamCreator.app" \
             --app-drop-link 480 180 \
-            "bin/CanMe-${{ steps.normalise_platform.outputs.tag }}.dmg" \
+            "bin/DreamCreator-${{ steps.normalise_platform.outputs.tag }}.dmg" \
             "bin"
 
       - name: Rename dmg
         working-directory: ./build/bin
-        run: mv "CanMe-${{ steps.normalise_platform.outputs.tag }}.dmg" "CanMe_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.dmg"
+        run: mv "DreamCreator-${{ steps.normalise_platform.outputs.tag }}.dmg" "DreamCreator_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.dmg"
 
       - name: Upload release asset (DMG Package)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_info.outputs.tag_name }}
-          files: ./build/bin/CanMe_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.dmg
+          files: ./build/bin/DreamCreator_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.dmg
           token: ${{ secrets.GITHUB_TOKEN }}

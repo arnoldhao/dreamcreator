@@ -1,8 +1,8 @@
 package browercookies
 
 import (
-	"CanMe/backend/types"
 	"context"
+	"dreamcreator/backend/types"
 	"net/http"
 )
 

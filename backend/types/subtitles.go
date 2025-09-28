@@ -142,23 +142,23 @@ func (p *SubtitleProject) GetTotalDuration() time.Duration {
 // ProjectMetadata 表示字幕项目的元数据信息。
 // 包含项目的基本信息、FCPXML视频配置和可选的源文件信息。
 type ProjectMetadata struct {
-    ID          string `json:"id"`
-    Name        string `json:"name"`
-    Description string `json:"description,omitempty"`
-    CreatedAt   int64  `json:"created_at"`
-    UpdatedAt   int64  `json:"updated_at"`
-    Version     string `json:"version"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	CreatedAt   int64  `json:"created_at"`
+	UpdatedAt   int64  `json:"updated_at"`
+	Version     string `json:"version"`
 
-    // 源文件信息
-    SourceInfo *SourceFileInfo `json:"source_info,omitempty"`
-    // 导出信息
-    ExportConfigs ExportConfigs `json:"export_configs"`
+	// 源文件信息
+	SourceInfo *SourceFileInfo `json:"source_info,omitempty"`
+	// 导出信息
+	ExportConfigs ExportConfigs `json:"export_configs"`
 
-    // 关联来源（可选）：用于与下载任务建立双向关系
-    OriginTaskID string `json:"origin_task_id,omitempty"`
+	// 关联来源（可选）：用于与下载任务建立双向关系
+	OriginTaskID string `json:"origin_task_id,omitempty"`
 
-    // 原始 ITT 信息（用于高保真还原导出）
-    SourceITT *ITTSourceInfo `json:"source_itt,omitempty"`
+	// 原始 ITT 信息（用于高保真还原导出）
+	SourceITT *ITTSourceInfo `json:"source_itt,omitempty"`
 }
 
 func (v *ProjectMetadata) Validate() error {
@@ -169,25 +169,25 @@ func (v *ProjectMetadata) Validate() error {
 
 // SourceFileInfo 源文件信息（可选）
 type SourceFileInfo struct {
-    // 数值类型优先
-    FileSize    int64   `json:"file_size,omitempty"`
-    Duration    float64 `json:"duration,omitempty"`
-    OriginalFPS float64 `json:"original_fps,omitempty"`
+	// 数值类型优先
+	FileSize    int64   `json:"file_size,omitempty"`
+	Duration    float64 `json:"duration,omitempty"`
+	OriginalFPS float64 `json:"original_fps,omitempty"`
 
-    // 字符串类型
-    FileName string `json:"file_name,omitempty"`
-    FilePath string `json:"file_path,omitempty"`
-    FileExt  string `json:"file_ext,omitempty"`
-    FileDir  string `json:"file_dir,omitempty"`
+	// 字符串类型
+	FileName string `json:"file_name,omitempty"`
+	FilePath string `json:"file_path,omitempty"`
+	FileExt  string `json:"file_ext,omitempty"`
+	FileDir  string `json:"file_dir,omitempty"`
 }
 
 // ExportConfigs 导出配置集合
 type ExportConfigs struct {
-    FCPXML *FCPXMLExportConfig `json:"fcpxml,omitempty"`
-    SRT    *SRTExportConfig    `json:"srt,omitempty"`
-    ASS    *ASSExportConfig    `json:"ass,omitempty"`
-    VTT    *VTTExportConfig    `json:"vtt,omitempty"`
-    ITT    *ITTExportConfig    `json:"itt,omitempty"`
+	FCPXML *FCPXMLExportConfig `json:"fcpxml,omitempty"`
+	SRT    *SRTExportConfig    `json:"srt,omitempty"`
+	ASS    *ASSExportConfig    `json:"ass,omitempty"`
+	VTT    *VTTExportConfig    `json:"vtt,omitempty"`
+	ITT    *ITTExportConfig    `json:"itt,omitempty"`
 }
 
 // FCPXMLExportConfig FCPXML导出配置（包含视频参数）
@@ -308,50 +308,50 @@ type ASSExportConfig struct {
 
 // VTTExportConfig VTT导出配置
 type VTTExportConfig struct {
-    Kind     string `json:"kind,omitempty"`     // 字幕类型
-    Language string `json:"language,omitempty"` // 语言代码
+	Kind     string `json:"kind,omitempty"`     // 字幕类型
+	Language string `json:"language,omitempty"` // 语言代码
 }
 
 // ITTExportConfig iTunes Timed Text (TTML subset) 导出配置
 type ITTExportConfig struct {
-    FrameRate float64 `json:"frame_rate,omitempty"`
-    Language  string  `json:"language,omitempty"`
-    // 可选：覆盖/指定 ITT 头部参数（若不设置，导出时回退到 SourceITT 或默认）
-    TimeBase   string        `json:"time_base,omitempty"`
-    DropMode   string        `json:"drop_mode,omitempty"`
-    Multiplier IttMultiplier `json:"frame_rate_multiplier,omitempty"`
+	FrameRate float64 `json:"frame_rate,omitempty"`
+	Language  string  `json:"language,omitempty"`
+	// 可选：覆盖/指定 ITT 头部参数（若不设置，导出时回退到 SourceITT 或默认）
+	TimeBase   string        `json:"time_base,omitempty"`
+	DropMode   string        `json:"drop_mode,omitempty"`
+	Multiplier IttMultiplier `json:"frame_rate_multiplier,omitempty"`
 }
 
 // IttMultiplier 表示 ttp:frameRateMultiplier 中的分子与分母
 type IttMultiplier struct {
-    Num int `json:"num,omitempty"`
-    Den int `json:"den,omitempty"`
+	Num int `json:"num,omitempty"`
+	Den int `json:"den,omitempty"`
 }
 
 // ITTSourceInfo 保存导入 ITT 的关键信息，便于高保真回写
 type ITTSourceInfo struct {
-    XmlLang    string        `json:"xml_lang,omitempty"`
-    TimeBase   string        `json:"time_base,omitempty"`
-    FrameRate  float64       `json:"frame_rate,omitempty"`
-    Multiplier IttMultiplier `json:"frame_rate_multiplier,omitempty"`
-    DropMode   string        `json:"drop_mode,omitempty"`
+	XmlLang    string        `json:"xml_lang,omitempty"`
+	TimeBase   string        `json:"time_base,omitempty"`
+	FrameRate  float64       `json:"frame_rate,omitempty"`
+	Multiplier IttMultiplier `json:"frame_rate_multiplier,omitempty"`
+	DropMode   string        `json:"drop_mode,omitempty"`
 
-    Regions      []ITTRegion     `json:"regions,omitempty"`
-    BodyDefaults ITTBodyDefaults `json:"body_defaults,omitempty"`
+	Regions      []ITTRegion     `json:"regions,omitempty"`
+	BodyDefaults ITTBodyDefaults `json:"body_defaults,omitempty"`
 }
 
 type ITTRegion struct {
-    ID             string `json:"id"`
-    Origin         string `json:"origin,omitempty"`
-    Extent         string `json:"extent,omitempty"`
-    DisplayAlign   string `json:"display_align,omitempty"`
-    WritingMode    string `json:"writing_mode,omitempty"`
+	ID           string `json:"id"`
+	Origin       string `json:"origin,omitempty"`
+	Extent       string `json:"extent,omitempty"`
+	DisplayAlign string `json:"display_align,omitempty"`
+	WritingMode  string `json:"writing_mode,omitempty"`
 }
 
 type ITTBodyDefaults struct {
-    Region string `json:"region,omitempty"`
-    Style  string `json:"style,omitempty"`
-    Color  string `json:"color,omitempty"`
+	Region string `json:"region,omitempty"`
+	Style  string `json:"style,omitempty"`
+	Color  string `json:"color,omitempty"`
 }
 
 // Style 表示字幕文本的样式
@@ -492,11 +492,11 @@ func (s *SubtitleSegment) GetText(langCode string) string {
 
 // LanguageContent 语言内容
 type LanguageContent struct {
-    Text              string             `json:"text"`
-    SubtitleGuideline *SubtitleGuideline `json:"subtitle_guideline"` // 字幕指南
-    Style             *Style             `json:"style"`
-    StyleID           string             `json:"style_id,omitempty"`
-    RegionID          string             `json:"region_id,omitempty"`
+	Text              string             `json:"text"`
+	SubtitleGuideline *SubtitleGuideline `json:"subtitle_guideline"` // 字幕指南
+	Style             *Style             `json:"style"`
+	StyleID           string             `json:"style_id,omitempty"`
+	RegionID          string             `json:"region_id,omitempty"`
 }
 
 type SubtitleGuideline struct {

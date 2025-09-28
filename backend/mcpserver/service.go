@@ -1,10 +1,10 @@
 package mcpserver
 
 import (
-	"CanMe/backend/consts"
-	"CanMe/backend/core/downtasks"
-	"CanMe/backend/pkg/logger"
 	"context"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/core/downtasks"
+	"dreamcreator/backend/pkg/logger"
 	"fmt"
 
 	"github.com/mark3labs/mcp-go/server"

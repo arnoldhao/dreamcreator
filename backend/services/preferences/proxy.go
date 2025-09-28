@@ -1,11 +1,11 @@
 package preferences
 
 import (
-    "CanMe/backend/pkg/logger"
-    "CanMe/backend/pkg/proxy"
-    "CanMe/backend/types"
-    "fmt"
-    "go.uber.org/zap"
+	"dreamcreator/backend/pkg/logger"
+	"dreamcreator/backend/pkg/proxy"
+	"dreamcreator/backend/types"
+	"fmt"
+	"go.uber.org/zap"
 )
 
 // 代理配置变更回调函数类型
@@ -90,57 +90,57 @@ func (s *Service) GetProxyConfig() (resp types.JSResp) {
 // CheckAndUpdateProxy 检查并更新代理配置
 // 这个方法应该在应用启动时调用，以确保代理配置正确初始化
 func (s *Service) CheckAndUpdateProxy() {
-    resp := s.GetProxyConfig()
-    if resp.Success && resp.Data != nil {
-        config, ok := resp.Data.(*proxy.Config)
-        if ok && config != nil {
-            logger.Info("initializing proxy config")
-            // 应用代理配置
-            s.applyProxyConfig(config)
-            // 触发回调
-            s.triggerProxyChangedCallbacks(config)
-        }
-    }
+	resp := s.GetProxyConfig()
+	if resp.Success && resp.Data != nil {
+		config, ok := resp.Data.(*proxy.Config)
+		if ok && config != nil {
+			logger.Info("initializing proxy config")
+			// 应用代理配置
+			s.applyProxyConfig(config)
+			// 触发回调
+			s.triggerProxyChangedCallbacks(config)
+		}
+	}
 }
 
 // applyProxyConfig 应用代理配置到系统
 // 这个方法封装了对底层代理实现的调用，使服务层和存储层解耦
 func (s *Service) applyProxyConfig(config *proxy.Config) {
 	// 检查代理客户端是否已设置
-    if s.proxyManager == nil {
-        logger.Warn("proxy client not set, cannot apply proxy config")
-        return
-    }
+	if s.proxyManager == nil {
+		logger.Warn("proxy client not set, cannot apply proxy config")
+		return
+	}
 
-    switch config.Type {
-    case "none":
-        if err := s.proxyManager.DisableProxy(); err != nil {
-            logger.Error("disable proxy failed", zap.Error(err))
-        } else {
-            logger.Info("proxy disabled")
-        }
-    case "system":
-        if err := s.proxyManager.UpdateSystemProxy(); err != nil {
-            logger.Error("enable system proxy failed", zap.Error(err))
-        } else {
-            logger.Info("using system proxy")
-        }
-    case "manual":
-        if config.ProxyAddress == "" {
-            logger.Warn("manual proxy requested but address is empty")
-            return
-        }
-        if err := s.proxyManager.SetManualProxy(config.ProxyAddress); err != nil {
-            logger.Error("set manual proxy failed", zap.String("proxy", config.ProxyAddress), zap.Error(err))
-        } else {
-            logger.Info("proxy set", zap.String("proxy", config.ProxyAddress))
-        }
-    default:
-        // 回退为禁用
-        if err := s.proxyManager.DisableProxy(); err != nil {
-            logger.Error("fallback disable proxy failed", zap.Error(err))
-        } else {
-            logger.Info("proxy disabled (fallback)")
-        }
-    }
+	switch config.Type {
+	case "none":
+		if err := s.proxyManager.DisableProxy(); err != nil {
+			logger.Error("disable proxy failed", zap.Error(err))
+		} else {
+			logger.Info("proxy disabled")
+		}
+	case "system":
+		if err := s.proxyManager.UpdateSystemProxy(); err != nil {
+			logger.Error("enable system proxy failed", zap.Error(err))
+		} else {
+			logger.Info("using system proxy")
+		}
+	case "manual":
+		if config.ProxyAddress == "" {
+			logger.Warn("manual proxy requested but address is empty")
+			return
+		}
+		if err := s.proxyManager.SetManualProxy(config.ProxyAddress); err != nil {
+			logger.Error("set manual proxy failed", zap.String("proxy", config.ProxyAddress), zap.Error(err))
+		} else {
+			logger.Info("proxy set", zap.String("proxy", config.ProxyAddress))
+		}
+	default:
+		// 回退为禁用
+		if err := s.proxyManager.DisableProxy(); err != nil {
+			logger.Error("fallback disable proxy failed", zap.Error(err))
+		} else {
+			logger.Info("proxy disabled (fallback)")
+		}
+	}
 }

@@ -127,17 +127,17 @@ jobs:
         run: |
           CGO_ENABLED=1 wails build -clean -platform ${{ matrix.platform }} \
           -webview2 embed \
-          -ldflags "-X CanMe/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }}"
+          -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }}"
 
       - name: Compress portable binary
         working-directory: ./build/bin
-        run: Compress-Archive "CanMe.exe" "CanMe_Portable_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.zip"
+        run: Compress-Archive "DreamCreator.exe" "DreamCreator_Portable_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.zip"
 
       - name: Upload release asset (Portable)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_info.outputs.tag_name }}
-          files: ./build/bin/CanMe_Portable_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.zip
+          files: ./build/bin/DreamCreator_Portable_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.zip
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Windows NSIS installer
@@ -145,7 +145,7 @@ jobs:
         run: |
           CGO_ENABLED=1 wails build -clean -platform ${{ matrix.platform }} \
           -nsis -webview2 embed \
-          -ldflags "-X CanMe/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }}"
+          -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }}"
 
       # - name: Codesign Windows NSIS installer
       #   working-directory: ./build/bin
@@ -154,16 +154,16 @@ jobs:
       #     New-Item -ItemType directory -Path certificate
       #     Set-Content -Path certificate\certificate.txt -Value '${{ secrets.WIN_SIGNING_CERT }}'
       #     certutil -decode certificate\certificate.txt certificate\certificate.pfx
-      #     echo "Signing CanMe installer"
-      #     & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /fd sha256 /tr http://ts.ssl.com /f certificate\certificate.pfx /p '${{ secrets.WIN_SIGNING_CERT_PASSWORD }}' CanMe-${{ steps.normalise_platform_name.outputs.pname }}-installer.exe
+      #     echo "Signing DreamCreator installer"
+      #     & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /fd sha256 /tr http://ts.ssl.com /f certificate\certificate.pfx /p '${{ secrets.WIN_SIGNING_CERT_PASSWORD }}' DreamCreator-${{ steps.normalise_platform_name.outputs.pname }}-installer.exe
 
       - name: Rename installer
         working-directory: ./build/bin
-        run: Rename-Item -Path "CanMe-${{ steps.normalise_platform_name.outputs.pname }}-installer.exe" -NewName "CanMe_Setup_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.exe"
+        run: Rename-Item -Path "DreamCreator-${{ steps.normalise_platform_name.outputs.pname }}-installer.exe" -NewName "DreamCreator_Setup_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.exe"
 
       - name: Upload release asset (Installer)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_info.outputs.tag_name }}
-          files: ./build/bin/CanMe_Setup_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.exe
+          files: ./build/bin/DreamCreator_Setup_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.exe
           token: ${{ secrets.GITHUB_TOKEN }}

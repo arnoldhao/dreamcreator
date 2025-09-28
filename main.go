@@ -1,22 +1,22 @@
 package main
 
 import (
-	"CanMe/backend/api"
-	"CanMe/backend/consts"
-	"CanMe/backend/core/downtasks"
-	"CanMe/backend/core/imageproxies"
-	"CanMe/backend/core/subtitles"
-	"CanMe/backend/mcpserver"
-	"CanMe/backend/pkg/downinfo"
-	"CanMe/backend/pkg/events"
-	"CanMe/backend/pkg/logger"
-	"CanMe/backend/pkg/proxy"
-	"CanMe/backend/pkg/websockets"
-	"CanMe/backend/services/preferences"
-	"CanMe/backend/services/systems"
-	"CanMe/backend/storage"
-	"CanMe/backend/utils"
 	"context"
+	"dreamcreator/backend/api"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/core/downtasks"
+	"dreamcreator/backend/core/imageproxies"
+	"dreamcreator/backend/core/subtitles"
+	"dreamcreator/backend/mcpserver"
+	"dreamcreator/backend/pkg/downinfo"
+	"dreamcreator/backend/pkg/events"
+	"dreamcreator/backend/pkg/logger"
+	"dreamcreator/backend/pkg/proxy"
+	"dreamcreator/backend/pkg/websockets"
+	"dreamcreator/backend/services/preferences"
+	"dreamcreator/backend/services/systems"
+	"dreamcreator/backend/storage"
+	"dreamcreator/backend/utils"
 	"embed"
 	"fmt"
 	"runtime"
@@ -36,7 +36,7 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-//go:embed build/appicon.png
+//go:embed frontend/src/assets/images/icon.png
 var icon []byte
 
 func main() {
@@ -46,7 +46,7 @@ func main() {
 
 	// log
 	defer logger.GetLogger().Sync()
-	logger.Info("CanMe Start!", zap.String("Version", consts.APP_VERSION), zap.Time("now", time.Now()))
+	logger.Info("dreamcreator Start!", zap.String("Version", consts.APP_VERSION), zap.Time("now", time.Now()))
 
 	// bolt storage
 	boltStorage, err := storage.NewBoltStorage()
