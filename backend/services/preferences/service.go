@@ -1,19 +1,19 @@
 package preferences
 
 import (
-    "CanMe/backend/consts"
-    "CanMe/backend/pkg/downinfo"
-    "CanMe/backend/pkg/logger"
-    "CanMe/backend/pkg/proxy"
-    "CanMe/backend/storage"
-    "CanMe/backend/types"
-    "context"
-    "encoding/json"
-    "net/http"
-    "os"
-    "reflect"
-    "strings"
-    "sync"
+	"context"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/pkg/downinfo"
+	"dreamcreator/backend/pkg/logger"
+	"dreamcreator/backend/pkg/proxy"
+	"dreamcreator/backend/storage"
+	"dreamcreator/backend/types"
+	"encoding/json"
+	"net/http"
+	"os"
+	"reflect"
+	"strings"
+	"sync"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"go.uber.org/zap"
@@ -42,9 +42,9 @@ func New() *Service {
 
 			// 初始化日志系统
 			pref := preferences.pref.GetPreferences()
-            if err := logger.InitLogger(&pref.Logger); err != nil {
-                logger.Error("初始化日志系统失败", zap.Error(err))
-            }
+			if err := logger.InitLogger(&pref.Logger); err != nil {
+				logger.Error("初始化日志系统失败", zap.Error(err))
+			}
 
 			// 初始化其他全局配置
 			preferences.updateDownloadConfig()
@@ -85,28 +85,28 @@ func (p *Service) GetPreferences() (resp types.JSResp) {
 }
 
 func (p *Service) SetPreferences(pf types.Preferences) (resp types.JSResp) {
-    // Detect logger config change before saving
-    old := p.pref.GetPreferences()
-    loggerChanged := !reflect.DeepEqual(old.Logger, pf.Logger)
+	// Detect logger config change before saving
+	old := p.pref.GetPreferences()
+	loggerChanged := !reflect.DeepEqual(old.Logger, pf.Logger)
 
-    err := p.pref.SetPreferences(&pf)
-    if err != nil {
-        resp.Msg = err.Error()
-        return
-    }
+	err := p.pref.SetPreferences(&pf)
+	if err != nil {
+		resp.Msg = err.Error()
+		return
+	}
 
-    p.UpdateEnv()
-    p.UpdateGlobalConfig()
-    // Best-effort: re-init logger if logger config changed, but don't fail the entire save
-    if loggerChanged {
-        if err := logger.InitLogger(&pf.Logger); err != nil {
-            logger.Error("Failed to apply logger config on SetPreferences", zap.Error(err))
-        } else {
-            logger.Info("Logger config applied via SetPreferences", zap.Any("config", pf.Logger))
-        }
-    }
-    resp.Success = true
-    return
+	p.UpdateEnv()
+	p.UpdateGlobalConfig()
+	// Best-effort: re-init logger if logger config changed, but don't fail the entire save
+	if loggerChanged {
+		if err := logger.InitLogger(&pf.Logger); err != nil {
+			logger.Error("Failed to apply logger config on SetPreferences", zap.Error(err))
+		} else {
+			logger.Info("Logger config applied via SetPreferences", zap.Any("config", pf.Logger))
+		}
+	}
+	resp.Success = true
+	return
 }
 
 func (p *Service) UpdatePreferences(value map[string]any) (resp types.JSResp) {

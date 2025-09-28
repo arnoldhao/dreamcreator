@@ -88,8 +88,8 @@ func InitLogger(cfg *Config) error {
 	}
 
 	if cfg.EnableFile {
-		fileEncoder := zapcore.NewJSONEncoder(encoderConfig) // 文件通常使用JSON格式
-		logFile := filepath.Join(cfg.Directory, "canme.log") // 日志文件名
+		fileEncoder := zapcore.NewJSONEncoder(encoderConfig)        // 文件通常使用JSON格式
+		logFile := filepath.Join(cfg.Directory, "dreamcreator.log") // 日志文件名
 		writer := &lumberjack.Logger{
 			Filename:   logFile,
 			MaxSize:    cfg.MaxSize,

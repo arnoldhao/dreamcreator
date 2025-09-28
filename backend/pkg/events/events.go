@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"CanMe/backend/pkg/logger"
+	"dreamcreator/backend/pkg/logger"
 
 	"go.uber.org/zap"
 )
@@ -190,10 +190,10 @@ func (eb *eventBus) Publish(ctx context.Context, event Event) error {
 			continue
 		}
 
-        if err := eb.handleWithRetry(ctx, wrapper.handler, event); err != nil {
-            logger.Error("Failed to handle event", zap.String("event_id", event.GetID()), zap.Error(err))
-            // 继续处理其他处理器，不因一个失败而中断
-        }
+		if err := eb.handleWithRetry(ctx, wrapper.handler, event); err != nil {
+			logger.Error("Failed to handle event", zap.String("event_id", event.GetID()), zap.Error(err))
+			// 继续处理其他处理器，不因一个失败而中断
+		}
 	}
 
 	return nil
@@ -201,11 +201,11 @@ func (eb *eventBus) Publish(ctx context.Context, event Event) error {
 
 // PublishAsync 异步发布事件
 func (eb *eventBus) PublishAsync(ctx context.Context, event Event) {
-    go func() {
-        if err := eb.Publish(ctx, event); err != nil {
-            logger.Error("Async event publish failed", zap.String("event_id", event.GetID()), zap.Error(err))
-        }
-    }()
+	go func() {
+		if err := eb.Publish(ctx, event); err != nil {
+			logger.Error("Async event publish failed", zap.String("event_id", event.GetID()), zap.Error(err))
+		}
+	}()
 }
 
 // handleWithRetry 带重试的事件处理

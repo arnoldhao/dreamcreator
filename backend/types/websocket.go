@@ -1,7 +1,7 @@
 package types
 
 import (
-	"CanMe/backend/consts"
+	"dreamcreator/backend/consts"
 )
 
 type WSRequest struct {

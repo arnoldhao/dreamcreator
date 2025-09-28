@@ -1,4 +1,4 @@
-module CanMe
+module dreamcreator
 
 go 1.24.0
 

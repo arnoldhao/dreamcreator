@@ -1,8 +1,8 @@
 package browercookies
 
 import (
-	"CanMe/backend/types"
 	"context"
+	"dreamcreator/backend/types"
 )
 
 // GetYTDLPPath 获取 yt-dlp 可执行文件的文件夹路径

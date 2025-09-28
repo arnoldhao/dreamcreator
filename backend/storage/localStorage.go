@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"CanMe/backend/consts"
+	"dreamcreator/backend/consts"
 	"github.com/vrischmann/userdir"
 	"os"
 	"path"

@@ -1,10 +1,10 @@
 package systems
 
 import (
-	"CanMe/backend/consts"
-	"CanMe/backend/services/preferences"
-	"CanMe/backend/types"
 	"context"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/services/preferences"
+	"dreamcreator/backend/types"
 	"os"
 	"os/exec"
 	"runtime"

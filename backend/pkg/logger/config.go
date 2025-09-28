@@ -33,7 +33,7 @@ func DefaultConfig() *Config {
 	}
 	return &Config{
 		Level:         "info",
-		Directory:     filepath.Join(homeDir, ".canme/logs"), // 使用绝对路径
+		Directory:     filepath.Join(homeDir, ".dreamcreator/logs"), // 使用绝对路径
 		EnableConsole: true,
 		EnableFile:    true,
 		MaxSize:       10,   // 10MB

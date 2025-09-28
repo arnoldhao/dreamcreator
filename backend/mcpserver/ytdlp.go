@@ -1,9 +1,9 @@
 package mcpserver
 
 import (
-	"CanMe/backend/consts"
-	"CanMe/backend/types"
 	"context"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/types"
 	"fmt"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -77,21 +77,21 @@ func (s *Service) downloadStatusHandler(ctx context.Context, request mcp.CallToo
 		return nil, fmt.Errorf("task_id is required")
 	}
 
-    // 查询任务状态
-    status, err := s.downtask.GetTaskStatus(taskID)
-    if err != nil {
-        return nil, fmt.Errorf("failed to get task status for ID %s: %v", taskID, err)
-    }
+	// 查询任务状态
+	status, err := s.downtask.GetTaskStatus(taskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get task status for ID %s: %v", taskID, err)
+	}
 
-    // 将状态信息转换为字符串返回给 LLM
-    if status == nil {
-        return mcp.NewToolResultText(fmt.Sprintf("No status found for task %s", taskID)), nil
-    }
+	// 将状态信息转换为字符串返回给 LLM
+	if status == nil {
+		return mcp.NewToolResultText(fmt.Sprintf("No status found for task %s", taskID)), nil
+	}
 
-    var statusString string
-    if status.Error != "" {
-        statusString = fmt.Sprintf("Task %s failed. Error: %s", taskID, status.Error)
-    }
+	var statusString string
+	if status.Error != "" {
+		statusString = fmt.Sprintf("Task %s failed. Error: %s", taskID, status.Error)
+	}
 
 	switch status.Stage {
 	case types.DtStageInitializing:
@@ -110,7 +110,7 @@ func (s *Service) downloadStatusHandler(ctx context.Context, request mcp.CallToo
 		statusString = fmt.Sprintf("Unknown stage for task %s", taskID)
 	}
 
-    return mcp.NewToolResultText(statusString), nil
+	return mcp.NewToolResultText(statusString), nil
 }
 
 func (s *Service) listDownloadTasks() mcp.Tool {

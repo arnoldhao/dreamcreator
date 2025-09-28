@@ -1,8 +1,8 @@
 package storage
 
 import (
-	"CanMe/backend/consts"
-	"CanMe/backend/types"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/types"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -40,7 +40,7 @@ func NewBoltStorage() (*BoltStorage, error) {
 	}
 
 	// 创建应用数据目录
-	dbDir := filepath.Join(configDir, "CanMe")
+	dbDir := filepath.Join(configDir, "dreamcreator")
 	if err := os.MkdirAll(dbDir, 0755); err != nil {
 		return nil, err
 	}

@@ -512,7 +512,7 @@ watch(debouncedQuery, (q) => {
 .icon-ghost { width: 28px; height: 28px; display:inline-flex; align-items:center; justify-content:center; border-radius: 6px; border: 1px solid var(--macos-separator); background: var(--macos-background); color: var(--macos-text-secondary); }
 .ops .icon-tonal { width: 28px; height: 28px; display:inline-flex; align-items:center; justify-content:center; border-radius: 6px; border: 1px solid var(--macos-separator); background: var(--macos-background); color: var(--macos-text-secondary); }
 .ops .icon-tonal.yt { border-color: var(--macos-blue); color: var(--macos-blue); background: color-mix(in oklab, var(--macos-blue) 10%, transparent); }
-/* removed canme button styling */
+/* removed dreamcreator button styling */
 .header-meta .icon-tonal { width: 28px; height: 28px; display:inline-flex; align-items:center; justify-content:center; border-radius: 6px; border: 1px solid var(--macos-separator); background: var(--macos-background); color: var(--macos-text-secondary); margin-left: 8px; }
 .syncing-indicator { display:flex; align-items:center; gap: 6px; color: var(--macos-text-secondary); white-space: nowrap; word-break: keep-all; flex-wrap: nowrap; }
 .syncing-text { font-size: var(--fs-sub); white-space: nowrap; }

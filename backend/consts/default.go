@@ -1,9 +1,9 @@
 package consts
 
 // App Info
-const APP_NAME = "CanMe"
-const APP_DESC = "CanMe is a comprehensive multilingual video download manager with a fluid user experience and powerful content processing capabilities.\n\nCopyright 2025"
-const BBOLT_DB_NAME = "canme.db"
+const APP_NAME = "dreamcreator"
+const APP_DESC = "dreamcreator is a comprehensive multilingual video download manager with a fluid user experience and powerful content processing capabilities.\n\nCopyright 2025"
+const BBOLT_DB_NAME = "dreamcreator.db"
 
 var APP_VERSION = "dev"
 
@@ -17,7 +17,7 @@ const MIN_WINDOW_WIDTH = 900
 const MIN_WINDOW_HEIGHT = 600
 
 // App Upgrade URL
-const CHECK_UPDATE_URL = "https://api.github.com/repos/arnoldhao/canme/releases/latest"
+const CHECK_UPDATE_URL = "https://api.github.com/repos/arnoldhao/dreamcreator/releases/latest"
 
 // Task
 const (

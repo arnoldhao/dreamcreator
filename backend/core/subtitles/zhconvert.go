@@ -1,11 +1,11 @@
 package subtitles
 
 import (
-	"CanMe/backend/consts"
-	"CanMe/backend/pkg/events"
-	"CanMe/backend/pkg/logger"
-	"CanMe/backend/pkg/zhconvert"
-	"CanMe/backend/types"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/pkg/events"
+	"dreamcreator/backend/pkg/logger"
+	"dreamcreator/backend/pkg/zhconvert"
+	"dreamcreator/backend/types"
 	"errors"
 	"fmt"
 	"time"
@@ -130,7 +130,7 @@ func (s *Service) ZHConvertSubtitle(id string, origin, converterString string) e
 		// zhconvert
 		convertedSubs, err := s.zhConverter.ConvertMultiple(originSubs, converter)
 		if err != nil {
-            logger.Info("zhconvert failed", zap.Error(err))
+			logger.Info("zhconvert failed", zap.Error(err))
 			// 保存转换失败的元数据
 			s.handleSubtitleChange(sub, converter, err)
 			// return

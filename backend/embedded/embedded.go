@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"runtime"
 
-	"CanMe/backend/consts"
-	"CanMe/backend/types"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/types"
 )
 
 //go:embed binaries/*

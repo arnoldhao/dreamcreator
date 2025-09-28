@@ -3,12 +3,13 @@
  * @enum {number}
  */
 export const Project = {
-    Name: 'CanMe',
+    Name: 'DreamCreator',
+    DisplayNameZh: '追创作',
     Email: 'xunruhao@gmail.com',
-    Twitter:'https://twitter.com/ArnoldHaoCA',
-    Github: 'https://github.com/arnoldhao/CanMe',
-    OfficialWebsite: 'https://canme.dreamapp.cc',
-    HelpURLEn: 'https://canme.dreamapp.cc/zh/guide/privacy.html',
-    HelpURLZh: 'https://canme.dreamapp.cc/guide/privacy.html',
+    Twitter: 'https://twitter.com/ArnoldHaoCA',
+    Github: 'https://github.com/arnoldhao/dreamcreator',
+    OfficialWebsite: 'https://dreamapp.cc/products/dreamcreator',
+    HelpURLEn: 'https://dreamapp.cc/docs/dreamcreator',
+    HelpURLZh: 'https://dreamapp.cc/zh-CN/docs/dreamcreator',
     ZHConvert: 'https://zhconvert.org',
 }

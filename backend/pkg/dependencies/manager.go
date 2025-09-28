@@ -13,13 +13,13 @@ import (
 	"sync"
 	"time"
 
-	"CanMe/backend/embedded"
-	"CanMe/backend/pkg/events"
-	"CanMe/backend/pkg/logger"
-	"CanMe/backend/pkg/proxy"
-	"CanMe/backend/storage"
-	"CanMe/backend/types"
-	"CanMe/backend/utils"
+	"dreamcreator/backend/embedded"
+	"dreamcreator/backend/pkg/events"
+	"dreamcreator/backend/pkg/logger"
+	"dreamcreator/backend/pkg/proxy"
+	"dreamcreator/backend/storage"
+	"dreamcreator/backend/types"
+	"dreamcreator/backend/utils"
 
 	"go.uber.org/zap"
 )
@@ -598,7 +598,7 @@ func persistentDepsRoot() string {
 	if err != nil || base == "" {
 		base = os.TempDir()
 	}
-	root := filepath.Join(base, "CanMe", "deps")
+	root := filepath.Join(base, "dreamcreator", "deps")
 	_ = os.MkdirAll(root, 0o755)
 	return root
 }

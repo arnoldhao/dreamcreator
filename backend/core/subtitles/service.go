@@ -1,11 +1,11 @@
 package subtitles
 
 import (
-	"CanMe/backend/pkg/events"
-	"CanMe/backend/pkg/proxy"
-	"CanMe/backend/pkg/zhconvert"
-	"CanMe/backend/storage"
-	"CanMe/backend/types"
+	"dreamcreator/backend/pkg/events"
+	"dreamcreator/backend/pkg/proxy"
+	"dreamcreator/backend/pkg/zhconvert"
+	"dreamcreator/backend/storage"
+	"dreamcreator/backend/types"
 
 	"context"
 	"fmt"
@@ -209,27 +209,27 @@ func (s *Service) GetSubtitle(id string) (*types.SubtitleProject, error) {
 // FindSubtitleBySourcePath scans existing projects and returns the one whose
 // metadata.source_info.file_path matches the given absolute path.
 func (s *Service) FindSubtitleBySourcePath(filePath string) (*types.SubtitleProject, error) {
-    if s.boltStorage == nil {
-        return nil, s.handleError("find subtitle by path", fmt.Errorf("bolt storage is nil"))
-    }
-    if strings.TrimSpace(filePath) == "" {
-        return nil, s.handleError("find subtitle by path", fmt.Errorf("file path is empty"))
-    }
-    subs, err := s.boltStorage.ListSubtitles()
-    if err != nil {
-        return nil, s.handleError("find subtitle by path", err)
-    }
-    // normalize compare
-    norm := func(p string) string { return strings.ReplaceAll(strings.TrimSpace(p), "\\", "/") }
-    target := norm(filePath)
-    for _, p := range subs {
-        if p != nil && p.Metadata.SourceInfo != nil {
-            if norm(p.Metadata.SourceInfo.FilePath) == target {
-                return p, nil
-            }
-        }
-    }
-    return nil, fmt.Errorf("not found")
+	if s.boltStorage == nil {
+		return nil, s.handleError("find subtitle by path", fmt.Errorf("bolt storage is nil"))
+	}
+	if strings.TrimSpace(filePath) == "" {
+		return nil, s.handleError("find subtitle by path", fmt.Errorf("file path is empty"))
+	}
+	subs, err := s.boltStorage.ListSubtitles()
+	if err != nil {
+		return nil, s.handleError("find subtitle by path", err)
+	}
+	// normalize compare
+	norm := func(p string) string { return strings.ReplaceAll(strings.TrimSpace(p), "\\", "/") }
+	target := norm(filePath)
+	for _, p := range subs {
+		if p != nil && p.Metadata.SourceInfo != nil {
+			if norm(p.Metadata.SourceInfo.FilePath) == target {
+				return p, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("not found")
 }
 
 func (s *Service) DeleteSubtitle(id string) error {
@@ -324,57 +324,79 @@ func (s *Service) UpdateProjectMetadata(id string, metadata types.ProjectMetadat
 		return nil, s.handleError("update project metadata", fmt.Errorf("bolt storage is nil"))
 	}
 
-    project, err := s.boltStorage.GetSubtitle(id)
-    if err != nil {
-        return nil, s.handleError("update project metadata", err)
-    }
-    // Normalize/validate export configs similar to FCPXML path
-    if metadata.ExportConfigs.FCPXML != nil {
-        if metadata.ExportConfigs.FCPXML.ProjectName == "" {
-            pn := project.Metadata.Name
-            if pn == "" { pn = project.ProjectName }
-            metadata.ExportConfigs.FCPXML.ProjectName = pn
-        }
-        if err := metadata.ExportConfigs.FCPXML.Validate(); err != nil {
-            return nil, s.handleError("update project metadata", fmt.Errorf("invalid FCPXML config: %w", err))
-        }
-        metadata.ExportConfigs.FCPXML.AutoFill()
-    }
-    if metadata.ExportConfigs.ASS != nil {
-        if metadata.ExportConfigs.ASS.Title == "" {
-            tn := project.Metadata.Name
-            if tn == "" { tn = project.ProjectName }
-            metadata.ExportConfigs.ASS.Title = tn
-        }
-        if (metadata.ExportConfigs.ASS.PlayResX == 0 || metadata.ExportConfigs.ASS.PlayResY == 0) && metadata.ExportConfigs.FCPXML != nil {
-            if metadata.ExportConfigs.FCPXML.Width > 0 { metadata.ExportConfigs.ASS.PlayResX = metadata.ExportConfigs.FCPXML.Width }
-            if metadata.ExportConfigs.FCPXML.Height > 0 { metadata.ExportConfigs.ASS.PlayResY = metadata.ExportConfigs.FCPXML.Height }
-        }
-        if metadata.ExportConfigs.ASS.PlayResX == 0 { metadata.ExportConfigs.ASS.PlayResX = 1920 }
-        if metadata.ExportConfigs.ASS.PlayResY == 0 { metadata.ExportConfigs.ASS.PlayResY = 1080 }
-    }
-    if metadata.ExportConfigs.VTT != nil {
-        if metadata.ExportConfigs.VTT.Kind == "" { metadata.ExportConfigs.VTT.Kind = "subtitles" }
-        if metadata.ExportConfigs.VTT.Language == "" {
-            codes := project.GetLanguageCodes()
-            if len(codes) > 0 { metadata.ExportConfigs.VTT.Language = codes[0] } else { metadata.ExportConfigs.VTT.Language = "en-US" }
-        }
-    }
-    if metadata.ExportConfigs.ITT != nil {
-        if metadata.ExportConfigs.ITT.FrameRate <= 0 {
-            if metadata.ExportConfigs.FCPXML != nil && metadata.ExportConfigs.FCPXML.FrameRate > 0 {
-                metadata.ExportConfigs.ITT.FrameRate = metadata.ExportConfigs.FCPXML.FrameRate
-            } else {
-                metadata.ExportConfigs.ITT.FrameRate = 25
-            }
-        }
-        if strings.TrimSpace(metadata.ExportConfigs.ITT.Language) == "" {
-            codes := project.GetLanguageCodes()
-            if len(codes) > 0 { metadata.ExportConfigs.ITT.Language = codes[0] } else { metadata.ExportConfigs.ITT.Language = "en-US" }
-        }
-    }
+	project, err := s.boltStorage.GetSubtitle(id)
+	if err != nil {
+		return nil, s.handleError("update project metadata", err)
+	}
+	// Normalize/validate export configs similar to FCPXML path
+	if metadata.ExportConfigs.FCPXML != nil {
+		if metadata.ExportConfigs.FCPXML.ProjectName == "" {
+			pn := project.Metadata.Name
+			if pn == "" {
+				pn = project.ProjectName
+			}
+			metadata.ExportConfigs.FCPXML.ProjectName = pn
+		}
+		if err := metadata.ExportConfigs.FCPXML.Validate(); err != nil {
+			return nil, s.handleError("update project metadata", fmt.Errorf("invalid FCPXML config: %w", err))
+		}
+		metadata.ExportConfigs.FCPXML.AutoFill()
+	}
+	if metadata.ExportConfigs.ASS != nil {
+		if metadata.ExportConfigs.ASS.Title == "" {
+			tn := project.Metadata.Name
+			if tn == "" {
+				tn = project.ProjectName
+			}
+			metadata.ExportConfigs.ASS.Title = tn
+		}
+		if (metadata.ExportConfigs.ASS.PlayResX == 0 || metadata.ExportConfigs.ASS.PlayResY == 0) && metadata.ExportConfigs.FCPXML != nil {
+			if metadata.ExportConfigs.FCPXML.Width > 0 {
+				metadata.ExportConfigs.ASS.PlayResX = metadata.ExportConfigs.FCPXML.Width
+			}
+			if metadata.ExportConfigs.FCPXML.Height > 0 {
+				metadata.ExportConfigs.ASS.PlayResY = metadata.ExportConfigs.FCPXML.Height
+			}
+		}
+		if metadata.ExportConfigs.ASS.PlayResX == 0 {
+			metadata.ExportConfigs.ASS.PlayResX = 1920
+		}
+		if metadata.ExportConfigs.ASS.PlayResY == 0 {
+			metadata.ExportConfigs.ASS.PlayResY = 1080
+		}
+	}
+	if metadata.ExportConfigs.VTT != nil {
+		if metadata.ExportConfigs.VTT.Kind == "" {
+			metadata.ExportConfigs.VTT.Kind = "subtitles"
+		}
+		if metadata.ExportConfigs.VTT.Language == "" {
+			codes := project.GetLanguageCodes()
+			if len(codes) > 0 {
+				metadata.ExportConfigs.VTT.Language = codes[0]
+			} else {
+				metadata.ExportConfigs.VTT.Language = "en-US"
+			}
+		}
+	}
+	if metadata.ExportConfigs.ITT != nil {
+		if metadata.ExportConfigs.ITT.FrameRate <= 0 {
+			if metadata.ExportConfigs.FCPXML != nil && metadata.ExportConfigs.FCPXML.FrameRate > 0 {
+				metadata.ExportConfigs.ITT.FrameRate = metadata.ExportConfigs.FCPXML.FrameRate
+			} else {
+				metadata.ExportConfigs.ITT.FrameRate = 25
+			}
+		}
+		if strings.TrimSpace(metadata.ExportConfigs.ITT.Language) == "" {
+			codes := project.GetLanguageCodes()
+			if len(codes) > 0 {
+				metadata.ExportConfigs.ITT.Language = codes[0]
+			} else {
+				metadata.ExportConfigs.ITT.Language = "en-US"
+			}
+		}
+	}
 
-    project.Metadata = metadata
+	project.Metadata = metadata
 	err = s.boltStorage.SaveSubtitle(project)
 	if err != nil {
 		return nil, s.handleError("update project metadata", err)

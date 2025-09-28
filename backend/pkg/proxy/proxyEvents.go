@@ -1,7 +1,7 @@
 package proxy
 
 import (
-	"CanMe/backend/pkg/events"
+	"dreamcreator/backend/pkg/events"
 	"time"
 
 	"github.com/google/uuid"
