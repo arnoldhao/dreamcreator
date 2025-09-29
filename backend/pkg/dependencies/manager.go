@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"dreamcreator/backend/consts"
 	"dreamcreator/backend/embedded"
 	"dreamcreator/backend/pkg/events"
 	"dreamcreator/backend/pkg/logger"
@@ -598,7 +599,7 @@ func persistentDepsRoot() string {
 	if err != nil || base == "" {
 		base = os.TempDir()
 	}
-	root := filepath.Join(base, "dreamcreator", "deps")
+	root := filepath.Join(base, consts.AppDataDirName(), "deps")
 	_ = os.MkdirAll(root, 0o755)
 	return root
 }

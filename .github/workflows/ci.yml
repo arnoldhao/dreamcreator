@@ -53,20 +53,33 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
-        with: { go-version: '1.24' }
+        with: { go-version: '1.24.0' }
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.1
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with: { node-version: '23.1.0' }
+
+      - name: Determine build metadata
+        id: meta
+        shell: bash
+        run: |
+          version=dev
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            echo "platform=darwin/amd64" >> "$GITHUB_OUTPUT"
+            echo "platform_tag=mac_intel" >> "$GITHUB_OUTPUT"
+            echo "artifact=build/bin/DreamCreator_${version}_mac_intel.dmg" >> "$GITHUB_OUTPUT"
+            echo "artifact_name=DreamCreator-preview-macos" >> "$GITHUB_OUTPUT"
+          else
+            echo "platform=windows/amd64" >> "$GITHUB_OUTPUT"
+            echo "platform_tag=windows_x64" >> "$GITHUB_OUTPUT"
+            echo "artifact=build/bin/Dream Creator Portable_${version}_windows_x64.zip" >> "$GITHUB_OUTPUT"
+            echo "artifact_name=DreamCreator-preview-windows" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Prepare embedded binaries
         shell: bash
-        run: |
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            ./scripts/fetch-embedded-binaries.sh --platform darwin/arm64
-          else
-            ./scripts/fetch-embedded-binaries.sh --platform windows/amd64
-          fi
+        run: ./scripts/fetch-embedded-binaries.sh --platform "${{ steps.meta.outputs.platform }}"
 
       - name: Ensure frontend dist placeholder
         run: |
@@ -82,24 +95,95 @@ jobs:
           npm ci
           npm run build
 
-      # 预览包不从 tag 注入版本，这里统一用 dev（只做功能体验）
-      - name: Build app (preview)
+      - name: Build macOS app bundle
+        if: matrix.os == 'macos-latest'
         shell: bash
         run: |
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            wails build -platform darwin/arm64 -ldflags "-X dreamcreator/backend/consts.APP_VERSION=dev"
-            tar -czf DreamCreator_preview_mac_arm64.tgz -C build/bin "dreamcreator.app" || \
-            tar -czf DreamCreator_preview_mac_arm64.tgz -C build/bin "DreamCreator.app"
-          else
-            wails build -platform windows/amd64 -webview2 embed -ldflags "-X dreamcreator/backend/consts.APP_VERSION=dev"
-            powershell -Command "Compress-Archive build/bin/DreamCreator.exe DreamCreator_preview_win_x64.zip"
+          CGO_ENABLED=1 wails build -clean -platform "${{ steps.meta.outputs.platform }}" \
+            -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.meta.outputs.version }}"
+
+      - name: Normalise macOS app name
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_bundle=$(find build/bin -maxdepth 1 -type d -iname 'dreamcreator.app' | head -n1)
+          if [[ -z "$app_bundle" ]]; then
+            echo "DreamCreator.app not found in build/bin" >&2
+            exit 1
           fi
+          if [[ "$app_bundle" != "build/bin/DreamCreator.app" ]]; then
+            mv "$app_bundle" build/bin/DreamCreator.app
+          fi
+
+      - name: Checkout create-dmg
+        if: matrix.os == 'macos-latest'
+        uses: actions/checkout@v4
+        with:
+          repository: create-dmg/create-dmg
+          path: ./build/create-dmg
+          ref: master
+
+      - name: Build macOS preview DMG
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        working-directory: ./build
+        run: |
+          set -euo pipefail
+          dmg_name="DreamCreator_${{ steps.meta.outputs.version }}_${{ steps.meta.outputs.platform_tag }}.dmg"
+          rm -f "bin/$dmg_name"
+          ./create-dmg/create-dmg \
+            --skip-jenkins \
+            --no-internet-enable \
+            --volname "DreamCreator" \
+            --volicon "bin/DreamCreator.app/Contents/Resources/iconfile.icns" \
+            --text-size 12 \
+            --window-pos 400 400 \
+            --window-size 660 450 \
+            --icon-size 80 \
+            --icon "DreamCreator.app" 180 180 \
+            --hide-extension "DreamCreator.app" \
+            --app-drop-link 480 180 \
+            "bin/$dmg_name" \
+            "bin"
+
+      - name: Build Windows portable app
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          CGO_ENABLED=1 wails build -clean -platform "${{ steps.meta.outputs.platform }}" \
+            -webview2 embed \
+            -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.meta.outputs.version }}"
+
+      - name: Prepare Windows portable package
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        working-directory: ./build/bin
+        run: |
+          if (-not (Test-Path "DreamCreator.exe")) {
+            Write-Error "DreamCreator.exe not found in build/bin"
+          }
+          if (Test-Path "Dream Creator") {
+            Remove-Item -Recurse -Force "Dream Creator"
+          }
+          Rename-Item -Path "DreamCreator.exe" -NewName "Dream Creator.exe"
+          New-Item -ItemType Directory -Name "Dream Creator" | Out-Null
+          Move-Item -Path "Dream Creator.exe" -Destination "Dream Creator/"
+
+      - name: Compress Windows portable package
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        working-directory: ./build/bin
+        run: |
+          $zipName = "Dream Creator Portable_${{ steps.meta.outputs.version }}_${{ steps.meta.outputs.platform_tag }}.zip"
+          if (Test-Path $zipName) {
+            Remove-Item -Force $zipName
+          }
+          Compress-Archive -Path "Dream Creator" -DestinationPath $zipName -Force
 
       - name: Upload preview artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DreamCreator-preview-${{ matrix.os }}
-          path: |
-            *.tgz
-            *.zip
-          if-no-files-found: ignore
+          name: ${{ steps.meta.outputs.artifact_name }}
+          path: ${{ steps.meta.outputs.artifact }}
+          if-no-files-found: error

@@ -321,7 +321,7 @@ func (s *Service) newCommand(enbaledFFMpeg bool, cookiesFile string) (*ytdlp.Com
 
 	// set temp dir: prefer fast system temp to avoid slow I/O (e.g., iCloud/AV scanning in Downloads)
 	sysTmp := os.TempDir()
-	tmpPath := filepath.Join(sysTmp, "dreamcreator")
+	tmpPath := filepath.Join(sysTmp, consts.AppDataDirName())
 	var effectiveTmp string
 	if err := os.MkdirAll(tmpPath, 0o755); err == nil {
 		effectiveTmp = tmpPath
@@ -361,7 +361,7 @@ func (s *Service) newCommand(enbaledFFMpeg bool, cookiesFile string) (*ytdlp.Com
 // tempDir returns the preferred temporary directory for transient files.
 func (s *Service) tempDir() (string, error) {
 	sysTmp := os.TempDir()
-	tmpPath := filepath.Join(sysTmp, "dreamcreator")
+	tmpPath := filepath.Join(sysTmp, consts.AppDataDirName())
 	if err := os.MkdirAll(tmpPath, 0o755); err == nil {
 		return tmpPath, nil
 	}

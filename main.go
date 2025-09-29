@@ -148,7 +148,7 @@ func main() {
 	}
 
 	err = wails.Run(&options.App{
-		Title:                    consts.APP_NAME,
+		Title:                    consts.AppDisplayName(),
 		Width:                    windowWidth,
 		Height:                   windowHeight,
 		MinWidth:                 consts.MIN_WINDOW_WIDTH,
@@ -228,7 +228,7 @@ func main() {
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarHiddenInset(),
 			About: &mac.AboutInfo{
-				Title:   fmt.Sprintf("%s %s", consts.APP_NAME, consts.APP_VERSION),
+				Title:   fmt.Sprintf("%s %s", consts.AppDisplayName(), consts.APP_VERSION),
 				Message: consts.APP_DESC,
 				Icon:    icon,
 			},
@@ -238,7 +238,7 @@ func main() {
 			WindowIsTranslucent:  true,
 		},
 		Linux: &linux.Options{
-			ProgramName:         consts.APP_NAME,
+			ProgramName:         consts.AppDisplayName(),
 			Icon:                icon,
 			WebviewGpuPolicy:    linux.WebviewGpuPolicyOnDemand,
 			WindowIsTranslucent: true,

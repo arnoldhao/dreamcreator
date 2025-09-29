@@ -3,6 +3,8 @@ package providers
 import (
 	"os"
 	"path/filepath"
+
+	"dreamcreator/backend/consts"
 )
 
 // persistentDepsRoot returns a per-user persistent directory to store dependency binaries.
@@ -16,7 +18,7 @@ func persistentDepsRoot() string {
 		// fallback to temp dir if config dir is not available
 		base = os.TempDir()
 	}
-	root := filepath.Join(base, "dreamcreator", "deps")
+	root := filepath.Join(base, consts.AppDataDirName(), "deps")
 	_ = os.MkdirAll(root, 0o755)
 	return root
 }

@@ -40,7 +40,7 @@ func NewBoltStorage() (*BoltStorage, error) {
 	}
 
 	// 创建应用数据目录
-	dbDir := filepath.Join(configDir, "dreamcreator")
+	dbDir := filepath.Join(configDir, consts.AppDataDirName())
 	if err := os.MkdirAll(dbDir, 0755); err != nil {
 		return nil, err
 	}

@@ -20,7 +20,7 @@ type Service struct {
 func NewService(downtask *downtasks.Service) *Service {
 	// Create MCP server
 	s := server.NewMCPServer(
-		consts.APP_NAME,
+		consts.AppDisplayName(),
 		consts.APP_VERSION,
 	)
 	return &Service{

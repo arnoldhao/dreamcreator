@@ -1,8 +1,10 @@
 package consts
 
 // App Info
-const APP_NAME = "dreamcreator"
-const APP_DESC = "dreamcreator is a comprehensive multilingual video download manager with a fluid user experience and powerful content processing capabilities.\n\nCopyright 2025"
+const APP_NAME = "DreamCreator"
+const APP_NAME_WINDOWS = "Dream Creator"
+const APP_ID = "dreamcreator"
+const APP_DESC = "DreamCreator is a comprehensive multilingual video download manager with a fluid user experience and powerful content processing capabilities.\n\nCopyright 2025"
 const BBOLT_DB_NAME = "dreamcreator.db"
 
 var APP_VERSION = "dev"

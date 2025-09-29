@@ -3,6 +3,9 @@ package logger
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+
+	"dreamcreator/backend/consts"
 )
 
 // Config 日志配置
@@ -31,9 +34,19 @@ func DefaultConfig() *Config {
 	if err != nil {
 		homeDir = "."
 	}
+	var directory string
+	if runtime.GOOS == "windows" {
+		cfgDir, cfgErr := os.UserConfigDir()
+		if cfgErr != nil || cfgDir == "" {
+			cfgDir = homeDir
+		}
+		directory = filepath.Join(cfgDir, consts.AppDataDirName(), "logs")
+	} else {
+		directory = filepath.Join(homeDir, "."+consts.APP_ID, "logs")
+	}
 	return &Config{
 		Level:         "info",
-		Directory:     filepath.Join(homeDir, ".dreamcreator/logs"), // 使用绝对路径
+		Directory:     directory, // 使用绝对路径
 		EnableConsole: true,
 		EnableFile:    true,
 		MaxSize:       10,   // 10MB

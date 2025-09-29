@@ -129,15 +129,27 @@ jobs:
           -webview2 embed \
           -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }}"
 
+      - name: Prepare portable package
+        working-directory: ./build/bin
+        shell: pwsh
+        run: |
+          Rename-Item -Path "DreamCreator.exe" -NewName "Dream Creator.exe"
+          if (Test-Path "Dream Creator") {
+            Remove-Item -Path "Dream Creator" -Recurse -Force
+          }
+          New-Item -ItemType Directory -Name "Dream Creator" | Out-Null
+          Move-Item -Path "Dream Creator.exe" -Destination "Dream Creator/"
+
       - name: Compress portable binary
         working-directory: ./build/bin
-        run: Compress-Archive "DreamCreator.exe" "DreamCreator_Portable_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.zip"
+        shell: pwsh
+        run: Compress-Archive "Dream Creator" "Dream Creator Portable_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.zip"
 
       - name: Upload release asset (Portable)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_info.outputs.tag_name }}
-          files: ./build/bin/DreamCreator_Portable_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.zip
+          files: "./build/bin/Dream Creator Portable_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.zip"
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Windows NSIS installer
@@ -159,11 +171,13 @@ jobs:
 
       - name: Rename installer
         working-directory: ./build/bin
-        run: Rename-Item -Path "DreamCreator-${{ steps.normalise_platform_name.outputs.pname }}-installer.exe" -NewName "DreamCreator_Setup_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.exe"
+        shell: pwsh
+        run: |
+          Rename-Item -Path "DreamCreator-${{ steps.normalise_platform_name.outputs.pname }}-installer.exe" -NewName "Dream Creator Setup_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.exe"
 
       - name: Upload release asset (Installer)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_info.outputs.tag_name }}
-          files: ./build/bin/DreamCreator_Setup_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.exe
+          files: "./build/bin/Dream Creator Setup_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.exe"
           token: ${{ secrets.GITHUB_TOKEN }}

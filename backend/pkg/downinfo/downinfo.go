@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+
+	"dreamcreator/backend/consts"
 )
 
 // Config 下载配置
@@ -100,5 +102,5 @@ func (c *Client) GetDir() string {
 
 // GetDownloadDirWithDreamcreator 获取带有 dreamcreator 子目录的下载路径
 func (c *Client) GetDownloadDirWithDreamcreator() string {
-	return filepath.Join(c.GetDir(), "dreamcreator")
+	return filepath.Join(c.GetDir(), consts.AppDataDirName())
 }
