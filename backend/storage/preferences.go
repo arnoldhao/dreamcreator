@@ -5,11 +5,13 @@ import (
 	"dreamcreator/backend/pkg/logger"
 	"dreamcreator/backend/types"
 	"fmt"
-	"go.uber.org/zap"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
 
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
@@ -34,12 +36,16 @@ func (p *PreferencesStorage) getPreferences() (ret types.Preferences) {
 	ret = p.DefaultPreferences()
 	b, err := p.storage.Load()
 	if err != nil {
+		ensureTelemetryDefaults(&ret)
+		if os.IsNotExist(err) {
+			// Persist defaults so subsequent loads use the same client ID.
+			_ = p.savePreferences(&ret)
+		}
 		return
 	}
 
 	if err = yaml.Unmarshal(b, &ret); err != nil {
 		ret = p.DefaultPreferences()
-		return
 	}
 
 	// 如果 logger 配置为空，使用默认配置
@@ -69,6 +75,10 @@ func (p *PreferencesStorage) getPreferences() (ret types.Preferences) {
 			ret.General.Theme = "blue"
 			migrated = true
 		}
+	}
+
+	if ensureTelemetryDefaults(&ret) {
+		migrated = true
 	}
 
 	if migrated {
@@ -162,10 +172,22 @@ func (p *PreferencesStorage) RestoreDefault() types.Preferences {
 	defer p.mutex.Unlock()
 
 	pf := p.DefaultPreferences()
+	ensureTelemetryDefaults(&pf)
 	p.savePreferences(&pf)
 	return pf
 }
 
 func (p *PreferencesStorage) ConfigPath() string {
 	return p.storage.ConfPath
+}
+
+func ensureTelemetryDefaults(pref *types.Preferences) bool {
+	if strings.TrimSpace(pref.Telemetry.ClientID) == "" {
+		pref.Telemetry.ClientID = uuid.NewString()
+		if !pref.Telemetry.Enabled {
+			pref.Telemetry.Enabled = true
+		}
+		return true
+	}
+	return false
 }

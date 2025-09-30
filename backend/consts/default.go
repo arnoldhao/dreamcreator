@@ -9,6 +9,11 @@ const BBOLT_DB_NAME = "dreamcreator.db"
 
 var APP_VERSION = "dev"
 
+// Telemetry defaults are injected at build time via -ldflags. They remain empty in dev
+// builds unless explicitly overridden during compilation.
+var TelemetryAppID = ""
+var TelemetryEndpoint = ""
+
 // App Config File
 const PREFERENCES_FILE_NAME = "preferences.yaml"
 

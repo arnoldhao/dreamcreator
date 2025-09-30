@@ -10,6 +10,7 @@
     "sync-icons": "node scripts/sync-open-symbols.mjs"
   },
   "dependencies": {
+    "@telemetrydeck/sdk": "^2.0.4",
     "dayjs": "^1.11.13",
     "lodash": "^4.17.21",
     "mitt": "^3.0.1",

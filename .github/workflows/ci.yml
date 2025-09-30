@@ -49,6 +49,9 @@ jobs:
     strategy:
       matrix: { os: [macos-latest, windows-latest] }
     runs-on: ${{ matrix.os }}
+    env:
+      TELEMETRYDECK_APP_ID: ${{ secrets.TELEMETRYDECK_APP_ID }}
+      TELEMETRYDECK_ENDPOINT: ${{ secrets.TELEMETRYDECK_ENDPOINT }}
     steps:
       - uses: actions/checkout@v4
 
@@ -100,7 +103,7 @@ jobs:
         shell: bash
         run: |
           CGO_ENABLED=1 wails build -clean -platform "${{ steps.meta.outputs.platform }}" \
-            -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.meta.outputs.version }}"
+            -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.meta.outputs.version }} -X dreamcreator/backend/consts.TelemetryAppID=${TELEMETRYDECK_APP_ID} -X dreamcreator/backend/consts.TelemetryEndpoint=${TELEMETRYDECK_ENDPOINT}"
 
       - name: Normalise macOS app name
         if: matrix.os == 'macos-latest'
@@ -153,7 +156,7 @@ jobs:
         run: |
           CGO_ENABLED=1 wails build -clean -platform "${{ steps.meta.outputs.platform }}" \
             -webview2 embed \
-            -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.meta.outputs.version }}"
+            -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.meta.outputs.version }} -X dreamcreator/backend/consts.TelemetryAppID=${TELEMETRYDECK_APP_ID} -X dreamcreator/backend/consts.TelemetryEndpoint=${TELEMETRYDECK_ENDPOINT}"
 
       - name: Prepare Windows portable package
         if: matrix.os == 'windows-latest'

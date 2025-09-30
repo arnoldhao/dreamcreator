@@ -12,6 +12,9 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+    env:
+      TELEMETRYDECK_APP_ID: ${{ secrets.TELEMETRYDECK_APP_ID }}
+      TELEMETRYDECK_ENDPOINT: ${{ secrets.TELEMETRYDECK_ENDPOINT }}
     strategy:
       matrix:
         platform:
@@ -127,7 +130,7 @@ jobs:
         run: |
           CGO_ENABLED=1 wails build -clean -platform ${{ matrix.platform }} \
           -webview2 embed \
-          -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }}"
+          -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }} -X dreamcreator/backend/consts.TelemetryAppID=${TELEMETRYDECK_APP_ID} -X dreamcreator/backend/consts.TelemetryEndpoint=${TELEMETRYDECK_ENDPOINT}"
 
       - name: Prepare portable package
         working-directory: ./build/bin
@@ -157,7 +160,7 @@ jobs:
         run: |
           CGO_ENABLED=1 wails build -clean -platform ${{ matrix.platform }} \
           -nsis -webview2 embed \
-          -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }}"
+          -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }} -X dreamcreator/backend/consts.TelemetryAppID=${TELEMETRYDECK_APP_ID} -X dreamcreator/backend/consts.TelemetryEndpoint=${TELEMETRYDECK_ENDPOINT}"
 
       # - name: Codesign Windows NSIS installer
       #   working-directory: ./build/bin

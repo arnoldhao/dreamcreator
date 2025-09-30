@@ -2,18 +2,19 @@ package preferences
 
 import (
 	"context"
-	"dreamcreator/backend/consts"
-	"dreamcreator/backend/pkg/downinfo"
-	"dreamcreator/backend/pkg/logger"
-	"dreamcreator/backend/pkg/proxy"
-	"dreamcreator/backend/storage"
-	"dreamcreator/backend/types"
 	"encoding/json"
 	"net/http"
 	"os"
 	"reflect"
 	"strings"
 	"sync"
+
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/pkg/downinfo"
+	"dreamcreator/backend/pkg/logger"
+	"dreamcreator/backend/pkg/proxy"
+	"dreamcreator/backend/storage"
+	"dreamcreator/backend/types"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"go.uber.org/zap"
@@ -79,12 +80,21 @@ func (p *Service) SetContext(ctx context.Context) {
 }
 
 func (p *Service) GetPreferences() (resp types.JSResp) {
-	resp.Data = p.pref.GetPreferences()
+	pref := p.pref.GetPreferences()
+	pref.Telemetry.AppID = telemetryAppID()
+	pref.Telemetry.Endpoint = telemetryEndpoint()
+	pref.Telemetry.Version = p.clientVersion
+	resp.Data = pref
 	resp.Success = true
 	return
 }
 
 func (p *Service) SetPreferences(pf types.Preferences) (resp types.JSResp) {
+	// Prevent transient fields from being persisted
+	pf.Telemetry.AppID = ""
+	pf.Telemetry.Endpoint = ""
+	pf.Telemetry.Version = ""
+
 	// Detect logger config change before saving
 	old := p.pref.GetPreferences()
 	loggerChanged := !reflect.DeepEqual(old.Logger, pf.Logger)
@@ -96,6 +106,7 @@ func (p *Service) SetPreferences(pf types.Preferences) (resp types.JSResp) {
 	}
 
 	p.UpdateEnv()
+
 	p.UpdateGlobalConfig()
 	// Best-effort: re-init logger if logger config changed, but don't fail the entire save
 	if loggerChanged {
@@ -105,6 +116,7 @@ func (p *Service) SetPreferences(pf types.Preferences) (resp types.JSResp) {
 			logger.Info("Logger config applied via SetPreferences", zap.Any("config", pf.Logger))
 		}
 	}
+
 	resp.Success = true
 	return
 }
@@ -121,6 +133,9 @@ func (p *Service) UpdatePreferences(value map[string]any) (resp types.JSResp) {
 
 func (p *Service) RestorePreferences() (resp types.JSResp) {
 	defaultPref := p.pref.RestoreDefault()
+	defaultPref.Telemetry.AppID = telemetryAppID()
+	defaultPref.Telemetry.Endpoint = telemetryEndpoint()
+	defaultPref.Telemetry.Version = p.clientVersion
 	resp.Data = map[string]any{
 		"pref": defaultPref,
 	}
@@ -257,6 +272,26 @@ func (p *Service) updateDownloadConfig() {
 			p.downloadClient.SetDir(downloadDir)
 		}
 	}
+}
+
+func telemetryAppID() string {
+	if appID := strings.TrimSpace(os.Getenv("TELEMETRYDECK_APP_ID")); appID != "" {
+		return appID
+	}
+	if appID := strings.TrimSpace(os.Getenv("TELEMETRY_APP_ID")); appID != "" {
+		return appID
+	}
+	return strings.TrimSpace(consts.TelemetryAppID)
+}
+
+func telemetryEndpoint() string {
+	if endpoint := strings.TrimSpace(os.Getenv("TELEMETRYDECK_ENDPOINT")); endpoint != "" {
+		return endpoint
+	}
+	if endpoint := strings.TrimSpace(os.Getenv("TELEMETRY_ENDPOINT")); endpoint != "" {
+		return endpoint
+	}
+	return strings.TrimSpace(consts.TelemetryEndpoint)
 }
 
 // UpdateGlobalConfig 更新全局配置（不包括日志配置）

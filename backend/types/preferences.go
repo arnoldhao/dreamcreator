@@ -8,12 +8,13 @@ import (
 )
 
 type Preferences struct {
-	Behavior    PreferencesBehavior `json:"behavior" yaml:"behavior"`
-	General     PreferencesGeneral  `json:"general" yaml:"general"`
-	Proxy       proxy.Config        `json:"proxy" yaml:"proxy"`
-	Download    downinfo.Config     `json:"download" yaml:"download"`
-	Logger      logger.Config       `json:"logger" yaml:"logger"`
-	ListendInfo ListendInfo         `json:"listendInfo" yaml:"listend_info"`
+	Behavior    PreferencesBehavior  `json:"behavior" yaml:"behavior"`
+	General     PreferencesGeneral   `json:"general" yaml:"general"`
+	Proxy       proxy.Config         `json:"proxy" yaml:"proxy"`
+	Download    downinfo.Config      `json:"download" yaml:"download"`
+	Logger      logger.Config        `json:"logger" yaml:"logger"`
+	ListendInfo ListendInfo          `json:"listendInfo" yaml:"listend_info"`
+	Telemetry   TelemetryPreferences `json:"telemetry" yaml:"telemetry"`
 }
 
 func NewPreferences() Preferences {
@@ -37,6 +38,9 @@ func NewPreferences() Preferences {
 		},
 		Logger:      *logger.DefaultConfig(),
 		ListendInfo: DefaultListendInfo(),
+		Telemetry: TelemetryPreferences{
+			Enabled: true,
+		},
 	}
 }
 
@@ -59,6 +63,14 @@ type PreferencesGeneral struct {
 	Language    string `json:"language" yaml:"language"`
 	CheckUpdate bool   `json:"checkUpdate" yaml:"check_update"`
 	SkipVersion string `json:"skipVersion" yaml:"skip_version,omitempty"`
+}
+
+type TelemetryPreferences struct {
+	Enabled  bool   `json:"enabled" yaml:"enabled"`
+	ClientID string `json:"clientId" yaml:"client_id"`
+	AppID    string `json:"appId,omitempty" yaml:"-"`
+	Endpoint string `json:"endpoint,omitempty" yaml:"-"`
+	Version  string `json:"version,omitempty" yaml:"-"`
 }
 
 type ListendInfo struct {

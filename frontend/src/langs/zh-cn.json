@@ -257,7 +257,8 @@
     "about": {
       "title": "关于我们",
       "changelog": "更新日志",
-      "auto_check_update": "启动时自动检查更新"
+      "auto_check_update": "启动时自动检查更新",
+      "telemetry_opt_in": "允许匿名使用统计"
     },
     "acknowledgments": "致谢",
     "dependency": {

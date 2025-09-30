@@ -12,6 +12,9 @@ jobs:
     runs-on: macos-latest
     permissions:
       contents: write
+    env:
+      TELEMETRYDECK_APP_ID: ${{ secrets.TELEMETRYDECK_APP_ID }}
+      TELEMETRYDECK_ENDPOINT: ${{ secrets.TELEMETRYDECK_ENDPOINT }}
     strategy:
       matrix:
         platform:
@@ -105,7 +108,7 @@ jobs:
         shell: bash
         run: |
           CGO_ENABLED=1 wails build -platform ${{ matrix.platform }} \
-          -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }}"
+          -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.normalise_version.outputs.version }} -X dreamcreator/backend/consts.TelemetryAppID=${TELEMETRYDECK_APP_ID} -X dreamcreator/backend/consts.TelemetryEndpoint=${TELEMETRYDECK_ENDPOINT}"
 
       - name: Checkout create-image
         uses: actions/checkout@v4
