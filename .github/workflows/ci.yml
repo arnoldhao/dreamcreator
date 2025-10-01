@@ -142,6 +142,7 @@ jobs:
           mv tmp.json package.json
 
       - name: Build frontend
+        shell: bash
         working-directory: frontend
         run: |
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
