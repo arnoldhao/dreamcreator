@@ -15,6 +15,8 @@ jobs:
     env:
       TELEMETRYDECK_APP_ID: ${{ secrets.TELEMETRYDECK_APP_ID }}
       TELEMETRYDECK_ENDPOINT: ${{ secrets.TELEMETRYDECK_ENDPOINT }}
+      WINDOWS_APP_ID: DreamCreator
+      WINDOWS_APP_NAME: Dream Creator
     strategy:
       matrix:
         platform:
@@ -136,17 +138,33 @@ jobs:
         working-directory: ./build/bin
         shell: pwsh
         run: |
-          Rename-Item -Path "DreamCreator.exe" -NewName "Dream Creator.exe"
-          if (Test-Path "Dream Creator") {
-            Remove-Item -Path "Dream Creator" -Recurse -Force
+          $sourceExe = "${env:WINDOWS_APP_ID}.exe"
+          $targetExe = "${env:WINDOWS_APP_NAME}.exe"
+          if (Test-Path $targetExe) {
+            Write-Host "Executable already renamed: $targetExe"
+          } elseif (Test-Path $sourceExe) {
+            Rename-Item -Path $sourceExe -NewName $targetExe
+          } else {
+            throw "Expected $sourceExe or $targetExe in $(Get-Location), but neither was found."
           }
-          New-Item -ItemType Directory -Name "Dream Creator" | Out-Null
-          Move-Item -Path "Dream Creator.exe" -Destination "Dream Creator/"
+
+          $targetDir = "${env:WINDOWS_APP_NAME}"
+          if (Test-Path $targetDir) {
+            Remove-Item -Path $targetDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Name $targetDir | Out-Null
+          Move-Item -Path $targetExe -Destination $targetDir
 
       - name: Compress portable binary
         working-directory: ./build/bin
         shell: pwsh
-        run: Compress-Archive "Dream Creator" "Dream Creator Portable_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.zip"
+        run: |
+          $folder = "${env:WINDOWS_APP_NAME}"
+          $destination = "$folder Portable_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.zip"
+          if (-not (Test-Path $folder)) {
+            throw "Expected portable folder '$folder' was not found in $(Get-Location)."
+          }
+          Compress-Archive -Path $folder -DestinationPath $destination -Force
 
       - name: Upload release asset (Portable)
         uses: softprops/action-gh-release@v2
@@ -176,7 +194,22 @@ jobs:
         working-directory: ./build/bin
         shell: pwsh
         run: |
-          Rename-Item -Path "DreamCreator-${{ steps.normalise_platform_name.outputs.pname }}-installer.exe" -NewName "Dream Creator Setup_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.exe"
+          $defaultInstaller = "${env:WINDOWS_APP_ID}-${{ steps.normalise_platform_name.outputs.pname }}-installer.exe"
+          $altInstaller = "${env:WINDOWS_APP_NAME}-${{ steps.normalise_platform_name.outputs.pname }}-installer.exe"
+          $targetInstaller = "${env:WINDOWS_APP_NAME} Setup_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.exe"
+
+          if (Test-Path $targetInstaller) {
+            Write-Host "Installer already renamed: $targetInstaller"
+            return
+          }
+
+          if (Test-Path $defaultInstaller) {
+            Rename-Item -Path $defaultInstaller -NewName $targetInstaller
+          } elseif (Test-Path $altInstaller) {
+            Rename-Item -Path $altInstaller -NewName $targetInstaller
+          } else {
+            throw "Installer not found. Expected '$defaultInstaller' or '$altInstaller' in $(Get-Location)."
+          }
 
       - name: Upload release asset (Installer)
         uses: softprops/action-gh-release@v2
