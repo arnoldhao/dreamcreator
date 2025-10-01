@@ -1,11 +1,11 @@
 package proxy
 
 import (
-    "CanMe/backend/pkg/events"
-    "context"
-    "net/http"
-    "net/url"
-    "sync"
+	"context"
+	"dreamcreator/backend/pkg/events"
+	"net/http"
+	"net/url"
+	"sync"
 )
 
 // Manager 代理管理器 - 统一的对外接口
@@ -39,28 +39,28 @@ func (m *Manager) GetHTTPClient() *http.Client {
 
 // GetProxyString 获取代理字符串
 func (m *Manager) GetProxyString() string {
-    m.mu.RLock()
-    defer m.mu.RUnlock()
-    return m.client.getProxyString()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.client.getProxyString()
 }
 
 // ResolveProxy 返回给定原始 URL 将要使用的代理地址（字符串形式）。
 // 若返回空字符串，表示直连。
 func (m *Manager) ResolveProxy(rawurl string) (string, error) {
-    u, err := url.Parse(rawurl)
-    if err != nil {
-        return "", err
-    }
-    m.mu.RLock()
-    defer m.mu.RUnlock()
-    // 使用与 http.Transport 相同的 Proxy 解析逻辑
-    f := m.client.proxyFunc()
-    ru := &http.Request{URL: u}
-    p, err := f(ru)
-    if err != nil || p == nil {
-        return "", err
-    }
-    return p.String(), nil
+	u, err := url.Parse(rawurl)
+	if err != nil {
+		return "", err
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	// 使用与 http.Transport 相同的 Proxy 解析逻辑
+	f := m.client.proxyFunc()
+	ru := &http.Request{URL: u}
+	p, err := f(ru)
+	if err != nil || p == nil {
+		return "", err
+	}
+	return p.String(), nil
 }
 
 // GetConfig 获取当前配置

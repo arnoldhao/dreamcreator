@@ -18,7 +18,11 @@
             </div>
             <div class="sr-control control-short dep-actions">
               <template v-if="dep.available">
-                <button v-if="dep.needUpdate && !dep.installing" @click="showMirrorSelector(key, 'update')" class="btn-glass">
+                <button
+                  v-if="dep.needUpdate && !dep.installing"
+                  @click="showMirrorSelector(key, 'update')"
+                  class="btn-glass btn-primary"
+                >
                   <Icon name="arrow-left-right" class="w-4 h-4 mr-1" /> {{ $t('settings.dependency.update') }}
                 </button>
                 <button v-else-if="dep.installing" class="btn-glass" disabled>
@@ -59,45 +63,54 @@
         </div>
       </div>
     </div>
-    </div>
 
     <!-- 镜像选择模态框 -->
-    <div v-if="showMirrorModal" class="macos-modal" @click="closeMirrorModal">
-            <div class="modal-macos" @click.stop>
-                <div class="modal-header">
-                    <h3>{{ $t('settings.dependency.select_mirror') }}</h3>
-                    <button @click="closeMirrorModal" class="icon-glass" title="Close">
-                        <Icon class="w-4 h-4" name="close"></Icon>
-                    </button>
-                </div>
+    <div v-if="showMirrorModal" class="macos-modal" @click.self="closeMirrorModal">
+      <div class="modal-card mirror-modal" role="dialog" aria-modal="true">
+        <div class="modal-header sheet">
+          <ModalTrafficLights @close="closeMirrorModal" />
+          <div class="title-area">
+            <div class="title-text">{{ $t('settings.dependency.select_mirror') }}</div>
+          </div>
+        </div>
 
-                <div class="modal-content">
-                    <div class="space-y-2">
-                        <div v-for="mirror in availableMirrors" :key="mirror.name" @click="selectedMirror = mirror.name"
-                            class="mirror-option" :class="{ 'selected': selectedMirror === mirror.name }">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <div class="font-medium">{{ mirror.name }}</div>
-                                    <div class="text-sm text-secondary">{{ mirror.description }}</div>
-                                </div>
-                                <span v-if="mirror.recommended" class="recommend-badge">
-                                    {{ $t('settings.dependency.recommended') }}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+        <div class="modal-body">
+          <div class="mirror-list">
+            <div
+              v-for="mirror in availableMirrors"
+              :key="mirror.name"
+              class="mirror-option"
+              :class="{ selected: selectedMirror === mirror.name }"
+              @click="selectedMirror = mirror.name"
+            >
+              <div class="mirror-meta">
+                <div class="mirror-text">
+                  <div class="mirror-name">{{ mirror.name }}</div>
+                  <div class="mirror-desc text-secondary">{{ mirror.description }}</div>
                 </div>
-
-                <div class="modal-footer">
-                    <button @click="closeMirrorModal" class="btn-glass">
-                        {{ $t('common.cancel') }}
-                    </button>
-                    <button @click="performAction" class="btn-glass" :disabled="!selectedMirror">
-                        {{ currentAction === 'install' ? $t('settings.dependency.install') :
-                            $t('settings.dependency.update') }}
-                    </button>
-                </div>
+                <span v-if="mirror.recommended" class="recommend-badge">
+                  {{ $t('settings.dependency.recommended') }}
+                </span>
+              </div>
             </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-glass" type="button" @click="closeMirrorModal">
+            {{ $t('common.cancel') }}
+          </button>
+          <button
+            :class="['btn-glass', { 'btn-primary': currentAction === 'update' }]"
+            type="button"
+            @click="performAction"
+            :disabled="!selectedMirror"
+          >
+            {{ currentAction === 'install' ? $t('settings.dependency.install') : $t('settings.dependency.update') }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -108,9 +121,13 @@ import { OpenDirectory } from 'wailsjs/go/systems/Service'
 import { useI18n } from 'vue-i18n'
 import useDependenciesStore from '@/stores/dependencies'
 import eventBus from '@/utils/eventBus.js'
+import ModalTrafficLights from '@/components/common/ModalTrafficLights.vue'
 
 export default {
     name: 'Dependency',
+    components: {
+        ModalTrafficLights
+    },
     setup() {
         const { t } = useI18n()
         const dependenciesStore = useDependenciesStore()
@@ -296,15 +313,24 @@ export default {
 /* subtle text */
 .text-secondary { color: var(--macos-text-secondary); }
 /* Modal (macOS look) */
-/* use global .macos-modal */
-.modal-macos { background: var(--macos-background); border: 1px solid var(--macos-separator); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.35); width: 100%; max-width: 440px; overflow: hidden; }
-.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--macos-background-secondary); border-bottom: 1px solid var(--macos-separator); }
-.modal-content { padding: 12px; max-height: 60vh; overflow-y: auto; }
-.modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 14px; background: var(--macos-background-secondary); border-top: 1px solid var(--macos-separator); }
-.mirror-option { padding: 10px 12px; border: 1px solid var(--macos-separator); border-radius: 8px; background: var(--macos-background); cursor: pointer; transition: background .15s ease, border-color .15s ease; }
-.mirror-option:hover { background: var(--macos-gray-hover); }
-.mirror-option.selected { border-color: var(--macos-blue); background: color-mix(in oklab, var(--macos-blue) 12%, transparent); }
-.recommend-badge { font-size: var(--fs-sub); padding: 2px 8px; border-radius: 999px; background: color-mix(in oklab, var(--macos-blue) 12%, transparent); color: var(--macos-blue); }
+/* use global .macos-modal overlay */
+.macos-modal { animation: fadeIn 0.18s ease-out; }
+.mirror-modal { width: 440px; max-width: calc(100% - 40px); background: var(--macos-background); border: 1px solid var(--macos-separator); border-radius: 12px; box-shadow: var(--macos-shadow-3); overflow: hidden; display: flex; flex-direction: column; }
+.modal-header.sheet { display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 10px 12px; background: var(--macos-background-secondary); border-bottom: 1px solid var(--macos-separator); }
+.title-area { flex: 1; display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
+.title-text { font-size: var(--fs-base); font-weight: 600; color: var(--macos-text-primary); }
+.modal-body { padding: 12px; max-height: 60vh; overflow-y: auto; }
+.modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 10px 12px; background: var(--macos-background-secondary); border-top: 1px solid var(--macos-separator); }
+.mirror-list { display: flex; flex-direction: column; gap: 8px; }
+.mirror-option { padding: 10px 12px; border: 1px solid var(--macos-separator); border-radius: 10px; background: var(--macos-background); cursor: pointer; transition: background .16s ease, border-color .16s ease, box-shadow .16s ease; }
+.mirror-option:hover { background: color-mix(in oklab, var(--macos-background-secondary) 82%, transparent); }
+.mirror-option.selected { border-color: var(--macos-blue); box-shadow: 0 0 0 1px color-mix(in oklab, var(--macos-blue) 30%, transparent); background: color-mix(in oklab, var(--macos-blue) 14%, transparent); }
+.mirror-option:focus-visible { outline: none; box-shadow: 0 0 0 2px color-mix(in oklab, var(--macos-blue) 42%, transparent); }
+.mirror-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mirror-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.mirror-name { font-weight: 600; color: var(--macos-text-primary); }
+.mirror-desc { font-size: var(--fs-sub); }
+.recommend-badge { font-size: var(--fs-sub); padding: 2px 8px; border-radius: 999px; background: color-mix(in oklab, var(--macos-blue) 18%, transparent); color: var(--macos-blue); }
 /* spinner tuned for button visibility */
 .btn-spinner { width: 14px; height: 14px; border: 2px solid transparent; border-top-color: currentColor; border-right-color: currentColor; border-radius: 50%; animation: spin .8s linear infinite; }
 

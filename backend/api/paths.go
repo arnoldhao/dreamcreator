@@ -1,10 +1,10 @@
 package api
 
 import (
-	"CanMe/backend/core/downtasks"
-	"CanMe/backend/services/preferences"
-	"CanMe/backend/types"
 	"context"
+	"dreamcreator/backend/core/downtasks"
+	"dreamcreator/backend/services/preferences"
+	"dreamcreator/backend/types"
 )
 
 type PathsAPI struct {

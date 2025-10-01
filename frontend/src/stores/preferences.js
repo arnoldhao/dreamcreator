@@ -3,6 +3,7 @@ import { lang } from '@/langs/index.js'
 import { cloneDeep, get, isEmpty, pick, set, split } from 'lodash'
 import {
     CheckForUpdate,
+    GetAppVersion,
     GetPreferences,
     RestorePreferences,
     SetPreferences,
@@ -10,10 +11,12 @@ import {
     SetDownloadConfig,
     SetLoggerConfig,
 } from 'wailsjs/go/preferences/Service.js'
+import { Info as GetSystemInfo } from 'wailsjs/go/systems/Service.js'
 import { BrowserOpenURL } from 'wailsjs/runtime/runtime.js'
 import { i18nGlobal } from '@/utils/i18n.js'
 import { h, nextTick, ref } from 'vue'
 import { compareVersion } from '@/utils/version.js'
+import { startTelemetry, stopTelemetry, sendTelemetry } from '@/utils/telemetry.js'
 
 // 使用原生方法检测系统主题
 const systemDarkMode = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
@@ -59,6 +62,13 @@ const usePreferencesStore = defineStore('preferences', {
             checkUpdate: true,
             skipVersion: '',
         },
+        telemetry: {
+            enabled: true,
+            appId: '',
+            clientId: '',
+            endpoint: '',
+            version: '',
+        },
         proxy: {
             type: 'none',
             proxy_address: '',
@@ -73,6 +83,16 @@ const usePreferencesStore = defineStore('preferences', {
         decoder: [],
         lastPref: {},
         logger: {}, 
+        telemetryRuntime: {
+            active: false,
+            bootTracked: false,
+            bootKey: '',
+            meta: {
+                version: '',
+                os: '',
+                arch: '',
+            },
+        },
     }),
     getters: {
         getSeparator() {
@@ -136,6 +156,7 @@ const usePreferencesStore = defineStore('preferences', {
         autoCheckUpdate() {
             return get(this.general, 'checkUpdate', false)
         },
+
     },
     actions: {
         _applyPreferences(data) {
@@ -182,7 +203,19 @@ const usePreferencesStore = defineStore('preferences', {
                         password: '',
                     })
                 }
+                const telemetry = get(migrated, 'telemetry')
+                if (!telemetry) {
+                    set(migrated, 'telemetry', { enabled: true, clientId: '', appId: '', endpoint: '', version: '' })
+                } else {
+                    if (!('endpoint' in telemetry) || telemetry.endpoint === undefined || telemetry.endpoint === null) {
+                        telemetry.endpoint = ''
+                    }
+                    if (!('version' in telemetry) || telemetry.version === undefined || telemetry.version === null) {
+                        telemetry.version = ''
+                    }
+                }
                 i18nGlobal.locale.value = this.currentLanguage
+                await this.refreshTelemetryRuntime({ emitToggleEvents: false })
             }
         },
 
@@ -191,9 +224,17 @@ const usePreferencesStore = defineStore('preferences', {
          * @returns {Promise<boolean>}
          */
         async savePreferences() {
-            const pf = pick(this, ['behavior', 'general', 'proxy', 'download', 'logger']) 
+            const pf = pick(this, ['behavior', 'general', 'proxy', 'download', 'logger', 'telemetry']) 
+            if (pf.telemetry) {
+                pf.telemetry = { ...pf.telemetry }
+                delete pf.telemetry.appId
+                delete pf.telemetry.endpoint
+                delete pf.telemetry.version
+            }
             const { success, msg } = await SetPreferences(pf)
-            // proxy 
+            if (success) {
+                await this.refreshTelemetryRuntime()
+            }
             return success === true
         },
         /**
@@ -296,6 +337,7 @@ const usePreferencesStore = defineStore('preferences', {
             if (success === true) {
                 const { pref } = data
                 this._applyPreferences(pref)
+                await this.refreshTelemetryRuntime()
                 return true
             }
             return false
@@ -304,6 +346,100 @@ const usePreferencesStore = defineStore('preferences', {
         setAsWelcomed(acceptTrack) {
             this.behavior.welcomed = true
             this.savePreferences()
+        },
+
+        async refreshTelemetryRuntime(options = {}) {
+            const { emitToggleEvents = true } = options
+            const appId = (get(this.telemetry, 'appId', '') || '').trim()
+            const clientId = (get(this.telemetry, 'clientId', '') || '').trim()
+            const endpoint = (get(this.telemetry, 'endpoint', '') || '').trim()
+            const enabled = !!get(this.telemetry, 'enabled', false)
+            const shouldActive = Boolean(enabled && appId && clientId && appId !== 'undefined' && appId !== 'null')
+            const wasActive = this.telemetryRuntime.active
+
+            if (shouldActive) {
+                const meta = await this.ensureTelemetryMeta()
+                const startOptions = endpoint ? { endpoint } : {}
+                const resolvedVersion = (meta.version || 'dev').toLowerCase()
+                if (resolvedVersion === 'dev') {
+                    startOptions.testMode = true
+                }
+                const key = `${appId}:${clientId}`
+                const instance = startTelemetry(appId, clientId, startOptions)
+                this.telemetryRuntime.active = !!instance
+
+                if (this.telemetryRuntime.active && emitToggleEvents && !wasActive) {
+                    const { payload, version } = await this.buildTelemetryPayload({}, meta)
+                    await sendTelemetry('telemetry_opt_in', payload, { version })
+                }
+
+                const alreadyTracked = this.telemetryRuntime.bootTracked && this.telemetryRuntime.bootKey === key
+                if (this.telemetryRuntime.active && !alreadyTracked) {
+                    const { payload, version } = await this.buildTelemetryPayload({}, meta)
+                    await sendTelemetry('app_start', payload, { version })
+                    this.telemetryRuntime.bootTracked = true
+                    this.telemetryRuntime.bootKey = key
+                }
+            } else {
+                if (emitToggleEvents && wasActive) {
+                    const meta = await this.ensureTelemetryMeta()
+                    const { payload, version } = await this.buildTelemetryPayload({}, meta)
+                    await sendTelemetry('telemetry_opt_out', payload, { version })
+                }
+                stopTelemetry()
+                this.telemetryRuntime.active = false
+            }
+        },
+
+        async ensureTelemetryMeta() {
+            const meta = this.telemetryRuntime.meta || {}
+            if (!meta.version) {
+                const telemetryVersion = (get(this.telemetry, 'version', '') || '').trim()
+                if (telemetryVersion) {
+                    meta.version = telemetryVersion
+                }
+            }
+            if (!meta.version) {
+                try {
+                    const res = await GetAppVersion()
+                    if (res?.success && res.data?.version) {
+                        meta.version = String(res.data.version)
+                    }
+                } catch (e) {}
+            }
+            if (!meta.os || !meta.arch) {
+                try {
+                    const res = await GetSystemInfo()
+                    if (res?.success && res.data) {
+                        meta.os = String(res.data.os || '').toLowerCase()
+                        meta.arch = String(res.data.arch || '').toLowerCase()
+                    }
+                } catch (e) {}
+            }
+            this.telemetryRuntime.meta = meta
+            return meta
+        },
+
+        async buildTelemetryPayload(extra = {}, metaOverride = null) {
+            const meta = metaOverride || (await this.ensureTelemetryMeta()) || {}
+            const resolvedVersion = meta.version || 'dev'
+            const payload = {
+                appVersion: resolvedVersion,
+                os: meta.os || '',
+                arch: meta.arch || '',
+                ...extra,
+            }
+
+            const normalizedPayload = {}
+            Object.entries(payload).forEach(([key, rawValue]) => {
+                if (rawValue === undefined || rawValue === null) {
+                    return
+                }
+
+                normalizedPayload[key] = typeof rawValue === 'string' ? rawValue : String(rawValue)
+            })
+
+            return { payload: normalizedPayload, version: resolvedVersion }
         },
 
         async checkForUpdate(manual = false) {

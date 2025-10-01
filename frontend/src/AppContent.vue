@@ -78,6 +78,9 @@ const metricsStandardDesc = computed(() => {
   return d[m] || ''
 })
 
+// Toolbar CTA buttons (primary emphasis) for key modal actions
+const primaryModalActions = new Set(['download:new-task', 'subtitle:open-file'])
+
 // 动态内容标题：在设置页显示当前子页标题
 const contentTitle = computed(() => {
   if (navStore.currentNav === navStore.navOptions.SETTINGS) {
@@ -340,15 +343,17 @@ function getPageActions() {
     return { modals: [], panels: [] }
   }
   if (navStore.currentNav === navStore.navOptions.SUBTITLE) {
+    const modals = [
+      { key: 'subtitle:open-file', icon: 'file-plus', titleKey: 'subtitle.common.open_file' },
+    ]
+
+    if (subtitleStore.currentProject) {
+      modals.push({ key: 'subtitle:metrics', icon: 'info', titleKey: 'subtitle.list.metrics_explanation' })
+      modals.push({ key: 'subtitle:back-home', icon: 'home', titleKey: 'ribbon.subtitle' })
+    }
+
     return {
-      modals: [
-        // Only show Back Home on edit page (when a project is open)
-        ...(subtitleStore.currentProject ? [{ key: 'subtitle:back-home', icon: 'home', titleKey: 'ribbon.subtitle' }] : []),
-        { key: 'subtitle:open-file', icon: 'file-plus', titleKey: 'subtitle.common.open_file' },
-        ... (subtitleStore.currentProject ? [  
-          { key: 'subtitle:metrics', icon: 'info', titleKey: 'subtitle.list.metrics_explanation' },
-        ] : []),
-      ],
+      modals,
       // show export as panel action when a project is open
       panels: [
         ... (subtitleStore.currentProject ? [{ key: 'SubtitleExportPanel', icon: 'download-file', titleKey: 'subtitle.export.title' }] : []),
@@ -493,6 +498,14 @@ function onModalClick(act) {
                         :aria-label="$t(act.titleKey)"
                         @click="onModalClick(act)">
                   <span class="chip-label">{{ metricsStandardName || $t('subtitle.list.metrics_explanation') }}</span>
+                </button>
+                <button v-else-if="primaryModalActions.has(act.key)"
+                        class="chip-frosted chip-sm chip-primary-action"
+                        :data-tooltip="$t(act.titleKey)"
+                        :aria-label="$t(act.titleKey)"
+                        @click="onModalClick(act)">
+                  <Icon :name="act.icon" class="chip-icon" />
+                  <span class="chip-label">{{ $t(act.titleKey) }}</span>
                 </button>
                 <button v-else class="toolbar-icon-btn"
                         :data-tooltip="$t(act.titleKey)" :aria-label="$t(act.titleKey)"
@@ -684,6 +697,46 @@ function onModalClick(act) {
 .project-inline { display:inline-flex; align-items:center; gap:6px; max-width: min(70%, 480px); }
 .project-inline .pill { display:inline-block; max-width: min(65vw, 420px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--macos-text-primary); font-size: var(--fs-sub); font-weight: 400; height: 22px; line-height: 22px; padding: 0 8px; border: 1px solid var(--macos-separator); border-radius: 999px; background: var(--macos-background); }
 .project-inline .pill-input { height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--macos-separator); background: var(--macos-background); color: var(--macos-text-primary); font-size: var(--fs-sub); min-width: 200px; max-width: min(65vw, 420px); }
+
+/* Toolbar primary CTA chips for modal actions */
+[data-ui='frosted'] .chip-frosted.chip-primary-action {
+  background: color-mix(in oklab, var(--macos-blue) 82%, transparent);
+  border-color: color-mix(in oklab, var(--macos-blue) 68%, white 22%);
+  color: #fff;
+  font-weight: 600;
+}
+[data-ui='frosted'] .chip-frosted.chip-primary-action:hover {
+  background: color-mix(in oklab, var(--macos-blue) 90%, white 8%);
+  border-color: color-mix(in oklab, var(--macos-blue) 76%, white 18%);
+}
+[data-ui='frosted'] .chip-frosted.chip-primary-action .chip-label { font-weight: 600; }
+[data-ui='frosted'] .chip-frosted.chip-primary-action .chip-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  color: inherit;
+}
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  [data-ui='frosted'] .chip-frosted.chip-primary-action {
+    background: var(--macos-blue);
+    border-color: var(--macos-blue);
+  }
+}
+[data-ui='classic'] .chip-frosted.chip-primary-action {
+  background: var(--macos-blue) !important;
+  border-color: var(--macos-blue) !important;
+  color: #fff !important;
+}
+[data-ui='classic'] .chip-frosted.chip-primary-action .chip-icon {
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  color: inherit;
+}
+[data-ui='classic'] .chip-frosted.chip-primary-action .chip-label { font-weight: 600; }
 
 /* Top fade under the toolbar when scrolled */
 #app-content .page-scroll { position: relative; }

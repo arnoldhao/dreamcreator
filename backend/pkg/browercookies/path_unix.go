@@ -3,7 +3,7 @@
 package browercookies
 
 import (
-	"CanMe/backend/consts"
+	"dreamcreator/backend/consts"
 	"os"
 	"path/filepath"
 	"runtime"

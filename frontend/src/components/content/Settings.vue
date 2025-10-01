@@ -21,7 +21,7 @@
       <template v-if="current === 'about'">
         <div class="about-wrap">
           <img :src="iconUrl" alt="app icon" class="about-icon" />
-          <div class="about-title">CanMe <span class="ver">v{{ appVersion }}</span></div>
+          <div class="about-title">{{ Project.Name }}（{{ Project.DisplayNameZh }}） <span class="ver">v{{ appVersion }}</span></div>
           <div class="about-links">
             <a href="#" @click.prevent="openWebsite" class="link-text" :title="$t('dialogue.about.official_website')">{{ $t('dialogue.about.official_website') }}</a>
           </div>
@@ -38,10 +38,20 @@
             </button>
           </div>
           <div class="about-options">
-            <label class="macos-check">
-              <input type="checkbox" class="checkbox-macos" v-model="prefStore.general.checkUpdate" @change="prefStore.savePreferences()" />
-              <span>{{ $t('settings.about.auto_check_update') }}</span>
-            </label>
+            <div class="about-option">
+              <div class="about-option-title">{{ $t('settings.about.auto_check_update') }}</div>
+              <label class="about-toggle">
+                <input type="checkbox" class="about-toggle-input" v-model="prefStore.general.checkUpdate" @change="onAboutToggleChange" />
+                <span class="about-toggle-slider"></span>
+              </label>
+            </div>
+            <div class="about-option">
+              <div class="about-option-title">{{ $t('settings.about.telemetry_opt_in') }}</div>
+              <label class="about-toggle">
+                <input type="checkbox" class="about-toggle-input" v-model="prefStore.telemetry.enabled" @change="onTelemetryToggleChange" />
+                <span class="about-toggle-slider"></span>
+              </label>
+            </div>
           </div>
           <div class="about-actions">
             <button class="btn-glass" @click="openChangelog">
@@ -405,6 +415,8 @@ const openTwitter = () => openUrl(Project.Twitter)
 
 const openChangelog = () => openUrl(Project.Github + '/releases')
 const checkUpdates = async () => { try { await prefStore.checkForUpdate(true); } catch (e) {} }
+const onAboutToggleChange = async () => { await prefStore.savePreferences() }
+const onTelemetryToggleChange = async () => { await prefStore.savePreferences() }
 
 const prefPath = ref('')
 const taskDbPath = ref('')
@@ -724,6 +736,16 @@ const copyText = async (text) => { await copyToClipboard(text, t) }
 .about-social { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
 .about-social .icon-btn { @extend .sr-icon-btn; width: 28px; height: 28px; }
 .about-actions { display: flex; gap: 10px; margin-top: 10px; }
+.about-options { display: flex; flex-direction: column; gap: 6px; width: min(360px, 100%); margin-top: 6px; }
+.about-option { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 12px; background: var(--macos-surface); backdrop-filter: var(--macos-surface-blur); border: 1px solid var(--macos-divider-weak); width: 100%; box-shadow: var(--macos-shadow-1); min-height: 32px; }
+.about-option-title { font-weight: 600; color: var(--macos-text-primary); font-size: 13px; }
+.about-toggle { position: relative; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.about-toggle-input { position: absolute; width: 0; height: 0; opacity: 0; }
+.about-toggle-slider { width: 32px; height: 18px; border-radius: 999px; background: var(--macos-divider-weak); box-shadow: inset 0 0 0 1px var(--macos-divider-weak); transition: background 180ms ease, box-shadow 180ms ease; display: inline-block; position: relative; }
+.about-toggle-slider::after { content: ""; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: var(--macos-background); top: 2px; left: 2px; box-shadow: var(--macos-shadow-1); transition: transform 180ms ease; }
+.about-toggle-input:checked + .about-toggle-slider { background: color-mix(in srgb, var(--macos-blue) 55%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--macos-blue) 70%, transparent); }
+.about-toggle-input:checked + .about-toggle-slider::after { transform: translateX(14px); background: var(--macos-background); box-shadow: 0 0 0 1px color-mix(in srgb, var(--macos-blue) 65%, transparent), 0 2px 4px rgba(0,0,0,0.12); }
+.about-toggle-input:focus-visible + .about-toggle-slider { outline: 2px solid rgba(var(--macos-blue-rgb), 0.7); outline-offset: 2px; }
 .contact-email { display: inline-flex; align-items: center; gap: 6px; }
 
 /* Accent picker */

@@ -1,7 +1,6 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "0.1.18",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +9,7 @@
     "sync-icons": "node scripts/sync-open-symbols.mjs"
   },
   "dependencies": {
+    "@telemetrydeck/sdk": "^2.0.4",
     "dayjs": "^1.11.13",
     "lodash": "^4.17.21",
     "mitt": "^3.0.1",
@@ -29,5 +29,8 @@
     "sass": "^1.77.8",
     "tailwindcss": "^3.4.13",
     "vite": ">=6.3.6"
+  },
+  "overrides": {
+    "brace-expansion": ">=2.0.2"
   }
 }

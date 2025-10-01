@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-    "os/exec"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"time"
 
-	"CanMe/backend/consts"
-	"CanMe/backend/pkg/dependencies"
-	"CanMe/backend/pkg/events"
-	"CanMe/backend/types"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/pkg/dependencies"
+	"dreamcreator/backend/pkg/events"
+	"dreamcreator/backend/types"
 )
 
 // ytdlpProvider YTDLP依赖提供者
@@ -24,11 +24,11 @@ type ytdlpProvider struct {
 
 // NewYTDLPProvider 创建YTDLP提供者
 func NewYTDLPProvider(eventBus events.EventBus) dependencies.DependencyProvider {
-    // store in persistent per-user directory to avoid system cleaning
-    cacheDir := filepath.Join(persistentDepsRoot(), "yt-dlp")
-    return &ytdlpProvider{
-        BaseProvider: NewBaseProvider("YT-DLP", types.DependencyYTDLP, cacheDir, eventBus),
-    }
+	// store in persistent per-user directory to avoid system cleaning
+	cacheDir := filepath.Join(persistentDepsRoot(), "yt-dlp")
+	return &ytdlpProvider{
+		BaseProvider: NewBaseProvider("YT-DLP", types.DependencyYTDLP, cacheDir, eventBus),
+	}
 }
 
 func (p *ytdlpProvider) GetType() types.DependencyType {

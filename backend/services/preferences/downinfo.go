@@ -1,11 +1,11 @@
 package preferences
 
 import (
-    "CanMe/backend/pkg/downinfo"
-    "CanMe/backend/pkg/logger"
-    "CanMe/backend/types"
-    "fmt"
-    "go.uber.org/zap"
+	"dreamcreator/backend/pkg/downinfo"
+	"dreamcreator/backend/pkg/logger"
+	"dreamcreator/backend/types"
+	"fmt"
+	"go.uber.org/zap"
 )
 
 // 下载配置变更回调函数类型
@@ -77,13 +77,13 @@ func (s *Service) CheckAndUpdateDownloadInfo() {
 	resp := s.GetDownloadConfig()
 	if resp.Success && resp.Data != nil {
 		config, ok := resp.Data.(*downinfo.Config)
-        if ok && config != nil {
-            logger.Info("initializing download config")
-            // 应用下载配置
-            s.applyDownloadConfig(config)
-            // 触发回调
-            s.triggerDownloadInfoChangedCallbacks(config)
-        }
+		if ok && config != nil {
+			logger.Info("initializing download config")
+			// 应用下载配置
+			s.applyDownloadConfig(config)
+			// 触发回调
+			s.triggerDownloadInfoChangedCallbacks(config)
+		}
 	}
 }
 
@@ -91,14 +91,14 @@ func (s *Service) CheckAndUpdateDownloadInfo() {
 // 这个方法封装了对底层下载实现的调用，使服务层和存储层解耦
 func (s *Service) applyDownloadConfig(config *downinfo.Config) {
 	// 检查下载客户端是否已设置
-    if s.downloadClient == nil {
-        logger.Warn("download client not set, cannot apply download config")
-        return
-    }
+	if s.downloadClient == nil {
+		logger.Warn("download client not set, cannot apply download config")
+		return
+	}
 
 	// 设置下载目录
-    if config.Dir != "" {
-        s.downloadClient.SetConfig(config)
-        logger.Info("download directory set", zap.String("dir", config.Dir))
-    }
+	if config.Dir != "" {
+		s.downloadClient.SetConfig(config)
+		logger.Info("download directory set", zap.String("dir", config.Dir))
+	}
 }

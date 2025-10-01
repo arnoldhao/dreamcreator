@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"CanMe/backend/consts"
+	"dreamcreator/backend/consts"
 	"github.com/vrischmann/userdir"
 	"os"
 	"path"
@@ -16,7 +16,7 @@ type LocalStorage struct {
 // NewLocalStore returns a localStore instance.
 func NewLocalStore(filename string) *LocalStorage {
 	return &LocalStorage{
-		ConfPath: path.Join(userdir.GetConfigHome(), consts.APP_NAME, filename),
+		ConfPath: path.Join(userdir.GetConfigHome(), consts.AppDataDirName(), filename),
 	}
 }
 

@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-    "os/exec"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"time"
 
-	"CanMe/backend/consts"
-	"CanMe/backend/pkg/dependencies"
-	"CanMe/backend/pkg/events"
-	"CanMe/backend/types"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/pkg/dependencies"
+	"dreamcreator/backend/pkg/events"
+	"dreamcreator/backend/types"
 )
 
 // ffmpegProvider FFmpeg依赖提供者
@@ -24,11 +24,11 @@ type ffmpegProvider struct {
 
 // NewFFmpegProvider 创建FFmpeg提供者
 func NewFFmpegProvider(eventBus events.EventBus) dependencies.DependencyProvider {
-    // store in persistent per-user directory to avoid system cleaning
-    cacheDir := filepath.Join(persistentDepsRoot(), "ffmpeg")
-    return &ffmpegProvider{
-        BaseProvider: NewBaseProvider("FFmpeg", types.DependencyFFmpeg, cacheDir, eventBus),
-    }
+	// store in persistent per-user directory to avoid system cleaning
+	cacheDir := filepath.Join(persistentDepsRoot(), "ffmpeg")
+	return &ffmpegProvider{
+		BaseProvider: NewBaseProvider("FFmpeg", types.DependencyFFmpeg, cacheDir, eventBus),
+	}
 }
 
 // GetType 获取依赖类型

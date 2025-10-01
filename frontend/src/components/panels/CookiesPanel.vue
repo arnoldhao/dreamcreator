@@ -572,7 +572,7 @@ async function exportManualCollection(collection) {
 .ops-actions .seg-item.danger { color: #ff3b30; }
 .ops-actions .seg-item.danger .label { color: #ff3b30; }
 .ops-actions .seg-item.danger:hover .label, .ops-actions .seg-item.danger:active .label { color: #ff3b30; }
-/* removed canme button */
+/* removed dreamcreator button */
 .one-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .table-wrap { overflow-x: auto; border-top: 1px solid var(--macos-divider-weak); }
 thead { background: var(--macos-background-secondary); }

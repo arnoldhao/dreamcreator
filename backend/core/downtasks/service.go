@@ -1,17 +1,17 @@
 package downtasks
 
 import (
-	"CanMe/backend/consts"
-	"CanMe/backend/pkg/browercookies"
-	"CanMe/backend/pkg/dependencies"
-	"CanMe/backend/pkg/dependencies/providers"
-	"CanMe/backend/pkg/downinfo"
-	"CanMe/backend/pkg/events"
-	"CanMe/backend/pkg/logger"
-	"CanMe/backend/pkg/proxy"
-	"CanMe/backend/services/preferences"
-	"CanMe/backend/storage"
-	"CanMe/backend/types"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/pkg/browercookies"
+	"dreamcreator/backend/pkg/dependencies"
+	"dreamcreator/backend/pkg/dependencies/providers"
+	"dreamcreator/backend/pkg/downinfo"
+	"dreamcreator/backend/pkg/events"
+	"dreamcreator/backend/pkg/logger"
+	"dreamcreator/backend/pkg/proxy"
+	"dreamcreator/backend/services/preferences"
+	"dreamcreator/backend/storage"
+	"dreamcreator/backend/types"
 
 	"context"
 	"fmt"
@@ -321,7 +321,7 @@ func (s *Service) newCommand(enbaledFFMpeg bool, cookiesFile string) (*ytdlp.Com
 
 	// set temp dir: prefer fast system temp to avoid slow I/O (e.g., iCloud/AV scanning in Downloads)
 	sysTmp := os.TempDir()
-	tmpPath := filepath.Join(sysTmp, "CanMe")
+	tmpPath := filepath.Join(sysTmp, consts.AppDataDirName())
 	var effectiveTmp string
 	if err := os.MkdirAll(tmpPath, 0o755); err == nil {
 		effectiveTmp = tmpPath
@@ -361,7 +361,7 @@ func (s *Service) newCommand(enbaledFFMpeg bool, cookiesFile string) (*ytdlp.Com
 // tempDir returns the preferred temporary directory for transient files.
 func (s *Service) tempDir() (string, error) {
 	sysTmp := os.TempDir()
-	tmpPath := filepath.Join(sysTmp, "CanMe")
+	tmpPath := filepath.Join(sysTmp, consts.AppDataDirName())
 	if err := os.MkdirAll(tmpPath, 0o755); err == nil {
 		return tmpPath, nil
 	}
@@ -1844,9 +1844,9 @@ func (s *Service) monitorProgress(progressChan ProgressChan) {
 }
 
 func (s *Service) downDir(source string) (string, error) {
-	canmeDir := s.downloadClient.GetDownloadDirWithCanMe()
-	if canmeDir == "" {
-		return "", fmt.Errorf("canme dir is empty")
+	dreamcreatorDir := s.downloadClient.GetDownloadDirWithDreamcreator()
+	if dreamcreatorDir == "" {
+		return "", fmt.Errorf("dreamcreator dir is empty")
 	}
 
 	// Sanitize subdir name to avoid accidental traversal or separators
@@ -1857,7 +1857,7 @@ func (s *Service) downDir(source string) (string, error) {
 		safe = "general"
 	}
 
-	dir := filepath.Join(canmeDir, safe)
+	dir := filepath.Join(dreamcreatorDir, safe)
 	// check if source dir is exsited
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		// if source dir is not exsited, create it

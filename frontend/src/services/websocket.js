@@ -18,7 +18,7 @@ class WebSocketService {
     
     this.connecting = true;
     try {
-      const socket = new WebSocket(`ws://localhost:34444/ws?id=canme`);
+      const socket = new WebSocket(`ws://localhost:34444/ws?id=dreamcreator`);
       
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {

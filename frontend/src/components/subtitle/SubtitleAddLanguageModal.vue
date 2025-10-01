@@ -1,9 +1,9 @@
 <template>
-  <div v-if="show" class="macos-modal">
+  <div v-if="show" class="macos-modal" @click.self="emit('close')">
     <div class="modal-card" @keydown.esc.stop.prevent="emit('close')" tabindex="-1">
-      <!-- Header: macOS traffic lights, no title text for minimal look -->
+      <!-- Header: macOS traffic lights + segmented mode switch -->
       <div class="modal-header">
-        <!-- sheet-like modal: no traffic lights -->
+        <ModalTrafficLights @close="emit('close')" />
         <div class="title-area">
           <div class="mode-toggle" role="tablist" aria-label="Mode">
             <button role="tab" :aria-selected="activeTab==='zhconvert'" :class="['seg-item', { active: activeTab==='zhconvert' }]" @click="activeTab='zhconvert'">{{ $t('subtitle.add_language.zhconvert') }}</button>
@@ -95,6 +95,7 @@
 <script setup>
 import { ref, computed, onMounted, defineProps, defineEmits, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import ModalTrafficLights from '@/components/common/ModalTrafficLights.vue'
 
 const props = defineProps({
   show: Boolean,
@@ -250,21 +251,14 @@ watch(() => props.show, (newValue) => {
 /* use global .macos-modal */
 
 .modal-card { background: var(--macos-background); border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); max-width: 640px; width: 100%; max-height: 85vh; overflow: hidden; border: 1px solid var(--macos-separator); animation: slideInUp 0.3s ease-out; }
-.modal-header { display:flex; align-items:center; justify-content: space-between; padding: 10px 12px; background: var(--macos-background-secondary); border-bottom: 1px solid var(--macos-separator); }
-.traffic-lights { display:flex; align-items:center; gap:6px; margin-right: 6px; -webkit-app-region: no-drag; --wails-draggable: no-drag; }
-.traffic-lights .light { width: 10px; height:10px; border-radius: 50%; display:inline-block; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); }
-.traffic-lights .red { background:#ff5f56; }
-.traffic-lights .yellow { background:#d9d9d9; }
-.traffic-lights .green { background:#d9d9d9; }
-.traffic-lights .clickable { cursor: pointer; }
-.traffic-lights .disabled { opacity: .6; cursor: default; }
+.modal-header { display:flex; align-items:center; justify-content: space-between; height: 36px; padding: 0 12px; background: var(--macos-background-secondary); border-bottom: 1px solid var(--macos-separator); }
 .title-area { flex:1; min-width: 0; display:flex; align-items:center; justify-content:flex-end; }
 .modal-body { padding: 16px; padding-bottom: 12px; max-height: calc(85vh - 120px); overflow-y: auto; }
 .actions-center { display:flex; align-items:center; justify-content:center; gap:10px; margin-top: 16px; }
 
 /* Mode toggle (header center) */
-.mode-toggle { display:inline-flex; align-items:center; background: var(--macos-background); border: 1px solid var(--macos-separator); border-radius: 8px; padding: 2px; gap: 2px; }
-.mode-toggle .seg-item { min-width: 80px; height: 28px; padding: 0 10px; border-radius: 6px; font-size: var(--fs-sub); color: var(--macos-text-secondary); background: transparent; border: none; cursor: pointer; }
+.mode-toggle { display:inline-flex; align-items:center; height: 26px; background: var(--macos-background); border: 1px solid var(--macos-separator); border-radius: 8px; padding: 2px; gap: 2px; }
+.mode-toggle .seg-item { min-width: 80px; height: 24px; padding: 0 10px; border-radius: 6px; font-size: var(--fs-sub); color: var(--macos-text-secondary); background: transparent; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
 .mode-toggle .seg-item:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); color: #fff; }
 .mode-toggle .seg-item.active { background: var(--macos-blue); color: #fff; }
 .mode-toggle .seg-item.disabled { opacity: .6; cursor: not-allowed; }

@@ -1,10 +1,10 @@
 package mcpserver
 
 import (
-	"CanMe/backend/consts"
-	"CanMe/backend/core/downtasks"
-	"CanMe/backend/pkg/logger"
 	"context"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/core/downtasks"
+	"dreamcreator/backend/pkg/logger"
 	"fmt"
 
 	"github.com/mark3labs/mcp-go/server"
@@ -20,7 +20,7 @@ type Service struct {
 func NewService(downtask *downtasks.Service) *Service {
 	// Create MCP server
 	s := server.NewMCPServer(
-		consts.APP_NAME,
+		consts.AppDisplayName(),
 		consts.APP_VERSION,
 	)
 	return &Service{

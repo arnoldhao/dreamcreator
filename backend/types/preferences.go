@@ -1,34 +1,35 @@
 package types
 
 import (
-	"CanMe/backend/consts"
-	"CanMe/backend/pkg/downinfo"
-	"CanMe/backend/pkg/logger"
-	"CanMe/backend/pkg/proxy"
+	"dreamcreator/backend/consts"
+	"dreamcreator/backend/pkg/downinfo"
+	"dreamcreator/backend/pkg/logger"
+	"dreamcreator/backend/pkg/proxy"
 )
 
 type Preferences struct {
-	Behavior    PreferencesBehavior `json:"behavior" yaml:"behavior"`
-	General     PreferencesGeneral  `json:"general" yaml:"general"`
-	Proxy       proxy.Config        `json:"proxy" yaml:"proxy"`
-	Download    downinfo.Config     `json:"download" yaml:"download"`
-	Logger      logger.Config       `json:"logger" yaml:"logger"`
-	ListendInfo ListendInfo         `json:"listendInfo" yaml:"listend_info"`
+	Behavior    PreferencesBehavior  `json:"behavior" yaml:"behavior"`
+	General     PreferencesGeneral   `json:"general" yaml:"general"`
+	Proxy       proxy.Config         `json:"proxy" yaml:"proxy"`
+	Download    downinfo.Config      `json:"download" yaml:"download"`
+	Logger      logger.Config        `json:"logger" yaml:"logger"`
+	ListendInfo ListendInfo          `json:"listendInfo" yaml:"listend_info"`
+	Telemetry   TelemetryPreferences `json:"telemetry" yaml:"telemetry"`
 }
 
 func NewPreferences() Preferences {
-    return Preferences{
-        Behavior: PreferencesBehavior{
-            WindowWidth:  consts.DEFAULT_WINDOW_WIDTH,
-            WindowHeight: consts.DEFAULT_WINDOW_HEIGHT,
-        },
-        General: PreferencesGeneral{
-            Appearance:  "auto",
-            Theme:       "blue",
-            UiStyle:     "frosted",
-            Language:    "auto",
-            CheckUpdate: true,
-        },
+	return Preferences{
+		Behavior: PreferencesBehavior{
+			WindowWidth:  consts.DEFAULT_WINDOW_WIDTH,
+			WindowHeight: consts.DEFAULT_WINDOW_HEIGHT,
+		},
+		General: PreferencesGeneral{
+			Appearance:  "auto",
+			Theme:       "blue",
+			UiStyle:     "frosted",
+			Language:    "auto",
+			CheckUpdate: true,
+		},
 		Proxy: proxy.Config{
 			Type: "system", // default use system proxy
 		},
@@ -37,6 +38,9 @@ func NewPreferences() Preferences {
 		},
 		Logger:      *logger.DefaultConfig(),
 		ListendInfo: DefaultListendInfo(),
+		Telemetry: TelemetryPreferences{
+			Enabled: true,
+		},
 	}
 }
 
@@ -50,15 +54,23 @@ type PreferencesBehavior struct {
 }
 
 type PreferencesGeneral struct {
-    // Appearance controls light/dark/auto color scheme
-    Appearance  string `json:"appearance" yaml:"appearance"`
-    // Theme controls accent/highlight color (e.g., blue, purple)
-    Theme       string `json:"theme" yaml:"theme"`
-    // UiStyle controls UI material style: 'frosted' | 'classic'
-    UiStyle     string `json:"uiStyle" yaml:"ui_style"`
-    Language    string `json:"language" yaml:"language"`
-    CheckUpdate bool   `json:"checkUpdate" yaml:"check_update"`
-    SkipVersion string `json:"skipVersion" yaml:"skip_version,omitempty"`
+	// Appearance controls light/dark/auto color scheme
+	Appearance string `json:"appearance" yaml:"appearance"`
+	// Theme controls accent/highlight color (e.g., blue, purple)
+	Theme string `json:"theme" yaml:"theme"`
+	// UiStyle controls UI material style: 'frosted' | 'classic'
+	UiStyle     string `json:"uiStyle" yaml:"ui_style"`
+	Language    string `json:"language" yaml:"language"`
+	CheckUpdate bool   `json:"checkUpdate" yaml:"check_update"`
+	SkipVersion string `json:"skipVersion" yaml:"skip_version,omitempty"`
+}
+
+type TelemetryPreferences struct {
+	Enabled  bool   `json:"enabled" yaml:"enabled"`
+	ClientID string `json:"clientId" yaml:"client_id"`
+	AppID    string `json:"appId,omitempty" yaml:"-"`
+	Endpoint string `json:"endpoint,omitempty" yaml:"-"`
+	Version  string `json:"version,omitempty" yaml:"-"`
 }
 
 type ListendInfo struct {

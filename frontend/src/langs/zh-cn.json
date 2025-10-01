@@ -118,8 +118,8 @@
     "manual_collection_sets": "自定义集合"
   },
   "dialogue": {
-    "app_name": "CanMe",
-    "app_description": "CanMe 是一个功能完善的多语言视频下载管理工具，提供流畅的用户体验与强大的内容处理能力。",
+    "app_name": "追创作",
+    "app_description": "追创作是一款为视频创作者打造的媒体工作站，整合素材获取、字幕指引与多语言发布流程。",
     "close_confirm": "关闭此标签页（{title}）？",
     "close_blank_deny": "空白标签页不能被关闭。",
     "upgrade": {
@@ -134,8 +134,8 @@
       "please_input_new_title": "请输入新标题"
     },
     "welcome": {
-      "title": "欢迎使用 CanMe！",
-      "content": "能行吗？我能行！",
+      "title": "欢迎使用追创作！",
+      "content": "素材、字幕、发行，一站搞定。",
       "accept": "帮助改进",
       "reject": "拒绝"
     },
@@ -149,7 +149,7 @@
       "social_accounts": "社交账户",
       "acknowledgments": "致谢",
       "zhconvert": "繁化姬",
-      "zhconvert_desc": "CanMe使用了繁化姬的API服务，繁化姬商业用途必须付费。"
+      "zhconvert_desc": "追创作使用了繁化姬的 API 服务，繁化姬商业用途必须付费。"
     }
   },
   "menu": {
@@ -257,7 +257,8 @@
     "about": {
       "title": "关于我们",
       "changelog": "更新日志",
-      "auto_check_update": "启动时自动检查更新"
+      "auto_check_update": "启动时自动检查更新",
+      "telemetry_opt_in": "允许匿名使用统计"
     },
     "acknowledgments": "致谢",
     "dependency": {

@@ -117,8 +117,8 @@
     "manual_collection_sets": "Custom Sets"
   },
   "dialogue": {
-    "app_name": "CanMe",
-    "app_description": "CanMe is a comprehensive multilingual video download manager with a fluid user experience and powerful content processing capabilities.",
+    "app_name": "dreamcreator",
+    "app_description": "dreamcreator is a creator-first media toolkit for sourcing footage, guiding subtitles, and preparing multilingual releases.",
     "close_confirm": "Close this tab ({title})?",
     "close_blank_deny": "The blank tab cannot be closed.",
     "upgrade": {
@@ -133,7 +133,7 @@
       "please_input_new_title": "Please input new title"
     },
     "welcome": {
-      "title": "Welcome to CanMe！",
+      "title": "Welcome to dreamcreator！",
       "content": "Can me? I Can!",
       "accept": "Help Improve",
       "reject": "Reject"
@@ -148,7 +148,7 @@
       "social_accounts": "Social Accounts",
       "acknowledgments": "Acknowledgments",
       "zhconvert": "ZHConvert",
-      "zhconvert_desc": "CanMe uses the zhconvert API service. Commercial use of zhconvert requires a paid license."
+      "zhconvert_desc": "dreamcreator uses the zhconvert API service. Commercial use of zhconvert requires a paid license."
     }
   },
   "menu": {
@@ -257,7 +257,8 @@
     "about": {
       "title": "About",
       "changelog": "Changelog",
-      "auto_check_update": "Auto Check Updates on Launch"
+      "auto_check_update": "Auto Check Updates on Launch",
+      "telemetry_opt_in": "Allow anonymous usage analytics"
     },
     "acknowledgments": "Acknowledgments",
     "dependency": {

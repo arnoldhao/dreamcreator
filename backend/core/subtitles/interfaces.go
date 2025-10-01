@@ -1,7 +1,7 @@
 package subtitles
 
 import (
-	"CanMe/backend/types"
+	"dreamcreator/backend/types"
 )
 
 // 核心服务接口
@@ -25,13 +25,13 @@ type LanguageDetector interface {
 }
 
 type FormatConverter interface {
-    FromItt(filePath string, file []byte) (types.SubtitleProject, error)
-    FromSRT(filePath string, file []byte) (types.SubtitleProject, error)
-    FromVTT(filePath string, file []byte) (types.SubtitleProject, error)
-    FromASS(filePath string, file []byte) (types.SubtitleProject, error)
-    ToSRT(project *types.SubtitleProject, langCode string) ([]byte, error)
-    ToVTT(project *types.SubtitleProject, langCode string) ([]byte, error)
-    ToFCPXML(project *types.SubtitleProject, langCode string) ([]byte, error)
-    ToASS(project *types.SubtitleProject, langCode string) ([]byte, error)
-    ToITT(project *types.SubtitleProject, langCode string) ([]byte, error)
+	FromItt(filePath string, file []byte) (types.SubtitleProject, error)
+	FromSRT(filePath string, file []byte) (types.SubtitleProject, error)
+	FromVTT(filePath string, file []byte) (types.SubtitleProject, error)
+	FromASS(filePath string, file []byte) (types.SubtitleProject, error)
+	ToSRT(project *types.SubtitleProject, langCode string) ([]byte, error)
+	ToVTT(project *types.SubtitleProject, langCode string) ([]byte, error)
+	ToFCPXML(project *types.SubtitleProject, langCode string) ([]byte, error)
+	ToASS(project *types.SubtitleProject, langCode string) ([]byte, error)
+	ToITT(project *types.SubtitleProject, langCode string) ([]byte, error)
 }
