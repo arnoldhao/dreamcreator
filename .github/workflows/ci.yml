@@ -134,8 +134,7 @@ jobs:
           VERSION="${{ steps.meta.outputs.version }}"
           jq --arg name "$WINDOWS_APP_NAME" \
              --arg out "$WINDOWS_APP_NAME" \
-             --arg version "$VERSION" \
-             '.name = $name | .outputfilename = $out | .info.productVersion = $version' wails.json > tmp.json
+             '.name = $name | .outputfilename = $out | .info.productVersion = "0.0.0"' wails.json > tmp.json
           mv tmp.json wails.json
           cd frontend
           jq --arg version "$VERSION" '.version = $version' package.json > tmp.json
