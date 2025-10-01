@@ -278,14 +278,6 @@ jobs:
             throw "Installer not found. Expected '$defaultInstaller' or '$altInstaller' in $(Get-Location)."
           }
 
-      - name: Upload Windows installer artifact
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.meta.outputs.installer_artifact_name }}
-          path: ${{ steps.meta.outputs.installer_artifact }}
-          if-no-files-found: error
-
       - name: Upload preview artifact
         uses: actions/upload-artifact@v4
         with:
