@@ -52,6 +52,8 @@ jobs:
     env:
       TELEMETRYDECK_APP_ID: ${{ secrets.TELEMETRYDECK_APP_ID }}
       TELEMETRYDECK_ENDPOINT: ${{ secrets.TELEMETRYDECK_ENDPOINT }}
+      WINDOWS_APP_ID: DreamCreator
+      WINDOWS_APP_NAME: Dream Creator
     steps:
       - uses: actions/checkout@v4
 
@@ -68,17 +70,42 @@ jobs:
         run: |
           version=dev
           echo "version=$version" >> "$GITHUB_OUTPUT"
+
           if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            echo "platform=darwin/amd64" >> "$GITHUB_OUTPUT"
-            echo "platform_tag=mac_intel" >> "$GITHUB_OUTPUT"
-            echo "artifact=build/bin/DreamCreator_${version}_mac_intel.dmg" >> "$GITHUB_OUTPUT"
+            platform="darwin/amd64"
+            platform_tag="mac_intel"
+            platform_name="${platform#*/}"
+            echo "platform=$platform" >> "$GITHUB_OUTPUT"
+            echo "platform_tag=$platform_tag" >> "$GITHUB_OUTPUT"
+            echo "platform_name=$platform_name" >> "$GITHUB_OUTPUT"
+            echo "artifact=build/bin/DreamCreator_${version}_${platform_tag}.dmg" >> "$GITHUB_OUTPUT"
             echo "artifact_name=DreamCreator-preview-macos" >> "$GITHUB_OUTPUT"
           else
-            echo "platform=windows/amd64" >> "$GITHUB_OUTPUT"
-            echo "platform_tag=windows_x64" >> "$GITHUB_OUTPUT"
-            echo "artifact=build/bin/Dream Creator Portable_${version}_windows_x64.zip" >> "$GITHUB_OUTPUT"
+            platform="windows/amd64"
+            platform_tag="windows_x64"
+            platform_name="${platform#*/}"
+            echo "platform=$platform" >> "$GITHUB_OUTPUT"
+            echo "platform_tag=$platform_tag" >> "$GITHUB_OUTPUT"
+            echo "platform_name=$platform_name" >> "$GITHUB_OUTPUT"
+            echo "artifact=build/bin/${WINDOWS_APP_NAME} Setup_${version}_${platform_tag}.exe" >> "$GITHUB_OUTPUT"
             echo "artifact_name=DreamCreator-preview-windows" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Install Chocolatey packages (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: crazy-max/ghaction-chocolatey@v2
+        with:
+          args: install nsis jq
+
+      - name: Ensure NSIS available (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $nsisPath = "${env:ProgramFiles(x86)}\NSIS\Bin"
+          if (-not (Test-Path (Join-Path $nsisPath 'makensis.exe'))) {
+            Write-Error "makensis.exe not found in $nsisPath"
+          }
+          $nsisPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Prepare embedded binaries
         shell: bash
@@ -92,10 +119,34 @@ jobs:
       - name: Generate Wails bindings
         run: wails generate module
 
+      - name: Ensure npm version (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: npm install -g npm@9
+
+      - name: Update metadata for Windows build
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.meta.outputs.version }}"
+          jq --arg name "$WINDOWS_APP_NAME" \
+             --arg out "$WINDOWS_APP_NAME" \
+             '.name = $name | .outputfilename = $out | .info.productVersion = "0.0.0"' wails.json > tmp.json
+          mv tmp.json wails.json
+          cd frontend
+          jq --arg version "$VERSION" '.version = $version' package.json > tmp.json
+          mv tmp.json package.json
+
       - name: Build frontend
+        shell: bash
         working-directory: frontend
         run: |
-          npm ci
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            npm install
+          else
+            npm ci
+          fi
           npm run build
 
       - name: Build macOS app bundle
@@ -150,39 +201,35 @@ jobs:
             "bin/$dmg_name" \
             "bin"
 
-      - name: Build Windows portable app
+      - name: Build Windows NSIS installer
         if: matrix.os == 'windows-latest'
         shell: bash
         run: |
           CGO_ENABLED=1 wails build -clean -platform "${{ steps.meta.outputs.platform }}" \
-            -webview2 embed \
+            -nsis -webview2 embed \
             -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.meta.outputs.version }} -X dreamcreator/backend/consts.TelemetryAppID=${TELEMETRYDECK_APP_ID} -X dreamcreator/backend/consts.TelemetryEndpoint=${TELEMETRYDECK_ENDPOINT}"
 
-      - name: Prepare Windows portable package
+      - name: Rename Windows installer
         if: matrix.os == 'windows-latest'
         shell: pwsh
         working-directory: ./build/bin
         run: |
-          if (-not (Test-Path "DreamCreator.exe")) {
-            Write-Error "DreamCreator.exe not found in build/bin"
-          }
-          if (Test-Path "Dream Creator") {
-            Remove-Item -Recurse -Force "Dream Creator"
-          }
-          Rename-Item -Path "DreamCreator.exe" -NewName "Dream Creator.exe"
-          New-Item -ItemType Directory -Name "Dream Creator" | Out-Null
-          Move-Item -Path "Dream Creator.exe" -Destination "Dream Creator/"
+          $defaultInstaller = "${env:WINDOWS_APP_ID}-${{ steps.meta.outputs.platform_name }}-installer.exe"
+          $altInstaller = "${env:WINDOWS_APP_NAME}-${{ steps.meta.outputs.platform_name }}-installer.exe"
+          $targetInstaller = "${env:WINDOWS_APP_NAME} Setup_${{ steps.meta.outputs.version }}_${{ steps.meta.outputs.platform_tag }}.exe"
 
-      - name: Compress Windows portable package
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        working-directory: ./build/bin
-        run: |
-          $zipName = "Dream Creator Portable_${{ steps.meta.outputs.version }}_${{ steps.meta.outputs.platform_tag }}.zip"
-          if (Test-Path $zipName) {
-            Remove-Item -Force $zipName
+          if (Test-Path $targetInstaller) {
+            Write-Host "Installer already renamed: $targetInstaller"
+            return
           }
-          Compress-Archive -Path "Dream Creator" -DestinationPath $zipName -Force
+
+          if (Test-Path $defaultInstaller) {
+            Rename-Item -Path $defaultInstaller -NewName $targetInstaller
+          } elseif (Test-Path $altInstaller) {
+            Rename-Item -Path $altInstaller -NewName $targetInstaller
+          } else {
+            throw "Installer not found. Expected '$defaultInstaller' or '$altInstaller' in $(Get-Location)."
+          }
 
       - name: Upload preview artifact
         uses: actions/upload-artifact@v4
