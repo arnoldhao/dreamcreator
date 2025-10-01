@@ -87,10 +87,8 @@ jobs:
             echo "platform=$platform" >> "$GITHUB_OUTPUT"
             echo "platform_tag=$platform_tag" >> "$GITHUB_OUTPUT"
             echo "platform_name=$platform_name" >> "$GITHUB_OUTPUT"
-            echo "artifact=build/bin/${WINDOWS_APP_NAME} Portable_${version}_${platform_tag}.zip" >> "$GITHUB_OUTPUT"
+            echo "artifact=build/bin/${WINDOWS_APP_NAME} Setup_${version}_${platform_tag}.exe" >> "$GITHUB_OUTPUT"
             echo "artifact_name=DreamCreator-preview-windows" >> "$GITHUB_OUTPUT"
-            echo "installer_artifact=build/bin/${WINDOWS_APP_NAME} Setup_${version}_${platform_tag}.exe" >> "$GITHUB_OUTPUT"
-            echo "installer_artifact_name=DreamCreator-preview-windows-installer" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Install Chocolatey packages (Windows)
@@ -203,59 +201,6 @@ jobs:
             "bin/$dmg_name" \
             "bin"
 
-      - name: Build Windows portable app
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        run: |
-          CGO_ENABLED=1 wails build -clean -platform "${{ steps.meta.outputs.platform }}" \
-            -webview2 embed \
-            -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.meta.outputs.version }} -X dreamcreator/backend/consts.TelemetryAppID=${TELEMETRYDECK_APP_ID} -X dreamcreator/backend/consts.TelemetryEndpoint=${TELEMETRYDECK_ENDPOINT}"
-
-      - name: Prepare Windows portable package
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        working-directory: ./build/bin
-        run: |
-          $sourceExe = "${env:WINDOWS_APP_ID}.exe"
-          $targetExe = "${env:WINDOWS_APP_NAME}.exe"
-          if (Test-Path $targetExe) {
-            Write-Host "Executable already renamed: $targetExe"
-          } elseif (Test-Path $sourceExe) {
-            Rename-Item -Path $sourceExe -NewName $targetExe
-          } else {
-            throw "Expected $sourceExe or $targetExe in $(Get-Location), but neither was found."
-          }
-
-          $targetDir = "${env:WINDOWS_APP_NAME}"
-          if (Test-Path $targetDir) {
-            Remove-Item -Path $targetDir -Recurse -Force
-          }
-          New-Item -ItemType Directory -Name $targetDir | Out-Null
-          Move-Item -Path $targetExe -Destination $targetDir
-
-      - name: Compress Windows portable package
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        working-directory: ./build/bin
-        run: |
-          $folder = "${env:WINDOWS_APP_NAME}"
-          $zipName = "$folder Portable_${{ steps.meta.outputs.version }}_${{ steps.meta.outputs.platform_tag }}.zip"
-          if (-not (Test-Path $folder)) {
-            throw "Expected portable folder '$folder' was not found in $(Get-Location)."
-          }
-          if (Test-Path $zipName) {
-            Remove-Item -Force $zipName
-          }
-          Compress-Archive -Path $folder -DestinationPath $zipName -Force
-
-      - name: Upload preview artifact (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.meta.outputs.artifact_name }}
-          path: ${{ steps.meta.outputs.artifact }}
-          if-no-files-found: error
-
       - name: Build Windows NSIS installer
         if: matrix.os == 'windows-latest'
         shell: bash
@@ -287,7 +232,6 @@ jobs:
           }
 
       - name: Upload preview artifact
-        if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.meta.outputs.artifact_name }}
