@@ -5,15 +5,15 @@ go 1.24.0
 require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/lrstanley/go-ytdlp v0.0.0-20250610000944-a2284ab714d8
+	github.com/lrstanley/go-ytdlp v1.2.6
 	github.com/mark3labs/mcp-go v0.17.0
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	github.com/vrischmann/userdir v0.0.0-20151206171402-20f291cebd68
 	github.com/wailsapp/wails/v2 v2.10.1
 	go.etcd.io/bbolt v1.4.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/net v0.42.0
-	golang.org/x/sys v0.34.0
+	golang.org/x/net v0.43.0
+	golang.org/x/sys v0.36.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -41,12 +41,13 @@ require (
 	github.com/samber/lo v1.49.1 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/tkrajina/go-reflector v0.5.8 // indirect
+	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/wailsapp/go-webview2 v1.0.19 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
-	golang.org/x/crypto v0.40.0 // indirect
-	golang.org/x/text v0.27.0 // indirect
+	golang.org/x/crypto v0.42.0 // indirect
+	golang.org/x/text v0.29.0 // indirect
 )
