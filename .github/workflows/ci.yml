@@ -248,6 +248,14 @@ jobs:
           }
           Compress-Archive -Path $folder -DestinationPath $zipName -Force
 
+      - name: Upload preview artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}
+          path: ${{ steps.meta.outputs.artifact }}
+          if-no-files-found: error
+
       - name: Build Windows NSIS installer
         if: matrix.os == 'windows-latest'
         shell: bash
@@ -279,6 +287,7 @@ jobs:
           }
 
       - name: Upload preview artifact
+        if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.meta.outputs.artifact_name }}
