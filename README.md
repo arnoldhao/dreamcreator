@@ -42,16 +42,24 @@
 - **全球发行 Transcode（开发中）**：当前通过 yt-dlp 调用 FFmpeg 实现基础转码，未来将扩展 GPU 转码与多套发行预设。规划详情可在[《全球发行》](https://dreamapp.cc/zh-CN/docs/dreamcreator/transcode)了解。
 
 ## 首次使用指南
-1. **下载发行版**：前往 [GitHub Releases](https://github.com/arnoldhao/dreamcreator/releases) 选择对应的安装包。macOS 用户使用 `.dmg`（Apple silicon 请选择 `arm64` 版本，Intel 请选择 `intel` 版本），Windows 用户根据需求选择 `.exe` 安装包或 `.zip` 便携版。
+
+### 下载安装
+1. **获取安装包**：前往 [GitHub Releases](https://github.com/arnoldhao/dreamcreator/releases) 选择对应的安装包。macOS 用户使用 `.dmg`（Apple silicon 请选择 `arm64` 版本，Intel 请选择 `intel` 版本），Windows 用户根据需求选择 `.exe` 安装包或 `.zip` 便携版。
 2. **通过系统安全提示**：
    - macOS：右键应用选择“打开”，或执行 `sudo xattr -rd com.apple.quarantine /Applications/DreamCreator.app` 移除隔离。
    - Windows：首次运行若出现 SmartScreen 提示，点击“更多信息 → 仍要运行”。
-3. **首次启动**：应用会自动释放 yt-dlp 与 FFmpeg 并完成健康检查。如需代理，请在启动后立刻前往 **设置 → 通用设置 → 网络** 进行配置。
-4. **检查全局设置**：在 **设置 → 通用设置** 指定下载目录、数据目录与日志策略，确认是否启用自动更新。更多配置说明见[《软件配置》](https://dreamapp.cc/zh-CN/docs/dreamcreator/settings)。
-5. **准备 Cookies**：在 **下载 → 浏览器 Cookies** 中，同步 Chrome/Edge/Firefox/Brave/Vivaldi 等浏览器的 Cookies，或在“自定义集合”导入 Netscape/JSON/Header 数据。Safari 与部分 Windows 浏览器受系统限制暂不支持自动同步。
-6. **创建首个下载任务**：点击“新建任务”解析视频链接，先确认已选 Cookies，再在自定义或快速模式中选择需要的音视频轨与字幕。下载过程会分阶段展示“探测 → 获取 → 合并 → 收尾”。
-7. **润色字幕**：若在下载时选择了字幕，可在任务详情中点击“编辑”进入字幕工作台，按需选择 Netflix/BBC/ADE 指导标准，或通过“添加语言”调用繁化姬完成地区化转换。操作细节请参阅[《字幕编辑》](https://dreamapp.cc/zh-CN/docs/dreamcreator/subtitles)。
-8. **维护依赖**：在 **设置 → 依赖** 中执行“快速校验/验证/检查更新”，必要时使用“修复”或“更新”按钮保持 yt-dlp 与 FFmpeg 的最新状态。后台会自动校验 SHA，更新完成后替换旧版本。
+
+### 功能速览
+1. **创建首个下载任务**：点击“新建任务”解析视频链接，先确认已选 Cookies，再在自定义或快速模式中选择需要的音视频轨与字幕。下载过程会分阶段展示“探测 → 获取 → 合并 → 收尾”。
+2. **润色字幕**：若在下载时选择了字幕，可在任务详情中点击“编辑”进入字幕工作台，按需选择 Netflix/BBC/ADE 指导标准，或通过“添加语言”调用繁化姬完成地区化转换。操作细节请参阅[《字幕编辑》](https://dreamapp.cc/zh-CN/docs/dreamcreator/subtitles)。
+
+### 进阶能力
+1. **首次启动与代理**：初次运行会自动释放 yt-dlp 与 FFmpeg 并完成健康检查，若需代理可在 **设置 → 通用设置 → 网络** 配置 HTTP/SOCKS/PAC。
+2. **浏览器 Cookies**：在 **下载 → 浏览器 Cookies** 中，同步 Chrome/Edge/Firefox/Brave/Vivaldi 的 Cookies，或在“自定义集合”导入 Netscape/JSON/Header 数据，方便处理会员视频与地区限制。
+3. **自定义全局设置**：在 **设置 → 通用设置** 指定下载目录、数据目录、日志策略及自动更新偏好，获取更契合自身流程的体验。更多配置说明见[《软件配置》](https://dreamapp.cc/zh-CN/docs/dreamcreator/settings)。
+
+### 依赖管理
+1. **维护 yt-dlp 与 FFmpeg**：前往 **设置 → 依赖** 执行“快速校验/验证/检查更新”，必要时使用“修复”或“更新”保持依赖为最新，后台会自动校验 SHA 并替换旧版本。
 
 ## 从源码构建
 运行环境：Go 1.24+、Node.js 18+、Wails CLI。

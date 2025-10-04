@@ -42,16 +42,24 @@ DreamCreator combines a Go + Wails backend with a Vue 3 frontend to offer creato
 - **Transcode (in development)**: Currently leverages yt-dlp’s FFmpeg integration for baseline mux/remux. Planned upgrades include GPU acceleration and publishing presets—follow along in the [Transcode overview](https://dreamapp.cc/docs/dreamcreator/transcode).
 
 ## First-Time Setup
+
+### Install and Launch
 1. **Download a release** from [GitHub Releases](https://github.com/arnoldhao/dreamcreator/releases). macOS users should pick the `.dmg` for their architecture (Apple silicon `arm64`, Intel `intel`); Windows users can choose the `.exe` installer or `.zip` portable build.
-2. **Clear system trust prompts**:
+2. **Clear trust prompts**:
    - macOS: Control-click the app and choose “Open”, or run `sudo xattr -rd com.apple.quarantine /Applications/DreamCreator.app` to remove quarantine.
    - Windows: If SmartScreen warns you, click “More info → Run anyway”.
-3. **First launch**: DreamCreator automatically unpacks yt-dlp and FFmpeg and performs a health check. If you need a proxy, go straight to **Settings → General → Network** after launch.
-4. **Review global settings**: In **Settings → General**, confirm download/data directories, logging preferences, language, theme, and auto-update options. Read more in the [Settings guide](https://dreamapp.cc/docs/dreamcreator/settings).
-5. **Prepare cookies**: Open **Downloads → Browser Cookies** to sync from Chrome/Edge/Firefox/Brave/Vivaldi, or paste Netscape/JSON/header strings into a custom collection. Safari and certain Windows browsers may block automatic sync due to OS restrictions.
-6. **Create your first task**: Click “New Task”, paste a URL, verify the selected cookies, then choose Custom or Quick mode to pick tracks and subtitles. Progress is displayed across probe → fetch → merge → finalize stages.
-7. **Polish subtitles**: When subtitles were downloaded, open the task detail and hit “Edit” to enter the workbench, choose Netflix/BBC/ADE guidelines, or use “Add Language” to run Fanhuaji conversions. The [Subtitle guide](https://dreamapp.cc/docs/dreamcreator/subtitles) covers every option.
-8. **Maintain dependencies**: Visit **Settings → Dependencies** to run Quick Check / Verify / Check Updates, and use Repair or Update to keep yt-dlp and FFmpeg healthy. SHA verification ensures safe swaps.
+
+### Quick tour
+1. **Create your first download task**: Click “New Task”, paste a URL, confirm the right cookies, then pick tracks and subtitles via Custom or Quick mode. Progress is tracked across probe → fetch → merge → finalize.
+2. **Polish subtitles**: When subtitles are available, open the task, hit “Edit”, and use Netflix/BBC/ADE presets or “Add Language” for Fanhuaji conversions. See the [Subtitle guide](https://dreamapp.cc/docs/dreamcreator/subtitles) for every option.
+
+### Advanced capabilities
+1. **Proxy-ready first launch**: The initial run unpacks yt-dlp and FFmpeg and performs a health check; configure HTTP/SOCKS/PAC proxies in **Settings → General → Network** if needed.
+2. **Browser cookie integration**: Visit **Downloads → Browser Cookies** to sync Chrome/Edge/Firefox/Brave/Vivaldi or paste Netscape/JSON/header strings into a custom collection for members-only content.
+3. **Tailored global settings**: Under **Settings → General**, adjust download/data directories, logging, language, theme, and auto-updates for a workflow-aligned experience. More details live in the [Settings guide](https://dreamapp.cc/docs/dreamcreator/settings).
+
+### Dependency health
+1. **Keep yt-dlp & FFmpeg fresh**: Navigate to **Settings → Dependencies** to run Quick Check / Verify / Check Updates, and use Repair or Update to stay current; SHA verification ensures safe swaps.
 
 ## Build from Source
 Prerequisites: Go 1.24+, Node.js 18+, Wails CLI.
