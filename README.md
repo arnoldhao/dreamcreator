@@ -33,8 +33,11 @@
 ## 项目简介
 追创作（DreamCreator）依托 Go + Wails 后端与 Vue 3 前端，为创作者提供材料采集、字幕润色与跨语言交付的一站式体验。我们坚持界面极简、稳定可依赖，并在代理、Cookies 管理、依赖校验等基础能力上做了大量增强，力求成为视频创作者的趁手工具。
 
+## 界面预览
+![DreamCreator 简体中文界面](images/ui_chs.png)
+
 ## 核心能力
-- **素材获取 Download**：集成 yt-dlp，在千余个视频网站上进行分轨下载，支持浏览器同步与自定义集合的 Cookies 管理、HTTP/SOCKS/PAC 代理，以及可视化的任务进度。详细指南请查看[《素材获取》](https://dreamapp.cc/zh-CN/docs/dreamcreator/download)。
+- **素材获取 Download**：集成 yt-dlp，在千余个[视频网站](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)上进行分轨下载，支持浏览器同步与自定义集合的 Cookies 管理、HTTP/SOCKS/PAC 代理，以及可视化的任务进度。详细指南请查看[《素材获取》](https://dreamapp.cc/zh-CN/docs/dreamcreator/download)。
 - **字幕编辑 Subtitle**：支持 SRT、VTT、ASS/SSA、ITT、FCPXML 等格式，内置 Netflix/BBC/ADE 指导标准与交通灯反馈，结合繁化姬提供多地区中文转换。使用说明见[《字幕编辑》](https://dreamapp.cc/zh-CN/docs/dreamcreator/subtitles)。
 - **全球发行 Transcode（开发中）**：当前通过 yt-dlp 调用 FFmpeg 实现基础转码，未来将扩展 GPU 转码与多套发行预设。规划详情可在[《全球发行》](https://dreamapp.cc/zh-CN/docs/dreamcreator/transcode)了解。
 
