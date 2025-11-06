@@ -22,12 +22,17 @@ var (
 	dependencyBucket    = []byte("dependencies") // 用于存储依赖信息的桶
 	cookiesBucketV2     = []byte("cookies_v2")   // 用于存储新的 Cookie 集合
 	legacyCookiesBucket = []byte("cookies")      // 历史 Cookie 桶，启动时清理
+	// LLM Providers & Profiles
+	providersBucket     = []byte("providers")      // LLM Provider 管理
+	llmProfilesBucket   = []byte("llm_profiles")   // LLM Profile 管理
+    modelsCacheBucket   = []byte("models_cache")   // Provider 模型缓存
+    modelsMetaBucket    = []byte("models_meta")    // 模型元信息（可选，更丰富）
 	// other buckets...
 )
 
 type BoltStorage struct {
-	path string
-	db   *bbolt.DB // Make DB field public for direct transaction access
+    path string
+    db   *bbolt.DB // Keep DB private; expose required ops via methods
 }
 
 var NewBoltStorageForTest func(path string) (*BoltStorage, error)
@@ -78,6 +83,20 @@ func NewBoltStorage() (*BoltStorage, error) {
 		if _, err := tx.CreateBucketIfNotExists(dependencyBucket); err != nil {
 			return err
 		}
+
+		// create llm provider buckets
+		if _, err := tx.CreateBucketIfNotExists(providersBucket); err != nil {
+			return err
+		}
+		if _, err := tx.CreateBucketIfNotExists(llmProfilesBucket); err != nil {
+			return err
+		}
+        if _, err := tx.CreateBucketIfNotExists(modelsCacheBucket); err != nil {
+            return err
+        }
+        if _, err := tx.CreateBucketIfNotExists(modelsMetaBucket); err != nil {
+            return err
+        }
 
 		// drop legacy cookies bucket if still present
 		if legacy := tx.Bucket(legacyCookiesBucket); legacy != nil {

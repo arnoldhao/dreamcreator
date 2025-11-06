@@ -584,4 +584,36 @@
       "conversion_finished": "Conversion Finished {status}"
     }
   }
+  ,
+  "providers": {
+    "add": "Add",
+    "provider": "Provider",
+    "provider_name": "Provider Name",
+    "api_base_url": "API Base URL",
+    "api_key": "API Key",
+    "base_url_hint": "Do NOT include /chat/completions in the URL",
+    "create_title": "Create Provider",
+    "empty_hint": "Select a provider on the left, or click + to create",
+    "add_openai": "OpenAI Compatible",
+    "add_anthropic": "Anthropic Compatible",
+    "open_form_failed": "Failed to open form",
+    "create_failed": "Create failed",
+    "enable_preset_failed": "Enable preset failed",
+    "profiles_title": "Profiles",
+    "profiles_add": "Add Profile",
+    "profiles_empty": "No profiles yet",
+    "profile_model": "Model",
+    "profile_temperature": "Temperature",
+    "profile_top_p": "Top P",
+    "profile_json_mode": "JSON Mode",
+    "profile_json_mode_on": "On",
+    "profile_json_mode_off": "Off",
+    "profile_delete_confirm": "Delete this profile?",
+    "init_title": "Initialize Confirm",
+    "init_action": "Initialize",
+    "init_danger": "Initialize (Dangerous)",
+    "init_confirm": "This will clear all LLM Provider/Profiles/Models cache and import presets. Continue?",
+    "init_done": "Initialization completed",
+    "init_failed": "Initialization failed"
+  }
 }

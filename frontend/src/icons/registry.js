@@ -20,6 +20,9 @@ export const ICON_MAP = {
   spinner: 'loader',
   close: 'x',
   plus: 'plus',
+  minus: 'minus',
+  eye: 'eye',
+  'eye-off': 'eye-off',
   home: 'home',
   info: 'info',
   'panel-right': 'panel-right',
@@ -47,6 +50,8 @@ export const ICON_MAP = {
   moon: 'moon',
   heart: 'heart',
   edit: 'pencil',
+  // Use an existing symbol for save to avoid missing asset
+  save: 'check',
   'sun-moon': 'sun-moon',
   mail: 'mail',
   github: 'github',

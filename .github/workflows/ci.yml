@@ -14,9 +14,9 @@ jobs:
 
       # Go backend
       - uses: actions/setup-go@v5
-        with: { go-version: '1.24.0' }   # 与 README 要求一致
+        with: { go-version: '1.25.4' }   # 与 README 要求一致
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.1
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
       - name: Prepare embedded binaries
         shell: bash
         run: ./scripts/fetch-embedded-binaries.sh --platform linux/amd64
@@ -29,7 +29,7 @@ jobs:
 
       # Frontend
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with: { node-version: '24.11.0' }
       - name: Frontend install & lint & build
         working-directory: frontend
         run: |
@@ -58,11 +58,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
-        with: { go-version: '1.24.0' }
+        with: { go-version: '1.25.4' }
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.1
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
       - uses: actions/setup-node@v4
-        with: { node-version: '23.1.0' }
+        with: { node-version: '24.11.0' }
 
       - name: Determine build metadata
         id: meta

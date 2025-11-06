@@ -20,6 +20,7 @@ import { useI18n } from 'vue-i18n'
 import useSettingsStore from '@/stores/settings.js'
 import Dependency from '@/components/content/Dependency.vue'
 import Settings from '@/components/content/Settings.vue'
+import Providers from '@/components/content/Providers.vue'
 
 const props = defineProps({
   loading: Boolean,
@@ -87,6 +88,9 @@ const contentTitle = computed(() => {
     if (settingsStore.currentPage === 'dependency') return t('settings.dependency.title')
     if (settingsStore.currentPage === 'about') return t('settings.about.title')
     return t('settings.general.name')
+  }
+  if (navStore.currentNav === navStore.navOptions.PROVIDERS) {
+    return t('settings.model_provider')
   }
   return t('ribbon.' + navStore.currentNav)
 })
@@ -586,7 +590,7 @@ function onModalClick(act) {
         <!-- content column: includes local header when ribbon is visible -->
         <div class="flex flex-col flex-1 min-h-0 min-w-0">
           <div ref="pageScrollEl" class="page-scroll flex-1 min-h-0 overflow-auto"
-               :class="[{ 'with-top-divider': navStore.currentNav === navStore.navOptions.SETTINGS }, { 'scrolled': hasTopScroll }, { 'pad-bottom-for-fab': needsBottomPad }]">
+               :class="[{ 'with-top-divider': (navStore.currentNav === navStore.navOptions.SETTINGS) || (navStore.currentNav === navStore.navOptions.PROVIDERS) }, { 'scrolled': hasTopScroll }, { 'pad-bottom-for-fab': needsBottomPad }]">
             <!-- download page (macOS style) -->
             <div v-show="navStore.currentNav === navStore.navOptions.DOWNLOAD" class="content-container min-w-0">
               <video-download-page />
@@ -595,6 +599,13 @@ function onModalClick(act) {
             <!-- subtitle page -->
             <div v-if="navStore.currentNav === navStore.navOptions.SUBTITLE" class="content-container min-w-0">
               <subtitle />
+            </div>
+
+            <!-- providers page (1:1 复刻 Settings 的承载容器) -->
+            <div v-if="navStore.currentNav === navStore.navOptions.PROVIDERS" class="content-container min-w-0 flex flex-1 min-h-0 relative">
+              <div class="settings-host with-split" :style="{ '--settings-left': layout.ribbonWidth + 'px' }">
+                <Providers />
+              </div>
             </div>
 
             <!-- settings page -->
