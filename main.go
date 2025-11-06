@@ -1,18 +1,19 @@
 package main
 
 import (
-	"context"
-	"dreamcreator/backend/api"
-	"dreamcreator/backend/consts"
-	"dreamcreator/backend/core/downtasks"
-	"dreamcreator/backend/core/imageproxies"
-	"dreamcreator/backend/core/subtitles"
-	"dreamcreator/backend/mcpserver"
-	"dreamcreator/backend/pkg/downinfo"
-	"dreamcreator/backend/pkg/events"
-	"dreamcreator/backend/pkg/logger"
-	"dreamcreator/backend/pkg/proxy"
-	"dreamcreator/backend/pkg/websockets"
+    "context"
+    "dreamcreator/backend/api"
+    "dreamcreator/backend/consts"
+    "dreamcreator/backend/core/downtasks"
+    "dreamcreator/backend/core/imageproxies"
+    "dreamcreator/backend/core/subtitles"
+    "dreamcreator/backend/mcpserver"
+    "dreamcreator/backend/pkg/provider"
+    "dreamcreator/backend/pkg/downinfo"
+    "dreamcreator/backend/pkg/events"
+    "dreamcreator/backend/pkg/logger"
+    "dreamcreator/backend/pkg/proxy"
+    "dreamcreator/backend/pkg/websockets"
 	"dreamcreator/backend/services/preferences"
 	"dreamcreator/backend/services/systems"
 	"dreamcreator/backend/storage"
@@ -82,12 +83,15 @@ func main() {
 	pathsAPI := api.NewPathsAPI(preferencesService, dtService)
 	// # Utils API
 	utilsAPI := api.NewUtilsAPI(ipsService)
-	// # Subtitles API
-	subtitlesAPI := api.NewSubtitlesAPI(subtitlesService, eventBus, websocketService)
-	// # Dependencies API
-	dependenciesAPI := api.NewDependenciesAPI(dtService)
-	// # Cookies API (New)
-	cookiesAPI := api.NewCookiesAPI(dtService)
+    // # Subtitles API
+    subtitlesAPI := api.NewSubtitlesAPI(subtitlesService, eventBus, websocketService)
+    // # Dependencies API
+    dependenciesAPI := api.NewDependenciesAPI(dtService)
+    // # Cookies API (New)
+    cookiesAPI := api.NewCookiesAPI(dtService)
+    // # LLM API (Wails style)
+    llmService := provider.NewService(boltStorage, proxyManager)
+    llmAPI := api.NewLLMAPI(llmService)
 
 	// MCP
 	// # MCP Server
@@ -169,13 +173,14 @@ func main() {
 			systemService,
 			// Packages
 			websocketService,
-			// APIs
-			dtAPI,
-			pathsAPI,
-			utilsAPI,
-			subtitlesAPI,
-			dependenciesAPI,
-			cookiesAPI,
+            // APIs
+            dtAPI,
+            pathsAPI,
+            utilsAPI,
+            subtitlesAPI,
+            dependenciesAPI,
+            cookiesAPI,
+            llmAPI,
 		},
 		Logger: logger.NewWailsLogger(),
 		OnStartup: func(ctx context.Context) {
@@ -195,8 +200,16 @@ func main() {
 			pathsAPI.Subscribe(ctx)
 			utilsAPI.Subscribe(ctx)
 			subtitlesAPI.Subscribe(ctx)
-			dependenciesAPI.Subscribe(ctx)
-			cookiesAPI.WailsInit(ctx)
+            dependenciesAPI.Subscribe(ctx)
+            cookiesAPI.WailsInit(ctx)
+            // LLM API
+            // Seed default providers if DB is empty (one-off via migration flag)
+            if n, err := llmService.EnsureDefaultProviders(ctx); err != nil {
+                logger.Warn("seed default providers failed", zap.Error(err))
+            } else if n > 0 {
+                logger.Info("seeded default providers", zap.Int("count", n))
+            }
+            llmAPI.Subscribe(ctx)
 			// MCP
 			if err := mcpServer.Start(ctx); err != nil {
 				logger.Error("Error starting MCP server", zap.Error(err))

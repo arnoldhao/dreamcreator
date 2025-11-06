@@ -586,4 +586,36 @@
       "conversion_finished": "转换已完成 {status}"
     }
   }
+  ,
+  "providers": {
+    "add": "新增",
+    "provider": "Provider",
+    "provider_name": "Provider 名称",
+    "api_base_url": "API Base URL",
+    "api_key": "API Key",
+    "base_url_hint": "不要在 URL 中包含 /chat/completions",
+    "create_title": "新建 Provider",
+    "empty_hint": "请选择左侧 Provider，或点击底部 + 创建",
+    "add_openai": "OpenAI Compatible",
+    "add_anthropic": "Anthropic Compatible",
+    "open_form_failed": "无法打开创建表单",
+    "create_failed": "创建失败",
+    "enable_preset_failed": "启用预设失败",
+    "profiles_title": "配置文件",
+    "profiles_add": "新增配置",
+    "profiles_empty": "暂无配置",
+    "profile_model": "模型",
+    "profile_temperature": "温度",
+    "profile_top_p": "Top P",
+    "profile_json_mode": "JSON 模式",
+    "profile_json_mode_on": "开启",
+    "profile_json_mode_off": "关闭",
+    "profile_delete_confirm": "确认删除该配置？",
+    "init_title": "初始化确认",
+    "init_action": "初始化",
+    "init_danger": "初始化（危险操作）",
+    "init_confirm": "将清空现有的 LLM Provider/Profiles/Models 缓存，并按预设导入 Provider。是否继续？",
+    "init_done": "已完成初始化",
+    "init_failed": "初始化失败"
+  }
 }

@@ -21,7 +21,7 @@ func (s *Service) videoDownloader() mcp.Tool {
 
 func (s *Service) downloadHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// 获取LLM提供的参数
-	url, _ := request.Params.Arguments["url"].(string)
+	url := request.GetString("url", "")
 
 	// params check
 	if url == "" {
@@ -70,7 +70,7 @@ func (s *Service) videoDownloaderStatus() mcp.Tool {
 
 func (s *Service) downloadStatusHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) { // <<--- 新增函数
 	// 获取LLM提供的参数
-	taskID, _ := request.Params.Arguments["task_id"].(string)
+	taskID := request.GetString("task_id", "")
 
 	// params check
 	if taskID == "" {

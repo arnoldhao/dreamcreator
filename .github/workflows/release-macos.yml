@@ -71,16 +71,16 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.24.0
+          go-version: 1.25.4
 
       - name: Install wails
         shell: bash
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.1
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 23.1.0
+          node-version: 24.11.0
 
       # 新增：下载二进制依赖文件
       - name: Download embedded binaries

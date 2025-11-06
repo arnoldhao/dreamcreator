@@ -4,7 +4,8 @@ import { reactive } from 'vue'
 const navOptions = {
   DOWNLOAD: 'download',
   SUBTITLE: 'subtitle',
-  SETTINGS: 'settings'
+  SETTINGS: 'settings',
+  PROVIDERS: 'providers',
 }
 
 // 创建响应式状态

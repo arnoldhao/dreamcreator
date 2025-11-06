@@ -62,7 +62,7 @@ DreamCreator combines a Go + Wails backend with a Vue 3 frontend to offer creato
 1. **Keep yt-dlp & FFmpeg fresh**: Navigate to **Settings → Dependencies** to run Quick Check / Verify / Check Updates, and use Repair or Update to stay current; SHA verification ensures safe swaps.
 
 ## Build from Source
-Prerequisites: Go 1.24+, Node.js 18+, Wails CLI.
+Prerequisites: Go 1.25.4, Node.js 24.11.0, Wails CLI.
 
 ```bash
 # Install backend dependencies

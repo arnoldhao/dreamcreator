@@ -30,6 +30,10 @@
             <Icon name="package" class="w-4 h-4 mr-2" />
             <span>{{ $t('settings.dependency.title') }}</span>
           </div>
+          <div class="popover-item" @click="openProviders()">
+            <Icon name="database" class="w-4 h-4 mr-2" />
+            <span>{{ $t('settings.model_provider') }}</span>
+          </div>
           
         </div>
       </div>
@@ -94,6 +98,11 @@ function onBottomItemClick(m) {
 function openSettings(key) {
   settings.setPage(key)
   emit('update:value', navStore.navOptions.SETTINGS)
+  showSettingsMenu.value = false
+}
+
+function openProviders() {
+  emit('update:value', navStore.navOptions.PROVIDERS)
   showSettingsMenu.value = false
 }
 

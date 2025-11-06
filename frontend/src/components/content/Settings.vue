@@ -67,11 +67,11 @@
       </template>
 
       <!-- other sections use card container -->
-  <template v-else>
-  <div class="sr-card card-frosted card-translucent">
-    <div class="sr-card-body">
-      <!-- Appearance -->
-      <template v-if="current === 'appearance'">
+      <template v-else>
+      <div class="sr-card card-frosted card-translucent">
+        <div class="sr-card-body">
+          <!-- Appearance -->
+          <template v-if="current === 'appearance'">
             <div class="macos-row">
               <div class="k">{{ $t('settings.general.appearance') }}</div>
               <div class="v">
@@ -163,6 +163,9 @@
               </div>
             </div>
           </template>
+
+          <!-- LLM Providers & Profiles -->
+          <!-- removed: managed in Providers page -->
 
           <!-- Logs -->
           <template v-else-if="current === 'logs'">
