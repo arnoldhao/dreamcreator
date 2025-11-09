@@ -15,6 +15,16 @@
               <span v-if="dep.available" class="dep-badge dep-ok">{{ $t('settings.dependency.installed') }}</span>
               <span v-else class="dep-badge dep-miss">{{ $t('settings.dependency.not_installed') }}</span>
               <span v-if="dep.needUpdate" class="dep-badge dep-warn">{{ $t('settings.dependency.update') }}</span>
+              <!-- Show last check failure badge when an error exists -->
+              <button
+                v-if="dep.lastCheckAttempted && !dep.lastCheckSuccess"
+                type="button"
+                class="dep-badge dep-err"
+                @click="showLastCheckError(key)"
+                :title="$t('settings.dependency.check_updates_failed')"
+              >
+                {{ $t('settings.dependency.check_updates_failed') }}
+              </button>
             </div>
             <div class="sr-control control-short dep-actions">
               <template v-if="dep.available">
@@ -158,8 +168,12 @@ export default {
         const checkUpdates = async () => {
             isChecking.value = true
             try {
-                await dependenciesStore.checkUpdates()
-                $message.success(t('settings.dependency.check_updates_success'))
+                const result = await dependenciesStore.checkUpdates()
+                if (result && result.hasFailures) {
+                    $message.warning(t('settings.dependency.check_updates_partial'))
+                } else {
+                    $message.success(t('settings.dependency.check_updates_success'))
+                }
             } catch (error) {
                 console.error('Check updates failed:', error)
                 $message.error(t('settings.dependency.check_updates_failed'))
@@ -212,6 +226,21 @@ export default {
 
         const repairDependency = async (type) => {
             await dependenciesStore.repairDependency(type)
+        }
+
+        const showLastCheckError = (type) => {
+            const dep = dependencies.value[type]
+            if (!dep) return
+            const headerBase = t('settings.dependency.check_updates_failed')
+            const codeKey = `settings.dependency.error.${dep.lastCheckErrorCode || 'unknown'}`
+            const codeText = t(codeKey)
+            const header = `${headerBase}: ${codeText}`
+            const details = (dep.lastCheckError || '').trim()
+            const content = details ? `${header}\n\n${details}` : header
+            $dialog.error({
+                title: t('settings.dependency.check_updates_failed'),
+                content,
+            })
         }
 
         // 关闭镜像选择模态框
@@ -273,6 +302,7 @@ export default {
             checkUpdates,
             showMirrorSelector,
             repairDependency,
+            showLastCheckError,
             closeMirrorModal,
             performAction,
             openDirectory,
@@ -299,6 +329,8 @@ export default {
 .dep-badge.dep-ok { border-color: #30d158; }
 .dep-badge.dep-warn { border-color: #ff9f0a; }
 .dep-badge.dep-miss { border-color: #ff453a; }
+.dep-badge.dep-err { border-color: #ff453a; color: #ff453a; cursor: pointer; background: transparent; }
+.dep-badge.dep-err:hover { background: color-mix(in oklab, #ff453a 12%, transparent); }
 .sr-icon-btn { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:6px; background:transparent; border:1px solid transparent; color: var(--macos-text-secondary); }
 .sr-icon-btn:hover { background: var(--macos-gray-hover); }
 .sr-icon-btn:active { background: var(--macos-gray-active); }

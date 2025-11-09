@@ -291,6 +291,7 @@
       "path": "Path",
       "check_updates_success": "Check Updates Success",
       "check_updates_failed": "Check Updates Failed",
+      "check_updates_partial": "Check completed with failures",
       "install_success": "Install Success",
       "install_failed": "Install Failed",
       "update_success": "Update Success",
@@ -307,6 +308,14 @@
       "repairing": "Repairing",
       "repair_success": "Repair Success",
       "repair_failed": "Repair Failed"
+      ,
+      "error": {
+        "timeout": "Network timeout",
+        "network": "Network unavailable or blocked",
+        "http_error": "Remote returned error status",
+        "parse_error": "Response parse error",
+        "unknown": "Unknown error"
+      }
     }
   },
   

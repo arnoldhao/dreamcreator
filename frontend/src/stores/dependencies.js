@@ -23,6 +23,10 @@ const useDependenciesStore = defineStore('dependencies', {
                 version: '',
                 latestVersion: '',
                 needUpdate: false,
+                lastCheckAttempted: false,
+                lastCheckSuccess: true,
+                lastCheckError: '',
+                lastCheckErrorCode: '',
             },
                 'ffmpeg': {
                     // frontend-only properties
@@ -40,6 +44,10 @@ const useDependenciesStore = defineStore('dependencies', {
                 version: '',
                 latestVersion: '',
                 needUpdate: false,
+                lastCheckAttempted: false,
+                lastCheckSuccess: true,
+                lastCheckError: '',
+                lastCheckErrorCode: '',
             }
         },
         mirrors: {},
@@ -257,6 +265,10 @@ const useDependenciesStore = defineStore('dependencies', {
                                 version: info.version,
                                 latestVersion: info.latestVersion,
                                 needUpdate: info.needUpdate,
+                                lastCheckAttempted: !!info.lastCheckAttempted,
+                                lastCheckSuccess: !!info.lastCheckSuccess,
+                                lastCheckError: info.lastCheckError || '',
+                                lastCheckErrorCode: info.lastCheckErrorCode || '',
                                 installed: info.available
                             })
                         }
@@ -281,10 +293,16 @@ const useDependenciesStore = defineStore('dependencies', {
                         if (this.dependencies[type]) {
                             Object.assign(this.dependencies[type], {
                                 latestVersion: info.latestVersion,
-                                needUpdate: info.needUpdate
+                                needUpdate: info.needUpdate,
+                                lastCheckAttempted: !!info.lastCheckAttempted,
+                                lastCheckSuccess: !!info.lastCheckSuccess,
+                                lastCheckError: info.lastCheckError || '',
+                                lastCheckErrorCode: info.lastCheckErrorCode || '',
                             })
                         }
                     })
+                    const hasFailures = Object.values(this.dependencies).some(dep => dep.lastCheckAttempted && !dep.lastCheckSuccess)
+                    return { hasFailures }
                 } else {
                     throw new Error('Failed to check updates:', response.msg)
                 }
@@ -293,6 +311,7 @@ const useDependenciesStore = defineStore('dependencies', {
                     title: this.t('settings.dependency.check_updates_failed'),
                     content: error.message,
                 })
+                return { hasFailures: true }
             } finally {
                 this.loading = false
             }
@@ -335,6 +354,10 @@ const useDependenciesStore = defineStore('dependencies', {
                             version: info.version,
                             latestVersion: info.latestVersion,
                             needUpdate: info.needUpdate,
+                            lastCheckAttempted: !!info.lastCheckAttempted,
+                            lastCheckSuccess: !!info.lastCheckSuccess,
+                            lastCheckError: info.lastCheckError || '',
+                            lastCheckErrorCode: info.lastCheckErrorCode || '',
                             installed: info.available
                         })
                     }

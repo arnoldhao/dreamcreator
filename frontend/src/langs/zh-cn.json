@@ -293,6 +293,7 @@
       "path": "路径",
       "check_updates_success": "检查更新成功",
       "check_updates_failed": "检查更新失败",
+      "check_updates_partial": "检查完成，部分失败",
       "install_success": "安装成功",
       "install_failed": "安装失败",
       "update_success": "更新成功",
@@ -309,6 +310,14 @@
       "repairing": "修复中",
       "repair_success": "修复成功",
       "repair_failed": "修复失败"
+      ,
+      "error": {
+        "timeout": "网络超时",
+        "network": "网络不可用或被拦截",
+        "http_error": "远端返回异常状态",
+        "parse_error": "响应解析异常",
+        "unknown": "未知错误"
+      }
     }
   },
   
