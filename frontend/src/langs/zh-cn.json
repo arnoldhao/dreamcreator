@@ -293,6 +293,7 @@
       "path": "路径",
       "check_updates_success": "检查更新成功",
       "check_updates_failed": "检查更新失败",
+      "check_updates_partial": "检查完成，部分失败",
       "install_success": "安装成功",
       "install_failed": "安装失败",
       "update_success": "更新成功",
@@ -309,6 +310,14 @@
       "repairing": "修复中",
       "repair_success": "修复成功",
       "repair_failed": "修复失败"
+      ,
+      "error": {
+        "timeout": "网络超时",
+        "network": "网络不可用或被拦截",
+        "http_error": "远端返回异常状态",
+        "parse_error": "响应解析异常",
+        "unknown": "未知错误"
+      }
     }
   },
   
@@ -434,7 +443,34 @@
     "output": "输出",
     "settings": "设置",
     "output_dir": "输出目录",
-    "output_info": "输出信息"
+    "output_info": "输出信息",
+    "retry": "重试",
+    "retried": "已发起重试",
+    "retry_failed": "重试失败",
+    "analyze": "原因分析",
+    "analysis": {
+      "title": "失败原因分析",
+      "connectivity_check": "连通性检查：{host}",
+      "connectivity_ok": "网络连通正常（状态 {status}）",
+      "connectivity_fail": "网络连通失败：{error}",
+      "connectivity_unknown": "连通性：未知",
+      "ytdlp_ok": "yt-dlp 正常（v{version}）",
+      "ytdlp_missing": "未安装 yt-dlp",
+      "ytdlp_outdated": "yt-dlp 版本过旧（本地 v{version}，最新 v{latest}）",
+      "latest_check_failed": "获取最新版本信息失败",
+      "extract_host": "解析域名",
+      "open_network_settings": "打开网络设置",
+      "open_dependency_settings": "打开依赖管理",
+      "network_short": "网络",
+      "dependency_short": "依赖",
+      "section_error": "失败原因",
+      "section_url": "域名检查",
+      "section_ytdlp": "依赖检查",
+      "node_domain": "域名",
+      "node_connectivity": "连接性",
+      "node_available": "可用",
+      "node_version": "版本"
+    }
   },
   "subtitle": {
     "title": "字幕",

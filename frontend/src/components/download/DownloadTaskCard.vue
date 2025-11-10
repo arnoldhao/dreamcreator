@@ -17,7 +17,12 @@
         <div class="uploader" v-if="task.uploader" :title="task.uploader">{{ task.uploader }}</div>
         <div class="chip-frosted chip-md chip-translucent bottom-stats" :class="combinedStatClass" @click.stop="onBottomPillClick" :title="pillTitle">
           <span class="chip-dot"></span>
-          <span class="chip-label">{{ combinedStatText }}</span>
+          <span class="chip-label">
+            <span class="label-swap" :class="{ hoverable: isFailed }">
+              <span class="label-a">{{ combinedStatText }}</span>
+              <span class="label-b" v-if="isFailed">{{ t('download.analysis.title') }}</span>
+            </span>
+          </span>
         </div>
       </div>
     </div>
@@ -29,20 +34,29 @@
         <Icon name="trash" class="w-4 h-4" />
       </button>
     </div>
+    <!-- mount analysis modal locally; fixed overlay ensures global appearance -->
+    <AnalysisModal 
+      v-if="analysisVisible" 
+      v-model:show="analysisVisible" 
+      :task-id="task?.id || ''" 
+      :task-error="task?.error || ''" 
+    />
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ProxiedImage from '@/components/common/ProxiedImage.vue'
 import { formatDuration as fmtDuration, formatFileSize as fmtSize } from '@/utils/format.js'
+import AnalysisModal from '@/components/modal/AnalysisModal.vue'
 
 const props = defineProps({
   task: { type: Object, required: true },
   active: { type: Boolean, default: false },
 })
 const { t } = useI18n()
+const isFailed = computed(() => props.task?.stage === 'failed')
 const pillTitle = computed(() => props.task?.stage === 'failed' ? (t('download.failed_desc') || '') : '')
 
 const statusText = (stage) => ({
@@ -152,12 +166,14 @@ const combinedStatClass = computed(() => {
   return statusBadgeClass(stage)
 })
 
-function onBottomPillClick() {
+const analysisVisible = ref(false)
+
+async function onBottomPillClick() {
   try {
     const stage = props.task?.stage
     if (stage === 'failed') {
-      const msg = props.task?.error || t('download.failed_desc') || t('download.failed')
-      $dialog?.error?.({ title: t('download.failed'), content: msg })
+      analysisVisible.value = true
+      return
     }
   } catch {}
 }
@@ -174,7 +190,6 @@ const formatFileSize = (bytes) => fmtSize(bytes, t)
 .thumb { width: 64px; height: 40px; border-radius: 6px; overflow:hidden; background: var(--macos-background-secondary); display:flex; align-items:center; justify-content:center; }
 .thumb-fallback { width:100%; height:100%; display:flex; align-items:center; justify-content:center; color: var(--macos-text-tertiary); }
 .main { min-width: 0; }
-.title-row { display:flex; align-items:center; gap: 8px; min-width:0; }
 .title-row { display:flex; align-items:center; gap: 8px; min-width:0; justify-content: space-between; }
 .title-row .title { flex: 1 1 auto; min-width: 0; }
 .title-row .badge { flex-shrink: 0; }
@@ -183,9 +198,38 @@ const formatFileSize = (bytes) => fmtSize(bytes, t)
 .bottom-row { display:flex; align-items:center; justify-content: space-between; margin-top: 2px; gap: 8px; min-width: 0; }
 .uploader { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sub); color: var(--macos-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bottom-stats { flex: 0 0 auto; white-space: nowrap; font-size: var(--fs-caption); }
+.bottom-stats .chip-label { position: relative; overflow: hidden; display: inline-flex; align-items: center; height: 100%; line-height: 1; }
+.bottom-stats .label-swap { display: inline-block; }
+.bottom-stats .label-b { display: none; }
+.bottom-stats.badge-error:hover .label-swap.hoverable .label-a { display: none; }
+.bottom-stats.badge-error:hover .label-swap.hoverable .label-b { display: inline; }
 /* Softer status chip on cards: transparent by default, subtle hover fill */
 .bottom-stats.chip-frosted.chip-translucent { background: transparent; border-color: rgba(255,255,255,0.18); color: var(--macos-text-secondary); box-shadow: none; }
 .bottom-stats.chip-frosted.chip-translucent:hover { background: color-mix(in oklab, var(--macos-blue) 22%, transparent); border-color: var(--macos-blue); color: #fff; }
+
+/* Failed state: make it semi-transparent danger tint for visibility */
+.bottom-stats.chip-frosted.chip-translucent.badge-error {
+  background: var(--macos-danger-bg);
+  border-color: var(--macos-danger-text);
+  color: var(--macos-danger-text);
+}
+.bottom-stats.chip-frosted.chip-translucent.badge-error:hover {
+  background: color-mix(in oklab, var(--macos-danger-text) 18%, transparent);
+  border-color: var(--macos-danger-text);
+  color: #fff;
+}
+
+/* Classic UI: still emphasize failed state with warning tint */
+:global([data-ui='classic']) .dl-card .bottom-stats.chip-frosted.chip-translucent.badge-error {
+  background: var(--macos-danger-bg) !important;
+  border-color: var(--macos-danger-text) !important;
+  color: var(--macos-danger-text) !important;
+}
+:global([data-ui='classic']) .dl-card .bottom-stats.chip-frosted.chip-translucent.badge-error:hover {
+  background: color-mix(in oklab, var(--macos-danger-text) 16%, transparent) !important;
+  border-color: var(--macos-danger-text) !important;
+  color: var(--macos-text-primary) !important;
+}
 
 /* Make the two ops buttons less prominent by default */
 .ops .icon-glass { background: transparent; border-color: rgba(255,255,255,0.16); box-shadow: none; color: var(--macos-text-secondary); }

@@ -126,6 +126,9 @@ type DtTaskStatus struct {
 	TranslateTo   string   `json:"translateTo"`
 	SubtitleStyle string   `json:"subtitleStyle"`
 
+	// Quick mode specific (persist selection for retries)
+	QuickVideo string `json:"quickVideo,omitempty"`
+
 	// Recode
 	RecodeFormatNumber int    `json:"recodeFormatNumber"`
 	RecodeExtention    string `json:"recodeExtention"`
@@ -199,6 +202,35 @@ type TranscodeProcess struct {
 	OutputDir   string   `json:"outputDir,omitempty"`
 	OutputFiles []string `json:"outputFiles,omitempty"`
 	JobID       string   `json:"jobId,omitempty"`
+}
+
+// TaskAnalysis bundles troubleshooting information for a failed download task
+type TaskAnalysis struct {
+    ID   string `json:"id"`
+    URL  string `json:"url"`
+    Host string `json:"host"`
+    Connectivity struct {
+        OK     bool   `json:"ok"`
+        Status int    `json:"status"`
+        Error  string `json:"error,omitempty"`
+    } `json:"connectivity"`
+    YTDLP struct {
+        Available     bool   `json:"available"`
+        Version       string `json:"version"`
+        LatestVersion string `json:"latestVersion"`
+        NeedUpdate    bool   `json:"needUpdate"`
+        ExecPath      string `json:"execPath"`
+    } `json:"ytdlp"`
+}
+
+// DTAnalysisEvent 表示分析步骤的流式事件（通过 WS 推送给前端）
+type DTAnalysisEvent struct {
+    ID      string `json:"id"`
+    Step    string `json:"step"`   // extract_host|connectivity|ytdlp_presence|ytdlp_version|complete
+    Action  string `json:"action"` // start|ok|fail|complete
+    Message string `json:"message,omitempty"`
+    Status  int    `json:"status,omitempty"`
+    Error   string `json:"error,omitempty"`
 }
 
 // UpdateFromProgress updates the task status based on progress information

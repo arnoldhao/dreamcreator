@@ -1,17 +1,19 @@
 package dependencies
 
 import (
-	"bytes"
-	"context"
-	"errors"
-	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"path/filepath"
-	"runtime"
-	"sync"
-	"time"
+    "bytes"
+    "context"
+    "errors"
+    "fmt"
+    "io"
+    "net/http"
+    "net"
+    "os"
+    "path/filepath"
+    "runtime"
+    "strings"
+    "sync"
+    "time"
 
 	"dreamcreator/backend/consts"
 	"dreamcreator/backend/embedded"
@@ -305,12 +307,18 @@ func (m *manager) CheckUpdates(ctx context.Context) (map[types.DependencyType]*t
 				logger.Warn("Failed to get dependency from storage",
 					zap.String("type", string(depType)),
 					zap.Error(err))
+				// Ensure non-nil info to safely record check result
+				info = &types.DependencyInfo{Type: depType}
 			}
 
-			// 检查是否有更新
-			latestVersion, err := provider.GetLatestVersionWithMirror(ctx, m, "")
-			if err == nil {
-				info.LatestVersion = latestVersion
+            // 检查是否有更新
+            latestVersion, err := provider.GetLatestVersionWithMirror(ctx, m, "")
+            if err == nil {
+                info.LatestVersion = latestVersion
+                info.LastCheckAttempted = true
+                info.LastCheckSuccess = true
+                info.LastCheckError = ""
+                info.LastCheckErrorCode = ""
 
 				// 当前版本不为空才进行更新检查
 				if info.Version != "" {
@@ -332,11 +340,19 @@ func (m *manager) CheckUpdates(ctx context.Context) (map[types.DependencyType]*t
 							zap.Error(err))
 					}
 				}
-			} else {
-				logger.Warn("Failed to get latest version",
-					zap.String("type", string(depType)),
-					zap.Error(err))
-			}
+            } else {
+                logger.Warn("Failed to get latest version",
+                    zap.String("type", string(depType)),
+                    zap.Error(err))
+                // Record failed check details back to storage for frontend to display
+                if info == nil {
+                    info = &types.DependencyInfo{Type: depType}
+                }
+                info.LastCheckAttempted = true
+                info.LastCheckSuccess = false
+                info.LastCheckError = err.Error()
+                info.LastCheckErrorCode = classifyCheckError(err)
+            }
 
 			// 存储至Bbolt
 			if err := m.boltStorage.SaveDependency(info); err != nil {
@@ -351,6 +367,31 @@ func (m *manager) CheckUpdates(ctx context.Context) (map[types.DependencyType]*t
 	}
 
 	return results, nil
+}
+
+// classifyCheckError 提取适合前端 i18n 展示的错误码
+func classifyCheckError(err error) string {
+    if err == nil {
+        return ""
+    }
+    var ne net.Error
+    if errors.As(err, &ne) {
+        if ne.Timeout() {
+            return "timeout"
+        }
+        return "network"
+    }
+    msg := strings.ToLower(err.Error())
+    if strings.Contains(msg, "status") || strings.Contains(msg, "failed to check") {
+        return "http_error"
+    }
+    if strings.Contains(msg, "decode") || strings.Contains(msg, "invalid character") || strings.Contains(msg, "eof") {
+        return "parse_error"
+    }
+    if strings.Contains(msg, "network") || strings.Contains(msg, "dial tcp") || strings.Contains(msg, "connection") {
+        return "network"
+    }
+    return "unknown"
 }
 
 func (m *manager) DependenciesReady(ctx context.Context) (bool, error) {
