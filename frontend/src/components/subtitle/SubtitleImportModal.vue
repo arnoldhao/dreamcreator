@@ -139,28 +139,11 @@ const handleImport = () => {
 /* Use shared .macos-modal convention for overlay */
 .macos-modal { animation: fadeIn 0.2s ease-out; }
 
-.modal-card {
-  background: var(--macos-surface);
-  backdrop-filter: var(--macos-surface-blur);
-  border-radius: 12px;
-  box-shadow: var(--macos-shadow-2);
-  max-width: 640px;
-  width: 100%;
-  max-height: 85vh;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.22);
-  animation: slideInUp 0.3s ease-out;
-}
+.modal-card { border-radius: 12px; box-shadow: var(--macos-shadow-2); max-width: 640px; width: 100%; max-height: 85vh; overflow: hidden; animation: slideInUp 0.3s ease-out; }
+/* Always-on active frosted look */
+.modal-card.card-frosted.card-translucent { background: color-mix(in oklab, var(--macos-surface) 76%, transparent); border: 1px solid rgba(255,255,255,0.28); box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24); }
 
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  background: var(--macos-surface);
-  backdrop-filter: var(--macos-surface-blur);
-  border-bottom: 1px solid var(--macos-separator);
-}
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.16); }
 
 /* no traffic lights for sheet-like modal */
 

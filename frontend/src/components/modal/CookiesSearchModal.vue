@@ -422,10 +422,12 @@ watch(debouncedQuery, (q) => {
 </script>
 
 <style scoped>
-.macos-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center; z-index: 2000; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.macos-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center; z-index: 2000; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .modal-card { width: 720px; max-width: calc(100% - 32px); border-radius: 12px; overflow:hidden; }
 .modal-card.big { width: 860px; }
-.modal-header { height: 36px; display:grid; grid-template-columns: auto 1fr auto; align-items:center; padding: 0 10px; border-bottom: 1px solid var(--macos-divider-weak); }
+/* Always-on active frosted look */
+.modal-card.card-frosted.card-translucent { background: color-mix(in oklab, var(--macos-surface) 76%, transparent); border: 1px solid rgba(255,255,255,0.28); box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24); }
+.modal-header { height: 36px; display:grid; grid-template-columns: auto 1fr auto; align-items:center; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.16); }
 .modal-header .title { font-size: var(--fs-base); font-weight: 600; color: var(--macos-text-primary); text-align: center; }
 .modal-body { padding: 12px; max-height: 70vh; overflow: auto; }
 

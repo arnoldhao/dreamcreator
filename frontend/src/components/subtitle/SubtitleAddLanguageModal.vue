@@ -5,7 +5,7 @@
       <div class="modal-header">
         <ModalTrafficLights @close="emit('close')" />
         <div class="title-area">
-          <div class="mode-toggle" role="tablist" aria-label="Mode">
+          <div class="segmented" role="tablist" aria-label="Mode">
             <button role="tab" :aria-selected="activeTab==='zhconvert'" :class="['seg-item', { active: activeTab==='zhconvert' }]" @click="activeTab='zhconvert'">{{ $t('subtitle.add_language.zhconvert') }}</button>
             <button role="tab" :aria-selected="activeTab==='llm'" :class="['seg-item', { active: activeTab==='llm', disabled: true }]" @click="activeTab='llm'" disabled>{{ $t('subtitle.add_language.llm') }}</button>
           </div>
@@ -251,23 +251,24 @@ watch(() => props.show, (newValue) => {
 /* use global .macos-modal */
 
 .modal-card { border-radius: 12px; box-shadow: var(--macos-shadow-2); max-width: 640px; width: 100%; max-height: 85vh; overflow: hidden; animation: slideInUp 0.3s ease-out; }
-.modal-header { display:flex; align-items:center; justify-content: space-between; height: 36px; padding: 0 12px; background: var(--macos-background-secondary); border-bottom: 1px solid var(--macos-separator); }
+/* Always-on active frosted look */
+.modal-card.card-frosted.card-translucent { background: color-mix(in oklab, var(--macos-surface) 76%, transparent); border: 1px solid rgba(255,255,255,0.28); box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24); }
+.modal-header { display:flex; align-items:center; justify-content: space-between; height: 36px; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.16); }
 .title-area { flex:1; min-width: 0; display:flex; align-items:center; justify-content:flex-end; }
 .modal-body { padding: 16px; padding-bottom: 12px; max-height: calc(85vh - 120px); overflow-y: auto; }
 .actions-center { display:flex; align-items:center; justify-content:center; gap:10px; margin-top: 16px; }
+/* section heading */
+.section-title { margin: 0 0 8px 0; font-size: var(--fs-title); font-weight: 600; color: var(--macos-text-primary); }
 
-/* Mode toggle (header center) */
-.mode-toggle { display:inline-flex; align-items:center; height: 26px; background: var(--macos-background); border: 1px solid var(--macos-separator); border-radius: 8px; padding: 2px; gap: 2px; }
-.mode-toggle .seg-item { min-width: 80px; height: 24px; padding: 0 10px; border-radius: 6px; font-size: var(--fs-sub); color: var(--macos-text-secondary); background: transparent; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
-.mode-toggle .seg-item:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); color: #fff; }
-.mode-toggle .seg-item.active { background: var(--macos-blue); color: #fff; }
-.mode-toggle .seg-item.disabled { opacity: .6; cursor: not-allowed; }
+/* segmented（使用全局基础样式），仅作细节尺寸微调 */
+.segmented .seg-item { min-width: 80px; height: 26px; padding: 0 10px; font-size: var(--fs-sub); }
+.segmented .seg-item.disabled { opacity: .6; cursor: not-allowed; }
 
 /* Compact selects */
 /* Fixed select width to align visuals with Export inspector */
 .select-fixed { width: 250px; }
 /* Ensure fixed width wins over local .select-macos { width:100% } */
-.select-macos.select-fixed { width: 250; max-width: 250px; }
+.select-macos.select-fixed { width: 250px; max-width: 250px; }
 /* Boxed sections for consistent macOS-like grouping */
 .form-section { border: 1px solid var(--macos-separator); border-radius: 10px; padding: 12px; background: var(--macos-background); }
 .form-section + .form-section { margin-top: 10px; }

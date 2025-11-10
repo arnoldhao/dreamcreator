@@ -1021,6 +1021,9 @@
   -webkit-backdrop-filter: saturate(180%) blur(22px);
   backdrop-filter: saturate(180%) blur(22px);
 }
+/* In modals, keep card in active look without hover animation */
+.macos-modal .modal-card.card-frosted.card-translucent { background: color-mix(in oklab, var(--macos-surface) 76%, transparent); border-color: rgba(255,255,255,0.28); box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24); }
+.macos-modal .modal-card.card-frosted.card-translucent:hover { background: color-mix(in oklab, var(--macos-surface) 76%, transparent); border-color: rgba(255,255,255,0.28); }
 
 /* Segmented control: use surface in frosted mode */
 [data-ui='frosted'] .segmented {

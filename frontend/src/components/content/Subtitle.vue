@@ -85,12 +85,12 @@
                       @keydown.esc.stop.prevent="cancelRename"
                       @click.stop
                     />
-                    <button class="icon-chip-ghost" :data-tooltip="$t('common.confirm')" data-tip-pos="top" @click.stop="confirmRename(it.project)"><Icon name="status-success" class="w-3.5 h-3.5" /></button>
-                    <button class="icon-chip-ghost" :data-tooltip="$t('common.cancel')" data-tip-pos="top" @click.stop="cancelRename"><Icon name="close" class="w-3.5 h-3.5" /></button>
+                    <button class="btn-chip-icon" :data-tooltip="$t('common.confirm')" data-tip-pos="top" @click.stop="confirmRename(it.project)"><Icon name="status-success" class="w-3.5 h-3.5" /></button>
+                    <button class="btn-chip-icon" :data-tooltip="$t('common.cancel')" data-tip-pos="top" @click.stop="cancelRename"><Icon name="close" class="w-3.5 h-3.5" /></button>
                   </template>
                   <template v-else>
                     <span class="name one-line">{{ it.project.project_name || '-' }}</span>
-                    <button class="icon-chip-ghost rename-btn" :data-tooltip="$t('common.edit')" data-tip-pos="top" @click.stop="beginRename(it.project)"><Icon name="edit" class="w-3.5 h-3.5" /></button>
+                    <button class="btn-chip-icon rename-btn" :data-tooltip="$t('common.edit')" data-tip-pos="top" @click.stop="beginRename(it.project)"><Icon name="edit" class="w-3.5 h-3.5" /></button>
                   </template>
                 </div>
                 <div class="col-pills">
@@ -109,7 +109,7 @@
                   <div class="t-abs">{{ formatDate(it.project.updated_at) }}</div>
                 </div>
                 <div class="col-actions">
-                  <button class="icon-chip-ghost" @click.stop="removeWithConfirm(it.project)"><Icon name="trash" class="w-4 h-4" /></button>
+                  <button class="btn-chip-icon" :data-tooltip="$t('common.delete')" data-tip-pos="top" @click.stop="removeWithConfirm(it.project)"><Icon name="trash" class="w-4 h-4" /></button>
                 </div>
               </div>
             </template>
@@ -149,7 +149,7 @@
 
     <!-- floating controls (bottom-right) -->
     <!-- Hub: refresh + format filter -->
-    <div v-if="!currentProject" class="floating-filter" @click.stop :style="{ right: fabRight + 'px' }">
+    <div v-if="!currentProject" class="floating-filter chip-frosted chip-translucent chip-panel" @click.stop :style="{ right: fabRight + 'px' }">
       <button class="icon-chip-ghost" :data-tooltip="$t('download.refresh')" data-tip-pos="top" @click="onRefresh">
         <Icon name="refresh" class="w-4 h-4" :class="{ spinning: refreshing }" />
       </button>
@@ -164,8 +164,8 @@
       </select>
     </div>
     <!-- Editor: add language + language picker -->
-    <div v-else class="floating-filter" @click.stop :style="{ right: fabRight + 'px' }">
-      <button class="icon-chip-ghost expand-left" :aria-label="$t('subtitle.add_language.title')" @click="showAddLanguageModal = true">
+    <div v-else class="floating-filter chip-frosted chip-translucent chip-panel" @click.stop :style="{ right: fabRight + 'px' }">
+      <button class="btn-chip-icon expand-left" :data-tooltip="$t('subtitle.add_language.title')" data-tip-pos="top" @click="showAddLanguageModal = true">
         <Icon name="plus" class="w-4 h-4" />
         <span class="label">{{ $t('subtitle.add_language.title') }}</span>
       </button>
@@ -670,8 +670,7 @@ async function confirmRename(project) {
 .spinning { animation: macos-spin .6s ease-in-out both; }
 @keyframes macos-spin { to { transform: rotate(360deg); } }
 
-/* small icon button */
-.icon-chip-ghost { width: 22px; height: 22px; display:inline-flex; align-items:center; justify-content:center; line-height:0; border-radius:6px; }
+/* use global btn-chip family; avoid local size overrides */
 
 /* Hide legacy header (language tabs/metrics toggle) inside SubtitleList on editor view */
 :deep(.subtitle-list .language-tabs-container) { display: none !important; }
@@ -748,11 +747,11 @@ async function confirmRename(project) {
 .list-header { position: sticky; top: 0; z-index: 1; background: var(--macos-background); color: var(--macos-text-tertiary); font-size: var(--fs-caption); text-transform: uppercase; letter-spacing: .02em; padding: 8px 6px; border: 0; }
 .list-wrap .list-header { margin-top: 10px; }
 .list-wrap .list-header:first-of-type { margin-top: 0; }
-.list-row { display:grid; grid-template-columns: 34px 1fr auto 120px 40px; align-items:center; gap: 8px; padding: 0 6px; border-radius: 6px; transition: background .12s ease; }
+.list-row { display:grid; grid-template-columns: 34px 1fr auto 120px 40px; align-items:center; gap: 8px; padding: 0 6px; border-radius: 6px; transition: background .12s ease; overflow: visible; }
 .list-row:hover { background: var(--macos-gray-hover); }
 .col-icon { display:flex; align-items:center; justify-content:center; }
-.col-title { min-width:0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-base); color: var(--macos-text-primary); }
-.col-title { display:flex; align-items:center; gap: 6px; }
+.col-title { min-width:0; font-size: var(--fs-base); color: var(--macos-text-primary); display:flex; align-items:center; gap: 6px; overflow: visible; }
+.col-title .name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .col-title .rename-input { height: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--macos-separator); background: var(--macos-background); color: var(--macos-text-primary); font-size: var(--fs-sub); min-width: 160px; }
 .col-title .rename-btn { visibility: hidden; }
 .list-row:hover .col-title .rename-btn { visibility: visible; }
@@ -783,14 +782,15 @@ async function confirmRename(project) {
 .floating-filter .filter-toggle { display:inline-flex; align-items:center; gap:6px; cursor: pointer; color: var(--macos-text-secondary); height: 28px; padding: 0 6px; border-radius: 6px; line-height: 0; }
 .floating-filter .count-pill { line-height: 1; }
 .floating-filter .filter-select { height: 28px; }
-.floating-filter .divider-v { width: 1px; height: 18px; background: var(--macos-divider-weak); margin: 0; }
-.floating-filter .icon-chip-ghost { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; line-height: 0; }
-.floating-filter .icon-chip-ghost.expand-left { width: auto; padding-left: 6px; padding-right: 0; gap: 6px; overflow: hidden; }
-.floating-filter .icon-chip-ghost.expand-left .label { max-width: 0; opacity: 0; transform: translateX(4px); transition: max-width .18s ease, opacity .18s ease, transform .18s ease, color .12s ease; white-space: nowrap; font-size: var(--fs-sub); color: var(--macos-text-secondary); margin-left: -6px; }
-.floating-filter .icon-chip-ghost.expand-left .w-4 { transition: transform .18s ease, color .12s ease; }
-.floating-filter .icon-chip-ghost.expand-left:hover { color: var(--macos-blue); padding-right: 6px; }
-.floating-filter .icon-chip-ghost.expand-left:hover .label { max-width: 140px; opacity: 1; transform: translateX(0); color: var(--macos-blue); margin-left: 0; }
-.floating-filter .icon-chip-ghost.expand-left:hover .w-4 { transform: translateX(-2px); }
+  .floating-filter .divider-v { width: 1px; height: 18px; background: var(--macos-divider-weak); margin: 0; }
+  .floating-filter .filter-toggle .w-4 { display: block; }
+  /* Add Language button: circle when idle (btn-chip-icon), expand to show label on hover */
+  .floating-filter .btn-chip-icon.expand-left { width: 28px; height: 28px; padding: 0; gap: 6px; overflow: hidden; line-height: 0; }
+  .floating-filter .btn-chip-icon.expand-left .label { max-width: 0; opacity: 0; transform: translateX(4px); transition: max-width .18s ease, opacity .18s ease, transform .18s ease, color .12s ease; white-space: nowrap; font-size: var(--fs-sub); margin-left: -6px; }
+  .floating-filter .btn-chip-icon.expand-left .w-4 { transition: transform .18s ease, color .12s ease; }
+  .floating-filter .btn-chip-icon.expand-left:hover { width: auto; padding-left: 6px; padding-right: 6px; }
+  .floating-filter .btn-chip-icon.expand-left:hover .label { max-width: 160px; opacity: 1; transform: translateX(0); margin-left: 0; }
+  .floating-filter .btn-chip-icon.expand-left:hover .w-4 { transform: translateX(-2px); }
 
 /* bottom cues floating pill (shows when end sentinel is visible) */
 .cues-floating-pill { position: fixed; bottom: 24px; z-index: 1100; pointer-events: none; text-align: center; }
@@ -798,13 +798,13 @@ async function confirmRename(project) {
   background: color-mix(in oklab, var(--macos-surface) 78%, transparent); color: var(--macos-text-secondary); font-size: var(--fs-sub);
   -webkit-backdrop-filter: var(--macos-surface-blur); backdrop-filter: var(--macos-surface-blur); box-shadow: var(--macos-shadow-1);
 }
-.floating-filter .icon-chip-ghost .w-4, .floating-filter .filter-toggle .w-4 { display: block; }
+.floating-filter .filter-toggle .w-4 { display: block; }
 .floating-filter .filter-toggle .count { display: block; }
 
 /* danger button tone for delete */
 /* subtitle page delete button follows download style: icon only, no bg */
-.col-actions .icon-chip-ghost { background: transparent; border: 0; color: var(--macos-text-secondary); }
-.col-actions .icon-chip-ghost:hover { color: var(--macos-danger-text); }
+.col-actions .btn-chip-icon { background: transparent; border: 0; color: var(--macos-text-secondary); }
+.col-actions .btn-chip-icon:hover { color: var(--macos-danger-text); }
 
 /* format accents */
 .ext-tag.ext-srt { color: var(--macos-blue); }

@@ -38,9 +38,11 @@ function quickConfirm(v) { emit('confirm', v); close() }
 </script>
 
 <style scoped>
-.macos-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center; z-index: 2000; }
+.macos-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center; z-index: 2000; backdrop-filter: blur(8px); }
 .modal-card { width: 420px; max-width: calc(100% - 32px); border-radius: 12px; overflow:hidden; }
-.modal-header.sheet { height: 36px; display:flex; align-items:center; justify-content: flex-start; padding: 0 10px; border-bottom: 1px solid var(--macos-divider-weak); }
+/* Always-on active frosted look */
+.modal-card.card-frosted.card-translucent { background: color-mix(in oklab, var(--macos-surface) 76%, transparent); border: 1px solid rgba(255,255,255,0.28); box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24); }
+.modal-header.sheet { height: 36px; display:flex; align-items:center; justify-content: flex-start; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.16); }
 /* no traffic lights for sheet-like modal */
 .title-area { display:flex; align-items:center; gap: 10px; min-width: 0; flex:1; justify-content: flex-end; }
 .title-text { font-size: var(--fs-base); font-weight: 600; color: var(--macos-text-primary); }
