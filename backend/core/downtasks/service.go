@@ -554,14 +554,21 @@ func (s *Service) GetFormats() map[string][]*types.ConversionFormat {
 }
 
 func (s *Service) newCommand(enbaledFFMpeg bool, cookiesFile string) (*ytdlp.Command, error) {
-	// new
-	dl := ytdlp.New()
+    // new
+    dl := ytdlp.New()
 
-	// proxy
-	if httpProxy := s.proxyManager.GetProxyString(); httpProxy != "" {
-		dl.SetEnvVar("HTTP_PROXY", httpProxy).
-			SetEnvVar("HTTPS_PROXY", httpProxy)
-	}
+    // proxy
+    if p := s.proxyManager.GetProxyString(); p != "" {
+        // If scheme-qualified socks5, prefer ALL_PROXY only.
+        lp := strings.ToLower(p)
+        if strings.HasPrefix(lp, "socks5://") {
+            dl.SetEnvVar("ALL_PROXY", p)
+        } else {
+            // Back-compat: pass host:port to HTTP(S)_PROXY
+            dl.SetEnvVar("HTTP_PROXY", p).
+                SetEnvVar("HTTPS_PROXY", p)
+        }
+    }
 
 	// Ensure Python/yt-dlp emits UTF-8 on Windows and elsewhere
 	// This avoids mojibake for non-ASCII filenames printed in logs

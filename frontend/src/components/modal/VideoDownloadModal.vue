@@ -6,7 +6,7 @@
     aria-modal="true"
     :aria-label="mode === 'quick' ? $t('download.quick_task') : $t('download.new_task')"
   >
-    <div class="modal-card" @keydown.esc.stop.prevent="closeModal" tabindex="-1" ref="dialogEl">
+    <div class="modal-card card-frosted card-translucent" @keydown.esc.stop.prevent="closeModal" tabindex="-1" ref="dialogEl">
       <!-- Modal Header (macOS sheet style) -->
       <div class="modal-header">
         <ModalTrafficLights @close="closeModal" />
@@ -55,11 +55,11 @@
             </div>
           </div>
           <div class="warning-actions">
-            <button class="btn-glass btn-sm" @click="gotoDependency()">
+            <button class="btn-chip" @click="gotoDependency()">
               <Icon name="wrench" class="w-4 h-4 mr-2"></Icon>
               {{ $t('download.manage_dependencies') }}
             </button>
-            <button class="btn-glass btn-sm" @click="checkDependencies()">
+            <button class="btn-chip" @click="checkDependencies()">
               <Icon name="refresh" class="w-4 h-4 mr-2"></Icon>
               {{ $t('common.refresh') }}
             </button>
@@ -68,6 +68,28 @@
 
         <!-- Main Content -->
         <div v-else class="main-content">
+          <!-- 内联错误显示（解析失败等），固定高度 + 滚动，支持复制与清除 -->
+          <div v-if="hasParseError" class="error-panel">
+            <div class="error-header">
+              <div class="left">
+                <Icon name="alert-triangle" class="w-4 h-4 mr-1" />
+                <span class="title">{{ $t('download.parse_failed') }}</span>
+              </div>
+              <div class="right">
+                <button class="btn-chip" @click="copyParseError">
+                  <Icon name="file-copy" class="w-4 h-4 mr-2"/>
+                  {{ $t('common.copy') }}
+                </button>
+                <button class="btn-chip" @click="clearParseError">
+                  <Icon name="close" class="w-4 h-4 mr-2"/>
+                  {{ $t('common.close') }}
+                </button>
+              </div>
+            </div>
+            <div class="error-body">
+              <pre class="error-text">{{ parseErrorText }}</pre>
+            </div>
+          </div>
           <!-- Only URL input when initial -->
           <div v-if="viewStep === 'input' || viewStep === 'detecting'">
             <div class="url-hero-wrap hero">
@@ -103,7 +125,12 @@
           <!-- Parsing overlay -->
           <div v-if="showParsingOverlay" class="parsing-overlay" aria-busy="true">
             <div class="spinner"><Icon name="spinner" class="animate-spin w-6 h-6"/></div>
-            <div class="tip">{{ $t('download.parsing') }}</div>
+            <div class="tip">{{ $t('download.parsing') }} · {{ parsingClock }}</div>
+            <div v-if="parsingOvertime" class="tip overtime">{{ $t('download.maybe_slow_or_issue') || '已超过1分钟，可能存在网络或依赖问题。' }}</div>
+            <div v-if="parsingOvertime" class="actions">
+              <button class="btn-chip btn-primary" @click="retryParse"><Icon name="refresh" class="w-4 h-4 mr-2" />{{ $t('download.retry') }}</button>
+              <button class="btn-chip" @click="cancelParse"><Icon name="close" class="w-4 h-4 mr-2" />{{ $t('common.cancel') }}</button>
+            </div>
           </div>
           <!-- Spacer so absolute overlay has enough intrinsic room to fit without forcing scrollbars -->
           <div v-if="showParsingOverlay" class="parsing-spacer"></div>
@@ -139,13 +166,13 @@
               @update:selectedTranscodeFormat="setSelectedTranscodeFormat"
             />
             <div class="options-actions">
-              <button class="btn-glass" @click="closeModal">
-                <Icon name="close" class="w-4 h-4 mr-1" />
+              <button class="btn-chip" @click="closeModal">
+                <Icon name="close" class="w-4 h-4 mr-2" />
                 {{ $t('common.cancel') }}
               </button>
-              <button class="btn-glass btn-primary" @click="start" :disabled="!canStart || startingQuick">
-                <Icon v-if="!startingQuick" name="download" class="w-4 h-4 mr-1" />
-                <Icon v-else name="spinner" class="w-4 h-4 mr-1 animate-spin" />
+              <button class="btn-chip btn-primary" @click="start" :disabled="!canStart || startingQuick">
+                <Icon v-if="!startingQuick" name="download" class="w-4 h-4 mr-2" />
+                <Icon v-else name="spinner" class="w-4 h-4 mr-2 animate-spin" />
                 {{ $t('common.start') }}
               </button>
             </div>
@@ -164,12 +191,12 @@
               @update:quickSelectedTranscodeFormat="setQuickSelectedTranscodeFormat"
             />
             <div class="options-actions">
-              <button class="btn-glass" @click="closeModal">
-                <Icon name="close" class="w-4 h-4 mr-1" />
+              <button class="btn-chip" @click="closeModal">
+                <Icon name="close" class="w-4 h-4 mr-2" />
                 {{ $t('common.cancel') }}
               </button>
-              <button class="btn-glass btn-primary" @click="start" :disabled="!canStart">
-                <Icon name="download" class="w-4 h-4 mr-1" />
+              <button class="btn-chip btn-primary" @click="start" :disabled="!canStart">
+                <Icon name="download" class="w-4 h-4 mr-2" />
                 {{ $t('common.start') }}
               </button>
             </div>
@@ -198,6 +225,7 @@ import BrowserChips from '@/components/common/BrowserChips.vue'
 import ModePicker from '@/components/common/ModePicker.vue'
 import ModalTrafficLights from '@/components/common/ModalTrafficLights.vue'
 import { formatDuration as fmtDuration, formatFileSize as fmtSize } from '@/utils/format.js'
+import { copyText as copyToClipboard } from '@/utils/clipboard.js'
 
 // i18n
 const { t } = useI18n()
@@ -274,9 +302,11 @@ watch(() => showModal.value, async (newValue) => {
     try { urlBar.value?.focus?.() } catch {}
     // move focus to dialog to capture Esc
     try { dialogEl.value?.focus?.() } catch {}
+    try { document?.body?.classList?.add('modal-open') } catch {}
   } else {
     // Modal closed, reset form
     resetForm()
+    try { document?.body?.classList?.remove('modal-open') } catch {}
   }
 })
 
@@ -298,6 +328,43 @@ const quickSelectedTranscodeFormat = ref(0) // New state for transcoding
 const browser = ref('')
 const availableProviders = ref([])
 const isLoadingProviders = ref(false)
+
+// 解析错误（在当前 Modal 内联显示，避免覆盖全屏的对话框问题）
+const parseErrorText = ref('')
+const hasParseError = computed(() => !!(parseErrorText.value && String(parseErrorText.value).trim()))
+const clearParseError = () => { parseErrorText.value = '' }
+const copyParseError = async () => { if (hasParseError.value) await copyToClipboard(parseErrorText.value, t) }
+
+// 解析阶段：计时与超时提示
+const PARSE_TIMEOUT_MS = 60000
+const parsingElapsed = ref(0)
+const parsingTimer = ref(null)
+const parsingRunId = ref(0) // 用于忽略过期请求
+const parsingOvertime = computed(() => parsingElapsed.value >= PARSE_TIMEOUT_MS)
+const parsingClock = computed(() => {
+  const s = Math.floor(parsingElapsed.value / 1000)
+  const mm = String(Math.floor(s / 60)).padStart(2, '0')
+  const ss = String(s % 60).padStart(2, '0')
+  return `${mm}:${ss}`
+})
+function startParsingTimer() {
+  stopParsingTimer()
+  parsingElapsed.value = 0
+  parsingTimer.value = setInterval(() => { parsingElapsed.value += 1000 }, 1000)
+}
+function stopParsingTimer() {
+  if (parsingTimer.value) { clearInterval(parsingTimer.value); parsingTimer.value = null }
+}
+function cancelParse() {
+  // 通过递增 runId 来让在途请求结果失效
+  parsingRunId.value++
+  stopParsingTimer()
+  viewStep.value = 'mode'
+}
+async function retryParse() {
+  cancelParse()
+  await handleParse()
+}
 
 // quick mode data
 const video = ref('best')
@@ -424,6 +491,7 @@ const handleUrlUpdate = (newUrl) => {
       browser.value = ''
       viewStep.value = 'input'
     }
+    parseErrorText.value = ''
   }, 300)
 }
 
@@ -469,6 +537,7 @@ const validUrlForTitle = computed(() => isValidHttpUrl((url.value || '').trim())
 async function onParseClick() {
   const u = (url.value || '').trim()
   if (!isValidHttpUrl(u)) { try { $message?.error?.('URL 不合法') } catch {} ; return }
+  clearParseError()
   detectInitiated.value = true
   viewStep.value = 'detecting'
   await fetchCookieProviders(u)
@@ -704,11 +773,16 @@ const handleParse = async () => {
   if (!url.value) return
   mode.value = 'custom'
   viewStep.value = 'parsing'
+  clearParseError()
+  startParsingTimer()
+  const runId = ++parsingRunId.value
 
   // get video info
   try {
     isLoading.value = true
     const response = await GetContent(url.value, browser.value) // enable cookies
+    // 若期间用户已取消/重试，忽略过期结果
+    if (runId !== parsingRunId.value) return
     if (response.success) {
       const data = JSON.parse(response.data)
       // thumbnail with robust fallbacks for YouTube/shortlink cases
@@ -747,20 +821,19 @@ const handleParse = async () => {
       selectedTranscodeFormat.value = 0 // Reset transcode selection
       viewStep.value = 'customOptions'
     } else {
-      $dialog.error({
-        title: t('download.parse_failed'),
-        content: response.msg,
-      })
+      // 在当前 Modal 内联展示错误，避免对话框内容过长造成无法关闭的情况
+      parseErrorText.value = String(response.msg || t('download.parse_failed'))
       viewStep.value = 'mode'
     }
   } catch (error) {
-    $dialog.error({
-      title: t('download.parse_failed'),
-      content: error.message,
-    })
-    viewStep.value = 'mode'
+    // 同样在当前 Modal 内联展示异常信息
+    if (runId === parsingRunId.value) {
+      parseErrorText.value = String(error?.message || t('download.parse_failed'))
+      viewStep.value = 'mode'
+    }
   } finally {
     isLoading.value = false
+    stopParsingTimer()
   }
 }
 
@@ -888,12 +961,14 @@ const resetToInput = () => {
   selectedTranscodeFormat.value = 0
   availableTranscodeFormats.value = { video: [], audio: [] }
   viewStep.value = 'input'
+  parseErrorText.value = ''
 }
 
 const reselectBrowser = () => {
   browser.value = ''
   selectedBrowserLabel.value = ''
   viewStep.value = 'cookies'
+  parseErrorText.value = ''
 }
 
 const onPickBrowser = (opt) => {
@@ -931,6 +1006,9 @@ const resetForm = () => {
   selectedBrowserLabel.value = ''
   availableProviders.value = []
   viewStep.value = 'input'
+  parseErrorText.value = ''
+  stopParsingTimer()
+  parsingRunId.value++
 
   // custom-mode related
   videoData.value = null
@@ -954,10 +1032,11 @@ const resetForm = () => {
 </script>
 
 <style lang="scss" scoped>
-/* macOS-style modal wrapper and card (reuse tokens for consistency) */
+/* macOS Tahoe 风格：半透明磨砂 + 柔和阴影，与 AnalysisModal 保持一致 */
 .macos-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.2); backdrop-filter: blur(8px); display:flex; align-items:center; justify-content:center; z-index: 2000; padding: 16px; }
-.modal-card { width: 640px; max-width: calc(100% - 32px); max-height: 90vh; background: var(--macos-background); border: 1px solid var(--macos-separator); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.30); overflow:hidden; display:flex; flex-direction: column; }
-.modal-header { height: 36px; display:flex; align-items:center; justify-content: space-between; padding: 0 10px; border-bottom: 1px solid var(--macos-divider-weak); }
+.modal-card { width: min(640px, 96vw); max-height: 82vh; display:flex; flex-direction: column; overflow: hidden; border-radius: 12px; border: 1px solid rgba(60,60,67,0.20); box-shadow: var(--macos-shadow-2, 0 12px 30px rgba(0,0,0,0.24)); }
+.modal-card.card-frosted.card-translucent { background: color-mix(in oklab, var(--macos-surface) 88%, transparent); border-color: rgba(255,255,255,0.28); box-shadow: var(--macos-shadow-2, 0 12px 30px rgba(0,0,0,0.24)), 0 12px 30px rgba(0,0,0,0.24); }
+.modal-header { height: 36px; display:flex; align-items:center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.16); }
 .modal-header .title-area { display:flex; align-items:center; gap: 10px; min-width: 0; }
 .modal-header .title-text { font-size: var(--fs-base); font-weight: 600; color: var(--macos-text-primary); }
 .traffic-lights { display:flex; align-items:center; gap:6px; margin-right: 6px; -webkit-app-region: no-drag; --wails-draggable: no-drag; }
@@ -971,7 +1050,7 @@ const resetForm = () => {
 .title-chips .chip-frosted .text { max-width: 260px; overflow:hidden; text-overflow: ellipsis; white-space: nowrap; }
 .title-chips .chip-frosted .chip-action { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius: 4px; border: none; background: transparent; color: rgba(255,255,255,0.8); }
 .title-chips .chip-frosted .chip-action:hover { background: var(--macos-blue); color: #fff; }
-.modal-body { position: relative; flex: 1; overflow: visible; padding: 16px; }
+.modal-body { position: relative; flex: 1; overflow: visible; padding: 12px; }
 
 /* URL hero shrink wrap */
 .url-hero-wrap { transition: width .18s ease; }
@@ -1022,9 +1101,20 @@ const resetForm = () => {
   gap: 24px;
 }
 
+/* 错误信息面板（参考 AnalysisModal 的样式，带滚动与复制按钮） */
+.error-panel { border:1px solid rgba(255, 69, 58, 0.55); border-radius: 12px; background: color-mix(in oklab, var(--macos-surface) 88%, transparent); box-shadow: 0 6px 18px rgba(0,0,0,0.08); overflow: hidden; }
+.error-header { display:flex; align-items:center; justify-content: space-between; padding: 10px 12px; background: linear-gradient(180deg, rgba(255, 69, 58, 0.08), transparent); border-bottom: 1px solid rgba(255,255,255,0.12); }
+.error-header .left { display:flex; align-items:center; color: var(--macos-danger-text, #ff6b6b); font-weight: 600; font-size: 12px; }
+.error-header .title { color: var(--macos-text-primary); margin-left: 2px; }
+.error-header .right { display:flex; align-items:center; gap: 8px; }
+.error-body { position: relative; max-height: 32vh; overflow: auto; }
+.error-text { margin: 0; padding: 10px 12px; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; color: var(--macos-text-secondary); line-height: 1.4; }
+
 /* Parsing overlay */
-.parsing-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.5); backdrop-filter: blur(2px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; z-index: 10; border-radius: 12px; }
+.parsing-overlay { position: absolute; inset: 0; background: color-mix(in oklab, var(--macos-surface) 86%, transparent); backdrop-filter: saturate(180%) blur(10px); -webkit-backdrop-filter: saturate(180%) blur(10px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; z-index: 10; border-radius: 12px; border: 1px solid rgba(60,60,67,0.14); }
 .parsing-overlay .tip { font-size: var(--fs-sub); color: var(--macos-text-secondary); }
+.parsing-overlay .tip.overtime { color: var(--macos-danger-text, #ff6b6b); }
+.parsing-overlay .actions { display:flex; align-items:center; gap:8px; margin-top: 6px; }
 .parsing-spacer { height: 140px; }
 
 /* Flip-in animation for mode picker */

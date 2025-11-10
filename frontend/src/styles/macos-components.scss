@@ -799,6 +799,99 @@
 [data-ui='classic'] .btn-glass.btn-primary { background: var(--macos-blue) !important; border-color: var(--macos-blue) !important; color: #fff !important; }
 [data-ui='classic'] .btn-glass.btn-primary:hover { background: var(--macos-blue-hover) !important; border-color: var(--macos-blue-hover) !important; color: #fff !important; }
 
+/* Chip-look buttons: chip aesthetic with button dimensions (drop-in for btn-glass) */
+.btn-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 12px;
+  gap: 8px;
+  border-radius: 999px; /* chip geometry */
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #fff;
+  font-size: var(--fs-base);
+  transition: background-color .18s ease, border-color .18s ease, color .12s ease, transform .12s ease, box-shadow .18s ease;
+  -webkit-backdrop-filter: saturate(150%) blur(10px);
+  backdrop-filter: saturate(150%) blur(10px);
+  background: rgba(30,30,30,0.30);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.10) inset, 0 3px 9px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.14);
+  text-shadow: 0 1px 1px rgba(0,0,0,0.38);
+}
+.btn-chip:hover { background: rgba(30,30,30,0.42); border-color: rgba(255,255,255,0.24); transform: translateZ(0) scale(1.02); }
+.btn-chip:active { transform: translateZ(0) scale(0.98); }
+.btn-chip:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: rgba(30,30,30,0.30);
+  color: rgba(255,255,255,0.85);
+  border-color: rgba(255,255,255,0.18);
+  transform: none;
+}
+.btn-chip.btn-sm { height: 28px; padding: 0 12px; font-size: var(--fs-base); }
+/* Primary: mimic chip-primary-action frosted blue look */
+.btn-chip.btn-primary {
+  border-radius: 999px; /* ensure pill shape for primary */
+  background: color-mix(in oklab, var(--macos-blue) 66%, transparent);
+  border-color: color-mix(in oklab, var(--macos-blue) 54%, white 18%);
+  color: #fff;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.10) inset, 0 3px 9px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.14);
+}
+.btn-chip.btn-primary:hover {
+  background: color-mix(in oklab, var(--macos-blue) 74%, white 6%);
+  border-color: color-mix(in oklab, var(--macos-blue) 62%, white 12%);
+}
+.btn-chip.btn-primary:active { transform: translateZ(0) scale(0.98); }
+.btn-chip.btn-primary:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: color-mix(in oklab, var(--macos-blue) 66%, transparent);
+  border-color: color-mix(in oklab, var(--macos-blue) 54%, white 18%);
+  color: #fff;
+  transform: none;
+}
+/* Icon-only chip button: same frosted look, compact 28x28 geometry */
+.btn-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #fff;
+  transition: background-color .18s ease, border-color .18s ease, color .12s ease, transform .12s ease, box-shadow .18s ease;
+  -webkit-backdrop-filter: saturate(150%) blur(10px);
+  backdrop-filter: saturate(150%) blur(10px);
+  background: rgba(30,30,30,0.30);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.10) inset, 0 3px 9px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.14);
+  text-shadow: 0 1px 1px rgba(0,0,0,0.38);
+}
+.btn-chip-icon:hover { background: rgba(30,30,30,0.42); border-color: rgba(255,255,255,0.24); transform: translateZ(0) scale(1.02); }
+.btn-chip-icon:active { transform: translateZ(0) scale(0.98); }
+.btn-chip-icon:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: rgba(30,30,30,0.30);
+  color: rgba(255,255,255,0.85);
+  border-color: rgba(255,255,255,0.18);
+  transform: none;
+}
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .btn-chip { background: rgba(255,255,255,0.10); color: #111; border-color: rgba(0,0,0,0.15); box-shadow: none; text-shadow: none; }
+  .btn-chip.btn-primary { background: color-mix(in oklab, var(--macos-blue) 66%, white 4%); border-color: var(--macos-blue); color: #fff; }
+  .btn-chip-icon { background: rgba(255,255,255,0.10); color: #111; border-color: rgba(0,0,0,0.15); box-shadow: none; text-shadow: none; }
+}
+[data-ui='classic'] .btn-chip { background: var(--macos-background) !important; color: var(--macos-text-primary) !important; border: 1px solid var(--macos-separator) !important; box-shadow: none !important; text-shadow: none !important; }
+[data-ui='classic'] .btn-chip:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
+[data-ui='classic'] .btn-chip.btn-primary { background: var(--macos-blue) !important; border-color: var(--macos-blue) !important; color: #fff !important; }
+[data-ui='classic'] .btn-chip.btn-primary:hover { background: var(--macos-blue-hover) !important; border-color: var(--macos-blue-hover) !important; color: #fff !important; }
+[data-ui='classic'] .btn-chip-icon { background: var(--macos-background) !important; color: var(--macos-text-primary) !important; border: 1px solid var(--macos-separator) !important; box-shadow: none !important; text-shadow: none !important; }
+[data-ui='classic'] .btn-chip-icon:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
+
 /* Global simple color utilities */
 .text-primary { color: var(--macos-text-primary); }
 .text-secondary { color: var(--macos-text-secondary); }
@@ -955,8 +1048,20 @@ body.modal-open .floating-filter {
 }
 }
 [data-ui='frosted'] .macos-modal .btn-glass,
-[data-ui='classic'] .macos-modal .btn-glass { transform: none !important; }
+[data-ui='classic'] .macos-modal .btn-glass,
+[data-ui='frosted'] .macos-modal .btn-chip,
+[data-ui='classic'] .macos-modal .btn-chip,
+[data-ui='frosted'] .macos-modal .btn-chip-icon,
+[data-ui='classic'] .macos-modal .btn-chip-icon { transform: none !important; }
 [data-ui='frosted'] .macos-modal .btn-glass:hover,
-[data-ui='classic'] .macos-modal .btn-glass:hover { transform: none !important; }
+[data-ui='classic'] .macos-modal .btn-glass:hover,
+[data-ui='frosted'] .macos-modal .btn-chip:hover,
+[data-ui='classic'] .macos-modal .btn-chip:hover,
+[data-ui='frosted'] .macos-modal .btn-chip-icon:hover,
+[data-ui='classic'] .macos-modal .btn-chip-icon:hover { transform: none !important; }
 [data-ui='frosted'] .macos-modal .btn-glass:active,
-[data-ui='classic'] .macos-modal .btn-glass:active { transform: none !important; }
+[data-ui='classic'] .macos-modal .btn-glass:active,
+[data-ui='frosted'] .macos-modal .btn-chip:active,
+[data-ui='classic'] .macos-modal .btn-chip:active,
+[data-ui='frosted'] .macos-modal .btn-chip-icon:active,
+[data-ui='classic'] .macos-modal .btn-chip-icon:active { transform: none !important; }

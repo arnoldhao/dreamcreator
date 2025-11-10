@@ -400,6 +400,7 @@
     "provider_badge_manual": "自定义",
     "parse": "解析",
     "parsing": "解析中...",
+    "maybe_slow_or_issue": "已超过1分钟，可能存在网络或依赖问题。",
     "video_quality": "视频质量",
     "select_video_quality": "选择视频质量",
     "subtitle_language": "字幕语言",
