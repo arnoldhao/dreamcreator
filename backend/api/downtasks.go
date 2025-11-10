@@ -169,11 +169,25 @@ func (api *DowntasksAPI) Subscribe(ctx context.Context) {
 		return nil
 	})
 
+	analysisHandler := events.HandlerFunc(func(ctx context.Context, event events.Event) error {
+		if data, ok := event.GetData().(*types.DTAnalysisEvent); ok {
+			api.ws.SendToClient(types.WSResponse{
+				Namespace: consts.NAMESPACE_DOWNTASKS,
+				Event:     consts.EVENT_DOWNTASKS_ANALYSIS,
+				Data:      data,
+			})
+		} else {
+			logger.Warn("Failed to convert event data to DTAnalysisEvent")
+		}
+		return nil
+	})
+
 	api.eventBus.Subscribe(consts.TopicDowntasksProgress, progressHandler)
 	api.eventBus.Subscribe(consts.TopicDowntasksSignal, signalHandler)
 	api.eventBus.Subscribe(consts.TopicDowntasksInstalling, installHandler)
 	api.eventBus.Subscribe(consts.TopicDowntasksCookieSync, cookieSyncHandler)
 	api.eventBus.Subscribe(consts.TopicDowntasksStage, stageHandler)
+	api.eventBus.Subscribe(consts.TopicDowntasksAnalysis, analysisHandler)
 }
 
 func (api *DowntasksAPI) GetContent(url string, browser string) (resp *types.JSResp) {
@@ -264,6 +278,44 @@ func (api *DowntasksAPI) DeleteTask(id string) (resp *types.JSResp) {
 	}
 
 	return &types.JSResp{Success: true}
+}
+
+// RetryTask restarts a failed task by ID
+func (api *DowntasksAPI) RetryTask(id string) (resp *types.JSResp) {
+    if id == "" {
+        return &types.JSResp{Msg: "ID is required"}
+    }
+    if err := api.service.RetryTask(id); err != nil {
+        return &types.JSResp{Msg: err.Error()}
+    }
+    return &types.JSResp{Success: true}
+}
+
+// AnalyzeTask gathers diagnostics for a task (connectivity + yt-dlp state)
+func (api *DowntasksAPI) AnalyzeTask(id string) (resp *types.JSResp) {
+    if id == "" {
+        return &types.JSResp{Msg: "ID is required"}
+    }
+    a, err := api.service.AnalyzeTask(id)
+    if err != nil {
+        return &types.JSResp{Msg: err.Error()}
+    }
+    b, err := json.Marshal(a)
+    if err != nil {
+        return &types.JSResp{Msg: err.Error()}
+    }
+    return &types.JSResp{Success: true, Data: string(b)}
+}
+
+// StartAnalysis triggers streaming analysis events for the given task ID
+func (api *DowntasksAPI) StartAnalysis(id string) (resp *types.JSResp) {
+    if id == "" {
+        return &types.JSResp{Msg: "ID is required"}
+    }
+    if err := api.service.StartAnalysis(id); err != nil {
+        return &types.JSResp{Msg: err.Error()}
+    }
+    return &types.JSResp{Success: true}
 }
 
 func (api *DowntasksAPI) GetFormats() (resp *types.JSResp) {

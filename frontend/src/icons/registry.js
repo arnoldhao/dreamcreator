@@ -50,6 +50,8 @@ export const ICON_MAP = {
   moon: 'moon',
   heart: 'heart',
   edit: 'pencil',
+  // warnings/errors
+  'alert-triangle': 'triangle-alert', // alias for lucide triangle alert
   // Use an existing symbol for save to avoid missing asset
   save: 'check',
   'sun-moon': 'sun-moon',

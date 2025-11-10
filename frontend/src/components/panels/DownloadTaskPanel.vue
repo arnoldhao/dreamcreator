@@ -34,10 +34,16 @@
           aria-label="Status"
         >
           <span class="chip-dot"></span>
-          <span class="chip-label">{{ statusText(task?.stage) }}</span>
+          <span class="chip-label">
+            <span class="label-swap" :class="{ hoverable: isFailed }">
+              <span class="label-a">{{ statusText(task?.stage) }}</span>
+              <span class="label-b" v-if="isFailed">{{ t('download.analysis.title') }}</span>
+            </span>
+          </span>
         </button>
       </div>
     </div>
+    <AnalysisModal v-if="analysisVisible" v-model:show="analysisVisible" :task-id="task?.id || ''" :task-error="task?.error || ''" />
 
     <!-- Download Process group -->
     <div class="macos-group">
@@ -193,6 +199,8 @@ const canPlayVideo = computed(() => {
   return v.stage === 'completed' && files.length > 0
 })
 
+const isFailed = computed(() => (task.value?.stage === 'failed'))
+
 // ETA 是否完成（展示胶囊样式）
 const isEtaCompleted = computed(() => {
   try {
@@ -229,11 +237,15 @@ async function onPlayVideo() {
   }
 }
 
-function onStageBadgeClick() {
+import AnalysisModal from '@/components/modal/AnalysisModal.vue'
+import { ref as vref } from 'vue'
+const analysisVisible = vref(false)
+
+async function onStageBadgeClick() {
   try {
     if (task.value?.stage === 'failed') {
-      const msg = task.value?.error || t('download.failed_desc') || t('download.failed')
-      $dialog?.error?.({ title: t('download.failed'), content: msg })
+      analysisVisible.value = true
+      return
     }
   } catch {}
 }
@@ -551,6 +563,11 @@ onUnmounted(() => eventBus.off('download_task:refresh', refresh))
 .thumb-box { position: relative; }
 .thumb-box::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.22), rgba(0,0,0,0.06) 40%, rgba(0,0,0,0) 70%); pointer-events: none; }
 .thumb-status { position:absolute; right:8px; bottom:8px; z-index:1; }
+.thumb-status .chip-frosted .chip-label { display:inline-flex; align-items:center; height:100%; line-height:1; }
+.thumb-status .label-swap { display:inline-block; }
+.thumb-status .label-b { display:none; }
+.thumb-status .chip-frosted.badge-error:hover .label-swap.hoverable .label-a { display:none; }
+.thumb-status .chip-frosted.badge-error:hover .label-swap.hoverable .label-b { display:inline; }
 .thumb-progress { position:absolute; left:0; right:0; top:0; height:3px; background: rgba(0,0,0,0.18); z-index:2; border-top-left-radius:10px; border-top-right-radius:10px; overflow:hidden; }
 .thumb-progress .bar { height:100%; background: var(--macos-blue); }
 .thumb-play { position:absolute; inset: 0; margin: auto; z-index:3; 

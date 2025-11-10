@@ -944,4 +944,19 @@
   border-color: var(--macos-blue);
   color: #fff;
 }
+
+/* When any modal is open, disable floating filter's blur and interaction to avoid composite flicker behind modal */
+body.modal-open .floating-filter {
+  opacity: 0;
+  pointer-events: none;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  transition: opacity .15s ease;
 }
+}
+[data-ui='frosted'] .macos-modal .btn-glass,
+[data-ui='classic'] .macos-modal .btn-glass { transform: none !important; }
+[data-ui='frosted'] .macos-modal .btn-glass:hover,
+[data-ui='classic'] .macos-modal .btn-glass:hover { transform: none !important; }
+[data-ui='frosted'] .macos-modal .btn-glass:active,
+[data-ui='classic'] .macos-modal .btn-glass:active { transform: none !important; }

@@ -15,20 +15,21 @@ import (
 
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
-	"time"
+    "os"
+    "path/filepath"
+    "strings"
+    "sync"
+    "time"
 
 	"github.com/google/uuid"
 
 	"encoding/json"
-	"math"
-	"net/url"
-	"runtime"
-	"sort"
-	"unicode/utf8"
+    "math"
+    "net/url"
+    "net/http"
+    "runtime"
+    "sort"
+    "unicode/utf8"
 
 	"github.com/lrstanley/go-ytdlp"
 	"go.uber.org/zap"
@@ -201,6 +202,261 @@ func (s *Service) ListTasks() []*types.DtTaskStatus {
 		out = append(out, &c)
 	}
 	return out
+}
+
+// AnalyzeTask performs connectivity and dependency checks helpful for diagnosing failures
+func (s *Service) AnalyzeTask(id string) (*types.TaskAnalysis, error) {
+    if id == "" {
+        return nil, fmt.Errorf("id is required")
+    }
+    task, err := s.GetTaskStatus(id)
+    if err != nil {
+        return nil, err
+    }
+    if task == nil {
+        return nil, fmt.Errorf("task not found")
+    }
+    a := &types.TaskAnalysis{ID: task.ID, URL: task.URL}
+
+    // Hostname from URL
+    if u, err := url.Parse(task.URL); err == nil && u != nil {
+        a.Host = u.Hostname()
+    }
+
+    // Connectivity: try HEAD https://host/ then fallback http and GET
+    if a.Host != "" {
+        client := s.depManager.GetHTTPClient()
+        // default to https
+        schemes := []string{"https", "http"}
+        var lastErr error
+        var status int
+        ok := false
+        for _, sch := range schemes {
+            testURL := sch + "://" + a.Host + "/"
+            // HEAD first
+            req, _ := http.NewRequestWithContext(s.ctx, http.MethodHead, testURL, nil)
+            resp, err := client.Do(req)
+            if err == nil && resp != nil {
+                status = resp.StatusCode
+                resp.Body.Close()
+                if status > 0 && status < 500 {
+                    ok = true
+                    break
+                }
+            } else {
+                lastErr = err
+            }
+            // fallback GET
+            req2, _ := http.NewRequestWithContext(s.ctx, http.MethodGet, testURL, nil)
+            resp2, err2 := client.Do(req2)
+            if err2 == nil && resp2 != nil {
+                status = resp2.StatusCode
+                resp2.Body.Close()
+                if status > 0 && status < 500 {
+                    ok = true
+                    break
+                }
+            } else {
+                lastErr = err2
+            }
+        }
+        a.Connectivity.OK = ok
+        a.Connectivity.Status = status
+        if !ok && lastErr != nil {
+            a.Connectivity.Error = lastErr.Error()
+        }
+    }
+
+    // yt-dlp info: quick validate + latest version
+    if s.depManager != nil {
+        if info, err := s.depManager.Get(s.ctx, types.DependencyYTDLP); err == nil && info != nil {
+            a.YTDLP.Available = info.Available
+            a.YTDLP.Version = info.Version
+            a.YTDLP.ExecPath = info.ExecPath
+        }
+        if updates, err := s.depManager.CheckUpdates(s.ctx); err == nil {
+            if y, ok := updates[types.DependencyYTDLP]; ok && y != nil {
+                a.YTDLP.LatestVersion = y.LatestVersion
+                a.YTDLP.NeedUpdate = y.NeedUpdate
+                if a.YTDLP.Version == "" {
+                    a.YTDLP.Version = y.Version
+                }
+                if !a.YTDLP.Available {
+                    a.YTDLP.Available = y.Available
+                }
+            }
+        }
+    }
+    return a, nil
+}
+
+// StartAnalysis launches a streaming analysis for a task and emits DTAnalysisEvent events
+func (s *Service) StartAnalysis(id string) error {
+    if id == "" {
+        return fmt.Errorf("id is required")
+    }
+    if s.eventBus == nil {
+        return fmt.Errorf("event bus is nil")
+    }
+    task, err := s.GetTaskStatus(id)
+    if err != nil {
+        return err
+    }
+    if task == nil {
+        return fmt.Errorf("task not found")
+    }
+    go func(t *types.DtTaskStatus) {
+        publish := func(step, action, message string, status int, errStr string) {
+            s.eventBus.Publish(s.ctx, &events.BaseEvent{ID: uuid.New().String(), Type: consts.TopicDowntasksAnalysis, Source: "downtasks", Timestamp: time.Now(), Data: &types.DTAnalysisEvent{ID: t.ID, Step: step, Action: action, Message: message, Status: status, Error: errStr}})
+        }
+        // Step 1: extract host
+        publish("extract_host", "start", "", 0, "")
+        var host string
+        if u, err := url.Parse(t.URL); err == nil && u != nil {
+            host = u.Hostname()
+        }
+        if strings.TrimSpace(host) == "" {
+            publish("extract_host", "fail", "", 0, "invalid url")
+            publish("complete", "complete", "", 0, "")
+            return
+        }
+        publish("extract_host", "ok", host, 0, "")
+
+        // Step 2: connectivity (HEAD/GET, https->http fallback)
+        publish("connectivity", "start", host, 0, "")
+        client := s.depManager.GetHTTPClient()
+        schemes := []string{"https", "http"}
+        var ok bool
+        var status int
+        var lastErr error
+        for _, sch := range schemes {
+            testURL := sch + "://" + host + "/"
+            req, _ := http.NewRequestWithContext(s.ctx, http.MethodHead, testURL, nil)
+            if resp, err := client.Do(req); err == nil && resp != nil {
+                status = resp.StatusCode
+                resp.Body.Close()
+                if status > 0 && status < 500 { ok = true; break }
+            } else { lastErr = err }
+            req2, _ := http.NewRequestWithContext(s.ctx, http.MethodGet, testURL, nil)
+            if resp2, err2 := client.Do(req2); err2 == nil && resp2 != nil {
+                status = resp2.StatusCode
+                resp2.Body.Close()
+                if status > 0 && status < 500 { ok = true; break }
+            } else { lastErr = err2 }
+        }
+        if !ok {
+            publish("connectivity", "fail", host, status, func() string { if lastErr!=nil { return lastErr.Error() }; return "" }())
+            publish("complete", "complete", "", 0, "")
+            return
+        }
+        publish("connectivity", "ok", host, status, "")
+
+        // Step 3: yt-dlp presence
+        publish("ytdlp_presence", "start", "", 0, "")
+        var available bool
+        var version string
+        if info, err := s.depManager.Get(s.ctx, types.DependencyYTDLP); err == nil && info != nil {
+            available = info.Available
+            version = info.Version
+        }
+        if !available {
+            publish("ytdlp_presence", "fail", "", 0, "not installed")
+            publish("complete", "complete", "", 0, "")
+            return
+        }
+        publish("ytdlp_presence", "ok", version, 0, "")
+
+        // Step 4: yt-dlp version compare
+        publish("ytdlp_version", "start", "", 0, "")
+        latest := ""
+        needUpdate := false
+        if updates, err := s.depManager.CheckUpdates(s.ctx); err == nil {
+            if y, ok2 := updates[types.DependencyYTDLP]; ok2 && y != nil {
+                latest = y.LatestVersion
+                needUpdate = y.NeedUpdate
+                if version == "" { version = y.Version }
+            }
+        }
+        if needUpdate {
+            publish("ytdlp_version", "fail", latest, 0, "outdated")
+            publish("complete", "complete", "", 0, "")
+            return
+        }
+        publish("ytdlp_version", "ok", latest, 0, "")
+        publish("complete", "complete", "", 0, "")
+    }(task)
+    return nil
+}
+// RetryTask restarts a failed task with the original parameters
+func (s *Service) RetryTask(id string) error {
+    if id == "" {
+        return fmt.Errorf("id is required")
+    }
+    // Load the latest task pointer
+    task, err := s.GetTaskStatus(id)
+    if err != nil {
+        return err
+    }
+    if task == nil {
+        return fmt.Errorf("task not found")
+    }
+    // Prevent retrying an active task
+    if task.Stage == types.DtStageInitializing || task.Stage == types.DtStageDownloading {
+        return fmt.Errorf("task is running")
+    }
+
+    // Build request from persisted fields
+    req := &types.DownloadVideoRequest{
+        Type:    task.Type,
+        URL:     task.URL,
+        Browser: task.Browser,
+    }
+    if task.Type == consts.TASK_TYPE_CUSTOM {
+        req.FormatID = task.FormatID
+        req.DownloadSubs = task.DownloadSubs
+        req.SubLangs = append([]string{}, task.SubLangs...)
+        req.SubFormat = task.SubFormat
+        req.TranslateTo = task.TranslateTo
+        req.SubtitleStyle = task.SubtitleStyle
+    } else { // quick/mcp
+        req.Video = task.QuickVideo
+        if strings.TrimSpace(req.Video) == "" {
+            req.Video = "best"
+        }
+        req.BestCaption = task.DownloadSubs
+        if req.BestCaption && strings.TrimSpace(task.SubFormat) == "" {
+            req.SubFormat = "best"
+        } else {
+            req.SubFormat = task.SubFormat
+        }
+    }
+
+    // Reset task to running state and clear transient fields
+    s.taskManager.UpdateTaskWith(task.ID, func(t *types.DtTaskStatus) {
+        t.Stage = types.DtStageDownloading
+        t.StageInfo = ""
+        t.Error = ""
+        t.Percentage = 0
+        t.Speed = ""
+        t.EstimatedTime = ""
+        // Reset process groups
+        t.DownloadProcess.Video = ""
+        t.DownloadProcess.Merge = ""
+        t.DownloadProcess.Finalize = ""
+        t.DownloadProcess.Speed = ""
+        t.DownloadProcess.EstimatedTime = ""
+        if t.SubtitleProcess.Status != "" {
+            t.SubtitleProcess.Status = "idle"
+        }
+    })
+
+    // Start pipelines as in Quick/Custom flows
+    infoChan := make(InfoChan, 1)
+    progressChan := make(ProgressChan, 100)
+    go s.processTask(task, req, infoChan, progressChan)
+    go s.fillTaskInfo(infoChan)
+    go s.monitorProgress(progressChan)
+    return nil
 }
 
 func (s *Service) Path() string {
@@ -621,6 +877,15 @@ func (s *Service) QuickDownload(request *types.DtQuickDownloadRequest) (*types.D
 	task.Type = request.Type
 	task.URL = request.URL
 	task.Browser = request.Browser
+
+	// Persist quick options for reliable retries
+	task.DownloadSubs = request.BestCaption
+	if request.BestCaption {
+		// Default to best when quick subtitles are requested
+		task.SubFormat = "best"
+	}
+	// Persist the chosen video selector (e.g., format string)
+	task.QuickVideo = request.Video
 
 	task.Stage = types.DtStageDownloading
 	task.Percentage = 0

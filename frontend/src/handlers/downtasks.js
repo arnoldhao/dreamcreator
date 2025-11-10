@@ -10,6 +10,7 @@ export const useDtStore = defineStore('downtasks', {
     stageCallbacks: [], // 阶段事件回调
     installingCallbacks: [], // 安装回调函数
     cookieSyncCallbacks: [], // cookie 同步回调函数
+    analysisCallbacks: [], // 原因分析事件回调
     subtitleProgressCallbacks: [], // 字幕进度回调函数
     wsInited: false, // WebSocket 监听是否已初始化（避免重复注册）
   }),
@@ -60,6 +61,9 @@ export const useDtStore = defineStore('downtasks', {
           break
         case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_STAGE:
           this.handleStage(data.data)
+          break
+        case WS_RESPONSE_EVENT.EVENT_DOWNTASKS_ANALYSIS:
+          this.handleAnalysis(data.data)
           break
         default:
           console.warn('Unknown event:', data.event)
@@ -132,6 +136,12 @@ export const useDtStore = defineStore('downtasks', {
         }
       })
     },
+    // 处理分析事件
+    handleAnalysis(data) {
+      this.analysisCallbacks.forEach(callback => {
+        try { callback(data) } catch (error) { console.error('Analysis callback error:', error) }
+      })
+    },
     // SUBTITLE
     handleSubtitleCallback(data) {
       switch (data.event) {
@@ -198,5 +208,9 @@ export const useDtStore = defineStore('downtasks', {
         this.cookieSyncCallbacks.splice(index, 1)
       }
     }
+    ,
+    // 注册/取消 原因分析回调
+    registerAnalysisCallback(callback) { this.analysisCallbacks.push(callback) },
+    unregisterAnalysisCallback(callback) { this.analysisCallbacks = this.analysisCallbacks.filter(cb => cb !== callback) }
   }
 })
