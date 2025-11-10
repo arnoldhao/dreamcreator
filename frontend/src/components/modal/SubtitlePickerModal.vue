@@ -1,6 +1,6 @@
 <template>
   <div v-if="show" class="macos-modal" @click.self="close">
-    <div class="modal-card" role="dialog" aria-modal="true">
+    <div class="modal-card card-frosted card-translucent" role="dialog" aria-modal="true">
       <div class="modal-header sheet">
         <ModalTrafficLights @close="close" />
         <div class="title-area">
@@ -39,7 +39,7 @@ function quickConfirm(v) { emit('confirm', v); close() }
 
 <style scoped>
 .macos-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center; z-index: 2000; }
-.modal-card { width: 420px; max-width: calc(100% - 32px); background: var(--macos-background); border: 1px solid var(--macos-separator); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.30); overflow:hidden; }
+.modal-card { width: 420px; max-width: calc(100% - 32px); border-radius: 12px; overflow:hidden; }
 .modal-header.sheet { height: 36px; display:flex; align-items:center; justify-content: flex-start; padding: 0 10px; border-bottom: 1px solid var(--macos-divider-weak); }
 /* no traffic lights for sheet-like modal */
 .title-area { display:flex; align-items:center; gap: 10px; min-width: 0; flex:1; justify-content: flex-end; }

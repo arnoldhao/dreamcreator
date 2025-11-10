@@ -29,7 +29,7 @@
 }
 
 /* Any interactive control inside the toolbar should not initiate window drag on Windows */
-.macos-toolbar :is(button, input, textarea, select, [role="button"], .toolbar-icon-btn) {
+.macos-toolbar :is(button, input, textarea, select, [role="button"], .toolbar-chip) {
   /* Prevent Chromium from treating controls inside a draggable area as draggable */
   -webkit-app-region: no-drag;
   /* Inform Wails (Windows) about non-draggable sub-areas */
@@ -97,111 +97,15 @@
   padding: 12px;
 }
 
-.macos-page .btn,
-.macos-page .btn-primary,
-.macos-page .btn-outline { @extend .btn-macos; }
-.macos-page .btn-primary { @extend .btn-macos-primary; }
+/* removed legacy .btn/.btn-primary/.btn-outline mappings (use btn-chip family) */
 
-// 基础按钮样式
-.btn-macos {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 16px;
-  font-size: var(--fs-base);
-  font-weight: 400;
-  line-height: 1.2;
-  border-radius: 6px;
-  border: 1px solid var(--macos-border);
-  background: var(--macos-background);
-  color: var(--macos-text-primary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  min-height: 28px;
-  white-space: nowrap;
+/* removed legacy .btn-macos family */
 
-  &:hover {
-    background: var(--macos-gray-hover);
-    border-color: var(--macos-border);
-  }
+/* removed legacy .btn-macos-primary */
 
-  &:active {
-    background: var(--macos-gray-active);
-    transform: scale(0.98);
-  }
+/* removed legacy .btn-macos-secondary */
 
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    
-    &:hover {
-      background: var(--macos-background);
-      border-color: var(--macos-border);
-    }
-  }
-
-  &:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--macos-blue) 30%, transparent);
-  }
-}
-
-// 主要按钮
-.btn-macos-primary {
-  @extend .btn-macos;
-  background: var(--macos-blue);
-  border-color: var(--macos-blue);
-  color: white;
-
-  &:hover {
-    background: var(--macos-blue-hover);
-    border-color: var(--macos-blue-hover);
-  }
-
-  &:active {
-    background: var(--macos-blue-active);
-    border-color: var(--macos-blue-active);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    
-    &:hover {
-      background: var(--macos-blue);
-      border-color: var(--macos-blue);
-    }
-  }
-}
-
-// 次要按钮
-.btn-macos-secondary {
-  @extend .btn-macos;
-  background: var(--macos-gray);
-  border-color: var(--macos-border);
-  color: var(--macos-text-primary);
-
-  &:hover {
-    background: var(--macos-gray-hover);
-  }
-
-  &:active {
-    background: var(--macos-gray-active);
-  }
-}
-
-// 危险按钮
-.btn-macos-danger {
-  @extend .btn-macos;
-  background: var(--macos-danger-bg);
-  border-color: var(--macos-danger-text);
-  color: var(--macos-danger-text);
-
-  &:hover {
-    background: var(--macos-danger-text);
-    color: white;
-  }
-}
+/* removed legacy .btn-macos-danger */
 
 // 输入框样式
 .input-macos {
@@ -271,13 +175,7 @@
   }
 }
 
-// 小尺寸按钮变体
-.btn-macos-sm {
-  @extend .btn-macos;
-  padding: 4px 12px;
-  font-size: var(--fs-sub);
-  min-height: 28px;
-}
+/* removed legacy .btn-macos-sm */
 
 // 输入框尺寸变体
 .input-compact {
@@ -545,8 +443,10 @@
 .macos-row .k { color: var(--macos-text-secondary); font-size: var(--fs-sub); }
 .macos-row .v { color: var(--macos-text-primary); font-size: var(--fs-sub); min-width: 0; }
 
-/* 工具栏小按钮 */
-.toolbar-icon-btn {
+/* toolbar chip defined below; removed legacy toolbar-icon-btn */
+
+/* Toolbar chip (btn-chip family) */
+.toolbar-chip {
   -webkit-app-region: no-drag;
   --wails-draggable: no-drag;
   width: 28px;
@@ -554,32 +454,24 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 999px; /* keep circular at rest to avoid shape flicker */
+  border: 1px solid transparent; /* no border at rest */
   color: var(--macos-text-secondary);
-  background: transparent;
-  border: 1px solid transparent;
-  transition: background 120ms ease;
+  background: transparent; /* no background at rest */
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transition: background-color .18s ease, border-color .18s ease, color .12s ease, transform .12s ease;
 }
-.toolbar-icon-btn:hover {
-  background: var(--macos-gray-hover);
-}
-.toolbar-icon-btn:active {
-  background: var(--macos-gray-active);
-}
-
-.toolbar-icon-btn.active {
-  background: color-mix(in oklab, var(--macos-blue) 15%, transparent);
-  color: var(--macos-text-primary);
-}
+.toolbar-chip:hover { background: rgba(30,30,30,0.26); border-color: rgba(255,255,255,0.20); color: var(--macos-text-primary); -webkit-backdrop-filter: saturate(120%) blur(8px); backdrop-filter: saturate(120%) blur(8px); border-radius: 999px; }
+.toolbar-chip:active { transform: translateZ(0) scale(0.98); }
+.toolbar-chip.active { background: color-mix(in oklab, var(--macos-blue) 28%, transparent); border-color: color-mix(in oklab, var(--macos-blue) 26%, white 8%); color: #fff; border-radius: 999px; }
 
 /* Inactive window traffic lights placeholder */
 /* 使用原生交通灯，不自绘占位 */
 
-/* macOS-like tooltips for toolbar buttons */
-.toolbar-icon-btn[data-tooltip] {
-  position: relative;
-}
-.toolbar-icon-btn[data-tooltip]::after {
+/* toolbar chip tooltips */
+.toolbar-chip[data-tooltip] { position: relative; }
+.toolbar-chip[data-tooltip]::after {
   content: attr(data-tooltip);
   position: absolute;
   left: 50%;
@@ -601,75 +493,17 @@
   z-index: 100;
   box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
-.toolbar-icon-btn[data-tooltip]::before { display: none; content: none; }
-.toolbar-icon-btn[data-tooltip]:hover::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(2px);
-}
-.toolbar-icon-btn[data-tooltip]:hover::before {
-  opacity: 1;
-}
+.toolbar-chip[data-tooltip]::before { display: none; content: none; }
+.toolbar-chip[data-tooltip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(2px); }
+.toolbar-chip[data-tooltip]:hover::before { opacity: 1; }
+.toolbar-chip[data-tooltip][data-tip-pos='top']::after { bottom: auto; top: -36px; }
+.toolbar-chip[data-tooltip][data-tip-pos='top']::before { display: none; content: none; }
+.toolbar-chip[data-tooltip][data-tip-align='right']::after { left: auto; right: 0; transform: translateX(0); }
+.toolbar-chip[data-tooltip][data-tip-align='right']:hover::after { transform: translateY(2px); }
+.toolbar-chip[data-tooltip][data-tip-align='right']::before { left: auto; right: 10px; }
+.toolbar-chip[data-tooltip][data-tip-align='right'][data-tip-pos='top']:hover::after { transform: translateY(-2px); }
 
-/* optional: place tooltip above when needed */
-.toolbar-icon-btn[data-tooltip][data-tip-pos='top']::after {
-  bottom: auto;
-  top: -36px;
-}
-.toolbar-icon-btn[data-tooltip][data-tip-pos='top']::before { display: none; content: none; }
-
-/* align tooltip to the right edge of button (for rightmost actions) */
-.toolbar-icon-btn[data-tooltip][data-tip-align='right']::after {
-  left: auto;
-  right: 0;
-  transform: translateX(0);
-}
-.toolbar-icon-btn[data-tooltip][data-tip-align='right']:hover::after {
-  transform: translateY(2px);
-}
-.toolbar-icon-btn[data-tooltip][data-tip-align='right']::before {
-  left: auto;
-  right: 10px; /* place arrow near right edge */
-}
-.toolbar-icon-btn[data-tooltip][data-tip-align='right'][data-tip-pos='top']:hover::after {
-  transform: translateY(-2px);
-}
-
-/* Apply same tooltip behavior to sr-icon-btn inside content views */
-.sr-icon-btn[data-tooltip] { position: relative; z-index: 20; }
-.sr-icon-btn[data-tooltip]::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  left: 50%;
-  bottom: -36px;
-  transform: translateX(-50%);
-  background: rgba(60,60,67,0.92);
-  color: #fff;
-  font-size: var(--fs-caption);
-  line-height: 1;
-  padding: 6px 8px;
-  border-radius: 6px;
-  white-space: nowrap;
-  max-width: 240px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms ease, transform 120ms ease;
-  z-index: 2000;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-}
-.sr-icon-btn[data-tooltip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(2px); }
-.sr-icon-btn[data-tooltip]::before { display: none; content: none; }
-.sr-icon-btn[data-tooltip][data-tip-align='right']::after { left: auto; right: 0; transform: translateX(0); }
-.sr-icon-btn[data-tooltip][data-tip-align='right']:hover::after { transform: translateY(2px); }
-/* optional: place tooltip above for sr-icon-btn */
-.sr-icon-btn[data-tooltip][data-tip-pos='top']::after {
-  bottom: auto;
-  top: -36px;
-}
-.sr-icon-btn[data-tooltip][data-tip-pos='top']:hover::after {
-  transform: translateY(-2px);
-}
+/* removed sr-icon-btn tooltips; use icon-chip-ghost/toolbars chip */
 
 /* Generic tooltip anchor for non-button elements (e.g., metric dots) */
 .has-tooltip[data-tooltip] { position: relative; }
@@ -754,50 +588,7 @@
 /* Global icon-only button variant (used for delete across app) */
 .icon-ghost { background: transparent !important; border: 0 !important; color: var(--macos-text-secondary); }
 .icon-ghost:hover { background: transparent !important; color: var(--macos-danger-text); }
-/* Glassy icon button for frosted UI */
-.icon-glass { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid var(--macos-separator); background: transparent; color: var(--macos-text-secondary); box-shadow: none; transition: background-color .2s ease, border-color .2s ease, color .12s ease, transform .12s ease; }
-.icon-glass:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); border-color: var(--macos-blue); color: #fff; transform: translateY(-0.5px); }
-.icon-glass:active { transform: scale(0.98); }
-@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) { .icon-glass { background: transparent; color: var(--macos-text-secondary); border-color: var(--macos-separator); box-shadow: none; } }
-/* Glassy filled button for frosted UI (neutral) */
-.btn-glass { display: inline-flex; align-items: center; justify-content: center; height: 28px; padding: 0 12px; gap: 8px; border-radius: 6px; border: 1px solid var(--macos-separator); background: transparent; color: var(--macos-text-primary); font-size: var(--fs-base); box-shadow: none; transition: background-color .2s ease, border-color .2s ease, color .12s ease, transform .12s ease; }
-.btn-glass:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); border-color: var(--macos-blue); color: #fff; transform: translateY(-0.5px); }
-.btn-glass:active { transform: scale(0.98); }
-.btn-glass:disabled {
-  opacity: .5;
-  cursor: not-allowed;
-  pointer-events: none;
-  background: transparent;
-  color: var(--macos-text-secondary);
-  border-color: var(--macos-separator);
-  transform: none;
-}
-.btn-glass.btn-sm { height: 28px; padding: 0 12px; font-size: var(--fs-base); }
-@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) { .btn-glass { background: transparent; color: var(--macos-text-primary); border-color: var(--macos-separator); box-shadow: none; } }
-/* Classic override */
-[data-ui='classic'] .icon-glass { background: transparent !important; color: var(--macos-text-secondary) !important; border: 1px solid var(--macos-separator) !important; box-shadow: none !important; }
-[data-ui='classic'] .icon-glass:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
-[data-ui='classic'] .btn-glass { background: transparent !important; color: var(--macos-text-primary) !important; border: 1px solid var(--macos-separator) !important; box-shadow: none !important; }
-[data-ui='classic'] .btn-glass:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
-
-/* Primary variant that keeps the glass geometry but fills with primary color */
-.btn-glass.btn-primary { background: var(--macos-blue); border-color: var(--macos-blue); color: #fff; }
-.btn-glass.btn-primary:hover { background: var(--macos-blue-hover); border-color: var(--macos-blue-hover); color: #fff; transform: translateY(-0.5px); }
-.btn-glass.btn-primary:active { background: var(--macos-blue-active); border-color: var(--macos-blue-active); transform: scale(0.98); }
-.btn-glass.btn-primary:disabled {
-  opacity: .5;
-  cursor: not-allowed;
-  pointer-events: none;
-  background: var(--macos-blue);
-  border-color: var(--macos-blue);
-  color: #fff;
-  transform: none;
-}
-@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
-  .btn-glass.btn-primary { background: var(--macos-blue); color: #fff; border-color: var(--macos-blue); }
-}
-[data-ui='classic'] .btn-glass.btn-primary { background: var(--macos-blue) !important; border-color: var(--macos-blue) !important; color: #fff !important; }
-[data-ui='classic'] .btn-glass.btn-primary:hover { background: var(--macos-blue-hover) !important; border-color: var(--macos-blue-hover) !important; color: #fff !important; }
+/* removed legacy glass button family */
 
 /* Chip-look buttons: chip aesthetic with button dimensions (drop-in for btn-glass) */
 .btn-chip {
@@ -891,6 +682,181 @@
 [data-ui='classic'] .btn-chip.btn-primary:hover { background: var(--macos-blue-hover) !important; border-color: var(--macos-blue-hover) !important; color: #fff !important; }
 [data-ui='classic'] .btn-chip-icon { background: var(--macos-background) !important; color: var(--macos-text-primary) !important; border: 1px solid var(--macos-separator) !important; box-shadow: none !important; text-shadow: none !important; }
 [data-ui='classic'] .btn-chip-icon:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
+
+/* Quiet/Ghost chip variants: low-contrast, same family as btn-chip */
+.btn-chip-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 10px;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  color: var(--macos-text-secondary);
+  font-size: var(--fs-base);
+  background: rgba(30,30,30,0.16);
+  -webkit-backdrop-filter: saturate(120%) blur(8px);
+  backdrop-filter: saturate(120%) blur(8px);
+  box-shadow: none;
+  text-shadow: none;
+  transition: background-color .18s ease, border-color .18s ease, color .12s ease, transform .12s ease;
+}
+.btn-chip-ghost:hover {
+  background: rgba(30,30,30,0.26);
+  border-color: rgba(255,255,255,0.20);
+  color: var(--macos-text-primary);
+}
+.btn-chip-ghost:active { transform: translateZ(0) scale(0.98); }
+.btn-chip-ghost:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: rgba(30,30,30,0.16);
+  color: var(--macos-text-tertiary);
+  border-color: rgba(255,255,255,0.12);
+  transform: none;
+}
+.btn-chip-ghost.btn-sm { height: 28px; padding: 0 10px; font-size: var(--fs-base); }
+/* optional subtle primary state for quiet contexts */
+.btn-chip-ghost.btn-primary {
+  background: color-mix(in oklab, var(--macos-blue) 42%, transparent);
+  border-color: color-mix(in oklab, var(--macos-blue) 36%, white 12%);
+  color: #fff;
+}
+.btn-chip-ghost.btn-primary:hover {
+  background: color-mix(in oklab, var(--macos-blue) 48%, white 4%);
+  border-color: color-mix(in oklab, var(--macos-blue) 42%, white 10%);
+}
+
+/* Icon-only quiet chip (for toolbars/dense lists) */
+.icon-chip-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  color: var(--macos-text-secondary);
+  background: rgba(30,30,30,0.16);
+  -webkit-backdrop-filter: saturate(120%) blur(8px);
+  backdrop-filter: saturate(120%) blur(8px);
+  box-shadow: none;
+  text-shadow: none;
+  transition: background-color .18s ease, border-color .18s ease, color .12s ease, transform .12s ease;
+}
+.icon-chip-ghost:hover { background: rgba(30,30,30,0.26); border-color: rgba(255,255,255,0.20); color: var(--macos-text-primary); transform: translateZ(0) scale(1.02); }
+.icon-chip-ghost:active { transform: translateZ(0) scale(0.98); }
+.icon-chip-ghost:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: rgba(30,30,30,0.16);
+  color: var(--macos-text-tertiary);
+  border-color: rgba(255,255,255,0.12);
+  transform: none;
+}
+
+/* Optional tooltip for icon-chip-ghost when using data-tooltip */
+.icon-chip-ghost[data-tooltip] { position: relative; }
+.icon-chip-ghost[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: -34px;
+  transform: translateX(-50%);
+  background: rgba(60,60,67,0.92);
+  color: #fff;
+  font-size: var(--fs-caption);
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+.icon-chip-ghost[data-tooltip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(2px); }
+.icon-chip-ghost[data-tooltip][data-tip-pos='top']::after { bottom: auto; top: -34px; }
+.icon-chip-ghost[data-tooltip][data-tip-pos='top']:hover::after { transform: translateX(-50%) translateY(-2px); }
+
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .btn-chip-ghost, .icon-chip-ghost {
+    background: rgba(255,255,255,0.10);
+    color: var(--macos-text-secondary);
+    border-color: rgba(0,0,0,0.15);
+  }
+  .btn-chip-ghost:hover, .icon-chip-ghost:hover {
+    background: color-mix(in oklab, var(--macos-blue) 12%, transparent);
+    border-color: var(--macos-blue);
+    color: var(--macos-text-primary);
+  }
+  .btn-chip-ghost.btn-primary {
+    background: color-mix(in oklab, var(--macos-blue) 42%, white 2%);
+    border-color: var(--macos-blue);
+    color: #fff;
+  }
+}
+[data-ui='classic'] .btn-chip-ghost,
+[data-ui='classic'] .icon-chip-ghost {
+  background: var(--macos-background) !important;
+  color: var(--macos-text-secondary) !important;
+  border: 1px solid var(--macos-separator) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+[data-ui='classic'] .btn-chip-ghost:hover,
+[data-ui='classic'] .icon-chip-ghost:hover {
+  background: color-mix(in oklab, var(--macos-blue) 12%, transparent) !important;
+  border-color: var(--macos-blue) !important;
+  color: var(--macos-text-primary) !important;
+}
+[data-ui='classic'] .btn-chip-ghost.btn-primary {
+  background: var(--macos-blue) !important;
+  border-color: var(--macos-blue) !important;
+  color: #fff !important;
+}
+
+/* Segmented (quiet chip variant): drop-in by adding .chip on container */
+.segmented.chip {
+  background: rgba(30,30,30,0.16);
+  border: 1px solid rgba(255,255,255,0.14);
+  -webkit-backdrop-filter: saturate(120%) blur(8px);
+  backdrop-filter: saturate(120%) blur(8px);
+  border-radius: 999px;
+  padding: 2px;
+}
+.segmented.chip .seg-item {
+  border-radius: 999px;
+  color: var(--macos-text-secondary);
+}
+.segmented.chip .seg-item:hover {
+  background: rgba(30,30,30,0.26);
+  color: var(--macos-text-primary);
+}
+.segmented.chip .seg-item.active,
+.segmented.chip .seg-item.active:hover {
+  background: color-mix(in oklab, var(--macos-blue) 48%, transparent);
+  color: #fff;
+}
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .segmented.chip { background: rgba(255,255,255,0.10); border-color: rgba(0,0,0,0.15); }
+  .segmented.chip .seg-item:hover { background: color-mix(in oklab, var(--macos-blue) 12%, transparent); }
+  .segmented.chip .seg-item.active, .segmented.chip .seg-item.active:hover { background: color-mix(in oklab, var(--macos-blue) 42%, white 2%); color: #fff; }
+}
+[data-ui='classic'] .segmented.chip {
+  background: var(--macos-background) !important;
+  border: 1px solid var(--macos-separator) !important;
+}
+[data-ui='classic'] .segmented.chip .seg-item:hover { background: color-mix(in oklab, var(--macos-blue) 12%, transparent) !important; }
+[data-ui='classic'] .segmented.chip .seg-item.active,
+[data-ui='classic'] .segmented.chip .seg-item.active:hover { background: var(--macos-blue) !important; color: #fff !important; }
 
 /* Global simple color utilities */
 .text-primary { color: var(--macos-text-primary); }
@@ -1047,21 +1013,29 @@ body.modal-open .floating-filter {
   transition: opacity .15s ease;
 }
 }
-[data-ui='frosted'] .macos-modal .btn-glass,
-[data-ui='classic'] .macos-modal .btn-glass,
 [data-ui='frosted'] .macos-modal .btn-chip,
 [data-ui='classic'] .macos-modal .btn-chip,
 [data-ui='frosted'] .macos-modal .btn-chip-icon,
 [data-ui='classic'] .macos-modal .btn-chip-icon { transform: none !important; }
-[data-ui='frosted'] .macos-modal .btn-glass:hover,
-[data-ui='classic'] .macos-modal .btn-glass:hover,
 [data-ui='frosted'] .macos-modal .btn-chip:hover,
 [data-ui='classic'] .macos-modal .btn-chip:hover,
 [data-ui='frosted'] .macos-modal .btn-chip-icon:hover,
 [data-ui='classic'] .macos-modal .btn-chip-icon:hover { transform: none !important; }
-[data-ui='frosted'] .macos-modal .btn-glass:active,
-[data-ui='classic'] .macos-modal .btn-glass:active,
 [data-ui='frosted'] .macos-modal .btn-chip:active,
 [data-ui='classic'] .macos-modal .btn-chip:active,
 [data-ui='frosted'] .macos-modal .btn-chip-icon:active,
 [data-ui='classic'] .macos-modal .btn-chip-icon:active { transform: none !important; }
+
+/* ensure quiet chip variants don't animate in modals as well */
+[data-ui='frosted'] .macos-modal .btn-chip-ghost,
+[data-ui='classic'] .macos-modal .btn-chip-ghost,
+[data-ui='frosted'] .macos-modal .icon-chip-ghost,
+[data-ui='classic'] .macos-modal .icon-chip-ghost { transform: none !important; }
+[data-ui='frosted'] .macos-modal .btn-chip-ghost:hover,
+[data-ui='classic'] .macos-modal .btn-chip-ghost:hover,
+[data-ui='frosted'] .macos-modal .icon-chip-ghost:hover,
+[data-ui='classic'] .macos-modal .icon-chip-ghost:hover { transform: none !important; }
+[data-ui='frosted'] .macos-modal .btn-chip-ghost:active,
+[data-ui='classic'] .macos-modal .btn-chip-ghost:active,
+[data-ui='frosted'] .macos-modal .icon-chip-ghost:active,
+[data-ui='classic'] .macos-modal .icon-chip-ghost:active { transform: none !important; }

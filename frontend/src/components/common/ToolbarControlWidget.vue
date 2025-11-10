@@ -35,16 +35,16 @@ const handleClose = () => {
 
 <template>
     <div class="flex items-center justify-center">
-        <div class="btn-wrapper sr-icon-btn" :data-tooltip="$t('menu.minimise')" data-tip-pos="top" @click="handleMinimise">
+        <div class="btn-wrapper toolbar-chip" :data-tooltip="$t('menu.minimise')" data-tip-pos="top" @click="handleMinimise">
             <window-min />
         </div>
-        <div v-if="maximised" class="btn-wrapper sr-icon-btn" :data-tooltip="$t('menu.restore')" data-tip-pos="top" @click="handleMaximise">
+        <div v-if="maximised" class="btn-wrapper toolbar-chip" :data-tooltip="$t('menu.restore')" data-tip-pos="top" @click="handleMaximise">
             <window-restore />
         </div>
-        <div v-else class="btn-wrapper sr-icon-btn" :data-tooltip="$t('menu.maximise')" data-tip-pos="top" @click="handleMaximise">
+        <div v-else class="btn-wrapper toolbar-chip" :data-tooltip="$t('menu.maximise')" data-tip-pos="top" @click="handleMaximise">
             <window-max />
         </div>
-        <div class="btn-wrapper btn-wrapper-close sr-icon-btn" :data-tooltip="$t('menu.close')" data-tip-pos="top" @click="handleClose">
+        <div class="btn-wrapper btn-wrapper-close toolbar-chip" :data-tooltip="$t('menu.close')" data-tip-pos="top" @click="handleClose">
             <window-close />
         </div>
     </div>

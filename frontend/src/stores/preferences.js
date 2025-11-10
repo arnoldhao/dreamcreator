@@ -467,7 +467,7 @@ const usePreferencesStore = defineStore('preferences', {
                                 // 使用自定义 macOS 风格组件渲染操作按钮
                                 return h('div', { class: 'flex flex-row gap-2 mt-2' }, [
                                     h('button', {
-                                        class: 'btn-glass btn-sm',
+                                        class: 'btn-chip-ghost btn-sm',
                                         onClick: () => {
                                             // skip this update
                                             this.general.skipVersion = latest
@@ -476,11 +476,11 @@ const usePreferencesStore = defineStore('preferences', {
                                         }
                                     }, i18nGlobal.t('dialogue.upgrade.skip')),
                                     h('button', {
-                                        class: 'btn-glass btn-sm',
+                                        class: 'btn-chip-ghost btn-sm',
                                         onClick: destroy
                                     }, i18nGlobal.t('dialogue.upgrade.later')),
                                     h('button', {
-                                        class: 'btn-glass btn-primary btn-sm',
+                                        class: 'btn-chip-ghost btn-primary btn-sm',
                                         onClick: () => BrowserOpenURL(pageUrl)
                                     }, i18nGlobal.t('dialogue.upgrade.download_now'))
                                 ])

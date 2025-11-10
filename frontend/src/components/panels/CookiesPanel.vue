@@ -7,7 +7,7 @@
         <span class="placeholder">{{ $t('cookies.search_placeholder') }}</span>
         <!-- <Icon name="open" class="w-4 h-4 ml-auto text-[var(--macos-text-tertiary)]" /> -->
       </button>
-      <button class="icon-glass" :data-tooltip="$t('common.refresh')" @click="fetchCookies" :disabled="isLoading">
+      <button class="icon-chip-ghost" :data-tooltip="$t('common.refresh')" @click="fetchCookies" :disabled="isLoading">
         <Icon name="refresh" class="w-4 h-4" :class="{ spinning: isLoading }" />
       </button>
     </div>
@@ -106,7 +106,7 @@
     <div class="manual-section px-3 pb-3">
       <div class="manual-header">
         <span>{{ $t('cookies.manual_section_title') }}</span>
-        <button class="btn-glass" @click="openManualModal('create', null)">
+        <button class="btn-chip-ghost" @click="openManualModal('create', null)">
           <Icon name="plus" class="w-3.5 h-3.5" />
           <span>{{ $t('cookies.manual_add_button') }}</span>
         </button>
@@ -637,7 +637,7 @@ thead { background: var(--macos-background-secondary); }
 
 .manual-section { display:flex; flex-direction: column; gap: 8px; }
 .manual-header { font-size: 13px; font-weight: 600; color: var(--macos-text-secondary); padding: 0 2px; display:flex; align-items:center; justify-content: space-between; }
-.manual-header .btn-glass { display:inline-flex; align-items:center; gap: 6px; }
+.manual-header .btn-chip-ghost { display:inline-flex; align-items:center; gap: 6px; }
 .manual-list .ck-box { border-style: solid; }
 .manual-entry .actions { margin-top: 10px; }
 .manual-entry .ops-actions .seg-item { min-width: 32px; }

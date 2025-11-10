@@ -133,13 +133,13 @@ function setupMacosDialog(){
         ]),
         h('div', { style:{ padding:'12px 16px', fontSize:'13px', lineHeight:1.35, whiteSpace:'pre-wrap' } }, props.content||''),
         h('div', { style:{ padding:'10px 12px 12px', display:'flex', alignItems:'center', justifyContent:'flex-end', gap:'10px', borderTop:'1px solid rgba(60,60,67,0.15)' } }, [
-          props.negativeText ? h('button', { class: 'btn-glass', onClick:neg }, props.negativeText) : null,
-          h('button', { class: 'btn-glass btn-primary', onClick:pos }, props.positiveText||'OK')
+          props.negativeText ? h('button', { class: 'btn-chip-ghost', onClick:neg }, props.negativeText) : null,
+          h('button', { class: 'btn-chip btn-primary', onClick:pos }, props.positiveText||'OK')
         ])
       ])
     ]) }
   }
-  // buttons now use global .btn-glass / .btn-glass.btn-primary styles
+  // buttons now use global btn-chip family styles
   function mount(){ if(document.getElementById('macos-dialog-root')) return; const host=document.createElement('div'); document.body.appendChild(host); createApp(Host).mount(host) }
   function push(opt){ mount(); const id=Date.now()+'_'+Math.random().toString(36).slice(2,7); const entry=Object.assign({ id, type:'info', closable:true, positiveText:'OK' }, opt); stack.push(entry); return { destroy(){ const i=stack.findIndex(x=>x.id===id); if(i>=0) stack.splice(i,1) }, close(){ this.destroy() } } }
   window.$dialog = { success(c,o={}){ return push(typeof c==='string'? { title:'Success', content:c, type:'success', positiveText:o.positiveText } : Object.assign({}, c, { type:'success' })) }, error(c,o={}){ return push(typeof c==='string'? { title:'Error', content:c, type:'error', positiveText:o.positiveText } : Object.assign({}, c, { type:'error' })) }, warning(c,o={}){ return push(typeof c==='string'? { title:'Warning', content:c, type:'warning', positiveText:o.positiveText } : Object.assign({}, c, { type:'warning' })) }, info(c,o={}){ return push(typeof c==='string'? { title:'Info', content:c, type:'info', positiveText:o.positiveText } : Object.assign({}, c, { type:'info' })) }, confirm(c,o={}){ return push({ title:o.title||'Confirm', content: typeof c==='string'? c : (c.content||''), type:'info', positiveText:o.positiveText||'OK', negativeText:o.negativeText||'Cancel', onPositiveClick:o.onPositiveClick, onNegativeClick:o.onNegativeClick }) } }

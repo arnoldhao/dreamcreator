@@ -11,9 +11,9 @@
         </div>
       </div>
       <div class="sr-left-actions">
-        <button ref="addBtnRef" class="sr-icon-btn" :data-tooltip="'新增'" data-tip-pos="top" @click.stop="toggleAddMenu"><Icon name="plus" class="w-4 h-4"/></button>
-        <button class="sr-icon-btn" :data-tooltip="'删除'" data-tip-pos="top" :disabled="!canDeleteCurrent" @click="onLeftDelete"><Icon name="minus" class="w-4 h-4"/></button>
-        <button class="sr-icon-btn danger" style="margin-left:auto" title="初始化（危险操作）" @click="onInitBolt"><Icon name="status-warning" class="w-4 h-4"/></button>
+        <button ref="addBtnRef" class="icon-chip-ghost" :data-tooltip="'新增'" data-tip-pos="top" @click.stop="toggleAddMenu"><Icon name="plus" class="w-4 h-4"/></button>
+        <button class="icon-chip-ghost" :data-tooltip="'删除'" data-tip-pos="top" :disabled="!canDeleteCurrent" @click="onLeftDelete"><Icon name="minus" class="w-4 h-4"/></button>
+        <button class="icon-chip-ghost danger" style="margin-left:auto" title="初始化（危险操作）" @click="onInitBolt"><Icon name="status-warning" class="w-4 h-4"/></button>
       </div>
       
       <!-- Add menu popover (teleported to body to avoid clipping) -->
@@ -74,7 +74,7 @@
             <div class="sr-section-divider subtle"></div>
             <div class="profiles-head">
               <span>{{ t('providers.profiles_title') }}</span>
-              <button class="btn-glass btn-sm" @click="openNewProfile"
+              <button class="btn-chip-ghost btn-sm" @click="openNewProfile"
                       :disabled="!(currentProvider && (currentProvider.models || []).length)">
                 <Icon name="plus" class="w-4 h-4 mr-1" />{{ t('providers.profiles_add') }}
               </button>
@@ -97,10 +97,10 @@
                   </span>
                 </div>
                 <div class="col actions">
-                  <button class="sr-icon-btn" :data-tooltip="t('common.edit')" data-tip-pos="top" @click="beginEditProfile(prof)">
+                  <button class="icon-chip-ghost" :data-tooltip="t('common.edit')" data-tip-pos="top" @click="beginEditProfile(prof)">
                     <Icon name="edit" class="w-4 h-4" />
                   </button>
-                  <button class="sr-icon-btn danger" :data-tooltip="t('common.delete')" data-tip-pos="top" @click="onDeleteProfile(prof)">
+                  <button class="icon-chip-ghost danger" :data-tooltip="t('common.delete')" data-tip-pos="top" @click="onDeleteProfile(prof)">
                     <Icon name="trash" class="w-4 h-4" />
                   </button>
                 </div>
@@ -528,11 +528,7 @@ async function onInitBolt(){
 .icon-input-end { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: transparent; border: 1px solid transparent; color: var(--macos-text-secondary); }
 .icon-input-end:hover { background: var(--macos-gray-hover); }
 
-/* 原生 macOS 风格图标按钮 */
-.sr-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; background: transparent; border: 1px solid transparent; color: var(--macos-text-secondary); }
-.sr-icon-btn:hover { background: var(--macos-gray-hover); }
-.sr-icon-btn:active { background: var(--macos-gray-active); }
-.sr-icon-btn:disabled { opacity: .5; cursor: not-allowed; }
+/* use global icon-chip-ghost; keep danger tone */
 
 /* Add popover placement near left actions */
 .add-popover { min-width: 180px; width: max-content; max-width: 360px; max-height: 420px; overflow-y: auto; overflow-x: hidden; pointer-events: auto; }

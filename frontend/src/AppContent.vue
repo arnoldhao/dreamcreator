@@ -444,7 +444,7 @@ function onModalClick(act) {
           </div>
           <div class="no-drag h-full flex items-center"
                :style="{ paddingLeft: (logoPaddingLeft + 6) + 'px' }">
-            <button class="toolbar-icon-btn" @click.stop="layout.toggleRibbon()"
+            <button class="toolbar-chip" @click.stop="layout.toggleRibbon()"
                     :data-tooltip="layout.ribbonVisible ? t('sidebar.close_sidebar') : t('sidebar.open_sidebar')"
                     :aria-label="layout.ribbonVisible ? t('sidebar.close_sidebar') : t('sidebar.open_sidebar')">
               <Icon :name="layout.ribbonVisible ? 'panel-left-close' : 'panel-left-open'" class="w-4 h-4" />
@@ -466,12 +466,12 @@ function onModalClick(act) {
               <div class="project-inline min-w-0">
                 <template v-if="!editingProjectName">
                   <span class="pill one-line" :title="subtitleStore.currentProject?.project_name || '-'">{{ subtitleStore.currentProject?.project_name || '-' }}</span>
-                  <button class="toolbar-icon-btn" :data-tooltip="$t('common.edit')" data-tip-pos="top" @click="beginEditProjectName"><Icon name="edit" class="w-4 h-4" /></button>
+                  <button class="toolbar-chip" :data-tooltip="$t('common.edit')" data-tip-pos="top" @click="beginEditProjectName"><Icon name="edit" class="w-4 h-4" /></button>
                 </template>
                 <template v-else>
                   <input v-model="tempProjectName" class="inline-edit pill-input" @keydown.enter.stop.prevent="saveEditProjectName" @keydown.esc.stop.prevent="cancelEditProjectName" />
-                  <button class="toolbar-icon-btn" :data-tooltip="$t('common.confirm')" data-tip-pos="top" @click="saveEditProjectName"><Icon name="status-success" class="w-4 h-4" /></button>
-                  <button class="toolbar-icon-btn" :data-tooltip="$t('common.cancel')" data-tip-pos="top" @click="cancelEditProjectName"><Icon name="close" class="w-4 h-4" /></button>
+                  <button class="toolbar-chip" :data-tooltip="$t('common.confirm')" data-tip-pos="top" @click="saveEditProjectName"><Icon name="status-success" class="w-4 h-4" /></button>
+                  <button class="toolbar-chip" :data-tooltip="$t('common.cancel')" data-tip-pos="top" @click="cancelEditProjectName"><Icon name="close" class="w-4 h-4" /></button>
                 </template>
               </div>
             </template>
@@ -511,7 +511,7 @@ function onModalClick(act) {
                   <Icon :name="act.icon" class="chip-icon" />
                   <span class="chip-label">{{ $t(act.titleKey) }}</span>
                 </button>
-                <button v-else class="toolbar-icon-btn"
+                <button v-else class="toolbar-chip"
                         :data-tooltip="$t(act.titleKey)" :aria-label="$t(act.titleKey)"
                         :data-tip-align="act.key === 'dependency:check-updates' ? 'right' : null"
                         @click="onModalClick(act)">
@@ -521,7 +521,7 @@ function onModalClick(act) {
             <!-- panel actions (only when sidebar closed) -->
             <template v-if="!inspector.visible">
               <div class="w-px h-4 bg-[var(--macos-divider-weak)] mx-1" v-if="panelActions.length && modalActions.length"></div>
-              <button v-for="act in panelActions" :key="act.key" class="toolbar-icon-btn"
+              <button v-for="act in panelActions" :key="act.key" class="toolbar-chip"
                 :data-tooltip="$t(act.titleKey)" :aria-label="$t(act.titleKey)" @click="onActionClick(act)">
                 <Icon :name="act.icon" class="w-4 h-4" />
               </button>
@@ -537,7 +537,7 @@ function onModalClick(act) {
             <template v-if="navStore.currentNav === navStore.navOptions.DOWNLOAD">
               <div class="inspector-title text-xs uppercase tracking-wide text-[var(--macos-text-tertiary)]">{{ inspector.title }}</div>
               <div class="flex items-center gap-2">
-                <button v-for="act in inspector.actions" :key="act.key" class="toolbar-icon-btn"
+                <button v-for="act in inspector.actions" :key="act.key" class="toolbar-chip"
                   :aria-label="$t(act.titleKey)" :class="{ active: isDownloadNewActive(act.key) }"
                   @click="onInspectorAction(act.key)">
                   <Icon :name="act.icon" class="w-4 h-4" />
@@ -548,7 +548,7 @@ function onModalClick(act) {
             <template v-else-if="navStore.currentNav === navStore.navOptions.SUBTITLE">
               <div class="inspector-title text-xs uppercase tracking-wide text-[var(--macos-text-tertiary)]">{{ inspector.title }}</div>
               <div class="flex items-center gap-2">
-                <button v-for="act in inspector.actions" :key="act.key" class="toolbar-icon-btn"
+                <button v-for="act in inspector.actions" :key="act.key" class="toolbar-chip"
                   :aria-label="$t(act.titleKey)" :class="{ active: inspector.panel === act.key }"
                   @click="onInspectorAction(act.key)">
                   <Icon :name="act.icon" class="w-4 h-4" />
@@ -559,12 +559,12 @@ function onModalClick(act) {
             <template v-else>
               <div class="inspector-title text-xs uppercase tracking-wide text-[var(--macos-text-tertiary)]">{{ inspector.title }}</div>
               <div class="flex items-center gap-2">
-                <button v-for="act in inspector.actions" :key="act.key" class="toolbar-icon-btn"
+                <button v-for="act in inspector.actions" :key="act.key" class="toolbar-chip"
                   :aria-label="$t(act.titleKey)" :class="{ active: inspector.panel === act.key }"
                   @click="onInspectorAction(act.key)">
                   <Icon :name="act.icon" class="w-4 h-4" />
                 </button>
-                <button class="toolbar-icon-btn" :data-tooltip="$t('common.close')" @click="inspector.close()">
+                <button class="toolbar-chip" :data-tooltip="$t('common.close')" @click="inspector.close()">
                   <Icon name="close" class="w-4 h-4" />
                 </button>
               </div>
@@ -769,5 +769,5 @@ function onModalClick(act) {
 #app-content .page-scroll.pad-bottom-for-fab { padding-bottom: 48px !important; }
 
 /* Light + frosted: make left-cap ribbon toggle icon use primary text color for clarity */
-[data-ui="frosted"][data-theme="light"] .macos-toolbar-leftcap .toolbar-icon-btn { color: var(--macos-text-primary); }
+[data-ui="frosted"][data-theme="light"] .macos-toolbar-leftcap .toolbar-chip { color: var(--macos-text-primary); }
 </style>

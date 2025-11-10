@@ -27,10 +27,10 @@
       </div>
     </div>
     <div class="ops">
-      <button v-if="task.outputDir" class="icon-glass" :data-tooltip="$t('download.open_folder')" @click.stop="$emit('open-directory')">
+      <button v-if="task.outputDir" class="icon-chip-ghost" :data-tooltip="$t('download.open_folder')" @click.stop="$emit('open-directory')">
         <Icon name="folder" class="w-4 h-4" />
       </button>
-      <button class="icon-glass" :data-tooltip="$t('download.delete')" @click.stop="$emit('delete')">
+      <button class="icon-chip-ghost" :data-tooltip="$t('download.delete')" @click.stop="$emit('delete')">
         <Icon name="trash" class="w-4 h-4" />
       </button>
     </div>
@@ -232,12 +232,12 @@ const formatFileSize = (bytes) => fmtSize(bytes, t)
 }
 
 /* Make the two ops buttons less prominent by default */
-.ops .icon-glass { background: transparent; border-color: rgba(255,255,255,0.16); box-shadow: none; color: var(--macos-text-secondary); }
-.ops .icon-glass:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); border-color: var(--macos-blue); color: #fff; }
+.ops .icon-chip-ghost { background: transparent; border-color: rgba(255,255,255,0.16); box-shadow: none; color: var(--macos-text-secondary); }
+.ops .icon-chip-ghost:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); border-color: var(--macos-blue); color: #fff; }
 
 /* Classic mode: keep the same de-emphasis (avoid solid white buttons) */
-:global([data-ui='classic']) .dl-card .ops .icon-glass { background: transparent !important; border-color: var(--macos-separator) !important; box-shadow: none !important; color: var(--macos-text-secondary) !important; }
-:global([data-ui='classic']) .dl-card .ops .icon-glass:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
+:global([data-ui='classic']) .dl-card .ops .icon-chip-ghost { background: transparent !important; border-color: var(--macos-separator) !important; box-shadow: none !important; color: var(--macos-text-secondary) !important; }
+:global([data-ui='classic']) .dl-card .ops .icon-chip-ghost:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
 :global([data-ui='classic']) .dl-card .bottom-stats.chip-frosted.chip-translucent { background: transparent !important; border-color: var(--macos-separator) !important; color: var(--macos-text-secondary) !important; box-shadow: none !important; }
 .progress { width: 100%; height: 2px; background: var(--macos-divider-weak); border-radius: 999px; overflow: hidden; margin-top: 6px; }
 .progress .bar { height: 100%; background: var(--macos-blue); transition: width .18s ease; }

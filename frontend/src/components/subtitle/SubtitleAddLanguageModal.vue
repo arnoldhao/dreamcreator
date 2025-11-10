@@ -1,6 +1,6 @@
 <template>
   <div v-if="show" class="macos-modal" @click.self="emit('close')">
-    <div class="modal-card" @keydown.esc.stop.prevent="emit('close')" tabindex="-1">
+    <div class="modal-card card-frosted card-translucent" @keydown.esc.stop.prevent="emit('close')" tabindex="-1">
       <!-- Header: macOS traffic lights + segmented mode switch -->
       <div class="modal-header">
         <ModalTrafficLights @close="emit('close')" />
@@ -81,8 +81,8 @@
         </div>
         <!-- Inline centered actions below content -->
         <div class="actions-center">
-          <button @click="emit('close')" class="btn-glass">{{ $t('common.cancel') }}</button>
-          <button @click="handleConvert" class="btn-glass btn-primary" :disabled="!canConvert">
+          <button @click="emit('close')" class="btn-chip">{{ $t('common.cancel') }}</button>
+          <button @click="handleConvert" class="btn-chip btn-primary" :disabled="!canConvert">
             <div v-if="converting" class="loading-spinner"></div>
             {{ converting ? $t('subtitle.add_language.converting') : $t('subtitle.add_language.start_convert') }}
           </button>
@@ -250,7 +250,7 @@ watch(() => props.show, (newValue) => {
 <style scoped>
 /* use global .macos-modal */
 
-.modal-card { background: var(--macos-background); border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); max-width: 640px; width: 100%; max-height: 85vh; overflow: hidden; border: 1px solid var(--macos-separator); animation: slideInUp 0.3s ease-out; }
+.modal-card { border-radius: 12px; box-shadow: var(--macos-shadow-2); max-width: 640px; width: 100%; max-height: 85vh; overflow: hidden; animation: slideInUp 0.3s ease-out; }
 .modal-header { display:flex; align-items:center; justify-content: space-between; height: 36px; padding: 0 12px; background: var(--macos-background-secondary); border-bottom: 1px solid var(--macos-separator); }
 .title-area { flex:1; min-width: 0; display:flex; align-items:center; justify-content:flex-end; }
 .modal-body { padding: 16px; padding-bottom: 12px; max-height: calc(85vh - 120px); overflow-y: auto; }

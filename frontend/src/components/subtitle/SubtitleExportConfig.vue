@@ -158,11 +158,11 @@
     
     <!-- Footer actions (outside group) -->
     <div class="footer-actions">
-      <button class="btn-glass" @click="saveConfig">
+      <button class="btn-chip-ghost" @click="saveConfig">
         <Icon name="shield-check" class="w-4 h-4 mr-2" />
         {{ $t('subtitle.common.save') }}
       </button>
-      <button class="btn-glass btn-primary" @click="exportSubtitles">
+      <button class="btn-chip-ghost btn-primary" @click="exportSubtitles">
         <Icon name="download-file" class="w-4 h-4 mr-2" />
         {{ $t('subtitle.common.export') }}
       </button>

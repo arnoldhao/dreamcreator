@@ -32,11 +32,11 @@
           <div class="title">{{ $t('subtitle.history.no_historical_records') }}</div>
           <div class="subtitle">{{ $t('subtitle.history.no_imported_sub_found') }}</div>
           <div class="actions">
-            <button class="btn-glass btn-primary btn-sm" @click.stop="openFile">
+            <button class="btn-chip-ghost btn-primary btn-sm" @click.stop="openFile">
               <Icon name="plus" class="w-4 h-4 mr-1" />
               {{ $t('subtitle.common.open_file') }}
             </button>
-            <button class="btn-glass btn-sm" @click.stop="onRefresh">
+            <button class="btn-chip-ghost btn-sm" @click.stop="onRefresh">
               <Icon name="refresh" class="w-4 h-4 mr-1" />
               {{ $t('common.refresh') }}
             </button>
@@ -52,11 +52,11 @@
           <div class="title">{{ $t('download.no_filter_results') }}</div>
           <div class="subtitle">{{ currentFormatLabel }}</div>
           <div class="actions">
-            <button class="btn-glass btn-primary btn-sm" @click.stop="resetFilters">
+            <button class="btn-chip-ghost btn-primary btn-sm" @click.stop="resetFilters">
               <Icon name="refresh" class="w-4 h-4 mr-1" />
               {{ $t('common.reset') }}
             </button>
-            <button class="btn-glass btn-sm" @click.stop="onRefresh">
+            <button class="btn-chip-ghost btn-sm" @click.stop="onRefresh">
               <Icon name="refresh" class="w-4 h-4 mr-1" />
               {{ $t('common.refresh') }}
             </button>
@@ -85,12 +85,12 @@
                       @keydown.esc.stop.prevent="cancelRename"
                       @click.stop
                     />
-                    <button class="icon-glass" :data-tooltip="$t('common.confirm')" data-tip-pos="top" @click.stop="confirmRename(it.project)"><Icon name="status-success" class="w-3.5 h-3.5" /></button>
-                    <button class="icon-glass" :data-tooltip="$t('common.cancel')" data-tip-pos="top" @click.stop="cancelRename"><Icon name="close" class="w-3.5 h-3.5" /></button>
+                    <button class="icon-chip-ghost" :data-tooltip="$t('common.confirm')" data-tip-pos="top" @click.stop="confirmRename(it.project)"><Icon name="status-success" class="w-3.5 h-3.5" /></button>
+                    <button class="icon-chip-ghost" :data-tooltip="$t('common.cancel')" data-tip-pos="top" @click.stop="cancelRename"><Icon name="close" class="w-3.5 h-3.5" /></button>
                   </template>
                   <template v-else>
                     <span class="name one-line">{{ it.project.project_name || '-' }}</span>
-                    <button class="icon-glass rename-btn" :data-tooltip="$t('common.edit')" data-tip-pos="top" @click.stop="beginRename(it.project)"><Icon name="edit" class="w-3.5 h-3.5" /></button>
+                    <button class="icon-chip-ghost rename-btn" :data-tooltip="$t('common.edit')" data-tip-pos="top" @click.stop="beginRename(it.project)"><Icon name="edit" class="w-3.5 h-3.5" /></button>
                   </template>
                 </div>
                 <div class="col-pills">
@@ -109,7 +109,7 @@
                   <div class="t-abs">{{ formatDate(it.project.updated_at) }}</div>
                 </div>
                 <div class="col-actions">
-                  <button class="icon-glass" @click.stop="removeWithConfirm(it.project)"><Icon name="trash" class="w-4 h-4" /></button>
+                  <button class="icon-chip-ghost" @click.stop="removeWithConfirm(it.project)"><Icon name="trash" class="w-4 h-4" /></button>
                 </div>
               </div>
             </template>
@@ -150,7 +150,7 @@
     <!-- floating controls (bottom-right) -->
     <!-- Hub: refresh + format filter -->
     <div v-if="!currentProject" class="floating-filter" @click.stop :style="{ right: fabRight + 'px' }">
-      <button class="icon-glass" :data-tooltip="$t('download.refresh')" data-tip-pos="top" @click="onRefresh">
+      <button class="icon-chip-ghost" :data-tooltip="$t('download.refresh')" data-tip-pos="top" @click="onRefresh">
         <Icon name="refresh" class="w-4 h-4" :class="{ spinning: refreshing }" />
       </button>
       <div class="divider-v"></div>
@@ -165,7 +165,7 @@
     </div>
     <!-- Editor: add language + language picker -->
     <div v-else class="floating-filter" @click.stop :style="{ right: fabRight + 'px' }">
-      <button class="sr-icon-btn icon-ghost expand-left" :aria-label="$t('subtitle.add_language.title')" @click="showAddLanguageModal = true">
+      <button class="icon-chip-ghost expand-left" :aria-label="$t('subtitle.add_language.title')" @click="showAddLanguageModal = true">
         <Icon name="plus" class="w-4 h-4" />
         <span class="label">{{ $t('subtitle.add_language.title') }}</span>
       </button>
@@ -671,8 +671,7 @@ async function confirmRename(project) {
 @keyframes macos-spin { to { transform: rotate(360deg); } }
 
 /* small icon button */
-.sr-icon-btn { width: 22px; height: 22px; display:inline-flex; align-items:center; justify-content:center; line-height:0; border-radius:6px; border: 1px solid var(--macos-separator); color: var(--macos-text-secondary); background: var(--macos-background-secondary); }
-.sr-icon-btn:hover { background: var(--macos-gray-hover); color: var(--macos-text-primary); }
+.icon-chip-ghost { width: 22px; height: 22px; display:inline-flex; align-items:center; justify-content:center; line-height:0; border-radius:6px; }
 
 /* Hide legacy header (language tabs/metrics toggle) inside SubtitleList on editor view */
 :deep(.subtitle-list .language-tabs-container) { display: none !important; }
@@ -785,13 +784,13 @@ async function confirmRename(project) {
 .floating-filter .count-pill { line-height: 1; }
 .floating-filter .filter-select { height: 28px; }
 .floating-filter .divider-v { width: 1px; height: 18px; background: var(--macos-divider-weak); margin: 0; }
-.floating-filter .sr-icon-btn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; line-height: 0; background: transparent; border: 0; color: var(--macos-text-secondary); }
-.floating-filter .sr-icon-btn.expand-left { width: auto; padding-left: 6px; padding-right: 0; gap: 6px; overflow: hidden; }
-.floating-filter .sr-icon-btn.expand-left .label { max-width: 0; opacity: 0; transform: translateX(4px); transition: max-width .18s ease, opacity .18s ease, transform .18s ease, color .12s ease; white-space: nowrap; font-size: var(--fs-sub); color: var(--macos-text-secondary); margin-left: -6px; }
-.floating-filter .sr-icon-btn.expand-left .w-4 { transition: transform .18s ease, color .12s ease; }
-.floating-filter .sr-icon-btn.expand-left:hover { color: var(--macos-blue); padding-right: 6px; }
-.floating-filter .sr-icon-btn.expand-left:hover .label { max-width: 140px; opacity: 1; transform: translateX(0); color: var(--macos-blue); margin-left: 0; }
-.floating-filter .sr-icon-btn.expand-left:hover .w-4 { transform: translateX(-2px); }
+.floating-filter .icon-chip-ghost { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; line-height: 0; }
+.floating-filter .icon-chip-ghost.expand-left { width: auto; padding-left: 6px; padding-right: 0; gap: 6px; overflow: hidden; }
+.floating-filter .icon-chip-ghost.expand-left .label { max-width: 0; opacity: 0; transform: translateX(4px); transition: max-width .18s ease, opacity .18s ease, transform .18s ease, color .12s ease; white-space: nowrap; font-size: var(--fs-sub); color: var(--macos-text-secondary); margin-left: -6px; }
+.floating-filter .icon-chip-ghost.expand-left .w-4 { transition: transform .18s ease, color .12s ease; }
+.floating-filter .icon-chip-ghost.expand-left:hover { color: var(--macos-blue); padding-right: 6px; }
+.floating-filter .icon-chip-ghost.expand-left:hover .label { max-width: 140px; opacity: 1; transform: translateX(0); color: var(--macos-blue); margin-left: 0; }
+.floating-filter .icon-chip-ghost.expand-left:hover .w-4 { transform: translateX(-2px); }
 
 /* bottom cues floating pill (shows when end sentinel is visible) */
 .cues-floating-pill { position: fixed; bottom: 24px; z-index: 1100; pointer-events: none; text-align: center; }
@@ -799,13 +798,13 @@ async function confirmRename(project) {
   background: color-mix(in oklab, var(--macos-surface) 78%, transparent); color: var(--macos-text-secondary); font-size: var(--fs-sub);
   -webkit-backdrop-filter: var(--macos-surface-blur); backdrop-filter: var(--macos-surface-blur); box-shadow: var(--macos-shadow-1);
 }
-.floating-filter .sr-icon-btn .w-4, .floating-filter .filter-toggle .w-4 { display: block; }
+.floating-filter .icon-chip-ghost .w-4, .floating-filter .filter-toggle .w-4 { display: block; }
 .floating-filter .filter-toggle .count { display: block; }
 
 /* danger button tone for delete */
 /* subtitle page delete button follows download style: icon only, no bg */
-.col-actions .sr-icon-btn { background: transparent; border: 0; color: var(--macos-text-secondary); }
-.col-actions .sr-icon-btn:hover { color: var(--macos-danger-text); }
+.col-actions .icon-chip-ghost { background: transparent; border: 0; color: var(--macos-text-secondary); }
+.col-actions .icon-chip-ghost:hover { color: var(--macos-danger-text); }
 
 /* format accents */
 .ext-tag.ext-srt { color: var(--macos-blue); }

@@ -1,6 +1,6 @@
 <template>
   <div v-if="show" class="macos-modal">
-    <div class="modal-card" @keydown.esc.stop.prevent="emit('close')" tabindex="-1">
+    <div class="modal-card card-frosted card-translucent" @keydown.esc.stop.prevent="emit('close')" tabindex="-1">
       <!-- Header: traffic lights left, title on right -->
       <div class="modal-header">
         <ModalTrafficLights @close="emit('close')" />
@@ -83,11 +83,11 @@
         </div>
         <!-- Inline centered actions below text processing -->
         <div class="actions-center">
-          <button @click="emit('close')" class="btn-glass">
+          <button @click="emit('close')" class="btn-chip">
             <Icon name="close" class="w-4 h-4 mr-1" />
             {{ $t('common.cancel') }}
           </button>
-          <button @click="handleImport" class="btn-glass btn-primary" :disabled="importing">
+          <button @click="handleImport" class="btn-chip btn-primary" :disabled="importing">
             <template v-if="importing">
               <div class="loading-spinner"></div>
             </template>
@@ -419,11 +419,7 @@ const handleImport = () => {
   background: var(--macos-background-secondary);
 }
 
-.btn-macos-sm {
-  padding: 6px 16px;
-  font-size: var(--fs-base);
-  min-height: 32px;
-}
+/* removed unused .btn-macos-sm */
 
 .loading-spinner {
   width: 14px;

@@ -13,11 +13,11 @@
           <div class="title">{{ $t('download.no_download_tasks') }}</div>
           <div class="subtitle">{{ $t('download.start_first_download_task') }}</div>
           <div class="actions">
-            <button class="btn-glass btn-primary btn-sm" @click.stop="showDownloadModal = true">
+            <button class="btn-chip-ghost btn-primary btn-sm" @click.stop="showDownloadModal = true">
               <Icon name="plus" class="w-4 h-4 mr-1" />
               {{ $t('download.new_task') }}
             </button>
-            <button class="btn-glass btn-sm" @click.stop="onRefreshClick">
+            <button class="btn-chip-ghost btn-sm" @click.stop="onRefreshClick">
               <Icon name="refresh" class="w-4 h-4 mr-1" />
               {{ $t('common.refresh') }}
             </button>
@@ -33,11 +33,11 @@
           <div class="title">{{ $t('download.no_filter_results') }}</div>
           <div class="subtitle">{{ currentFilterLabel }}</div>
           <div class="actions">
-            <button class="btn-glass btn-primary btn-sm" @click.stop="resetFilters">
+            <button class="btn-chip-ghost btn-primary btn-sm" @click.stop="resetFilters">
               <Icon name="refresh" class="w-4 h-4 mr-1" />
               {{ $t('common.reset') }}
             </button>
-            <button class="btn-glass btn-sm" @click.stop="onRefreshClick">
+            <button class="btn-chip-ghost btn-sm" @click.stop="onRefreshClick">
               <Icon name="refresh" class="w-4 h-4 mr-1" />
               {{ $t('common.refresh') }}
             </button>
@@ -61,7 +61,7 @@
 
     <!-- floating filter at bottom-right -->
     <div class="floating-filter" @click.stop :style="{ right: (inspector.visible ? (layout.inspectorWidth + 12) : 12) + 'px' }">
-      <button class="icon-glass" :data-tooltip="$t('download.refresh')" data-tip-pos="top" @click="onRefreshClick">
+      <button class="icon-chip-ghost" :data-tooltip="$t('download.refresh')" data-tip-pos="top" @click="onRefreshClick">
         <Icon name="refresh" class="w-4 h-4" :class="{ spinning: refreshing }" />
       </button>
       <div class="divider-v"></div>
@@ -405,8 +405,8 @@ function resetFilters() {
 .floating-filter .spinning { animation: macos-spin .6s ease-in-out both; }
 @keyframes macos-spin { to { transform: rotate(360deg); } }
 /* normalize icon vertical metrics to avoid baseline drift */
-.floating-filter .icon-glass, .floating-filter .sr-icon-btn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; line-height: 0; background: transparent; border-color: var(--macos-separator); color: var(--macos-text-secondary); box-shadow: none; }
-.floating-filter .icon-glass:hover, .floating-filter .sr-icon-btn:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); border-color: var(--macos-blue); color: #fff; }
-.floating-filter .sr-icon-btn .w-4, .floating-filter .filter-toggle .w-4 { display: block; }
+.floating-filter .icon-chip-ghost { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; line-height: 0; background: transparent; border-color: var(--macos-separator); color: var(--macos-text-secondary); box-shadow: none; }
+.floating-filter .icon-chip-ghost:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); border-color: var(--macos-blue); color: #fff; }
+.floating-filter .icon-chip-ghost .w-4, .floating-filter .filter-toggle .w-4 { display: block; }
 .floating-filter .filter-toggle .count-pill { display: block; line-height: 1; }
 </style>
