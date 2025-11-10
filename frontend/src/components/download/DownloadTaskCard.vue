@@ -1,11 +1,20 @@
 <template>
-  <div class="macos-card card-frosted card-translucent dl-card bg-progress" :class="{ active }"
+<div class="macos-card card-frosted card-translucent chip-card dl-card bg-progress" :class="{ active }"
        @click.stop="$emit('card-click')" :style="{ '--progress': progressValue }">
     <div class="thumb">
       <ProxiedImage v-if="task.thumbnail" :src="task.thumbnail" :alt="$t('download.thumbnail')"
-        class="w-full h-full object-cover rounded" error-icon="video" />
+        class="rounded" error-icon="video" />
       <div v-else class="thumb-fallback">
         <Icon name="video" class="w-4 h-4"></Icon>
+      </div>
+      <!-- overlay actions on hover when completed -->
+      <div v-if="isCompleted" class="thumb-overlay" @click.stop>
+        <button v-if="task.outputDir" class="icon-chip-ghost" :aria-label="$t('download.open_folder')" @click.stop="$emit('open-directory')">
+          <Icon name="folder" class="w-4 h-4" />
+        </button>
+        <button class="icon-chip-ghost" :aria-label="$t('download.delete')" @click.stop="$emit('delete')">
+          <Icon name="trash" class="w-4 h-4" />
+        </button>
       </div>
     </div>
     <div class="main">
@@ -26,14 +35,7 @@
         </div>
       </div>
     </div>
-    <div class="ops">
-      <button v-if="task.outputDir" class="icon-chip-ghost" :data-tooltip="$t('download.open_folder')" @click.stop="$emit('open-directory')">
-        <Icon name="folder" class="w-4 h-4" />
-      </button>
-      <button class="icon-chip-ghost" :data-tooltip="$t('download.delete')" @click.stop="$emit('delete')">
-        <Icon name="trash" class="w-4 h-4" />
-      </button>
-    </div>
+    
     <!-- mount analysis modal locally; fixed overlay ensures global appearance -->
     <AnalysisModal 
       v-if="analysisVisible" 
@@ -56,6 +58,7 @@ const props = defineProps({
   active: { type: Boolean, default: false },
 })
 const { t } = useI18n()
+const isCompleted = computed(() => props.task?.stage === 'completed')
 const isFailed = computed(() => props.task?.stage === 'failed')
 const pillTitle = computed(() => props.task?.stage === 'failed' ? (t('download.failed_desc') || '') : '')
 
@@ -113,11 +116,9 @@ const speedText = computed(() => {
   return String(s)
 })
 
-const showOverlay = computed(() => {
-  const stage = props.task?.stage
-  if (stage !== 'downloading') return false
-  return (progressValue.value >= 0 && progressValue.value <= 100) || !!speedText.value
-})
+// removed unused showOverlay (no overlay UI)
+
+// no sweep on select; keep selection subtle
 
 // Combined indicator text (prefer active sub/merge/finalize phases over raw percent)
 const combinedStatText = computed(() => {
@@ -183,12 +184,59 @@ const formatFileSize = (bytes) => fmtSize(bytes, t)
 </script>
 
 <style scoped>
-.dl-card { position: relative; display:grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items:center; padding: 8px; border-radius: 8px; transition: border-color .2s ease, box-shadow .2s ease, transform .15s ease; }
-.dl-card.card-frosted { background: var(--macos-surface); border-color: rgba(255,255,255,0.22); -webkit-backdrop-filter: var(--macos-surface-blur); backdrop-filter: var(--macos-surface-blur); box-shadow: var(--macos-shadow-2); }
-.dl-card.bg-progress::before { content: ''; position: absolute; inset: 0 auto 0 0; width: calc(var(--progress, 0) * 1%); background: color-mix(in oklab, var(--macos-blue) 14%, transparent); border-radius: 8px; pointer-events: none; transition: width .2s ease; }
-.dl-card:hover, .dl-card.active { border-color: rgba(255,255,255,0.32); box-shadow: 0 10px 30px rgba(0,0,0,0.20); transform: translateY(-0.5px); }
-.thumb { width: 64px; height: 40px; border-radius: 6px; overflow:hidden; background: var(--macos-background-secondary); display:flex; align-items:center; justify-content:center; }
+.dl-card.chip-card { /* make chip-card visibly lighter than default */ --chip-card-surface: 66%; }
+.dl-card { position: relative; display:grid; grid-template-columns: minmax(96px, 1fr) minmax(var(--dl-main-min, 220px), var(--dl-main-max, 380px)); gap: 10px; align-items:center; padding: 8px; border-radius: 8px; transition: border-color .2s ease, box-shadow .2s ease; }
+.dl-card.card-frosted { -webkit-backdrop-filter: var(--macos-surface-blur); backdrop-filter: var(--macos-surface-blur); box-shadow: var(--macos-shadow-2); }
+.dl-card.bg-progress::before { content: ''; position: absolute; inset: 0 auto 0 0; width: calc(var(--progress, 0) * 1%); background: color-mix(in oklab, var(--macos-blue) 14%, transparent); border-radius: 8px; pointer-events: none; transition: width .2s ease; z-index: 0; }
+/* Hover: subtle lift only */
+.dl-card:hover { /* no hover lift to reduce GPU usage */ }
+/* Active: accent-tinted focus ring + inner stroke for clear selection */
+.dl-card.active { border-color: rgba(255,255,255,0.34); box-shadow: 0 10px 26px rgba(0,0,0,0.20); }
+.dl-card::after { content: none; }
+.dl-card:hover::after { content: none; }
+.dl-card.active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 1;
+  /* subtle inner accent stroke only */
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--macos-blue) 28%, white 8%);
+}
+/* no sweep on selection */
+.thumb { position: relative; width: 100%; min-height: 40px; height: auto; border-radius: 6px; overflow: visible; background: var(--macos-background-secondary); display:flex; align-items:center; justify-content:center; }
 .thumb-fallback { width:100%; height:100%; display:flex; align-items:center; justify-content:center; color: var(--macos-text-tertiary); }
+.thumb :deep(.proxied-image-wrapper) { width: 100%; height: auto; }
+/* Keep original aspect; fit within max height */
+.thumb :deep(.proxied-image-wrapper .image-content) {
+  width: auto !important;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: var(--dl-thumb-max, 120px) !important;
+  object-fit: contain !important;
+  display: block;
+  border-radius: 6px;
+}
+.thumb-overlay { position: absolute; inset: 0; display:flex; align-items:center; justify-content:center; gap: 6px; background: rgba(0,0,0,0.22); border-radius: 6px; opacity: 0; pointer-events: none; transition: opacity .15s ease; }
+.dl-card:hover .thumb-overlay { opacity: 1; pointer-events: auto; }
+.thumb-overlay .icon-chip-ghost {
+  border-color: rgba(255,255,255,0.28);
+  color: #fff;
+  box-shadow: none;
+  /* Avoid GPU re-composite flicker when overlay fades in */
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: rgba(0,0,0,0.32);
+  transform: none !important;
+  transition: background-color .18s ease, border-color .18s ease, color .12s ease !important;
+}
+.thumb-overlay .icon-chip-ghost:hover {
+  background: color-mix(in oklab, var(--macos-blue) 22%, transparent);
+  border-color: var(--macos-blue);
+  color: #fff;
+  transform: none !important;
+}
 .main { min-width: 0; }
 .title-row { display:flex; align-items:center; gap: 8px; min-width:0; justify-content: space-between; }
 .title-row .title { flex: 1 1 auto; min-width: 0; }
@@ -231,15 +279,4 @@ const formatFileSize = (bytes) => fmtSize(bytes, t)
   color: var(--macos-text-primary) !important;
 }
 
-/* Make the two ops buttons less prominent by default */
-.ops .icon-chip-ghost { background: transparent; border-color: rgba(255,255,255,0.16); box-shadow: none; color: var(--macos-text-secondary); }
-.ops .icon-chip-ghost:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); border-color: var(--macos-blue); color: #fff; }
-
-/* Classic mode: keep the same de-emphasis (avoid solid white buttons) */
-:global([data-ui='classic']) .dl-card .ops .icon-chip-ghost { background: transparent !important; border-color: var(--macos-separator) !important; box-shadow: none !important; color: var(--macos-text-secondary) !important; }
-:global([data-ui='classic']) .dl-card .ops .icon-chip-ghost:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
-:global([data-ui='classic']) .dl-card .bottom-stats.chip-frosted.chip-translucent { background: transparent !important; border-color: var(--macos-separator) !important; color: var(--macos-text-secondary) !important; box-shadow: none !important; }
-.progress { width: 100%; height: 2px; background: var(--macos-divider-weak); border-radius: 999px; overflow: hidden; margin-top: 6px; }
-.progress .bar { height: 100%; background: var(--macos-blue); transition: width .18s ease; }
-.ops { display:flex; align-items:center; gap: 6px; white-space: nowrap; }
 </style>

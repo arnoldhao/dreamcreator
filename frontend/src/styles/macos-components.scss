@@ -918,9 +918,40 @@
   -webkit-backdrop-filter: var(--macos-surface-blur);
   backdrop-filter: var(--macos-surface-blur);
   box-shadow: var(--macos-shadow-2);
+  /* Enable layered highlights for plastic effect */
+  position: relative;
+  overflow: hidden;
 }
 @supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
   .card-frosted { background: color-mix(in oklab, var(--macos-background) 92%, transparent); }
+}
+
+/* Tahoe-style subtle highlight + inner stroke to enhance translucent plastic feel */
+.card-frosted::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* soft vertical sheen + faint corner glow */
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,0.14) 0%,
+      rgba(255,255,255,0.08) 10%,
+      rgba(255,255,255,0.04) 48%,
+      rgba(255,255,255,0.06) 100%
+    ),
+    radial-gradient(80% 40% at 20% -10%, rgba(255,255,255,0.18) 0%, transparent 60%);
+}
+.card-frosted::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  /* inner strokes to add depth without hard borders */
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.28),
+    inset 0 -1px 0 rgba(255,255,255,0.10);
 }
 
 /* Global UI style overrides: Classic mode */
@@ -968,12 +999,27 @@
 
 /* Variant: more translucent cards at rest, denser on hover */
 .card-frosted.card-translucent {
-  background: color-mix(in oklab, var(--macos-surface) 72%, transparent);
+  /* lighter than previous 88% baseline to enhance translucency */
+  background: color-mix(in oklab, var(--macos-surface) 76%, transparent);
   border-color: rgba(255,255,255,0.18);
 }
 .card-frosted.card-translucent:hover {
   background: color-mix(in oklab, var(--macos-surface) 88%, transparent);
   border-color: rgba(255,255,255,0.28);
+}
+
+/* Chip-Card: card geometry + chip material (lighter surface, subtle borders) */
+.macos-card.card-frosted.card-translucent.chip-card {
+  background: color-mix(in oklab, var(--macos-surface) var(--chip-card-surface, 76%), transparent);
+  border-color: rgba(255,255,255,0.20);
+}
+.chip-card:hover { border-color: rgba(255,255,255,0.28); }
+.chip-card:active { border-color: rgba(255,255,255,0.30); }
+
+/* Stronger frosted material for modal sheets */
+.macos-modal .modal-card.card-frosted {
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
 }
 
 /* Segmented control: use surface in frosted mode */
@@ -1039,3 +1085,17 @@ body.modal-open .floating-filter {
 [data-ui='classic'] .macos-modal .btn-chip-ghost:active,
 [data-ui='frosted'] .macos-modal .icon-chip-ghost:active,
 [data-ui='classic'] .macos-modal .icon-chip-ghost:active { transform: none !important; }
+
+/* Generic Chip Panel: reusable wider chip container for grouped controls */
+.chip-panel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--chip-panel-h, 36px);
+  padding: 0 var(--chip-panel-pad-x, 10px);
+  border-radius: var(--chip-panel-radius, 12px);
+  width: max-content;
+  white-space: nowrap;
+}
+.chip-panel .icon-chip-ghost { width: 28px; height: 28px; }
+.chip-panel .select-macos, .chip-panel .filter-select { height: 28px; }

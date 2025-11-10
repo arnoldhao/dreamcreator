@@ -41,4 +41,6 @@ function openModal() {
   background: var(--macos-background-secondary);
   border-left: 1px solid var(--macos-divider-weak);
 }
+/* Avoid clipped pseudo-tooltips inside scrolling inspector; we will use explicit titles instead */
+.macos-inspector :deep([data-tooltip])::after { display: none !important; content: none !important; }
 </style>
