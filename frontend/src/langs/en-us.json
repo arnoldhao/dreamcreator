@@ -399,6 +399,7 @@
     "provider_badge_manual": "Custom",
     "parse": "Parse",
     "parsing": "Parsing...",
+    "maybe_slow_or_issue": "Parsing takes longer than 1 minute. It might be network or dependency issues.",
     "video_quality": "Video Quality",
     "select_video_quality": "Select Video Quality",
     "subtitle_language": "Subtitle Language",

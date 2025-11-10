@@ -1,7 +1,7 @@
 <template>
   <div class="url-row" :class="variant" @keydown.stop>
     <div class="search-field">
-      <Icon name="search" class="icon" />
+      <Icon name="link" class="icon" />
       <input
         type="text"
         :placeholder="placeholder"
@@ -17,7 +17,7 @@
         <select v-if="showSelect" class="select-macos" :disabled="isLoadingBrowsers" :value="browser" @change="$emit('update:browser', $event.target.value)">
           <option v-for="opt in browserOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
-        <button v-if="showParse" class="btn-glass btn-primary" :disabled="parseDisabled" @click="$emit('parse')">
+        <button v-if="showParse" class="btn-chip btn-primary" :disabled="parseDisabled" @click="$emit('parse')">
           <slot name="parse-icon">
             <Icon v-if="parsing" name="spinner" class="animate-spin w-4 h-4 mr-2" />
           </slot>

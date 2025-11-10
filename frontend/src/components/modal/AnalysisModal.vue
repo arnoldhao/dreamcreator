@@ -18,7 +18,7 @@
                 <span class="title">{{ t('download.analysis.section_error') }}</span>
               </div>
               <div class="right">
-                <button class="icon-glass" :data-tooltip="t('common.copy')" @click="copyError">
+                <button class="btn-chip-icon" :data-tooltip="t('common.copy')" @click="copyError">
                   <Icon name="file-copy" class="w-4 h-4"/>
                 </button>
               </div>
@@ -49,7 +49,7 @@
                 <div class="note" v-if="urlCurrentText" :class="urlCurrentState">{{ urlCurrentText }}</div>
               </div>
               <div class="right" v-if="urlHasFailure">
-                <button class="btn-glass btn-sm" @click="goNetworkSettings"><Icon name="settings" class="w-4 h-4 mr-1"/>{{ t('download.analysis.network_short') }}</button>
+                <button class="btn-chip btn-sm" @click="goNetworkSettings"><Icon name="settings" class="w-4 h-4 mr-2"/>{{ t('download.analysis.network_short') }}</button>
               </div>
             </div>
           </div>
@@ -75,7 +75,7 @@
                 <div class="note" v-if="ytdlpCurrentText" :class="ytdlpCurrentState">{{ ytdlpCurrentText }}</div>
               </div>
               <div class="right" v-if="ytdlpHasFailure">
-                <button class="btn-glass btn-sm" @click="goDependencySettings"><Icon name="wrench" class="w-4 h-4 mr-1"/>{{ t('download.analysis.dependency_short') }}</button>
+                <button class="btn-chip btn-sm" @click="goDependencySettings"><Icon name="wrench" class="w-4 h-4 mr-2"/>{{ t('download.analysis.dependency_short') }}</button>
               </div>
             </div>
           </div>
@@ -83,11 +83,11 @@
       </div>
         <div class="modal-footer">
           <div class="left-actions">
-            <button class="btn-glass btn-sm" @click="retryTask"><Icon name="refresh" class="w-4 h-4 mr-1"/>{{ t('download.retry') }}</button>
+            <button class="btn-chip btn-sm" @click="retryTask"><Icon name="refresh" class="w-4 h-4 mr-1"/>{{ t('download.retry') }}</button>
           </div>
           <div class="right-actions">
-            <button class="btn-glass btn-sm" @click="start" :disabled="started">{{ started ? (t('download.processing') || 'Processing...') : (t('download.analyze') || 'Analyze') }}</button>
-            <button class="btn-glass btn-sm" @click="close">{{ t('common.close') }}</button>
+            <button class="btn-chip btn-primary btn-sm" @click="start" :disabled="started">{{ started ? (t('download.processing') || 'Processing...') : (t('download.analyze') || 'Analyze') }}</button>
+            <button class="btn-chip btn-sm" @click="close">{{ t('common.close') }}</button>
           </div>
         </div>
       </div>
