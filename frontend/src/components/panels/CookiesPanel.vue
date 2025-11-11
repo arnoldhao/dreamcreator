@@ -647,6 +647,5 @@ thead { background: var(--macos-background-secondary); }
 .manual-empty .empty-icon { width: 46px; height: 46px; border-radius: 14px; border: 1px solid var(--macos-separator); display:flex; align-items:center; justify-content:center; background: color-mix(in oklab, var(--macos-background) 92%, var(--macos-separator)); color: var(--macos-text-tertiary); }
 .manual-empty .title { font-weight: 600; color: var(--macos-text-primary); }
 .manual-empty .desc { font-size: 12px; color: var(--macos-text-secondary); max-width: 320px; }
-.btn-danger { border: 1px solid rgba(255,76,58,0.4); background: rgba(255,76,58,0.1); color: #ff3b30; border-radius: 8px; padding: 6px 12px; font-size: 12px; transition: background .2s ease; }
-.btn-danger:hover { background: rgba(255,76,58,0.18); }
+/* 按钮危险态统一迁移为全局 .btn-chip.btn-danger */
 </style>

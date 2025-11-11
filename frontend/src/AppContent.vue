@@ -783,62 +783,7 @@ function onModalClick(act) {
 .project-inline .pill-input { flex: 1 1 auto; min-width: 120px; max-width: 100%; height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--macos-separator); background: var(--macos-background); color: var(--macos-text-primary); font-size: var(--fs-sub); }
 .project-inline .pill-input:focus { outline: none; border-color: var(--macos-blue); box-shadow: 0 0 0 2px color-mix(in oklab, var(--macos-blue) 30%, transparent); }
 
-/* Toolbar primary CTA chips for modal actions */
-[data-ui='frosted'] .chip-frosted.chip-primary-action {
-  background: color-mix(in oklab, var(--macos-blue) 82%, transparent);
-  border-color: color-mix(in oklab, var(--macos-blue) 68%, white 22%);
-  color: #fff;
-  font-weight: 600;
-}
-[data-ui='frosted'] .chip-frosted.chip-primary-action:hover {
-  background: color-mix(in oklab, var(--macos-blue) 90%, white 8%);
-  border-color: color-mix(in oklab, var(--macos-blue) 76%, white 18%);
-}
-[data-ui='frosted'] .chip-frosted.chip-primary-action .chip-label { font-weight: 600; }
-[data-ui='frosted'] .chip-frosted.chip-primary-action .chip-icon {
-  width: 14px;
-  height: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 4px;
-  color: inherit;
-}
-/* Keep icon sizing consistent for translucent-primary variant */
-[data-ui='frosted'] .chip-frosted.chip-translucent-primary .chip-icon {
-  width: 14px;
-  height: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 4px;
-  color: inherit;
-}
-@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
-  [data-ui='frosted'] .chip-frosted.chip-primary-action {
-    background: var(--macos-blue);
-    border-color: var(--macos-blue);
-  }
-}
-[data-ui='classic'] .chip-frosted.chip-primary-action {
-  background: var(--macos-blue) !important;
-  border-color: var(--macos-blue) !important;
-  color: #fff !important;
-}
-[data-ui='classic'] .chip-frosted.chip-primary-action .chip-icon {
-  width: 12px;
-  height: 12px;
-  margin-right: 4px;
-  color: inherit;
-}
-[data-ui='classic'] .chip-frosted.chip-primary-action .chip-label { font-weight: 600; }
-/* Classic icon sizing for translucent-primary */
-[data-ui='classic'] .chip-frosted.chip-translucent-primary .chip-icon {
-  width: 12px;
-  height: 12px;
-  margin-right: 4px;
-  color: inherit;
-}
+/* chip-primary-action 与图标尺寸样式已迁移到全局 styles/macos-components.scss */
 
 /* Top fade under the toolbar when scrolled */
 #app-content .page-scroll { position: relative; }

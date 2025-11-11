@@ -762,11 +762,7 @@ export default {
   min-width: fit-content;
 }
 
-.metric-label {
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: var(--fs-nano);
-}
+.metric-label { text-transform: uppercase; letter-spacing: 0.5px; }
 
 .metric-value {
   font-weight: 700;
@@ -1211,13 +1207,7 @@ export default {
   color: var(--macos-text-primary);
 }
 
-.metric-label {
-  font-size: var(--fs-micro);
-  font-weight: 500;
-  color: var(--macos-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
+.metric-label { text-transform: uppercase; letter-spacing: 0.5px; }
 
 .metric-description {
   padding: 12px;
@@ -1262,11 +1252,7 @@ export default {
   background: rgba(239, 68, 68, 0.05);
 }
 
-.threshold-label {
-  font-size: var(--fs-caption);
-  font-weight: 500;
-  color: var(--macos-text-primary);
-}
+.threshold-label { font-weight: 500; }
 
 .threshold-value {
   font-size: var(--fs-caption);

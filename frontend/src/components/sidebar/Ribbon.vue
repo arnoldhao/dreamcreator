@@ -152,47 +152,5 @@ function onSettingsSelect(it) {
 
 /* Light + frosted tweaks for items now live in global styles */
 
-/* macOS-style popover */
-.macos-popover {
-  position: absolute;
-  bottom: 36px; /* just above the bottom row */
-  left: 8px;
-  right: 8px;
-  border-radius: 10px;
-  box-shadow: var(--macos-shadow-2);
-  padding: 6px;
-  z-index: 1000;
-}
-.popover-item {
-  height: 28px;
-  display: flex;
-  align-items: center;
-  padding: 0 8px;
-  border-radius: 6px;
-  font-size: var(--fs-base);
-  color: var(--macos-text-primary);
-  cursor: pointer;
-}
-.popover-item .popover-label { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; }
-.popover-item .popover-label-track { display: inline-flex; align-items: center; will-change: transform; }
-.popover-item .popover-label-inner + .popover-label-inner { margin-left: var(--marquee-gap, 32px); }
-/* Enable marquee when parent label has .marquee class; animate only on hover */
-.popover-item:hover .popover-label.marquee .popover-label-track {
-  animation: ribbon-marquee var(--marquee-duration, 4s) linear 0.25s infinite;
-}
-@keyframes ribbon-marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(calc(-1 * var(--marquee-distance, 0px))); }
-}
-/* fade edges to avoid abrupt cut while animating */
-.popover-item .popover-label.marquee {
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 8px, #000 calc(100% - 8px), transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0, #000 8px, #000 calc(100% - 8px), transparent 100%);
-}
-.popover-item :deep(.sr-icon) {
-  /* Fix icon column width so text starts at the same x for all rows */
-  width: 16px; height: 16px; margin-right: 8px; flex: 0 0 16px; display: inline-flex; align-items: center; justify-content: center;
-}
-.popover-item + .popover-item { margin-top: 4px; }
-.popover-item:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); color: #fff; }
+/* Popover 样式已全局化：.macos-popover/.popover-item 等在 styles/macos-components.scss */
 </style>

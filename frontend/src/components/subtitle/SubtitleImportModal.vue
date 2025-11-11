@@ -385,12 +385,8 @@ const handleImport = () => {
   margin: 0;
 }
 
-.option-label {
-  font-size: var(--fs-base);
-  font-weight: 400;
-  color: var(--macos-text-primary);
-  line-height: 1.3;
-}
+/* 使用全局 .option-label（映射到 .label），仅保留行高微调 */
+.option-label { line-height: 1.3; }
 
 .options-actions {
   display: flex;

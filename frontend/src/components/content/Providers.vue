@@ -44,14 +44,14 @@
           <template v-if="mode==='provider' && currentProvider">
             <!-- Provider name field (custom providers only) -->
             <div class="field" v-if="isCustomProvider(currentProvider)">
-              <div class="field-label">{{ t('providers.provider_name') }}</div>
+              <div class="label label-strong">{{ t('providers.provider_name') }}</div>
               <div class="field-input">
                 <input v-model="formProv.name" class="input-macos input-full" placeholder="Provider" @blur="onFieldBlur" />
               </div>
             </div>
             <!-- API Key field -->
             <div class="field">
-              <div class="field-label">API Key</div>
+              <div class="label label-strong">API Key</div>
               <div class="field-input">
                 <input :type="showKey ? 'text' : 'password'"
                        :value="apiKeyDisplay"
@@ -67,7 +67,7 @@
 
             <!-- Base URL field -->
             <div class="field">
-              <div class="field-label">{{ t('providers.api_base_url') }}</div>
+              <div class="label label-strong">{{ t('providers.api_base_url') }}</div>
               <div class="field-input">
                 <input v-model="formProv.base_url"
                        class="input-macos input-full"
@@ -124,20 +124,20 @@
               <div class="title">{{ t('providers.create_title') }}</div>
             </div>
             <div class="field">
-              <div class="field-label">{{ t('providers.provider_name') }}</div>
+              <div class="label label-strong">{{ t('providers.provider_name') }}</div>
               <div class="field-input">
                 <input v-model="newProv.name" class="input-macos input-full" placeholder="Custom Provider 1" @blur="onCreateIfReady" />
               </div>
             </div>
             <div class="field">
-              <div class="field-label">{{ t('providers.api_base_url') }}</div>
+              <div class="label label-strong">{{ t('providers.api_base_url') }}</div>
               <div class="field-input">
                 <input v-model="newProv.base_url" class="input-macos input-full" :placeholder="createBaseUrlPlaceholder" @blur="onCreateIfReady" />
               </div>
               <div class="field-hint">{{ t('providers.base_url_hint') }}</div>
             </div>
             <div class="field">
-              <div class="field-label">{{ t('providers.api_key') }}</div>
+              <div class="label label-strong">{{ t('providers.api_key') }}</div>
               <div class="field-input">
                 <input :type="showKeyCreate ? 'text' : 'password'" v-model="newProv.api_key" class="input-macos input-full" placeholder="sk-xxxx" />
                 <button class="icon-input-end" @click="showKeyCreate = !showKeyCreate" :aria-label="showKeyCreate ? t('common.hide') : t('common.show')" :data-tooltip="showKeyCreate ? t('common.hide') : t('common.show')">
@@ -556,7 +556,7 @@ async function onInitBolt(){
 /* 字段两行布局：第一行 label 左对齐，第二行输入框铺满，眼睛图标右对齐叠放 */
 .field { display: flex; flex-direction: column; gap: 6px; padding: 6px 2px; }
 .field + .field { border-top: 1px dashed var(--macos-separator-weak); }
-.field-label { font-weight: 600; color: var(--macos-text-secondary); font-size: 12px; }
+/* 使用全局 .label/.label-strong 样式替代 .field-label */
 .field-input { position: relative; }
 .field-input .input-macos { width: 100%; padding-right: 30px; }
 .icon-input-end { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: transparent; border: 1px solid transparent; color: var(--macos-text-secondary); }
@@ -570,11 +570,7 @@ async function onInitBolt(){
 :deep(.add-popover .popover-item) { white-space: nowrap; }
 :deep(.add-popover .popover-divider) { height: 1px; background: var(--macos-divider-weak); margin: 6px -8px; }
 
-/* Popover base (local copy to avoid style scoping in Ribbon) */
-.macos-popover { border-radius: 10px; box-shadow: var(--macos-shadow-2); padding: 6px; z-index: 1200; }
-.popover-item { height: 28px; display: flex; align-items: center; padding: 0 8px; border-radius: 6px; font-size: var(--fs-base); color: var(--macos-text-primary); cursor: pointer; }
-.popover-item + .popover-item { margin-top: 4px; }
-.popover-item:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); color: #fff; }
+/* Popover 基础样式改由全局提供（styles/macos-components.scss） */
 
 .field-hint { font-size: 11px; color: var(--macos-text-tertiary); margin-top: 4px; }
 
@@ -594,7 +590,7 @@ async function onInitBolt(){
 .profile-add-row { padding: 8px 0; display: flex; justify-content: flex-end; }
 
 .empty { display: grid; place-items: center; height: 280px; color: var(--macos-text-tertiary); }
-.danger { color: var(--macos-red); }
+.danger { color: var(--macos-danger-text); }
 
 :host, .sr-root { --left-col: 160px; }
 </style>

@@ -310,7 +310,7 @@ import { subtitleService } from '@/services/subtitleService.js'
 .dual-input { display:flex; align-items:center; gap:8px; }
 .dual-input.inline { display:inline-flex; }
 .input-group { display:flex; align-items:center; gap:6px; }
-.input-label { font-size: var(--fs-sub); color: var(--macos-text-secondary); }
+/* 使用全局 .input-label（映射到 .label） */
 .input-separator { color: var(--macos-text-tertiary); }
 /* bottom action buttons */
 .footer-actions { display:flex; align-items:center; justify-content:center; gap:8px; margin-top: 10px; }
