@@ -531,11 +531,11 @@ async function onInitBolt(){
 
 <style scoped>
 /* 1:1 复刻 Settings 的两栏结构和风格 */
-.sr-root { position: absolute; inset: 0; display: grid; grid-template-columns: var(--left-col, 160px) 1fr; }
+.sr-root { position: absolute; inset: 0; display: grid; grid-template-columns: var(--left-col, 160px) 1fr; overflow: hidden; }
 .sr-left { position: relative; z-index: 1; padding: 6px; display: flex; flex-direction: column; gap: 6px; justify-content: flex-start; }
 .sr-left { min-height: 0; --cmd-area-h: 44px; }
-.sr-left-scroll { flex: 0 1 auto; height: calc(100% - var(--cmd-area-h)); min-height: 0; overflow-y: auto; overflow-x: hidden; }
-.sr-right { position: relative; z-index: 1; background: var(--macos-background); padding: 12px; overflow: auto; font-size: var(--fs-base); }
+.sr-left-scroll { flex: 0 1 auto; height: calc(100% - var(--cmd-area-h)); min-height: 0; overflow-y: auto; overflow-x: hidden; padding-right: 10px; scrollbar-gutter: stable; }
+.sr-right { position: relative; z-index: 1; background: var(--macos-background); padding: 12px; overflow: auto; font-size: var(--fs-base); height: 100%; }
 .sr-item, .sr-item:hover, .sr-item.active, .sr-item-label { /* deprecated: replaced by .source-chip styles */ }
 .sr-left-actions { position: absolute; bottom: 0; left: 6px; right: 6px; height: var(--cmd-area-h); display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--macos-divider-weak); background: transparent; }
 .sr-group-title { font-size: var(--fs-sub); color: var(--macos-text-secondary); margin: 4px 4px 6px; }
