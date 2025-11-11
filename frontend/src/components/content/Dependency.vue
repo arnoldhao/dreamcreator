@@ -31,19 +31,19 @@
                 <button
                   v-if="dep.needUpdate && !dep.installing"
                   @click="showMirrorSelector(key, 'update')"
-                  class="btn-glass btn-primary"
+                  class="btn-chip-ghost btn-primary"
                 >
                   <Icon name="arrow-left-right" class="w-4 h-4 mr-1" /> {{ $t('settings.dependency.update') }}
                 </button>
-                <button v-else-if="dep.installing" class="btn-glass" disabled>
+                <button v-else-if="dep.installing" class="btn-chip-ghost" disabled>
                   <div class="btn-spinner mr-2"></div>{{ $t('settings.dependency.installing') }}
                 </button>
               </template>
               <template v-else>
-                <button class="btn-glass" @click="repairDependency(key)" :disabled="isCheckUpdatesDisabled">
+                <button class="btn-chip-ghost" @click="repairDependency(key)" :disabled="isCheckUpdatesDisabled">
                   <Icon name="download" class="w-4 h-4 mr-1" /> {{ $t('settings.dependency.repair') }}
                 </button>
-                <button class="btn-glass" @click="showMirrorSelector(key, 'install')" :disabled="isCheckUpdatesDisabled">
+                <button class="btn-chip-ghost" @click="showMirrorSelector(key, 'install')" :disabled="isCheckUpdatesDisabled">
                   <Icon name="download" class="w-4 h-4 mr-1" /> {{ $t('settings.dependency.install') }}
                 </button>
               </template>
@@ -59,7 +59,7 @@
             <!-- 右侧：路径（右对齐） + 打开 -->
             <div class="sr-control control-short dep-meta-right">
               <span class="meta-item path" :title="dep.path">{{ dep.path }}</span>
-              <button class="icon-glass" type="button" :disabled="!dep.path" @click="openDirectory(dep.path)" title="Open">
+              <button class="icon-chip-ghost" type="button" :disabled="!dep.path" @click="openDirectory(dep.path)" title="Open">
                 <Icon name="folder" class="w-4 h-4" />
               </button>
             </div>
@@ -76,7 +76,7 @@
 
     <!-- 镜像选择模态框 -->
     <div v-if="showMirrorModal" class="macos-modal" @click.self="closeMirrorModal">
-      <div class="modal-card mirror-modal" role="dialog" aria-modal="true">
+      <div class="modal-card mirror-modal card-frosted card-translucent" role="dialog" aria-modal="true">
         <div class="modal-header sheet">
           <ModalTrafficLights @close="closeMirrorModal" />
           <div class="title-area">
@@ -107,11 +107,11 @@
         </div>
 
         <div class="modal-footer">
-          <button class="btn-glass" type="button" @click="closeMirrorModal">
+          <button class="btn-chip" type="button" @click="closeMirrorModal">
             {{ $t('common.cancel') }}
           </button>
           <button
-            :class="['btn-glass', { 'btn-primary': currentAction === 'update' }]"
+            :class="['btn-chip', { 'btn-primary': currentAction === 'update' }]"
             type="button"
             @click="performAction"
             :disabled="!selectedMirror"
@@ -331,9 +331,7 @@ export default {
 .dep-badge.dep-miss { border-color: #ff453a; }
 .dep-badge.dep-err { border-color: #ff453a; color: #ff453a; cursor: pointer; background: transparent; }
 .dep-badge.dep-err:hover { background: color-mix(in oklab, #ff453a 12%, transparent); }
-.sr-icon-btn { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:6px; background:transparent; border:1px solid transparent; color: var(--macos-text-secondary); }
-.sr-icon-btn:hover { background: var(--macos-gray-hover); }
-.sr-icon-btn:active { background: var(--macos-gray-active); }
+/* removed sr-icon-btn (use icon-chip-ghost) */
 .dep-meta-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .meta-item { font-size: var(--fs-sub); color: var(--macos-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .meta-item.path { max-width: 60ch; }
@@ -369,5 +367,5 @@ export default {
 /* Dependency actions: keep buttons on one line and match macOS style */
 .dep-row { grid-template-columns: 1fr auto !important; }
 .dep-actions { width: auto !important; display: inline-flex; gap: 8px; justify-content: flex-end; }
-.dep-actions .btn-glass { height: 28px; padding: 0 10px; }
+.dep-actions .btn-chip-ghost { height: 28px; padding: 0 10px; }
 </style>

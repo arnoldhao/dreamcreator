@@ -158,11 +158,11 @@
     
     <!-- Footer actions (outside group) -->
     <div class="footer-actions">
-      <button class="btn-glass" @click="saveConfig">
+      <button class="btn-chip-ghost" @click="saveConfig">
         <Icon name="shield-check" class="w-4 h-4 mr-2" />
         {{ $t('subtitle.common.save') }}
       </button>
-      <button class="btn-glass btn-primary" @click="exportSubtitles">
+      <button class="btn-chip-ghost btn-primary" @click="exportSubtitles">
         <Icon name="download-file" class="w-4 h-4 mr-2" />
         {{ $t('subtitle.common.export') }}
       </button>
@@ -310,7 +310,7 @@ import { subtitleService } from '@/services/subtitleService.js'
 .dual-input { display:flex; align-items:center; gap:8px; }
 .dual-input.inline { display:inline-flex; }
 .input-group { display:flex; align-items:center; gap:6px; }
-.input-label { font-size: var(--fs-sub); color: var(--macos-text-secondary); }
+/* 使用全局 .input-label（映射到 .label） */
 .input-separator { color: var(--macos-text-tertiary); }
 /* bottom action buttons */
 .footer-actions { display:flex; align-items:center; justify-content:center; gap:8px; margin-top: 10px; }

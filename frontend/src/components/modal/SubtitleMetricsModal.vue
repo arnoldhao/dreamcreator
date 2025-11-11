@@ -57,7 +57,9 @@ import ModalTrafficLights from '@/components/common/ModalTrafficLights.vue'
 <style scoped>
 .macos-modal { position: fixed; inset: 0; z-index: 2000; display:flex; align-items:center; justify-content:center; padding: 16px; background: rgba(0,0,0,0.2); backdrop-filter: blur(8px); }
 .modal-card { width: min(780px, 96vw); max-height: 80vh; border-radius: 12px; display:flex; flex-direction: column; overflow: hidden; }
-.modal-header { display:flex; align-items:center; justify-content: space-between; padding: 8px 10px; border-bottom: none; background: var(--macos-surface); backdrop-filter: var(--macos-surface-blur); }
+/* Always-on active frosted look */
+.modal-card.card-frosted.card-translucent { background: color-mix(in oklab, var(--macos-surface) 76%, transparent); border: 1px solid rgba(255,255,255,0.28); box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24); }
+.modal-header { display:flex; align-items:center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.16); }
 .modal-header .left { display:flex; align-items:center; gap:6px; }
 .modal-header .right { display:flex; align-items:center; gap: 10px; min-width: 0; }
 .modal-header .right .title-text { font-size: var(--fs-base); font-weight: 600; color: var(--macos-text-primary); }

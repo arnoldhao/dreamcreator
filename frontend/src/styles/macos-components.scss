@@ -29,7 +29,7 @@
 }
 
 /* Any interactive control inside the toolbar should not initiate window drag on Windows */
-.macos-toolbar :is(button, input, textarea, select, [role="button"], .toolbar-icon-btn) {
+.macos-toolbar :is(button, input, textarea, select, [role="button"], .toolbar-chip) {
   /* Prevent Chromium from treating controls inside a draggable area as draggable */
   -webkit-app-region: no-drag;
   /* Inform Wails (Windows) about non-draggable sub-areas */
@@ -97,111 +97,15 @@
   padding: 12px;
 }
 
-.macos-page .btn,
-.macos-page .btn-primary,
-.macos-page .btn-outline { @extend .btn-macos; }
-.macos-page .btn-primary { @extend .btn-macos-primary; }
+/* removed legacy .btn/.btn-primary/.btn-outline mappings (use btn-chip family) */
 
-// 基础按钮样式
-.btn-macos {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 16px;
-  font-size: var(--fs-base);
-  font-weight: 400;
-  line-height: 1.2;
-  border-radius: 6px;
-  border: 1px solid var(--macos-border);
-  background: var(--macos-background);
-  color: var(--macos-text-primary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  min-height: 28px;
-  white-space: nowrap;
+/* removed legacy .btn-macos family */
 
-  &:hover {
-    background: var(--macos-gray-hover);
-    border-color: var(--macos-border);
-  }
+/* removed legacy .btn-macos-primary */
 
-  &:active {
-    background: var(--macos-gray-active);
-    transform: scale(0.98);
-  }
+/* removed legacy .btn-macos-secondary */
 
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    
-    &:hover {
-      background: var(--macos-background);
-      border-color: var(--macos-border);
-    }
-  }
-
-  &:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--macos-blue) 30%, transparent);
-  }
-}
-
-// 主要按钮
-.btn-macos-primary {
-  @extend .btn-macos;
-  background: var(--macos-blue);
-  border-color: var(--macos-blue);
-  color: white;
-
-  &:hover {
-    background: var(--macos-blue-hover);
-    border-color: var(--macos-blue-hover);
-  }
-
-  &:active {
-    background: var(--macos-blue-active);
-    border-color: var(--macos-blue-active);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    
-    &:hover {
-      background: var(--macos-blue);
-      border-color: var(--macos-blue);
-    }
-  }
-}
-
-// 次要按钮
-.btn-macos-secondary {
-  @extend .btn-macos;
-  background: var(--macos-gray);
-  border-color: var(--macos-border);
-  color: var(--macos-text-primary);
-
-  &:hover {
-    background: var(--macos-gray-hover);
-  }
-
-  &:active {
-    background: var(--macos-gray-active);
-  }
-}
-
-// 危险按钮
-.btn-macos-danger {
-  @extend .btn-macos;
-  background: var(--macos-danger-bg);
-  border-color: var(--macos-danger-text);
-  color: var(--macos-danger-text);
-
-  &:hover {
-    background: var(--macos-danger-text);
-    color: white;
-  }
-}
+/* removed legacy .btn-macos-danger */
 
 // 输入框样式
 .input-macos {
@@ -271,13 +175,7 @@
   }
 }
 
-// 小尺寸按钮变体
-.btn-macos-sm {
-  @extend .btn-macos;
-  padding: 4px 12px;
-  font-size: var(--fs-sub);
-  min-height: 28px;
-}
+/* removed legacy .btn-macos-sm */
 
 // 输入框尺寸变体
 .input-compact {
@@ -374,6 +272,81 @@
 [data-ui='frosted'] .macos-sidebar {
   background: transparent;
 }
+
+/* Shared list-row chip styles (Ribbon / Settings left menu) */
+/* Base row chip: icon lane + label lane, ghost by default; selected uses .ribbon-active */
+.source-chip {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  column-gap: 8px;
+  align-items: center;
+  height: 28px;
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: 8px; /* create comfortable leading inset for icon */
+  background: transparent;
+  border-color: transparent;
+  color: var(--macos-text-secondary);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.source-chip .icon-cell { height: 28px; display: flex; align-items: center; justify-content: center; }
+.source-chip .label-cell { min-width: 0; height: 28px; display: flex; align-items: center; justify-content: flex-start; }
+.source-chip.active { border-radius: 10px; }
+/* Rest state for unselected rows: no background/border, regardless of UI */
+.source-chip:not(.active) { background: transparent !important; border-color: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+
+/* Frosted UI: keep hover clean for unselected rows */
+[data-ui='frosted'] .source-chip:not(.active):hover,
+[data-ui='frosted'] .source-chip:not(.active):active,
+[data-ui='frosted'] .source-chip:not(.active):focus {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--macos-text-secondary) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Classic UI: subtle hover highlight for unselected rows */
+[data-ui='classic'] .source-chip:not(.active):hover {
+  background: color-mix(in oklab, var(--macos-blue) 12%, transparent) !important;
+  border-color: var(--macos-blue) !important;
+  color: var(--macos-text-primary) !important;
+}
+
+/* Selected state: frosted floating surface with a light primary tint */
+.ribbon-active {
+  padding: 0 8px; /* keep left inset consistent with base */
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--macos-blue) 12%, color-mix(in oklab, var(--macos-surface) 80%, transparent));
+  border: 1px solid color-mix(in oklab, var(--macos-blue) 28%, rgba(255,255,255,0.22));
+  -webkit-backdrop-filter: var(--macos-surface-blur);
+  backdrop-filter: var(--macos-surface-blur);
+  box-shadow: var(--macos-shadow-2);
+  color: var(--macos-text-primary);
+}
+.ribbon-active:hover, .ribbon-active:active { transform: none !important; }
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .ribbon-active {
+    background: color-mix(in oklab, var(--macos-blue) 12%, rgba(255,255,255,0.12));
+    border-color: color-mix(in oklab, var(--macos-blue) 28%, rgba(0,0,0,0.15));
+    box-shadow: none;
+  }
+}
+[data-ui='classic'] .ribbon-active {
+  background: color-mix(in oklab, var(--macos-blue) 10%, var(--macos-background)) !important;
+  border-color: color-mix(in oklab, var(--macos-blue) 45%, var(--macos-separator)) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: var(--macos-shadow-1) !important;
+  color: var(--macos-text-primary) !important;
+}
+
+.source-row-icon { width: 16px; height: 16px; color: inherit; display: inline-flex; align-items: center; justify-content: center; }
+.source-row-label { flex: 1 1 auto; width: 100%; text-align: left; font-size: var(--fs-base); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* vertical rhythm between rows */
+.source-group { display: flex; flex-direction: column; gap: 6px; }
 
 .source-list {
   display: flex;
@@ -545,8 +518,10 @@
 .macos-row .k { color: var(--macos-text-secondary); font-size: var(--fs-sub); }
 .macos-row .v { color: var(--macos-text-primary); font-size: var(--fs-sub); min-width: 0; }
 
-/* 工具栏小按钮 */
-.toolbar-icon-btn {
+/* toolbar chip defined below; removed legacy toolbar-icon-btn */
+
+/* Toolbar chip (btn-chip family) */
+.toolbar-chip {
   -webkit-app-region: no-drag;
   --wails-draggable: no-drag;
   width: 28px;
@@ -554,32 +529,24 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 999px; /* keep circular at rest to avoid shape flicker */
+  border: 1px solid transparent; /* no border at rest */
   color: var(--macos-text-secondary);
-  background: transparent;
-  border: 1px solid transparent;
-  transition: background 120ms ease;
+  background: transparent; /* no background at rest */
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transition: background-color .18s ease, border-color .18s ease, color .12s ease, transform .12s ease;
 }
-.toolbar-icon-btn:hover {
-  background: var(--macos-gray-hover);
-}
-.toolbar-icon-btn:active {
-  background: var(--macos-gray-active);
-}
-
-.toolbar-icon-btn.active {
-  background: color-mix(in oklab, var(--macos-blue) 15%, transparent);
-  color: var(--macos-text-primary);
-}
+.toolbar-chip:hover { background: rgba(30,30,30,0.26); border-color: rgba(255,255,255,0.20); color: var(--macos-text-primary); -webkit-backdrop-filter: saturate(120%) blur(8px); backdrop-filter: saturate(120%) blur(8px); border-radius: 999px; }
+.toolbar-chip:active { transform: translateZ(0) scale(0.98); }
+.toolbar-chip.active { background: color-mix(in oklab, var(--macos-blue) 28%, transparent); border-color: color-mix(in oklab, var(--macos-blue) 26%, white 8%); color: #fff; border-radius: 999px; }
 
 /* Inactive window traffic lights placeholder */
 /* 使用原生交通灯，不自绘占位 */
 
-/* macOS-like tooltips for toolbar buttons */
-.toolbar-icon-btn[data-tooltip] {
-  position: relative;
-}
-.toolbar-icon-btn[data-tooltip]::after {
+/* toolbar chip tooltips */
+.toolbar-chip[data-tooltip] { position: relative; }
+.toolbar-chip[data-tooltip]::after {
   content: attr(data-tooltip);
   position: absolute;
   left: 50%;
@@ -601,42 +568,19 @@
   z-index: 100;
   box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
-.toolbar-icon-btn[data-tooltip]::before { display: none; content: none; }
-.toolbar-icon-btn[data-tooltip]:hover::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(2px);
-}
-.toolbar-icon-btn[data-tooltip]:hover::before {
-  opacity: 1;
-}
+.toolbar-chip[data-tooltip]::before { display: none; content: none; }
+.toolbar-chip[data-tooltip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(2px); }
+.toolbar-chip[data-tooltip]:hover::before { opacity: 1; }
+.toolbar-chip[data-tooltip][data-tip-pos='top']::after { bottom: auto; top: -36px; }
+.toolbar-chip[data-tooltip][data-tip-pos='top']::before { display: none; content: none; }
+.toolbar-chip[data-tooltip][data-tip-align='right']::after { left: auto; right: 0; transform: translateX(0); }
+.toolbar-chip[data-tooltip][data-tip-align='right']:hover::after { transform: translateY(2px); }
+.toolbar-chip[data-tooltip][data-tip-align='right']::before { left: auto; right: 10px; }
+.toolbar-chip[data-tooltip][data-tip-align='right'][data-tip-pos='top']:hover::after { transform: translateY(-2px); }
 
-/* optional: place tooltip above when needed */
-.toolbar-icon-btn[data-tooltip][data-tip-pos='top']::after {
-  bottom: auto;
-  top: -36px;
-}
-.toolbar-icon-btn[data-tooltip][data-tip-pos='top']::before { display: none; content: none; }
-
-/* align tooltip to the right edge of button (for rightmost actions) */
-.toolbar-icon-btn[data-tooltip][data-tip-align='right']::after {
-  left: auto;
-  right: 0;
-  transform: translateX(0);
-}
-.toolbar-icon-btn[data-tooltip][data-tip-align='right']:hover::after {
-  transform: translateY(2px);
-}
-.toolbar-icon-btn[data-tooltip][data-tip-align='right']::before {
-  left: auto;
-  right: 10px; /* place arrow near right edge */
-}
-.toolbar-icon-btn[data-tooltip][data-tip-align='right'][data-tip-pos='top']:hover::after {
-  transform: translateY(-2px);
-}
-
-/* Apply same tooltip behavior to sr-icon-btn inside content views */
-.sr-icon-btn[data-tooltip] { position: relative; z-index: 20; }
-.sr-icon-btn[data-tooltip]::after {
+/* btn-chip tooltips (parity with toolbar-chip) */
+.btn-chip[data-tooltip] { position: relative; }
+.btn-chip[data-tooltip]::after {
   content: attr(data-tooltip);
   position: absolute;
   left: 50%;
@@ -655,21 +599,48 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 120ms ease, transform 120ms ease;
-  z-index: 2000;
+  z-index: 100;
   box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
-.sr-icon-btn[data-tooltip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(2px); }
-.sr-icon-btn[data-tooltip]::before { display: none; content: none; }
-.sr-icon-btn[data-tooltip][data-tip-align='right']::after { left: auto; right: 0; transform: translateX(0); }
-.sr-icon-btn[data-tooltip][data-tip-align='right']:hover::after { transform: translateY(2px); }
-/* optional: place tooltip above for sr-icon-btn */
-.sr-icon-btn[data-tooltip][data-tip-pos='top']::after {
-  bottom: auto;
-  top: -36px;
+.btn-chip[data-tooltip]::before { display: none; content: none; }
+.btn-chip[data-tooltip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(2px); }
+.btn-chip[data-tooltip][data-tip-pos='top']::after { bottom: auto; top: -36px; }
+.btn-chip[data-tooltip][data-tip-align='right']::after { left: auto; right: 0; transform: translateX(0); }
+.btn-chip[data-tooltip][data-tip-align='right']:hover::after { transform: translateY(2px); }
+.btn-chip[data-tooltip][data-tip-align='right'][data-tip-pos='top']:hover::after { transform: translateY(-2px); }
+
+/* btn-chip-icon tooltips */
+.btn-chip-icon[data-tooltip] { position: relative; }
+.btn-chip-icon[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: -36px;
+  transform: translateX(-50%);
+  background: rgba(60,60,67,0.92);
+  color: #fff;
+  font-size: var(--fs-caption);
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
-.sr-icon-btn[data-tooltip][data-tip-pos='top']:hover::after {
-  transform: translateY(-2px);
-}
+.btn-chip-icon[data-tooltip]::before { display: none; content: none; }
+.btn-chip-icon[data-tooltip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(2px); }
+.btn-chip-icon[data-tooltip][data-tip-pos='top']::after { bottom: auto; top: -36px; }
+.btn-chip-icon[data-tooltip][data-tip-align='right']::after { left: auto; right: 0; transform: translateX(0); }
+.btn-chip-icon[data-tooltip][data-tip-align='right']:hover::after { transform: translateY(2px); }
+.btn-chip-icon[data-tooltip][data-tip-align='right'][data-tip-pos='top']:hover::after { transform: translateY(-2px); }
+
+/* removed sr-icon-btn tooltips; use icon-chip-ghost/toolbars chip */
 
 /* Generic tooltip anchor for non-button elements (e.g., metric dots) */
 .has-tooltip[data-tooltip] { position: relative; }
@@ -754,50 +725,7 @@
 /* Global icon-only button variant (used for delete across app) */
 .icon-ghost { background: transparent !important; border: 0 !important; color: var(--macos-text-secondary); }
 .icon-ghost:hover { background: transparent !important; color: var(--macos-danger-text); }
-/* Glassy icon button for frosted UI */
-.icon-glass { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid var(--macos-separator); background: transparent; color: var(--macos-text-secondary); box-shadow: none; transition: background-color .2s ease, border-color .2s ease, color .12s ease, transform .12s ease; }
-.icon-glass:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); border-color: var(--macos-blue); color: #fff; transform: translateY(-0.5px); }
-.icon-glass:active { transform: scale(0.98); }
-@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) { .icon-glass { background: transparent; color: var(--macos-text-secondary); border-color: var(--macos-separator); box-shadow: none; } }
-/* Glassy filled button for frosted UI (neutral) */
-.btn-glass { display: inline-flex; align-items: center; justify-content: center; height: 28px; padding: 0 12px; gap: 8px; border-radius: 6px; border: 1px solid var(--macos-separator); background: transparent; color: var(--macos-text-primary); font-size: var(--fs-base); box-shadow: none; transition: background-color .2s ease, border-color .2s ease, color .12s ease, transform .12s ease; }
-.btn-glass:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); border-color: var(--macos-blue); color: #fff; transform: translateY(-0.5px); }
-.btn-glass:active { transform: scale(0.98); }
-.btn-glass:disabled {
-  opacity: .5;
-  cursor: not-allowed;
-  pointer-events: none;
-  background: transparent;
-  color: var(--macos-text-secondary);
-  border-color: var(--macos-separator);
-  transform: none;
-}
-.btn-glass.btn-sm { height: 28px; padding: 0 12px; font-size: var(--fs-base); }
-@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) { .btn-glass { background: transparent; color: var(--macos-text-primary); border-color: var(--macos-separator); box-shadow: none; } }
-/* Classic override */
-[data-ui='classic'] .icon-glass { background: transparent !important; color: var(--macos-text-secondary) !important; border: 1px solid var(--macos-separator) !important; box-shadow: none !important; }
-[data-ui='classic'] .icon-glass:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
-[data-ui='classic'] .btn-glass { background: transparent !important; color: var(--macos-text-primary) !important; border: 1px solid var(--macos-separator) !important; box-shadow: none !important; }
-[data-ui='classic'] .btn-glass:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
-
-/* Primary variant that keeps the glass geometry but fills with primary color */
-.btn-glass.btn-primary { background: var(--macos-blue); border-color: var(--macos-blue); color: #fff; }
-.btn-glass.btn-primary:hover { background: var(--macos-blue-hover); border-color: var(--macos-blue-hover); color: #fff; transform: translateY(-0.5px); }
-.btn-glass.btn-primary:active { background: var(--macos-blue-active); border-color: var(--macos-blue-active); transform: scale(0.98); }
-.btn-glass.btn-primary:disabled {
-  opacity: .5;
-  cursor: not-allowed;
-  pointer-events: none;
-  background: var(--macos-blue);
-  border-color: var(--macos-blue);
-  color: #fff;
-  transform: none;
-}
-@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
-  .btn-glass.btn-primary { background: var(--macos-blue); color: #fff; border-color: var(--macos-blue); }
-}
-[data-ui='classic'] .btn-glass.btn-primary { background: var(--macos-blue) !important; border-color: var(--macos-blue) !important; color: #fff !important; }
-[data-ui='classic'] .btn-glass.btn-primary:hover { background: var(--macos-blue-hover) !important; border-color: var(--macos-blue-hover) !important; color: #fff !important; }
+/* removed legacy glass button family */
 
 /* Chip-look buttons: chip aesthetic with button dimensions (drop-in for btn-glass) */
 .btn-chip {
@@ -830,6 +758,9 @@
   transform: none;
 }
 .btn-chip.btn-sm { height: 28px; padding: 0 12px; font-size: var(--fs-base); }
+/* Additional sizes for btn-chip */
+.btn-chip.btn-xs { height: 24px; padding: 0 10px; font-size: var(--fs-sub); }
+.btn-chip.btn-lg { height: 32px; padding: 0 14px; font-size: var(--fs-base); }
 /* Primary: mimic chip-primary-action frosted blue look */
 .btn-chip.btn-primary {
   border-radius: 999px; /* ensure pill shape for primary */
@@ -852,11 +783,34 @@
   color: #fff;
   transform: none;
 }
+/* Semantic variants */
+.btn-chip.btn-danger { background: color-mix(in oklab, var(--macos-danger-text) 66%, transparent); border-color: color-mix(in oklab, var(--macos-danger-text) 54%, white 18%); color: #fff; }
+.btn-chip.btn-danger:hover { background: color-mix(in oklab, var(--macos-danger-text) 74%, white 6%); border-color: color-mix(in oklab, var(--macos-danger-text) 62%, white 12%); }
+.btn-chip.btn-danger:active { transform: translateZ(0) scale(0.98); }
+.btn-chip.btn-danger:disabled { opacity: .5; cursor: not-allowed; pointer-events: none; background: color-mix(in oklab, var(--macos-danger-text) 66%, transparent); border-color: color-mix(in oklab, var(--macos-danger-text) 54%, white 18%); color: #fff; transform: none; }
+.btn-chip.btn-success { background: color-mix(in oklab, var(--macos-success-text) 66%, transparent); border-color: color-mix(in oklab, var(--macos-success-text) 54%, white 18%); color: #fff; }
+.btn-chip.btn-success:hover { background: color-mix(in oklab, var(--macos-success-text) 74%, white 6%); border-color: color-mix(in oklab, var(--macos-success-text) 62%, white 12%); }
+.btn-chip.btn-success:active { transform: translateZ(0) scale(0.98); }
+.btn-chip.btn-success:disabled { opacity: .5; cursor: not-allowed; pointer-events: none; background: color-mix(in oklab, var(--macos-success-text) 66%, transparent); border-color: color-mix(in oklab, var(--macos-success-text) 54%, white 18%); color: #fff; transform: none; }
+.btn-chip.btn-warning { background: color-mix(in oklab, var(--macos-warning-text) 66%, transparent); border-color: color-mix(in oklab, var(--macos-warning-text) 54%, white 18%); color: #fff; }
+.btn-chip.btn-warning:hover { background: color-mix(in oklab, var(--macos-warning-text) 74%, white 6%); border-color: color-mix(in oklab, var(--macos-warning-text) 62%, white 12%); }
+.btn-chip.btn-warning:active { transform: translateZ(0) scale(0.98); }
+.btn-chip.btn-warning:disabled { opacity: .5; cursor: not-allowed; pointer-events: none; background: color-mix(in oklab, var(--macos-warning-text) 66%, transparent); border-color: color-mix(in oklab, var(--macos-warning-text) 54%, white 18%); color: #fff; transform: none; }
+.btn-chip.btn-info { background: color-mix(in oklab, var(--macos-text-secondary) 66%, transparent); border-color: color-mix(in oklab, var(--macos-text-secondary) 54%, white 18%); color: #fff; }
+.btn-chip.btn-info:hover { background: color-mix(in oklab, var(--macos-text-secondary) 74%, white 6%); border-color: color-mix(in oklab, var(--macos-text-secondary) 62%, white 12%); }
+.btn-chip.btn-info:active { transform: translateZ(0) scale(0.98); }
+.btn-chip.btn-info:disabled { opacity: .5; cursor: not-allowed; pointer-events: none; background: color-mix(in oklab, var(--macos-text-secondary) 66%, transparent); border-color: color-mix(in oklab, var(--macos-text-secondary) 54%, white 18%); color: #fff; transform: none; }
 /* Icon-only chip button: same frosted look, compact 28x28 geometry */
 .btn-chip-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box; /* width/height include border */
+  padding: 0; /* ensure perfect circle across UAs */
+  line-height: 0; /* avoid baseline expansion */
+  flex: 0 0 auto; /* prevent flex growth/shrink affecting geometry */
+  vertical-align: middle; /* align with text baseline environments */
+  overflow: hidden; /* clip inner effects to circle */
   width: 28px;
   height: 28px;
   border-radius: 999px;
@@ -869,6 +823,10 @@
   box-shadow: 0 1px 0 rgba(255,255,255,0.10) inset, 0 3px 9px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.14);
   text-shadow: 0 1px 1px rgba(0,0,0,0.38);
 }
+.btn-chip-icon.btn-sm { width: 24px; height: 24px; }
+.btn-chip-icon.btn-xs { width: 22px; height: 22px; }
+/* Extra small circular icon button for very tight spaces */
+.btn-chip-icon.btn-xxs { width: 18px; height: 18px; }
 .btn-chip-icon:hover { background: rgba(30,30,30,0.42); border-color: rgba(255,255,255,0.24); transform: translateZ(0) scale(1.02); }
 .btn-chip-icon:active { transform: translateZ(0) scale(0.98); }
 .btn-chip-icon:disabled {
@@ -880,23 +838,235 @@
   border-color: rgba(255,255,255,0.18);
   transform: none;
 }
+/* Icon-only color variants */
+.btn-chip-icon.btn-primary { background: color-mix(in oklab, var(--macos-blue) 60%, transparent); border-color: color-mix(in oklab, var(--macos-blue) 52%, white 18%); color: #fff; }
+.btn-chip-icon.btn-danger { background: color-mix(in oklab, var(--macos-danger-text) 60%, transparent); border-color: color-mix(in oklab, var(--macos-danger-text) 52%, white 18%); color: #fff; }
+.btn-chip-icon.btn-success { background: color-mix(in oklab, var(--macos-success-text) 60%, transparent); border-color: color-mix(in oklab, var(--macos-success-text) 52%, white 18%); color: #fff; }
+.btn-chip-icon.btn-warning { background: color-mix(in oklab, var(--macos-warning-text) 60%, transparent); border-color: color-mix(in oklab, var(--macos-warning-text) 52%, white 18%); color: #fff; }
+.btn-chip-icon.btn-info { background: color-mix(in oklab, var(--macos-text-secondary) 60%, transparent); border-color: color-mix(in oklab, var(--macos-text-secondary) 52%, white 18%); color: #fff; }
 @supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
   .btn-chip { background: rgba(255,255,255,0.10); color: #111; border-color: rgba(0,0,0,0.15); box-shadow: none; text-shadow: none; }
   .btn-chip.btn-primary { background: color-mix(in oklab, var(--macos-blue) 66%, white 4%); border-color: var(--macos-blue); color: #fff; }
+  .btn-chip.btn-danger { background: color-mix(in oklab, var(--macos-danger-text) 66%, white 4%); border-color: var(--macos-danger-text); color: #fff; }
+  .btn-chip.btn-success { background: color-mix(in oklab, var(--macos-success-text) 66%, white 4%); border-color: var(--macos-success-text); color: #fff; }
+  .btn-chip.btn-warning { background: color-mix(in oklab, var(--macos-warning-text) 66%, white 4%); border-color: var(--macos-warning-text); color: #fff; }
+  .btn-chip.btn-info { background: color-mix(in oklab, var(--macos-text-secondary) 66%, white 4%); border-color: var(--macos-text-secondary); color: #fff; }
   .btn-chip-icon { background: rgba(255,255,255,0.10); color: #111; border-color: rgba(0,0,0,0.15); box-shadow: none; text-shadow: none; }
+  .btn-chip-icon.btn-danger { background: color-mix(in oklab, var(--macos-danger-text) 50%, white 12%); border-color: var(--macos-danger-text); color: #fff; }
+  .btn-chip-icon.btn-success { background: color-mix(in oklab, var(--macos-success-text) 50%, white 12%); border-color: var(--macos-success-text); color: #fff; }
+  .btn-chip-icon.btn-warning { background: color-mix(in oklab, var(--macos-warning-text) 50%, white 12%); border-color: var(--macos-warning-text); color: #fff; }
+  .btn-chip-icon.btn-info { background: color-mix(in oklab, var(--macos-text-secondary) 50%, white 12%); border-color: var(--macos-text-secondary); color: #fff; }
 }
 [data-ui='classic'] .btn-chip { background: var(--macos-background) !important; color: var(--macos-text-primary) !important; border: 1px solid var(--macos-separator) !important; box-shadow: none !important; text-shadow: none !important; }
 [data-ui='classic'] .btn-chip:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
 [data-ui='classic'] .btn-chip.btn-primary { background: var(--macos-blue) !important; border-color: var(--macos-blue) !important; color: #fff !important; }
 [data-ui='classic'] .btn-chip.btn-primary:hover { background: var(--macos-blue-hover) !important; border-color: var(--macos-blue-hover) !important; color: #fff !important; }
+[data-ui='classic'] .btn-chip.btn-danger { background: var(--macos-danger-text) !important; border-color: var(--macos-danger-text) !important; color: #fff !important; }
+[data-ui='classic'] .btn-chip.btn-danger:hover { background: color-mix(in oklab, var(--macos-danger-text) 86%, white 8%) !important; border-color: var(--macos-danger-text) !important; }
+[data-ui='classic'] .btn-chip.btn-success { background: var(--macos-success-text) !important; border-color: var(--macos-success-text) !important; color: #fff !important; }
+[data-ui='classic'] .btn-chip.btn-success:hover { background: color-mix(in oklab, var(--macos-success-text) 86%, white 8%) !important; border-color: var(--macos-success-text) !important; }
+[data-ui='classic'] .btn-chip.btn-warning { background: var(--macos-warning-text) !important; border-color: var(--macos-warning-text) !important; color: #fff !important; }
+[data-ui='classic'] .btn-chip.btn-warning:hover { background: color-mix(in oklab, var(--macos-warning-text) 86%, white 8%) !important; border-color: var(--macos-warning-text) !important; }
+[data-ui='classic'] .btn-chip.btn-info { background: var(--macos-text-secondary) !important; border-color: var(--macos-text-secondary) !important; color: #fff !important; }
+[data-ui='classic'] .btn-chip.btn-info:hover { background: color-mix(in oklab, var(--macos-text-secondary) 86%, white 8%) !important; border-color: var(--macos-text-secondary) !important; }
 [data-ui='classic'] .btn-chip-icon { background: var(--macos-background) !important; color: var(--macos-text-primary) !important; border: 1px solid var(--macos-separator) !important; box-shadow: none !important; text-shadow: none !important; }
 [data-ui='classic'] .btn-chip-icon:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
+[data-ui='classic'] .btn-chip-icon.btn-danger { background: var(--macos-danger-text) !important; border-color: var(--macos-danger-text) !important; color: #fff !important; }
+[data-ui='classic'] .btn-chip-icon.btn-success { background: var(--macos-success-text) !important; border-color: var(--macos-success-text) !important; color: #fff !important; }
+[data-ui='classic'] .btn-chip-icon.btn-warning { background: var(--macos-warning-text) !important; border-color: var(--macos-warning-text) !important; color: #fff !important; }
+[data-ui='classic'] .btn-chip-icon.btn-info { background: var(--macos-text-secondary) !important; border-color: var(--macos-text-secondary) !important; color: #fff !important; }
+
+/* Quiet/Ghost chip variants: low-contrast, same family as btn-chip */
+.btn-chip-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 10px;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  color: var(--macos-text-secondary);
+  font-size: var(--fs-base);
+  background: rgba(30,30,30,0.16);
+  -webkit-backdrop-filter: saturate(120%) blur(8px);
+  backdrop-filter: saturate(120%) blur(8px);
+  box-shadow: none;
+  text-shadow: none;
+  transition: background-color .18s ease, border-color .18s ease, color .12s ease, transform .12s ease;
+}
+/* Ghost danger accent: lightweight red hint for destructive icon/text buttons */
+.btn-chip-ghost.btn-danger { color: var(--macos-danger-text); }
+.icon-chip-ghost.danger { color: var(--macos-danger-text); }
+.btn-chip-ghost:hover {
+  background: rgba(30,30,30,0.26);
+  border-color: rgba(255,255,255,0.20);
+  color: var(--macos-text-primary);
+}
+.btn-chip-ghost:active { transform: translateZ(0) scale(0.98); }
+.btn-chip-ghost:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: rgba(30,30,30,0.16);
+  color: var(--macos-text-tertiary);
+  border-color: rgba(255,255,255,0.12);
+  transform: none;
+}
+.btn-chip-ghost.btn-sm { height: 28px; padding: 0 10px; font-size: var(--fs-base); }
+/* optional subtle primary state for quiet contexts */
+.btn-chip-ghost.btn-primary {
+  background: color-mix(in oklab, var(--macos-blue) 42%, transparent);
+  border-color: color-mix(in oklab, var(--macos-blue) 36%, white 12%);
+  color: #fff;
+}
+.btn-chip-ghost.btn-primary:hover {
+  background: color-mix(in oklab, var(--macos-blue) 48%, white 4%);
+  border-color: color-mix(in oklab, var(--macos-blue) 42%, white 10%);
+}
+
+/* Icon-only quiet chip (for toolbars/dense lists) */
+.icon-chip-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  color: var(--macos-text-secondary);
+  background: rgba(30,30,30,0.16);
+  -webkit-backdrop-filter: saturate(120%) blur(8px);
+  backdrop-filter: saturate(120%) blur(8px);
+  box-shadow: none;
+  text-shadow: none;
+  transition: background-color .18s ease, border-color .18s ease, color .12s ease, transform .12s ease;
+}
+.icon-chip-ghost:hover { background: rgba(30,30,30,0.26); border-color: rgba(255,255,255,0.20); color: var(--macos-text-primary); transform: translateZ(0) scale(1.02); }
+.icon-chip-ghost:active { transform: translateZ(0) scale(0.98); }
+.icon-chip-ghost:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: rgba(30,30,30,0.16);
+  color: var(--macos-text-tertiary);
+  border-color: rgba(255,255,255,0.12);
+  transform: none;
+}
+
+/* Optional tooltip for icon-chip-ghost when using data-tooltip */
+.icon-chip-ghost[data-tooltip] { position: relative; }
+.icon-chip-ghost[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: -34px;
+  transform: translateX(-50%);
+  background: rgba(60,60,67,0.92);
+  color: #fff;
+  font-size: var(--fs-caption);
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+.icon-chip-ghost[data-tooltip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(2px); }
+.icon-chip-ghost[data-tooltip][data-tip-pos='top']::after { bottom: auto; top: -34px; }
+.icon-chip-ghost[data-tooltip][data-tip-pos='top']:hover::after { transform: translateX(-50%) translateY(-2px); }
+
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .btn-chip-ghost, .icon-chip-ghost {
+    background: rgba(255,255,255,0.10);
+    color: var(--macos-text-secondary);
+    border-color: rgba(0,0,0,0.15);
+  }
+  .btn-chip-ghost:hover, .icon-chip-ghost:hover {
+    background: color-mix(in oklab, var(--macos-blue) 12%, transparent);
+    border-color: var(--macos-blue);
+    color: var(--macos-text-primary);
+  }
+  .btn-chip-ghost.btn-primary {
+    background: color-mix(in oklab, var(--macos-blue) 42%, white 2%);
+    border-color: var(--macos-blue);
+    color: #fff;
+  }
+}
+[data-ui='classic'] .btn-chip-ghost,
+[data-ui='classic'] .icon-chip-ghost {
+  background: var(--macos-background) !important;
+  color: var(--macos-text-secondary) !important;
+  border: 1px solid var(--macos-separator) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+[data-ui='classic'] .btn-chip-ghost:hover,
+[data-ui='classic'] .icon-chip-ghost:hover {
+  background: color-mix(in oklab, var(--macos-blue) 12%, transparent) !important;
+  border-color: var(--macos-blue) !important;
+  color: var(--macos-text-primary) !important;
+}
+[data-ui='classic'] .btn-chip-ghost.btn-primary {
+  background: var(--macos-blue) !important;
+  border-color: var(--macos-blue) !important;
+  color: #fff !important;
+}
+
+/* Segmented (quiet chip variant): drop-in by adding .chip on container */
+.segmented.chip {
+  background: rgba(30,30,30,0.16);
+  border: 1px solid rgba(255,255,255,0.14);
+  -webkit-backdrop-filter: saturate(120%) blur(8px);
+  backdrop-filter: saturate(120%) blur(8px);
+  border-radius: 999px;
+  padding: 2px;
+}
+.segmented.chip .seg-item {
+  border-radius: 999px;
+  color: var(--macos-text-secondary);
+}
+.segmented.chip .seg-item:hover {
+  background: rgba(30,30,30,0.26);
+  color: var(--macos-text-primary);
+}
+.segmented.chip .seg-item.active,
+.segmented.chip .seg-item.active:hover {
+  background: color-mix(in oklab, var(--macos-blue) 48%, transparent);
+  color: #fff;
+}
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .segmented.chip { background: rgba(255,255,255,0.10); border-color: rgba(0,0,0,0.15); }
+  .segmented.chip .seg-item:hover { background: color-mix(in oklab, var(--macos-blue) 12%, transparent); }
+  .segmented.chip .seg-item.active, .segmented.chip .seg-item.active:hover { background: color-mix(in oklab, var(--macos-blue) 42%, white 2%); color: #fff; }
+}
+[data-ui='classic'] .segmented.chip {
+  background: var(--macos-background) !important;
+  border: 1px solid var(--macos-separator) !important;
+}
+[data-ui='classic'] .segmented.chip .seg-item:hover { background: color-mix(in oklab, var(--macos-blue) 12%, transparent) !important; }
+[data-ui='classic'] .segmented.chip .seg-item.active,
+[data-ui='classic'] .segmented.chip .seg-item.active:hover { background: var(--macos-blue) !important; color: #fff !important; }
 
 /* Global simple color utilities */
 .text-primary { color: var(--macos-text-primary); }
 .text-secondary { color: var(--macos-text-secondary); }
 .text-tertiary { color: var(--macos-text-tertiary); }
 .bg-secondary { background: var(--macos-background-secondary); }
+
+/* Label system (unified) */
+.label { font-size: var(--fs-sub); color: var(--macos-text-secondary); line-height: 1.2; }
+.label-weak { color: var(--macos-text-tertiary); }
+.label-strong { color: var(--macos-text-primary); font-weight: 600; }
+/* Map common component labels to unified label style */
+.field-label, .option-label, .input-label, .metric-label, .threshold-label { @extend .label; }
+
 
 /* Frosted translucent chips (global utility) */
 .chip-frosted {
@@ -916,6 +1086,9 @@
   box-shadow: 0 1px 0 rgba(255,255,255,0.14) inset, 0 4px 12px rgba(0,0,0,0.24), 0 1px 3px rgba(0,0,0,0.18);
   transition: background-color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .15s ease;
 }
+.chip-frosted .chip-icon { width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; margin-right: 4px; color: inherit; }
+[data-ui='frosted'] .chip-frosted .chip-icon { width: 14px; height: 14px; }
+[data-ui='classic'] .chip-frosted .chip-icon { width: 12px; height: 12px; }
 .chip-frosted:hover { background: rgba(30,30,30,0.50); border-color: rgba(255,255,255,0.32); transform: translateZ(0) scale(1.02); }
 .chip-frosted:active { transform: translateZ(0) scale(0.98); }
 @supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
@@ -952,9 +1125,40 @@
   -webkit-backdrop-filter: var(--macos-surface-blur);
   backdrop-filter: var(--macos-surface-blur);
   box-shadow: var(--macos-shadow-2);
+  /* Enable layered highlights for plastic effect */
+  position: relative;
+  overflow: hidden;
 }
 @supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
   .card-frosted { background: color-mix(in oklab, var(--macos-background) 92%, transparent); }
+}
+
+/* Tahoe-style subtle highlight + inner stroke to enhance translucent plastic feel */
+.card-frosted::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* soft vertical sheen + faint corner glow */
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,0.14) 0%,
+      rgba(255,255,255,0.08) 10%,
+      rgba(255,255,255,0.04) 48%,
+      rgba(255,255,255,0.06) 100%
+    ),
+    radial-gradient(80% 40% at 20% -10%, rgba(255,255,255,0.18) 0%, transparent 60%);
+}
+.card-frosted::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  /* inner strokes to add depth without hard borders */
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.28),
+    inset 0 -1px 0 rgba(255,255,255,0.10);
 }
 
 /* Global UI style overrides: Classic mode */
@@ -990,6 +1194,18 @@
   border-color: var(--macos-blue) !important;
   color: var(--macos-text-primary) !important;
 }
+[data-ui='classic'] .chip-frosted.chip-translucent-primary {
+  /* Quiet at rest in Classic, like chip-translucent */
+  background: transparent !important;
+  border-color: var(--macos-separator) !important;
+  color: var(--macos-text-secondary) !important;
+  box-shadow: none !important;
+}
+[data-ui='classic'] .chip-frosted.chip-translucent-primary:hover {
+  background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important;
+  border-color: var(--macos-blue) !important;
+  color: var(--macos-text-primary) !important;
+}
 [data-ui='classic'] .badge,
 [data-ui='classic'] .macos-page .badge {
   border: 1px solid var(--macos-separator) !important;
@@ -1002,12 +1218,59 @@
 
 /* Variant: more translucent cards at rest, denser on hover */
 .card-frosted.card-translucent {
-  background: color-mix(in oklab, var(--macos-surface) 72%, transparent);
+  /* lighter than previous 88% baseline to enhance translucency */
+  background: color-mix(in oklab, var(--macos-surface) 76%, transparent);
   border-color: rgba(255,255,255,0.18);
 }
 .card-frosted.card-translucent:hover {
   background: color-mix(in oklab, var(--macos-surface) 88%, transparent);
   border-color: rgba(255,255,255,0.28);
+}
+
+/* Chip-Card: card geometry + chip material (lighter surface, subtle borders) */
+.macos-card.card-frosted.card-translucent.chip-card {
+  background: color-mix(in oklab, var(--macos-surface) var(--chip-card-surface, 76%), transparent);
+  border-color: rgba(255,255,255,0.20);
+}
+.chip-card:hover { border-color: rgba(255,255,255,0.28); }
+.chip-card:active { border-color: rgba(255,255,255,0.30); }
+
+/* Stronger frosted material for modal sheets */
+.macos-modal .modal-card.card-frosted {
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
+}
+/* In modals, keep card in active look without hover animation */
+.macos-modal .modal-card.card-frosted.card-translucent { background: color-mix(in oklab, var(--macos-surface) 76%, transparent); border-color: rgba(255,255,255,0.28); box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24); }
+.macos-modal .modal-card.card-frosted.card-translucent:hover { background: color-mix(in oklab, var(--macos-surface) 76%, transparent); border-color: rgba(255,255,255,0.28); }
+
+/* Toasts: use the same Tahoe frosted material as modal cards */
+.macos-toast .toast-card.card-frosted {
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
+}
+.macos-toast .toast-card.card-frosted.card-translucent {
+  /* Slightly more transparent than modals for a HUD feel; configurable via --toast-surface-mix */
+  background: color-mix(in oklab, var(--macos-surface) var(--toast-surface-mix, 64%), transparent);
+  border-color: rgba(255,255,255,0.28);
+  box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24);
+}
+.macos-toast .toast-card.card-frosted.card-translucent:hover {
+  background: color-mix(in oklab, var(--macos-surface) var(--toast-surface-mix, 64%), transparent);
+  border-color: rgba(255,255,255,0.28);
+}
+
+/* Ensure toasts stay frosted even in Classic UI (match modal behavior expectation) */
+[data-ui='classic'] .macos-toast .toast-card.card-frosted {
+  -webkit-backdrop-filter: saturate(180%) blur(22px) !important;
+  backdrop-filter: saturate(180%) blur(22px) !important;
+  background: color-mix(in oklab, var(--macos-surface) var(--toast-surface-mix, 64%), transparent) !important;
+  border-color: rgba(255,255,255,0.28) !important;
+  box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24) !important;
+}
+[data-ui='classic'] .macos-toast .toast-card.card-frosted.card-translucent:hover {
+  background: color-mix(in oklab, var(--macos-surface) var(--toast-surface-mix, 64%), transparent) !important;
+  border-color: rgba(255,255,255,0.28) !important;
 }
 
 /* Segmented control: use surface in frosted mode */
@@ -1029,6 +1292,31 @@
   border-color: rgba(255,255,255,0.28);
 }
 .chip-frosted.chip-translucent:active { transform: translateZ(0) scale(0.98); }
+/* Translucent primary-tinted chip (same geometry/material as chip-translucent) */
+.chip-frosted.chip-translucent-primary {
+  background: color-mix(in oklab, var(--macos-blue) 22%, rgba(30,30,30,0.26));
+  border-color: color-mix(in oklab, var(--macos-blue) 36%, rgba(255,255,255,0.18));
+}
+.chip-frosted.chip-translucent-primary .chip-label { text-shadow: 0 1px 2px rgba(0,0,0,0.45); }
+.chip-frosted.chip-translucent-primary:hover {
+  background: color-mix(in oklab, var(--macos-blue) 32%, rgba(30,30,30,0.50));
+  border-color: color-mix(in oklab, var(--macos-blue) 42%, rgba(255,255,255,0.28));
+}
+.chip-frosted.chip-translucent-primary:active { transform: translateZ(0) scale(0.98); }
+/* Additional tinted chip variants */
+.chip-frosted.chip-translucent-danger { background: color-mix(in oklab, var(--macos-danger-text) 22%, rgba(30,30,30,0.26)); border-color: color-mix(in oklab, var(--macos-danger-text) 36%, rgba(255,255,255,0.18)); }
+.chip-frosted.chip-translucent-danger:hover { background: color-mix(in oklab, var(--macos-danger-text) 32%, rgba(30,30,30,0.50)); border-color: color-mix(in oklab, var(--macos-danger-text) 42%, rgba(255,255,255,0.28)); }
+.chip-frosted.chip-translucent-success { background: color-mix(in oklab, var(--macos-success-text) 22%, rgba(30,30,30,0.26)); border-color: color-mix(in oklab, var(--macos-success-text) 36%, rgba(255,255,255,0.18)); }
+.chip-frosted.chip-translucent-success:hover { background: color-mix(in oklab, var(--macos-success-text) 32%, rgba(30,30,30,0.50)); border-color: color-mix(in oklab, var(--macos-success-text) 42%, rgba(255,255,255,0.28)); }
+.chip-frosted.chip-translucent-warning { background: color-mix(in oklab, var(--macos-warning-text) 22%, rgba(30,30,30,0.26)); border-color: color-mix(in oklab, var(--macos-warning-text) 36%, rgba(255,255,255,0.18)); }
+.chip-frosted.chip-translucent-warning:hover { background: color-mix(in oklab, var(--macos-warning-text) 32%, rgba(30,30,30,0.50)); border-color: color-mix(in oklab, var(--macos-warning-text) 42%, rgba(255,255,255,0.28)); }
+
+/* Alias: primary action chip used in toolbar (keep for compatibility) */
+[data-ui='frosted'] .chip-frosted.chip-primary-action { background: color-mix(in oklab, var(--macos-blue) 82%, transparent); border-color: color-mix(in oklab, var(--macos-blue) 68%, white 22%); color: #fff; font-weight: 600; }
+[data-ui='frosted'] .chip-frosted.chip-primary-action:hover { background: color-mix(in oklab, var(--macos-blue) 90%, white 8%); border-color: color-mix(in oklab, var(--macos-blue) 76%, white 18%); }
+[data-ui='frosted'] .chip-frosted.chip-primary-action .chip-label { font-weight: 600; }
+[data-ui='frosted'] .chip-frosted.chip-primary-action .chip-icon { width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; margin-right: 4px; color: inherit; }
+
 @supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
   .chip-frosted.chip-translucent { background: rgba(255,255,255,0.12); color: #111; border-color: rgba(0,0,0,0.15); }
 .chip-frosted.chip-translucent:hover {
@@ -1037,6 +1325,23 @@
   border-color: var(--macos-blue);
   color: #fff;
 }
+
+  .chip-frosted.chip-translucent-primary {
+    background: color-mix(in oklab, var(--macos-blue) 20%, rgba(255,255,255,0.12));
+    color: #111;
+    border-color: color-mix(in oklab, var(--macos-blue) 50%, rgba(0,0,0,0.15));
+  }
+  .chip-frosted.chip-translucent-primary:hover {
+    background: color-mix(in oklab, var(--macos-blue) 42%, white 2%);
+    border-color: var(--macos-blue);
+    color: #fff;
+  }
+  .chip-frosted.chip-translucent-danger { background: color-mix(in oklab, var(--macos-danger-text) 20%, rgba(255,255,255,0.12)); color: #111; border-color: color-mix(in oklab, var(--macos-danger-text) 50%, rgba(0,0,0,0.15)); }
+  .chip-frosted.chip-translucent-danger:hover { background: color-mix(in oklab, var(--macos-danger-text) 42%, white 2%); border-color: var(--macos-danger-text); color: #fff; }
+  .chip-frosted.chip-translucent-success { background: color-mix(in oklab, var(--macos-success-text) 20%, rgba(255,255,255,0.12)); color: #111; border-color: color-mix(in oklab, var(--macos-success-text) 50%, rgba(0,0,0,0.15)); }
+  .chip-frosted.chip-translucent-success:hover { background: color-mix(in oklab, var(--macos-success-text) 42%, white 2%); border-color: var(--macos-success-text); color: #fff; }
+  .chip-frosted.chip-translucent-warning { background: color-mix(in oklab, var(--macos-warning-text) 20%, rgba(255,255,255,0.12)); color: #111; border-color: color-mix(in oklab, var(--macos-warning-text) 50%, rgba(0,0,0,0.15)); }
+  .chip-frosted.chip-translucent-warning:hover { background: color-mix(in oklab, var(--macos-warning-text) 42%, white 2%); border-color: var(--macos-warning-text); color: #fff; }
 
 /* When any modal is open, disable floating filter's blur and interaction to avoid composite flicker behind modal */
 body.modal-open .floating-filter {
@@ -1047,21 +1352,81 @@ body.modal-open .floating-filter {
   transition: opacity .15s ease;
 }
 }
-[data-ui='frosted'] .macos-modal .btn-glass,
-[data-ui='classic'] .macos-modal .btn-glass,
 [data-ui='frosted'] .macos-modal .btn-chip,
 [data-ui='classic'] .macos-modal .btn-chip,
 [data-ui='frosted'] .macos-modal .btn-chip-icon,
 [data-ui='classic'] .macos-modal .btn-chip-icon { transform: none !important; }
-[data-ui='frosted'] .macos-modal .btn-glass:hover,
-[data-ui='classic'] .macos-modal .btn-glass:hover,
 [data-ui='frosted'] .macos-modal .btn-chip:hover,
 [data-ui='classic'] .macos-modal .btn-chip:hover,
 [data-ui='frosted'] .macos-modal .btn-chip-icon:hover,
 [data-ui='classic'] .macos-modal .btn-chip-icon:hover { transform: none !important; }
-[data-ui='frosted'] .macos-modal .btn-glass:active,
-[data-ui='classic'] .macos-modal .btn-glass:active,
 [data-ui='frosted'] .macos-modal .btn-chip:active,
 [data-ui='classic'] .macos-modal .btn-chip:active,
 [data-ui='frosted'] .macos-modal .btn-chip-icon:active,
 [data-ui='classic'] .macos-modal .btn-chip-icon:active { transform: none !important; }
+
+/* ensure quiet chip variants don't animate in modals as well */
+[data-ui='frosted'] .macos-modal .btn-chip-ghost,
+[data-ui='classic'] .macos-modal .btn-chip-ghost,
+[data-ui='frosted'] .macos-modal .icon-chip-ghost,
+[data-ui='classic'] .macos-modal .icon-chip-ghost { transform: none !important; }
+[data-ui='frosted'] .macos-modal .btn-chip-ghost:hover,
+[data-ui='classic'] .macos-modal .btn-chip-ghost:hover,
+[data-ui='frosted'] .macos-modal .icon-chip-ghost:hover,
+[data-ui='classic'] .macos-modal .icon-chip-ghost:hover { transform: none !important; }
+[data-ui='frosted'] .macos-modal .btn-chip-ghost:active,
+[data-ui='classic'] .macos-modal .btn-chip-ghost:active,
+[data-ui='frosted'] .macos-modal .icon-chip-ghost:active,
+[data-ui='classic'] .macos-modal .icon-chip-ghost:active { transform: none !important; }
+
+/* Generic Chip Panel: reusable wider chip container for grouped controls */
+.chip-panel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--chip-panel-h, 36px);
+  padding: 0 var(--chip-panel-pad-x, 10px);
+  border-radius: var(--chip-panel-radius, 12px);
+  width: max-content;
+  white-space: nowrap;
+}
+.chip-panel .icon-chip-ghost { width: 28px; height: 28px; }
+.chip-panel .select-macos, .chip-panel .filter-select { height: 28px; }
+
+/* Popover (global styles, replaces scoped in PopoverMenu.vue) */
+.macos-popover {
+  border-radius: 10px;
+  box-shadow: var(--macos-shadow-2);
+  padding: 6px;
+  z-index: 1200;
+  background: transparent; /* real bg from card-frosted */
+  max-height: var(--menu-max-h, 420px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.popover-item {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: var(--fs-base);
+  color: var(--macos-text-primary);
+  cursor: pointer;
+}
+.popover-item + .popover-item { margin-top: 4px; }
+.popover-item:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); color: #fff; }
+.popover-divider { height: 1px; background: var(--macos-divider-weak); margin: 6px -8px; }
+
+/* marquee label infra */
+.popover-item .popover-label { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; }
+.popover-item .popover-label-track { display: inline-flex; align-items: center; will-change: transform; }
+.popover-item .popover-label:not(.marquee) .popover-label-inner:last-child { display: none; }
+.popover-item .popover-label-inner + .popover-label-inner { margin-left: var(--marquee-gap, 32px); }
+.popover-item:hover .popover-label.marquee .popover-label-track { animation: ribbon-marquee var(--marquee-duration, 4s) linear 0.25s infinite; }
+@keyframes ribbon-marquee { from { transform: translateX(0); } to { transform: translateX(calc(-1 * var(--marquee-distance, 0px))); } }
+.popover-item .popover-label.marquee {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 8px, #000 calc(100% - 8px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 8px, #000 calc(100% - 8px), transparent 100%);
+}
+.popover-item .sr-icon { width: 16px; height: 16px; margin-right: 8px; flex: 0 0 16px; display: inline-flex; align-items: center; justify-content: center; }

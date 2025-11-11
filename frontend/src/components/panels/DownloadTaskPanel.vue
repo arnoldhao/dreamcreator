@@ -89,7 +89,7 @@
         <div class="macos-row">
           <span class="k">{{ $t('subtitle.common.edit') || '编辑' }}</span>
           <span class="v">
-            <button class="btn-glass" @click="onOpenSubtitleClick" :disabled="!canEditSubtitle" :title="!canEditSubtitle ? (t('download.processing') || 'Processing') : ''">
+            <button class="btn-chip-ghost" @click="onOpenSubtitleClick" :disabled="!canEditSubtitle" :title="!canEditSubtitle ? (t('download.processing') || 'Processing') : ''">
               <Icon name="edit" class="w-4 h-4 mr-1" />
               {{ $t('subtitle.common.edit') }}
             </button>
@@ -126,7 +126,7 @@
           <span class="k">URL</span>
           <span class="v v-flex">
             <span class="text-clip" :title="task?.url">{{ task?.url }}</span>
-            <button class="icon-glass" :data-tooltip="$t('download.copy_url')" data-tip-pos="top" @click="copy(task?.url)"><Icon name="file-copy" class="w-4 h-4"/></button>
+            <button class="icon-chip-ghost" :data-tooltip="$t('download.copy_url')" data-tip-pos="top" @click="copy(task?.url)"><Icon name="file-copy" class="w-4 h-4"/></button>
           </span>
         </div>
       </div>
@@ -144,7 +144,7 @@
           <div class="k2">{{ $t('download.output_dir') }}</div>
           <div class="v2">
             <div class="text-clip" :title="task?.outputDir">{{ task?.outputDir }}</div>
-            <button v-if="task?.outputDir" class="icon-glass" :data-tooltip="$t('download.open_folder')" data-tip-pos="top" @click="openDirectory(task.outputDir)"><Icon name="folder" class="w-4 h-4"/></button>
+            <button v-if="task?.outputDir" class="icon-chip-ghost" :data-tooltip="$t('download.open_folder')" data-tip-pos="top" @click="openDirectory(task.outputDir)"><Icon name="folder" class="w-4 h-4"/></button>
           </div>
         </div>
         <div class="files" v-if="task?.allFiles?.length">
@@ -152,7 +152,7 @@
             <div class="k2">{{ $t('download.output_files') }} #{{ idx + 1 }}</div>
             <div class="v2">
             <div class="text-clip" :title="f">{{ getFileName(f) }}</div>
-            <button class="icon-glass" :data-tooltip="$t('download.copy_name')" data-tip-pos="top" @click="copy(f)"><Icon name="file-copy" class="w-4 h-4"/></button>
+            <button class="icon-chip-ghost" :data-tooltip="$t('download.copy_name')" data-tip-pos="top" @click="copy(f)"><Icon name="file-copy" class="w-4 h-4"/></button>
             </div>
           </div>
         </div>
@@ -598,9 +598,9 @@ onUnmounted(() => eventBus.off('download_task:refresh', refresh))
 /* Frosted status chip (bottom-right), matches play control aesthetic */
 /* row chips and thumb chips now use global .chip-frosted */
 .macos-box .v { position: relative; }
-.macos-box .v-flex { display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
-.macos-box .v-flex .text-clip { flex: 1 1 auto; }
-.url-row .icon-glass, .v2 .icon-glass { width: 28px; height: 28px; padding: 0; }
+.macos-box .v-flex { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; min-width: 0; }
+.macos-box .v-flex .text-clip { min-width: 0; }
+.url-row .icon-chip-ghost, .v2 .icon-chip-ghost { width: 28px; height: 28px; padding: 0; }
 .one-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .macos-group {} /* spacing handled globally */
 .macos-group-title {} /* typographic style handled globally */
@@ -610,7 +610,7 @@ onUnmounted(() => eventBus.off('download_task:refresh', refresh))
 .kv .v { font-size: var(--fs-sub); color: var(--macos-text-primary); }
 .kv2 { display: flex; flex-direction: column; gap: 4px; }
 .k2 { color: var(--macos-text-secondary); font-size: var(--fs-sub); }
-.v2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.v2 { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; min-width: 0; }
 .row2 { display:flex; flex-direction: column; gap:4px; padding: 8px 10px; }
 .row2 + .row2 { position: relative; }
 .row2 + .row2::before { content: ''; position: absolute; top: 0; left: 10px; right: 10px; height: 1px; background: var(--macos-divider-weak); }

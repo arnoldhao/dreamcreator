@@ -4,10 +4,12 @@
 
     <!-- left list (independent of background and divider) -->
     <aside class="sr-left" :style="{ width: leftWidth, minWidth: leftWidth }">
-      <div v-for="g in groups" :key="g.key" class="sr-item" :class="{ active: current === g.key }"
-        @click="current = g.key">
-        <Icon :name="g.icon" class="sr-item-icon" />
-        <span class="sr-item-label truncate">{{ g.label }}</span>
+      <div class="source-group">
+        <div v-for="g in groups" :key="g.key" class="source-chip" :class="{ 'ribbon-active active': current === g.key }"
+          @click="current = g.key">
+          <span class="icon-cell"><Icon :name="g.icon" class="source-row-icon" /></span>
+          <span class="label-cell"><span class="source-row-label truncate">{{ g.label }}</span></span>
+        </div>
       </div>
     </aside>
 
@@ -30,10 +32,10 @@
               <Icon name="mail" class="w-4 h-4 mr-1" />
               <span>{{ Project.Email }}</span>
             </a>
-            <button class="icon-btn" @click="openGithub" :data-tooltip="'GitHub'" aria-label="GitHub">
+            <button class="icon-chip-ghost" @click="openGithub" :data-tooltip="'GitHub'" data-tip-pos="top" aria-label="GitHub">
               <Icon name="github" class="w-5 h-5" />
             </button>
-            <button class="icon-btn" @click="openTwitter" :data-tooltip="'Twitter'" aria-label="Twitter">
+            <button class="icon-chip-ghost" @click="openTwitter" :data-tooltip="'Twitter'" data-tip-pos="top" aria-label="Twitter">
               <Icon name="twitter" class="w-5 h-5" />
             </button>
           </div>
@@ -54,11 +56,11 @@
             </div>
           </div>
           <div class="about-actions">
-            <button class="btn-glass" @click="openChangelog">
+            <button class="btn-chip-ghost" @click="openChangelog">
               <Icon name="list" class="w-4 h-4 mr-1" />
               {{ $t('settings.about.changelog') }}
             </button>
-            <button class="btn-glass btn-primary" @click="checkUpdates">
+            <button class="btn-chip-ghost btn-primary" @click="checkUpdates">
               <Icon name="refresh" class="w-4 h-4 mr-1" />
               {{ $t('menu.check_update') }}
             </button>
@@ -159,7 +161,7 @@
               <div class="k">{{ $t('settings.general.download_directory') }}</div>
               <div class="v">
                 <span class="result-field mr-2 text-secondary" :class="{ 'text-tertiary': !prefStore.download?.dir }" :title="prefStore.download?.dir">{{ prefStore.download?.dir }}</span>
-                <button class="icon-glass" @click="onSelectDownloadDir" :data-tooltip="t('download.open_folder')" :aria-label="t('download.open_folder')"><Icon name="folder" class="w-4 h-4" /></button>
+                <button class="icon-chip-ghost" @click="onSelectDownloadDir" :data-tooltip="t('download.open_folder')" :aria-label="t('download.open_folder')"><Icon name="folder" class="w-4 h-4" /></button>
               </div>
             </div>
           </template>
@@ -233,9 +235,9 @@
                   <span class="result-field mr-2 text-secondary"
                     :class="{ 'text-tertiary': !prefStore.logger.directory }"
                     :title="prefStore.logger.directory">{{ prefStore.logger.directory }}</span>
-                <button class="icon-glass" @click="openDirectory(prefStore.logger.directory)" :data-tooltip="t('download.open_folder')" :aria-label="t('download.open_folder')"><Icon
+                <button class="icon-chip-ghost" @click="openDirectory(prefStore.logger.directory)" :data-tooltip="t('download.open_folder')" :aria-label="t('download.open_folder')"><Icon
                       name="folder" class="w-4 h-4" /></button>
-                <button class="icon-glass" @click="onSelectLoggerDir" :data-tooltip="t('common.change') || 'Change'" :aria-label="t('common.change') || 'Change'"><Icon name="settings" class="w-4 h-4" /></button>
+                <button class="icon-chip-ghost" @click="onSelectLoggerDir" :data-tooltip="t('common.change') || 'Change'" :aria-label="t('common.change') || 'Change'"><Icon name="settings" class="w-4 h-4" /></button>
                 </div>
               </div>
             </template>
@@ -247,7 +249,7 @@
               <div class="k">{{ $t('settings.general.config_path') }}</div>
               <div class="v">
                 <span class="result-field mr-2 text-secondary">{{ prefPath }}</span>
-                <button class="icon-glass" @click="openDirectory(prefPath)" :data-tooltip="t('download.open_folder')" :aria-label="t('download.open_folder')"><Icon
+                <button class="icon-chip-ghost" @click="openDirectory(prefPath)" :data-tooltip="t('download.open_folder')" :aria-label="t('download.open_folder')"><Icon
                     name="folder" class="w-4 h-4" /></button>
               </div>
             </div>
@@ -255,7 +257,7 @@
               <div class="k">{{ $t('settings.general.data_path') }}</div>
               <div class="v">
                 <span class="result-field mr-2 text-secondary">{{ taskDbPath }}</span>
-                <button class="icon-glass" @click="openDirectory(taskDbPath)" :data-tooltip="t('download.open_folder')" :aria-label="t('download.open_folder')"><Icon
+                <button class="icon-chip-ghost" @click="openDirectory(taskDbPath)" :data-tooltip="t('download.open_folder')" :aria-label="t('download.open_folder')"><Icon
                     name="folder" class="w-4 h-4" /></button>
               </div>
             </div>
@@ -267,7 +269,7 @@
               <div class="k">WebSocket</div>
               <div class="v">
                 <span class="result-field mr-2 text-secondary" :title="wsListendAddress">{{ wsListendAddress }}</span>
-                <button class="icon-glass" @click="copyText(wsListendAddress)" :data-tooltip="$t('common.copy')" :aria-label="$t('common.copy')">
+                <button class="icon-chip-ghost" @click="copyText(wsListendAddress)" :data-tooltip="$t('common.copy')" :aria-label="$t('common.copy')">
                   <Icon name="file-copy" class="w-4 h-4" />
                 </button>
               </div>
@@ -276,7 +278,7 @@
               <div class="k">MCP Server</div>
               <div class="v">
                 <span class="result-field mr-2 text-secondary" :title="mcpListendAddress">{{ mcpListendAddress }}</span>
-                <button class="icon-glass" @click="copyText(mcpListendAddress)" :data-tooltip="$t('common.copy')" :aria-label="$t('common.copy')">
+                <button class="icon-chip-ghost" @click="copyText(mcpListendAddress)" :data-tooltip="$t('common.copy')" :aria-label="$t('common.copy')">
                   <Icon name="file-copy" class="w-4 h-4" />
                 </button>
               </div>
@@ -291,7 +293,7 @@
               <div class="k">ZHConvert</div>
               <div class="v">
                 <span class="text-secondary mr-2">{{ $t('dialogue.about.zhconvert_desc') }}</span>
-                <button class="btn-glass" @click="openUrl(Project.ZHConvert)" :data-tooltip="$t('dialogue.about.website')" :aria-label="$t('dialogue.about.website')">
+                <button class="btn-chip-ghost" @click="openUrl(Project.ZHConvert)" :data-tooltip="$t('dialogue.about.website')" :aria-label="$t('dialogue.about.website')">
                   <Icon name="globe" class="w-4 h-4 mr-1"/> {{ $t('dialogue.about.website') }}
                 </button>
               </div>
@@ -469,50 +471,7 @@ const copyText = async (text) => { await copyToClipboard(text, t) }
 
 /* divider/background moved to settings-host (::before/::after) */
 
-/* left menu row mimics Ribbon */
-.sr-item {
-  height: 28px;
-  display: flex;
-  align-items: center;
-  border-radius: 8px;
-  padding: 0 10px 0 12px;
-  color: var(--macos-text-secondary);
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
-}
-
-.sr-item:hover {
-  background: var(--macos-gray-hover);
-}
-
-.sr-item.active {
-  background: var(--macos-gray-hover);
-  color: var(--macos-blue);
-  font-weight: 400;
-}
-
-.sr-item.active:hover {
-  background: var(--macos-gray-hover);
-}
-
-.sr-item-icon {
-  width: 18px;
-  height: 18px;
-  margin-right: 8px;
-  color: var(--macos-text-secondary);
-}
-
-.sr-item.active .sr-item-icon {
-  color: var(--macos-blue);
-}
-
-.sr-item-label {
-  font-size: var(--fs-base);
-  line-height: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* Left list now reuses global .source-chip/.ribbon-active styles */
 
 /* right content card: only wraps content, background fills column */
 .sr-right {
@@ -667,25 +626,7 @@ const copyText = async (text) => { await copyToClipboard(text, t) }
 }
 
 /* 原生 macOS 风格图标按钮；避免使用外部 UI 库的类名 */
-.sr-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--macos-text-secondary);
-}
-
-.sr-icon-btn:hover {
-  background: var(--macos-gray-hover);
-}
-
-.sr-icon-btn:active {
-  background: var(--macos-gray-active);
-}
+/* removed sr-icon-btn (use icon-chip-ghost) */
 
 /* remove local mid divider; rely on host (#app-content .with-split) */
 
@@ -713,7 +654,7 @@ const copyText = async (text) => { await copyToClipboard(text, t) }
   min-height: 36px;
 }
 .sr-card :deep(.macos-row) .k { text-align: left; color: var(--macos-text-primary); }
-.sr-card :deep(.macos-row) .v { justify-self: end; display: inline-flex; align-items: center; }
+.sr-card :deep(.macos-row) .v { justify-self: end; display: inline-flex; align-items: center; gap: 8px; }
 
 /* make grid columns follow Ribbon width */
 .sr-root {
@@ -737,7 +678,7 @@ const copyText = async (text) => { await copyToClipboard(text, t) }
 .about-links .link-text:hover { text-decoration: underline; }
 .about-links .dot { color: var(--macos-text-tertiary); }
 .about-social { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
-.about-social .icon-btn { @extend .sr-icon-btn; width: 28px; height: 28px; }
+/* use global icon-chip-ghost for social buttons */
 .about-actions { display: flex; gap: 10px; margin-top: 10px; }
 .about-options { display: flex; flex-direction: column; gap: 6px; width: min(360px, 100%); margin-top: 6px; }
 .about-option { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 12px; background: var(--macos-surface); backdrop-filter: var(--macos-surface-blur); border: 1px solid var(--macos-divider-weak); width: 100%; box-shadow: var(--macos-shadow-1); min-height: 32px; }

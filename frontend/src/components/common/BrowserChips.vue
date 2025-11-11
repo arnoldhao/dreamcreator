@@ -60,6 +60,6 @@ const chipClass = (opt) => ({
 .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--macos-text-tertiary); }
 .chip-frosted.active .dot { background: var(--macos-blue); }
 .dot.manual { background: var(--macos-blue); }
-.label { font-size: var(--fs-sub); }
+/* 使用全局 .label 尺寸与色彩 */
 .badge { margin-left: 6px; padding: 0 6px; border-radius: 999px; font-size: 10px; background: color-mix(in oklab, var(--macos-blue) 15%, transparent); color: var(--macos-blue); text-transform: uppercase; }
 </style>

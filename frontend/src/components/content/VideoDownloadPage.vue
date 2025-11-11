@@ -1,5 +1,5 @@
 <template>
-  <div class="macos-page min-w-0" @click="onPageClick">
+  <div class="macos-page min-w-0" @click.capture="onBackgroundClick">
 
     <div class="dl-grid">
       <div v-if="filteredTasks.length === 0" class="dl-empty">
@@ -13,11 +13,11 @@
           <div class="title">{{ $t('download.no_download_tasks') }}</div>
           <div class="subtitle">{{ $t('download.start_first_download_task') }}</div>
           <div class="actions">
-            <button class="btn-glass btn-primary btn-sm" @click.stop="showDownloadModal = true">
+            <button class="btn-chip-ghost btn-primary btn-sm" @click.stop="showDownloadModal = true">
               <Icon name="plus" class="w-4 h-4 mr-1" />
               {{ $t('download.new_task') }}
             </button>
-            <button class="btn-glass btn-sm" @click.stop="onRefreshClick">
+            <button class="btn-chip-ghost btn-sm" @click.stop="onRefreshClick">
               <Icon name="refresh" class="w-4 h-4 mr-1" />
               {{ $t('common.refresh') }}
             </button>
@@ -33,11 +33,11 @@
           <div class="title">{{ $t('download.no_filter_results') }}</div>
           <div class="subtitle">{{ currentFilterLabel }}</div>
           <div class="actions">
-            <button class="btn-glass btn-primary btn-sm" @click.stop="resetFilters">
+            <button class="btn-chip-ghost btn-primary btn-sm" @click.stop="resetFilters">
               <Icon name="refresh" class="w-4 h-4 mr-1" />
               {{ $t('common.reset') }}
             </button>
-            <button class="btn-glass btn-sm" @click.stop="onRefreshClick">
+            <button class="btn-chip-ghost btn-sm" @click.stop="onRefreshClick">
               <Icon name="refresh" class="w-4 h-4 mr-1" />
               {{ $t('common.refresh') }}
             </button>
@@ -60,8 +60,8 @@
     <CookiesManagerModal v-if="showCookies" @close="showCookies = false" />
 
     <!-- floating filter at bottom-right -->
-    <div class="floating-filter" @click.stop :style="{ right: (inspector.visible ? (layout.inspectorWidth + 12) : 12) + 'px' }">
-      <button class="icon-glass" :data-tooltip="$t('download.refresh')" data-tip-pos="top" @click="onRefreshClick">
+    <div class="floating-filter chip-frosted chip-translucent chip-panel" @click.stop :style="{ right: (inspector.visible ? (layout.inspectorWidth + 12) : 12) + 'px' }">
+      <button class="icon-chip-ghost" :data-tooltip="$t('download.refresh')" data-tip-pos="top" @click="onRefreshClick">
         <Icon name="refresh" class="w-4 h-4" :class="{ spinning: refreshing }" />
       </button>
       <div class="divider-v"></div>
@@ -79,7 +79,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ProxiedImage from '@/components/common/ProxiedImage.vue'
 import { ListTasks, DeleteTask } from 'wailsjs/go/api/DowntasksAPI'
@@ -87,6 +87,7 @@ import { OpenDirectory } from 'wailsjs/go/systems/Service'
 import { useDtStore } from '@/handlers/downtasks'
 import eventBus from '@/utils/eventBus.js'
 import useInspectorStore from '@/stores/inspector.js'
+import useNavStore from '@/stores/nav.js'
 import useLayoutStore from '@/stores/layout.js'
 import DownloadTaskCard from '@/components/download/DownloadTaskCard.vue'
 import VideoDownloadModal from '@/components/modal/VideoDownloadModal.vue'
@@ -102,6 +103,7 @@ const filter = ref('all')
 const activeTaskId = ref(null)
 const dtStore = useDtStore()
 const inspector = useInspectorStore()
+const navStore = useNavStore()
 const layout = useLayoutStore()
 const showDownloadModal = ref(false)
 const showCookies = ref(false)
@@ -271,6 +273,8 @@ onMounted(() => {
   // bridge clicks from Inspector header
   eventBus.on('download:toggle-cookies', onToggleCookies)
   eventBus.on('download:toggle-detail', onToggleDetail)
+  // If inspector is closed (e.g., returning to this page), ensure selection is cleared
+  if (!inspector.visible) activeTaskId.value = null
 })
 onUnmounted(() => {
   dtStore.unregisterProgressCallback(onProgress)
@@ -330,11 +334,19 @@ function onToggleDetail() {
 const isCookiesActive = computed(() => inspector.visible && inspector.panel === 'CookiesPanel')
 const isDetailActive = computed(() => inspector.visible && inspector.panel === 'DownloadTaskPanel')
 
-function onPageClick() {
-  // Click anywhere on the page closes inspector and collapses filter
-  inspector.close()
-  activeTaskId.value = null
-  floatingFilterExpanded.value = false
+// Capture clicks at page root to ensure blank areas reliably close inspector
+function onBackgroundClick(ev) {
+  try {
+    const path = typeof ev?.composedPath === 'function' ? ev.composedPath() : []
+    const hasClass = (el, cls) => !!(el && el.classList && el.classList.contains && el.classList.contains(cls))
+    const inCard = path.some(el => hasClass(el, 'dl-card'))
+    const inFloating = path.some(el => hasClass(el, 'floating-filter'))
+    const inModal = path.some(el => hasClass(el, 'macos-modal'))
+    if (inCard || inFloating || inModal) return
+    inspector.close()
+    activeTaskId.value = null
+    floatingFilterExpanded.value = false
+  } catch {}
 }
 
 function onDownloadStarted(payload) {
@@ -348,6 +360,14 @@ function resetFilters() {
   filter.value = 'all'
   query.value = ''
 }
+
+// Keep selection in sync with inspector visibility and navigation
+watch(() => inspector.visible, (v) => {
+  if (!v) activeTaskId.value = null
+})
+watch(() => navStore.currentNav, (v) => {
+  if (v === navStore.navOptions.DOWNLOAD && !inspector.visible) activeTaskId.value = null
+})
 </script>
 
 <style scoped>
@@ -360,10 +380,8 @@ function resetFilters() {
 .dl-tiles-move { transition: transform .2s ease; will-change: transform; }
 .dl-tiles-enter-active, .dl-tiles-leave-active { transition: all .2s ease; }
 .dl-tiles-enter-from, .dl-tiles-leave-to { opacity: 0; transform: scale(0.98); }
-.dl-actions { display:flex; align-items:center; gap: 8px; }
-.dl-search { width: 200px; height: 26px; }
-
-.dl-card { padding: 8px; }
+.dl-actions { display:none; }
+.dl-search { display:none; }
  .dl-empty { padding: 40px 12px; display:flex; align-items:center; justify-content:center; }
  .empty-card { width: 100%; max-width: 560px; padding: 24px; border-radius: 12px; display:flex; flex-direction:column; align-items:center; text-align:center; gap: 12px; }
  .empty-card .icon-wrap { margin-bottom: 4px; }
@@ -372,29 +390,14 @@ function resetFilters() {
 .empty-card .subtitle { font-size: var(--fs-sub); color: var(--macos-text-secondary); }
  .empty-card .actions { display:flex; align-items:center; gap: 8px; margin-top: 4px; }
 
-.task-row { display:grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items:center; padding: 8px; border-radius: 8px; transition: background .12s ease; }
-.task-row:hover { background: var(--macos-gray-hover); }
-.task-row.active { background: var(--macos-gray-hover); }
-.thumb { width: 64px; height: 40px; border-radius: 6px; overflow:hidden; background: var(--macos-background-secondary); display:flex; align-items:center; justify-content:center; }
-.thumb-fallback { width:100%; height:100%; display:flex; align-items:center; justify-content:center; color: var(--macos-text-tertiary); }
-.title-row { display:flex; align-items:center; gap: 8px; min-width:0; }
-.title { font-size: var(--fs-base); font-weight: 500; color: var(--macos-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.meta { font-size: var(--fs-sub); color: var(--macos-text-secondary); margin-top: 2px; }
-.progress { width: 100%; height: 2px; background: var(--macos-divider-weak); border-radius: 999px; overflow: hidden; margin-top: 6px; }
-.progress .bar { height: 100%; background: var(--macos-blue); }
-.ops { display:flex; align-items:center; gap: 6px; white-space: nowrap; }
+/* remove legacy task row styles (migrated to DownloadTaskCard) */
 
 /* use global .segmented/.seg-item */
 
 /* floating filter */
-.floating-filter { position: fixed; bottom: 16px; z-index: 1200; display: inline-flex; align-items: center; gap: 6px; padding: 6px; border-radius: 10px; 
-  /* stronger frosted look */
-  background: color-mix(in oklab, var(--macos-surface) 80%, transparent);
-  border: 1px solid rgba(255,255,255,0.22);
-  -webkit-backdrop-filter: var(--macos-surface-blur);
-  backdrop-filter: var(--macos-surface-blur);
-  box-shadow: var(--macos-shadow-2);
-}
+.floating-filter { position: fixed; bottom: 16px; z-index: 1200; display: inline-flex; align-items: center; gap: 8px; padding: 6px; border-radius: 10px; }
+/* New wider chip panel variant for floating control */
+/* moved to global: styles/macos-components.scss (.chip-panel) */
 /* Align count chip visuals with Subtitle page (use global chip styles) */
 .floating-filter .count-pill { font-size: var(--fs-sub); line-height: 1; }
 .floating-filter .filter-toggle { display:inline-flex; align-items:center; gap:6px; cursor: pointer; color: var(--macos-text-secondary); height: 28px; padding: 0 6px; border-radius: 6px; line-height: 0; }
@@ -405,8 +408,8 @@ function resetFilters() {
 .floating-filter .spinning { animation: macos-spin .6s ease-in-out both; }
 @keyframes macos-spin { to { transform: rotate(360deg); } }
 /* normalize icon vertical metrics to avoid baseline drift */
-.floating-filter .icon-glass, .floating-filter .sr-icon-btn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; line-height: 0; background: transparent; border-color: var(--macos-separator); color: var(--macos-text-secondary); box-shadow: none; }
-.floating-filter .icon-glass:hover, .floating-filter .sr-icon-btn:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); border-color: var(--macos-blue); color: #fff; }
-.floating-filter .sr-icon-btn .w-4, .floating-filter .filter-toggle .w-4 { display: block; }
+.floating-filter .icon-chip-ghost { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; line-height: 0; background: transparent; border-color: var(--macos-separator); color: var(--macos-text-secondary); box-shadow: none; }
+.floating-filter .icon-chip-ghost:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); border-color: var(--macos-blue); color: #fff; }
+.floating-filter .icon-chip-ghost .w-4, .floating-filter .filter-toggle .w-4 { display: block; }
 .floating-filter .filter-toggle .count-pill { display: block; line-height: 1; }
 </style>

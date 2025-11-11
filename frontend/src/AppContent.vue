@@ -353,7 +353,7 @@ function getPageActions() {
 
     if (subtitleStore.currentProject) {
       modals.push({ key: 'subtitle:metrics', icon: 'info', titleKey: 'subtitle.list.metrics_explanation' })
-      modals.push({ key: 'subtitle:back-home', icon: 'home', titleKey: 'ribbon.subtitle' })
+      modals.push({ key: 'subtitle:back-home', icon: 'home', titleKey: 'subtitle.all_subs' })
     }
 
     return {
@@ -444,7 +444,7 @@ function onModalClick(act) {
           </div>
           <div class="no-drag h-full flex items-center"
                :style="{ paddingLeft: (logoPaddingLeft + 6) + 'px' }">
-            <button class="toolbar-icon-btn" @click.stop="layout.toggleRibbon()"
+            <button class="toolbar-chip" @click.stop="layout.toggleRibbon()"
                     :data-tooltip="layout.ribbonVisible ? t('sidebar.close_sidebar') : t('sidebar.open_sidebar')"
                     :aria-label="layout.ribbonVisible ? t('sidebar.close_sidebar') : t('sidebar.open_sidebar')">
               <Icon :name="layout.ribbonVisible ? 'panel-left-close' : 'panel-left-open'" class="w-4 h-4" />
@@ -454,7 +454,7 @@ function onModalClick(act) {
 
         <!-- middle area: content title (left) + actions (right) -->
         <div id="app-toolbar-center" class="flex-1 flex items-center justify-between px-4 relative min-w-0">
-          <div class="title-strong capitalize flex items-center gap-2 min-w-0">
+          <div class="title-strong capitalize flex items-center gap-2 min-w-0 flex-1">
             <span class="shrink-0">{{ contentTitle }}</span>
             <!-- Show editable project name on subtitle edit page
                  Hide when export inspector is open to prevent layout squeeze -->
@@ -465,34 +465,44 @@ function onModalClick(act) {
               <span class="text-[var(--macos-text-tertiary)]">—</span>
               <div class="project-inline min-w-0">
                 <template v-if="!editingProjectName">
-                  <span class="pill one-line" :title="subtitleStore.currentProject?.project_name || '-'">{{ subtitleStore.currentProject?.project_name || '-' }}</span>
-                  <button class="toolbar-icon-btn" :data-tooltip="$t('common.edit')" data-tip-pos="top" @click="beginEditProjectName"><Icon name="edit" class="w-4 h-4" /></button>
+                  <span class="project-name-text" :title="subtitleStore.currentProject?.project_name || '-'">{{ subtitleStore.currentProject?.project_name || '-' }}</span>
+                  <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.edit')" data-tip-pos="top" @click="beginEditProjectName">
+                    <Icon name="edit" class="w-3 h-3" />
+                  </button>
                 </template>
                 <template v-else>
                   <input v-model="tempProjectName" class="inline-edit pill-input" @keydown.enter.stop.prevent="saveEditProjectName" @keydown.esc.stop.prevent="cancelEditProjectName" />
-                  <button class="toolbar-icon-btn" :data-tooltip="$t('common.confirm')" data-tip-pos="top" @click="saveEditProjectName"><Icon name="status-success" class="w-4 h-4" /></button>
-                  <button class="toolbar-icon-btn" :data-tooltip="$t('common.cancel')" data-tip-pos="top" @click="cancelEditProjectName"><Icon name="close" class="w-4 h-4" /></button>
+                  <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.confirm')" data-tip-pos="top" @click="saveEditProjectName">
+                    <Icon name="status-success" class="w-3 h-3" />
+                  </button>
+                  <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.cancel')" data-tip-pos="top" @click="cancelEditProjectName">
+                    <Icon name="close" class="w-3 h-3" />
+                  </button>
                 </template>
               </div>
             </template>
           </div>
           <!-- centered search for DOWNLOAD -->
           <div v-if="navStore.currentNav === navStore.navOptions.DOWNLOAD" class="toolbar-center-search">
-            <input v-model="downloadNewSearch" type="text" class="input-macos h-[26px] px-2 text-sm"
-                   :placeholder="$t('sidebar.search_placeholder')"
-                   @focus="onDownloadSearchFocus" @blur="searchFocused = false"
-                   @input="emitDownloadNewSearch"
-                   :style="{ width: (searchFocused ? 320 : 200) + 'px', transition: 'width 120ms ease' }" />
+            <div class="btn-chip btn-sm search-chip" :style="{ width: (searchFocused ? 320 : 200) + 'px', transition: 'width 120ms ease' }">
+              <Icon name="search" class="search-icon" />
+              <input v-model="downloadNewSearch" type="text" class="search-input"
+                     :placeholder="$t('sidebar.search_placeholder')"
+                     @focus="onDownloadSearchFocus" @blur="searchFocused = false"
+                     @input="emitDownloadNewSearch" />
+            </div>
           </div>
           <!-- centered search for SUBTITLE: only on home (no project) -->
           <div v-else-if="navStore.currentNav === navStore.navOptions.SUBTITLE && !subtitleStore.currentProject" class="toolbar-center-search">
-            <input v-model="subtitleSearch" type="text" class="input-macos h-[26px] px-2 text-sm"
-                   :placeholder="$t('sidebar.search_placeholder')"
-                   @focus="onSubtitleSearchFocus" @blur="searchFocused = false"
-                   @input="emitSubtitleSearch"
-                   :style="{ width: (searchFocused ? 320 : 200) + 'px', transition: 'width 120ms ease' }" />
+            <div class="btn-chip btn-sm search-chip" :style="{ width: (searchFocused ? 320 : 200) + 'px', transition: 'width 120ms ease' }">
+              <Icon name="search" class="search-icon" />
+              <input v-model="subtitleSearch" type="text" class="search-input"
+                     :placeholder="$t('sidebar.search_placeholder')"
+                     @focus="onSubtitleSearchFocus" @blur="searchFocused = false"
+                     @input="emitSubtitleSearch" />
+            </div>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 ml-2">
             <!-- modal actions (always visible) -->
               <template v-for="act in modalActions" :key="act.key">
                 <!-- Replace subtitle metrics button with current standard chip when in subtitle edit -->
@@ -503,6 +513,30 @@ function onModalClick(act) {
                         @click="onModalClick(act)">
                   <span class="chip-label">{{ metricsStandardName || $t('subtitle.list.metrics_explanation') }}</span>
                 </button>
+                <button v-else-if="act.key === 'subtitle:open-file'"
+                        class="chip-frosted chip-sm chip-translucent-primary"
+                        :data-tooltip="$t(act.titleKey)"
+                        :aria-label="$t(act.titleKey)"
+                        @click="onModalClick(act)">
+                  <Icon :name="act.icon" class="chip-icon" />
+                  <span class="chip-label">{{ $t(act.titleKey) }}</span>
+                </button>
+                <button v-else-if="act.key === 'subtitle:back-home'"
+                        class="chip-frosted chip-sm chip-translucent-primary"
+                        :data-tooltip="$t(act.titleKey)"
+                        :aria-label="$t(act.titleKey)"
+                        @click="onModalClick(act)">
+                  <Icon :name="act.icon" class="chip-icon" />
+                  <span class="chip-label">{{ $t(act.titleKey) }}</span>
+                </button>
+                <button v-else-if="act.key === 'download:new-task'"
+                        class="chip-frosted chip-sm chip-translucent-primary"
+                        :data-tooltip="$t(act.titleKey)"
+                        :aria-label="$t(act.titleKey)"
+                        @click="onModalClick(act)">
+                  <Icon :name="act.icon" class="chip-icon" />
+                  <span class="chip-label">{{ $t(act.titleKey) }}</span>
+                </button>
                 <button v-else-if="primaryModalActions.has(act.key)"
                         class="chip-frosted chip-sm chip-primary-action"
                         :data-tooltip="$t(act.titleKey)"
@@ -511,7 +545,7 @@ function onModalClick(act) {
                   <Icon :name="act.icon" class="chip-icon" />
                   <span class="chip-label">{{ $t(act.titleKey) }}</span>
                 </button>
-                <button v-else class="toolbar-icon-btn"
+                <button v-else class="toolbar-chip"
                         :data-tooltip="$t(act.titleKey)" :aria-label="$t(act.titleKey)"
                         :data-tip-align="act.key === 'dependency:check-updates' ? 'right' : null"
                         @click="onModalClick(act)">
@@ -521,7 +555,7 @@ function onModalClick(act) {
             <!-- panel actions (only when sidebar closed) -->
             <template v-if="!inspector.visible">
               <div class="w-px h-4 bg-[var(--macos-divider-weak)] mx-1" v-if="panelActions.length && modalActions.length"></div>
-              <button v-for="act in panelActions" :key="act.key" class="toolbar-icon-btn"
+              <button v-for="act in panelActions" :key="act.key" class="toolbar-chip"
                 :data-tooltip="$t(act.titleKey)" :aria-label="$t(act.titleKey)" @click="onActionClick(act)">
                 <Icon :name="act.icon" class="w-4 h-4" />
               </button>
@@ -537,7 +571,7 @@ function onModalClick(act) {
             <template v-if="navStore.currentNav === navStore.navOptions.DOWNLOAD">
               <div class="inspector-title text-xs uppercase tracking-wide text-[var(--macos-text-tertiary)]">{{ inspector.title }}</div>
               <div class="flex items-center gap-2">
-                <button v-for="act in inspector.actions" :key="act.key" class="toolbar-icon-btn"
+                <button v-for="act in inspector.actions" :key="act.key" class="toolbar-chip"
                   :aria-label="$t(act.titleKey)" :class="{ active: isDownloadNewActive(act.key) }"
                   @click="onInspectorAction(act.key)">
                   <Icon :name="act.icon" class="w-4 h-4" />
@@ -548,7 +582,7 @@ function onModalClick(act) {
             <template v-else-if="navStore.currentNav === navStore.navOptions.SUBTITLE">
               <div class="inspector-title text-xs uppercase tracking-wide text-[var(--macos-text-tertiary)]">{{ inspector.title }}</div>
               <div class="flex items-center gap-2">
-                <button v-for="act in inspector.actions" :key="act.key" class="toolbar-icon-btn"
+                <button v-for="act in inspector.actions" :key="act.key" class="toolbar-chip"
                   :aria-label="$t(act.titleKey)" :class="{ active: inspector.panel === act.key }"
                   @click="onInspectorAction(act.key)">
                   <Icon :name="act.icon" class="w-4 h-4" />
@@ -559,12 +593,12 @@ function onModalClick(act) {
             <template v-else>
               <div class="inspector-title text-xs uppercase tracking-wide text-[var(--macos-text-tertiary)]">{{ inspector.title }}</div>
               <div class="flex items-center gap-2">
-                <button v-for="act in inspector.actions" :key="act.key" class="toolbar-icon-btn"
+                <button v-for="act in inspector.actions" :key="act.key" class="toolbar-chip"
                   :aria-label="$t(act.titleKey)" :class="{ active: inspector.panel === act.key }"
                   @click="onInspectorAction(act.key)">
                   <Icon :name="act.icon" class="w-4 h-4" />
                 </button>
-                <button class="toolbar-icon-btn" :data-tooltip="$t('common.close')" @click="inspector.close()">
+                <button class="toolbar-chip" :data-tooltip="$t('common.close')" @click="inspector.close()">
                   <Icon name="close" class="w-4 h-4" />
                 </button>
               </div>
@@ -704,50 +738,52 @@ function onModalClick(act) {
 .toolbar-center-search { position: absolute; left: 0; right: 0; text-align: center; pointer-events: none; }
 .toolbar-center-search input { pointer-events: auto; }
 
-/* Inline project name editor in toolbar */
-.project-inline { display:inline-flex; align-items:center; gap:6px; max-width: min(70%, 480px); }
-.project-inline .pill { display:inline-block; max-width: min(65vw, 420px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--macos-text-primary); font-size: var(--fs-sub); font-weight: 400; height: 22px; line-height: 22px; padding: 0 8px; border: 1px solid var(--macos-separator); border-radius: 999px; background: var(--macos-background); }
-.project-inline .pill-input { height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--macos-separator); background: var(--macos-background); color: var(--macos-text-primary); font-size: var(--fs-sub); min-width: 200px; max-width: min(65vw, 420px); }
-
-/* Toolbar primary CTA chips for modal actions */
-[data-ui='frosted'] .chip-frosted.chip-primary-action {
-  background: color-mix(in oklab, var(--macos-blue) 82%, transparent);
-  border-color: color-mix(in oklab, var(--macos-blue) 68%, white 22%);
-  color: #fff;
-  font-weight: 600;
-}
-[data-ui='frosted'] .chip-frosted.chip-primary-action:hover {
-  background: color-mix(in oklab, var(--macos-blue) 90%, white 8%);
-  border-color: color-mix(in oklab, var(--macos-blue) 76%, white 18%);
-}
-[data-ui='frosted'] .chip-frosted.chip-primary-action .chip-label { font-weight: 600; }
-[data-ui='frosted'] .chip-frosted.chip-primary-action .chip-icon {
-  width: 14px;
-  height: 14px;
+/* Search field styled to match btn-chip aesthetics */
+.search-chip {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  margin-right: 4px;
-  color: inherit;
+  gap: 6px;
+  height: 28px; /* match btn-chip geometry */
+  /* make it colorless/quiet by default */
+  background: transparent !important;
+  border-color: var(--macos-separator) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  color: var(--macos-text-secondary);
 }
-@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
-  [data-ui='frosted'] .chip-frosted.chip-primary-action {
-    background: var(--macos-blue);
-    border-color: var(--macos-blue);
-  }
+.search-chip:hover { background: var(--macos-hover-translucent) !important; border-color: var(--macos-divider-weak) !important; }
+.search-chip .search-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--macos-text-tertiary);
+  pointer-events: none; /* decorative */
 }
-[data-ui='classic'] .chip-frosted.chip-primary-action {
-  background: var(--macos-blue) !important;
-  border-color: var(--macos-blue) !important;
-  color: #fff !important;
+.search-chip .search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--macos-text-primary);
+  font-size: var(--fs-sub);
 }
-[data-ui='classic'] .chip-frosted.chip-primary-action .chip-icon {
-  width: 12px;
-  height: 12px;
-  margin-right: 4px;
-  color: inherit;
+.search-chip .search-input::placeholder { color: var(--macos-text-tertiary); }
+/* Focus ring on the chip container when input focused */
+.search-chip:focus-within {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--macos-blue) 28%, transparent);
+  border-color: color-mix(in oklab, var(--macos-blue) 24%, white 12%);
 }
-[data-ui='classic'] .chip-frosted.chip-primary-action .chip-label { font-weight: 600; }
+
+/* Inline project name editor in toolbar */
+.project-inline { display:flex; align-items:center; gap:6px; flex: 1 1 auto; min-width: 0; }
+/* Project name as plain text with ellipsis and flex-resize */
+.project-inline .project-name-text { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--macos-text-primary); font-size: var(--fs-sub); font-weight: 400; }
+/* Inline editor adapts to available width; keep compact height for toolbar */
+.project-inline .pill-input { flex: 1 1 auto; min-width: 120px; max-width: 100%; height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--macos-separator); background: var(--macos-background); color: var(--macos-text-primary); font-size: var(--fs-sub); }
+.project-inline .pill-input:focus { outline: none; border-color: var(--macos-blue); box-shadow: 0 0 0 2px color-mix(in oklab, var(--macos-blue) 30%, transparent); }
+
+/* chip-primary-action 与图标尺寸样式已迁移到全局 styles/macos-components.scss */
 
 /* Top fade under the toolbar when scrolled */
 #app-content .page-scroll { position: relative; }
@@ -769,5 +805,5 @@ function onModalClick(act) {
 #app-content .page-scroll.pad-bottom-for-fab { padding-bottom: 48px !important; }
 
 /* Light + frosted: make left-cap ribbon toggle icon use primary text color for clarity */
-[data-ui="frosted"][data-theme="light"] .macos-toolbar-leftcap .toolbar-icon-btn { color: var(--macos-text-primary); }
+[data-ui="frosted"][data-theme="light"] .macos-toolbar-leftcap .toolbar-chip { color: var(--macos-text-primary); }
 </style>

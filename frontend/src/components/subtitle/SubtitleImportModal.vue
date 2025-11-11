@@ -1,6 +1,6 @@
 <template>
   <div v-if="show" class="macos-modal">
-    <div class="modal-card" @keydown.esc.stop.prevent="emit('close')" tabindex="-1">
+    <div class="modal-card card-frosted card-translucent" @keydown.esc.stop.prevent="emit('close')" tabindex="-1">
       <!-- Header: traffic lights left, title on right -->
       <div class="modal-header">
         <ModalTrafficLights @close="emit('close')" />
@@ -83,11 +83,11 @@
         </div>
         <!-- Inline centered actions below text processing -->
         <div class="actions-center">
-          <button @click="emit('close')" class="btn-glass">
+          <button @click="emit('close')" class="btn-chip">
             <Icon name="close" class="w-4 h-4 mr-1" />
             {{ $t('common.cancel') }}
           </button>
-          <button @click="handleImport" class="btn-glass btn-primary" :disabled="importing">
+          <button @click="handleImport" class="btn-chip btn-primary" :disabled="importing">
             <template v-if="importing">
               <div class="loading-spinner"></div>
             </template>
@@ -139,28 +139,11 @@ const handleImport = () => {
 /* Use shared .macos-modal convention for overlay */
 .macos-modal { animation: fadeIn 0.2s ease-out; }
 
-.modal-card {
-  background: var(--macos-surface);
-  backdrop-filter: var(--macos-surface-blur);
-  border-radius: 12px;
-  box-shadow: var(--macos-shadow-2);
-  max-width: 640px;
-  width: 100%;
-  max-height: 85vh;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.22);
-  animation: slideInUp 0.3s ease-out;
-}
+.modal-card { border-radius: 12px; box-shadow: var(--macos-shadow-2); max-width: 640px; width: 100%; max-height: 85vh; overflow: hidden; animation: slideInUp 0.3s ease-out; }
+/* Always-on active frosted look */
+.modal-card.card-frosted.card-translucent { background: color-mix(in oklab, var(--macos-surface) 76%, transparent); border: 1px solid rgba(255,255,255,0.28); box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24); }
 
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  background: var(--macos-surface);
-  backdrop-filter: var(--macos-surface-blur);
-  border-bottom: 1px solid var(--macos-separator);
-}
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.16); }
 
 /* no traffic lights for sheet-like modal */
 
@@ -402,12 +385,8 @@ const handleImport = () => {
   margin: 0;
 }
 
-.option-label {
-  font-size: var(--fs-base);
-  font-weight: 400;
-  color: var(--macos-text-primary);
-  line-height: 1.3;
-}
+/* 使用全局 .option-label（映射到 .label），仅保留行高微调 */
+.option-label { line-height: 1.3; }
 
 .options-actions {
   display: flex;
@@ -419,11 +398,7 @@ const handleImport = () => {
   background: var(--macos-background-secondary);
 }
 
-.btn-macos-sm {
-  padding: 6px 16px;
-  font-size: var(--fs-base);
-  min-height: 32px;
-}
+/* removed unused .btn-macos-sm */
 
 .loading-spinner {
   width: 14px;

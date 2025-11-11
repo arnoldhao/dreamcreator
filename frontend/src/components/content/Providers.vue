@@ -3,26 +3,31 @@
     <!-- 左列：Provider 列表（移除“提供商”标题行） -->
     <aside class="sr-left" :style="{ width: leftWidth, minWidth: leftWidth }">
       <div class="sr-left-scroll">
-        <div v-for="it in providerListItems" :key="it.key"
-             class="sr-item"
-             :class="{ active: selectedProviderId===it.id }"
-             @click="selectInstance(it.id)">
-          <span class="sr-item-label truncate">{{ it.name }}</span>
+        <div class="source-group">
+          <div v-for="it in providerListItems" :key="it.key"
+               class="source-chip"
+               :class="{ 'ribbon-active active': selectedProviderId===it.id }"
+               @click="selectInstance(it.id)">
+            <span class="icon-cell"><Icon name="database" class="source-row-icon" /></span>
+            <span class="label-cell"><span class="source-row-label truncate">{{ it.name }}</span></span>
+          </div>
         </div>
       </div>
       <div class="sr-left-actions">
-        <button ref="addBtnRef" class="sr-icon-btn" :data-tooltip="'新增'" data-tip-pos="top" @click.stop="toggleAddMenu"><Icon name="plus" class="w-4 h-4"/></button>
-        <button class="sr-icon-btn" :data-tooltip="'删除'" data-tip-pos="top" :disabled="!canDeleteCurrent" @click="onLeftDelete"><Icon name="minus" class="w-4 h-4"/></button>
-        <button class="sr-icon-btn danger" style="margin-left:auto" title="初始化（危险操作）" @click="onInitBolt"><Icon name="status-warning" class="w-4 h-4"/></button>
+        <button ref="addBtnRef" class="icon-chip-ghost" :data-tooltip="t('providers.add')" :aria-label="t('providers.add')" data-tip-pos="top" @click.stop="toggleAddMenu"><Icon name="plus" class="w-4 h-4"/></button>
+        <button class="icon-chip-ghost" :data-tooltip="t('common.delete')" :aria-label="t('common.delete')" data-tip-pos="top" :disabled="!canDeleteCurrent" @click="onLeftDelete"><Icon name="minus" class="w-4 h-4"/></button>
+        <button class="icon-chip-ghost danger" style="margin-left:auto" :title="t('providers.init_danger')" :data-tooltip="t('providers.init_danger')" @click="onInitBolt"><Icon name="status-warning" class="w-4 h-4"/></button>
       </div>
       
       <!-- Add menu popover (teleported to body to avoid clipping) -->
       <teleport to="body">
-        <div v-if="showAddMenu" ref="addMenuEl" class="macos-popover card-frosted card-translucent add-popover" :style="[addMenuStyle, { visibility: addMenuVisible ? 'visible' : 'hidden' }]" @click.stop>
-          <div class="popover-item" v-for="s in (addables.special||[])" :key="'sp:'+s.type" @click="onAddPickCompat(s.type)">{{ s.type === 'openai_compat' ? t('providers.add_openai') : t('providers.add_anthropic') }}</div>
-          <div class="popover-divider" v-if="(addables.presets||[]).length"></div>
-          <div class="popover-item" v-for="p in (addables.presets||[])" :key="'pre:'+p.id" @click="onAddHiddenPreset(p)">{{ p.name }}</div>
-        </div>
+        <PopoverMenu v-if="showAddMenu"
+          ref="addMenuEl"
+          class="add-popover"
+          :items="addMenuItems"
+          :style="[addMenuStyle, { visibility: addMenuVisible ? 'visible' : 'hidden' }]"
+          @select="onAddMenuSelect"
+        />
       </teleport>
     </aside>
 
@@ -39,14 +44,14 @@
           <template v-if="mode==='provider' && currentProvider">
             <!-- Provider name field (custom providers only) -->
             <div class="field" v-if="isCustomProvider(currentProvider)">
-              <div class="field-label">{{ t('providers.provider_name') }}</div>
+              <div class="label label-strong">{{ t('providers.provider_name') }}</div>
               <div class="field-input">
                 <input v-model="formProv.name" class="input-macos input-full" placeholder="Provider" @blur="onFieldBlur" />
               </div>
             </div>
             <!-- API Key field -->
             <div class="field">
-              <div class="field-label">API Key</div>
+              <div class="label label-strong">API Key</div>
               <div class="field-input">
                 <input :type="showKey ? 'text' : 'password'"
                        :value="apiKeyDisplay"
@@ -54,7 +59,7 @@
                        placeholder="sk-..."
                        @input="onKeyInput($event.target.value)"
                        @blur="onFieldBlur" />
-                <button class="icon-input-end" @click="showKey = !showKey" :aria-label="showKey ? '隐藏' : '显示'" :data-tooltip="showKey ? '隐藏' : '显示'">
+                <button class="icon-input-end" @click="showKey = !showKey" :aria-label="showKey ? t('common.hide') : t('common.show')" :data-tooltip="showKey ? t('common.hide') : t('common.show')">
                   <Icon :name="showKey ? 'eye' : 'eye-off'" class="w-4 h-4" />
                 </button>
               </div>
@@ -62,7 +67,7 @@
 
             <!-- Base URL field -->
             <div class="field">
-              <div class="field-label">{{ t('providers.api_base_url') }}</div>
+              <div class="label label-strong">{{ t('providers.api_base_url') }}</div>
               <div class="field-input">
                 <input v-model="formProv.base_url"
                        class="input-macos input-full"
@@ -74,7 +79,7 @@
             <div class="sr-section-divider subtle"></div>
             <div class="profiles-head">
               <span>{{ t('providers.profiles_title') }}</span>
-              <button class="btn-glass btn-sm" @click="openNewProfile"
+              <button class="btn-chip-ghost btn-sm" @click="openNewProfile"
                       :disabled="!(currentProvider && (currentProvider.models || []).length)">
                 <Icon name="plus" class="w-4 h-4 mr-1" />{{ t('providers.profiles_add') }}
               </button>
@@ -97,10 +102,10 @@
                   </span>
                 </div>
                 <div class="col actions">
-                  <button class="sr-icon-btn" :data-tooltip="t('common.edit')" data-tip-pos="top" @click="beginEditProfile(prof)">
+                  <button class="icon-chip-ghost" :data-tooltip="t('common.edit')" data-tip-pos="top" @click="beginEditProfile(prof)">
                     <Icon name="edit" class="w-4 h-4" />
                   </button>
-                  <button class="sr-icon-btn danger" :data-tooltip="t('common.delete')" data-tip-pos="top" @click="onDeleteProfile(prof)">
+                  <button class="icon-chip-ghost danger" :data-tooltip="t('common.delete')" data-tip-pos="top" @click="onDeleteProfile(prof)">
                     <Icon name="trash" class="w-4 h-4" />
                   </button>
                 </div>
@@ -119,23 +124,23 @@
               <div class="title">{{ t('providers.create_title') }}</div>
             </div>
             <div class="field">
-              <div class="field-label">{{ t('providers.provider_name') }}</div>
+              <div class="label label-strong">{{ t('providers.provider_name') }}</div>
               <div class="field-input">
                 <input v-model="newProv.name" class="input-macos input-full" placeholder="Custom Provider 1" @blur="onCreateIfReady" />
               </div>
             </div>
             <div class="field">
-              <div class="field-label">{{ t('providers.api_base_url') }}</div>
+              <div class="label label-strong">{{ t('providers.api_base_url') }}</div>
               <div class="field-input">
                 <input v-model="newProv.base_url" class="input-macos input-full" :placeholder="createBaseUrlPlaceholder" @blur="onCreateIfReady" />
               </div>
               <div class="field-hint">{{ t('providers.base_url_hint') }}</div>
             </div>
             <div class="field">
-              <div class="field-label">{{ t('providers.api_key') }}</div>
+              <div class="label label-strong">{{ t('providers.api_key') }}</div>
               <div class="field-input">
                 <input :type="showKeyCreate ? 'text' : 'password'" v-model="newProv.api_key" class="input-macos input-full" placeholder="sk-xxxx" />
-                <button class="icon-input-end" @click="showKeyCreate = !showKeyCreate" :aria-label="showKeyCreate ? '隐藏' : '显示'">
+                <button class="icon-input-end" @click="showKeyCreate = !showKeyCreate" :aria-label="showKeyCreate ? t('common.hide') : t('common.show')" :data-tooltip="showKeyCreate ? t('common.hide') : t('common.show')">
                   <Icon :name="showKeyCreate ? 'eye' : 'eye-off'" class="w-4 h-4" />
                 </button>
               </div>
@@ -160,6 +165,7 @@ import { useI18n } from 'vue-i18n'
 import useLLMStore from '@/stores/llm.js'
 import { createProvider as apiCreateProvider, resetLLMData, canDelete, listAddableProviders } from '@/services/llmProviderService.js'
 import useLayoutStore from '@/stores/layout.js'
+import PopoverMenu from '@/components/common/PopoverMenu.vue'
 
 const llm = useLLMStore()
 const layout = useLayoutStore()
@@ -369,7 +375,8 @@ async function toggleAddMenu(){
     try {
       if (window.ResizeObserver && addMenuEl.value) {
         addMenuRO = new ResizeObserver(() => positionAddMenu())
-        addMenuRO.observe(addMenuEl.value)
+        const el = addMenuEl.value?.$el || addMenuEl.value
+        if (el) addMenuRO.observe(el)
       }
     } catch {}
     // defer placement to next animation frame to ensure layout is ready
@@ -387,7 +394,7 @@ function closeAddMenu(){
 function positionAddMenu(){
   try {
     const btn = addBtnRef.value
-    const menu = addMenuEl.value
+    const menu = addMenuEl.value?.$el || addMenuEl.value
     if (!btn || !menu) return
     const br = btn.getBoundingClientRect()
     const mr = menu.getBoundingClientRect()
@@ -431,6 +438,36 @@ async function onAddHiddenPreset(preset){
     window?.$message?.error?.(t('providers.enable_preset_failed'))
   } finally {
     closeAddMenu()
+  }
+}
+
+// Build items for add menu (reuse PopoverMenu)
+const addMenuItems = computed(() => {
+  const items = []
+  const sp = Array.isArray(addables.value?.special) ? addables.value.special : []
+  sp.forEach(s => {
+    const key = `sp:${s.type}`
+    const labelKey = s.type === 'openai_compat' ? 'providers.add_openai' : 'providers.add_anthropic'
+    items.push({ key, labelKey, icon: 'plus' })
+  })
+  const presets = Array.isArray(addables.value?.presets) ? addables.value.presets : []
+  if (presets.length && sp.length) items.push({ key: 'div:presets', type: 'divider' })
+  presets.forEach(p => {
+    items.push({ key: `pre:${p.id}`, label: p.name, icon: 'database' })
+  })
+  return items
+})
+
+function onAddMenuSelect(it){
+  if (!it || !it.key) return
+  if (String(it.key).startsWith('sp:')) {
+    const kind = String(it.key).slice(3)
+    return onAddPickCompat(kind)
+  }
+  if (String(it.key).startsWith('pre:')) {
+    const id = String(it.key).slice(4)
+    const preset = (addables.value?.presets || []).find(p => String(p.id) === id)
+    return onAddHiddenPreset(preset)
   }
 }
 // onAddPickPreset 已移除：统一采用 policy=custom 的新增
@@ -494,15 +531,12 @@ async function onInitBolt(){
 
 <style scoped>
 /* 1:1 复刻 Settings 的两栏结构和风格 */
-.sr-root { position: absolute; inset: 0; display: grid; grid-template-columns: var(--left-col, 160px) 1fr; }
+.sr-root { position: absolute; inset: 0; display: grid; grid-template-columns: var(--left-col, 160px) 1fr; overflow: hidden; }
 .sr-left { position: relative; z-index: 1; padding: 6px; display: flex; flex-direction: column; gap: 6px; justify-content: flex-start; }
 .sr-left { min-height: 0; --cmd-area-h: 44px; }
-.sr-left-scroll { flex: 0 1 auto; height: calc(100% - var(--cmd-area-h)); min-height: 0; overflow-y: auto; overflow-x: hidden; }
-.sr-right { position: relative; z-index: 1; background: var(--macos-background); padding: 12px; overflow: auto; font-size: var(--fs-base); }
-.sr-item { height: 28px; display: flex; align-items: center; border-radius: 8px; padding: 0 10px 0 12px; color: var(--macos-text-secondary); cursor: pointer; transition: background 120ms ease, color 120ms ease; }
-.sr-item:hover { background: var(--macos-gray-hover); }
-.sr-item.active { background: var(--macos-gray-hover); color: var(--macos-blue); font-weight: 400; }
-.sr-item-label { font-size: var(--fs-base); line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sr-left-scroll { flex: 0 1 auto; height: calc(100% - var(--cmd-area-h)); min-height: 0; overflow-y: auto; overflow-x: hidden; padding-right: 10px; scrollbar-gutter: stable; }
+.sr-right { position: relative; z-index: 1; background: var(--macos-background); padding: 12px; overflow: auto; font-size: var(--fs-base); height: 100%; }
+.sr-item, .sr-item:hover, .sr-item.active, .sr-item-label { /* deprecated: replaced by .source-chip styles */ }
 .sr-left-actions { position: absolute; bottom: 0; left: 6px; right: 6px; height: var(--cmd-area-h); display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--macos-divider-weak); background: transparent; }
 .sr-group-title { font-size: var(--fs-sub); color: var(--macos-text-secondary); margin: 4px 4px 6px; }
 
@@ -522,28 +556,21 @@ async function onInitBolt(){
 /* 字段两行布局：第一行 label 左对齐，第二行输入框铺满，眼睛图标右对齐叠放 */
 .field { display: flex; flex-direction: column; gap: 6px; padding: 6px 2px; }
 .field + .field { border-top: 1px dashed var(--macos-separator-weak); }
-.field-label { font-weight: 600; color: var(--macos-text-secondary); font-size: 12px; }
+/* 使用全局 .label/.label-strong 样式替代 .field-label */
 .field-input { position: relative; }
 .field-input .input-macos { width: 100%; padding-right: 30px; }
 .icon-input-end { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: transparent; border: 1px solid transparent; color: var(--macos-text-secondary); }
 .icon-input-end:hover { background: var(--macos-gray-hover); }
 
-/* 原生 macOS 风格图标按钮 */
-.sr-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; background: transparent; border: 1px solid transparent; color: var(--macos-text-secondary); }
-.sr-icon-btn:hover { background: var(--macos-gray-hover); }
-.sr-icon-btn:active { background: var(--macos-gray-active); }
-.sr-icon-btn:disabled { opacity: .5; cursor: not-allowed; }
+/* use global icon-chip-ghost; keep danger tone */
 
 /* Add popover placement near left actions */
-.add-popover { min-width: 180px; width: max-content; max-width: 360px; max-height: 420px; overflow-y: auto; overflow-x: hidden; pointer-events: auto; }
-.add-popover .popover-item { white-space: nowrap; justify-content: center; text-align: center; }
-.add-popover .popover-divider { height: 1px; background: var(--macos-divider-weak); margin: 6px -8px; }
+/* style teleported popover via deep selector so it applies to child component root */
+:deep(.add-popover) { min-width: 180px; width: max-content; max-width: 360px; max-height: 420px; overflow-y: auto; overflow-x: hidden; pointer-events: auto; }
+:deep(.add-popover .popover-item) { white-space: nowrap; }
+:deep(.add-popover .popover-divider) { height: 1px; background: var(--macos-divider-weak); margin: 6px -8px; }
 
-/* Popover base (local copy to avoid style scoping in Ribbon) */
-.macos-popover { border-radius: 10px; box-shadow: var(--macos-shadow-2); padding: 6px; z-index: 1200; }
-.popover-item { height: 28px; display: flex; align-items: center; padding: 0 8px; border-radius: 6px; font-size: var(--fs-base); color: var(--macos-text-primary); cursor: pointer; }
-.popover-item + .popover-item { margin-top: 4px; }
-.popover-item:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); color: #fff; }
+/* Popover 基础样式改由全局提供（styles/macos-components.scss） */
 
 .field-hint { font-size: 11px; color: var(--macos-text-tertiary); margin-top: 4px; }
 
@@ -563,7 +590,7 @@ async function onInitBolt(){
 .profile-add-row { padding: 8px 0; display: flex; justify-content: flex-end; }
 
 .empty { display: grid; place-items: center; height: 280px; color: var(--macos-text-tertiary); }
-.danger { color: var(--macos-red); }
+.danger { color: var(--macos-danger-text); }
 
 :host, .sr-root { --left-col: 160px; }
 </style>

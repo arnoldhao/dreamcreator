@@ -1,6 +1,6 @@
 <template>
   <div v-if="show" class="macos-modal">
-    <div class="modal-card big">
+    <div class="modal-card big card-frosted card-translucent">
       <div class="modal-header">
         <ModalTrafficLights @close="$emit('close')" />
         <div class="title">
@@ -16,7 +16,7 @@
           </div>
         </div>
         <div class="header-meta">
-          <button class="icon-glass" :data-tooltip="$t('common.refresh')" @click="fetchCookies" :disabled="isLoading">
+          <button class="icon-chip-ghost" :data-tooltip="$t('common.refresh')" @click="fetchCookies" :disabled="isLoading">
             <Icon name="refresh" class="w-4 h-4" :class="{ spinning: isLoading }" />
           </button>
         </div>
@@ -28,7 +28,7 @@
             <Icon name="search" class="search-icon" />
             <input v-model="searchQuery" type="text" class="input-macos h-[26px] w-full pl-7 pr-7 text-sm"
                    :placeholder="$t('cookies.search_placeholder')" />
-            <button v-if="searchQuery" class="icon-glass search-clear" :data-tooltip="$t('common.reset')" @click="searchQuery = ''">
+            <button v-if="searchQuery" class="icon-chip-ghost search-clear" :data-tooltip="$t('common.reset')" @click="searchQuery = ''">
               <Icon name="close" class="w-4 h-4" />
             </button>
           </div>
@@ -93,7 +93,7 @@
                     <span class="syncing-text">{{ $t('cookies.status.syncing') }}</span>
                   </div>
                 </template>
-                  <button class="icon-glass" :data-tooltip="isBrowserExpanded(browser) ? $t('common.collapse') : $t('common.expand')" @click.stop="toggleBrowser(browser)">
+                  <button class="icon-chip-ghost" :data-tooltip="isBrowserExpanded(browser) ? $t('common.collapse') : $t('common.expand')" @click.stop="toggleBrowser(browser)">
                     <Icon :name="isBrowserExpanded(browser) ? 'chevron-up' : 'chevron-down'" class="w-4 h-4" />
                   </button>
               </div>
@@ -116,25 +116,25 @@
                       <div class="truncate" :title="cookie.Domain">{{ cookie.Domain }}</div>
                       <div v-if="isCellActive(browser, idx, 'Domain')" class="cell-pop">
                         <div class="pop-text mono">{{ cookie.Domain }}</div>
-                        <div class="pop-ops"><button class="icon-glass" :data-tooltip="$t('common.copy')" @click.stop="copy(cookie.Domain)"><Icon name="file-copy" class="w-4 h-4" /></button></div>
+                        <div class="pop-ops"><button class="icon-chip-ghost" :data-tooltip="$t('common.copy')" @click.stop="copy(cookie.Domain)"><Icon name="file-copy" class="w-4 h-4" /></button></div>
                       </div>
                     </td>
                     <td class="td mono rel" @click="toggleCell(browser, idx, 'Name')">
                       <div class="truncate" :title="cookie.Name">{{ cookie.Name }}</div>
                       <div v-if="isCellActive(browser, idx, 'Name')" class="cell-pop">
                         <div class="pop-text mono">{{ cookie.Name }}</div>
-                        <div class="pop-ops"><button class="icon-glass" :data-tooltip="$t('common.copy')" @click.stop="copy(cookie.Name)"><Icon name="file-copy" class="w-4 h-4" /></button></div>
+                        <div class="pop-ops"><button class="icon-chip-ghost" :data-tooltip="$t('common.copy')" @click.stop="copy(cookie.Name)"><Icon name="file-copy" class="w-4 h-4" /></button></div>
                       </div>
                     </td>
                     <td class="td mono rel text-[var(--macos-text-secondary)]" @click="toggleCell(browser, idx, 'Value')">
                       <div class="truncate" :title="cookie.Value">{{ cookie.Value }}</div>
                       <div v-if="isCellActive(browser, idx, 'Value')" class="cell-pop">
                         <div class="pop-text mono break-all">{{ cookie.Value }}</div>
-                        <div class="pop-ops"><button class="icon-glass" :data-tooltip="$t('common.copy')" @click.stop="copy(cookie.Value)"><Icon name="file-copy" class="w-4 h-4" /></button></div>
+                        <div class="pop-ops"><button class="icon-chip-ghost" :data-tooltip="$t('common.copy')" @click.stop="copy(cookie.Value)"><Icon name="file-copy" class="w-4 h-4" /></button></div>
                       </div>
                     </td>
                     <td class="td ops">
-                      <button class="icon-glass" :data-tooltip="$t('common.copy')" @click="copy(cookie.Value)">
+                      <button class="icon-chip-ghost" :data-tooltip="$t('common.copy')" @click="copy(cookie.Value)">
                         <Icon name="file-copy" class="w-4 h-4" />
                       </button>
                     </td>
@@ -142,7 +142,7 @@
                 </tbody>
               </table>
               <div class="load-more" v-if="(visibleCounts[browser] || 0) < getFilteredCookies(browser).length">
-            <button class="btn-glass" @click.stop="loadMore(browser)">{{ $t('common.load_more') }} ({{ getFilteredCookies(browser).length - (visibleCounts[browser] || 0) }})</button>
+            <button class="btn-chip-ghost" @click.stop="loadMore(browser)">{{ $t('common.load_more') }} ({{ getFilteredCookies(browser).length - (visibleCounts[browser] || 0) }})</button>
               </div>
             </div>
           </div>
@@ -422,10 +422,12 @@ watch(debouncedQuery, (q) => {
 </script>
 
 <style scoped>
-.macos-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center; z-index: 2000; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.modal-card { width: 720px; max-width: calc(100% - 32px); background: var(--macos-background); border: 1px solid var(--macos-separator); border-radius: 12px; box-shadow: var(--macos-shadow-3); overflow:hidden; }
+.macos-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center; z-index: 2000; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.modal-card { width: 720px; max-width: calc(100% - 32px); border-radius: 12px; overflow:hidden; }
 .modal-card.big { width: 860px; }
-.modal-header { height: 36px; display:grid; grid-template-columns: auto 1fr auto; align-items:center; padding: 0 10px; border-bottom: 1px solid var(--macos-divider-weak); }
+/* Always-on active frosted look */
+.modal-card.card-frosted.card-translucent { background: color-mix(in oklab, var(--macos-surface) 76%, transparent); border: 1px solid rgba(255,255,255,0.28); box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24); }
+.modal-header { height: 36px; display:grid; grid-template-columns: auto 1fr auto; align-items:center; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.16); }
 .modal-header .title { font-size: var(--fs-base); font-weight: 600; color: var(--macos-text-primary); text-align: center; }
 .modal-body { padding: 12px; max-height: 70vh; overflow: auto; }
 

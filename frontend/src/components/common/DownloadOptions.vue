@@ -210,7 +210,7 @@ watch(
 .download-options { padding: 16px 0; display: flex; flex-direction: column; gap: 20px; }
 .options-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
 .option-group { display: flex; flex-direction: column; gap: 6px; }
-.option-label { font-size: var(--fs-sub); font-weight: 500; color: var(--macos-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+.option-label { font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
 .select-macos option.option-header { background: var(--macos-background-secondary); color: var(--macos-text-secondary); font-weight: 600; }
 @media (max-width: 768px) { .options-grid { grid-template-columns: 1fr; gap: 12px; } }
 

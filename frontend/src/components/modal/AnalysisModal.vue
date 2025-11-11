@@ -86,8 +86,8 @@
             <button class="btn-chip btn-sm" @click="retryTask"><Icon name="refresh" class="w-4 h-4 mr-1"/>{{ t('download.retry') }}</button>
           </div>
           <div class="right-actions">
-            <button class="btn-chip btn-primary btn-sm" @click="start" :disabled="started">{{ started ? (t('download.processing') || 'Processing...') : (t('download.analyze') || 'Analyze') }}</button>
             <button class="btn-chip btn-sm" @click="close">{{ t('common.close') }}</button>
+            <button class="btn-chip btn-primary btn-sm" @click="start" :disabled="started">{{ started ? (t('download.processing') || 'Processing...') : (t('download.analyze') || 'Analyze') }}</button>
           </div>
         </div>
       </div>
@@ -339,7 +339,7 @@ watch(() => props.taskError, (v) => { if (props.show && v) errorText.value = v }
 .right-actions, .left-actions { display:flex; align-items:center; gap: 8px; }
 .modal-card.card-frosted.card-translucent { 
   /* Always-on active look for analysis modal */
-  background: color-mix(in oklab, var(--macos-surface) 88%, transparent);
+  background: color-mix(in oklab, var(--macos-surface) 76%, transparent);
   border-color: rgba(255,255,255,0.28);
   box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24);
 }

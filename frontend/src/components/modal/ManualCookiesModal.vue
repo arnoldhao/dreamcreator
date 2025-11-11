@@ -5,7 +5,7 @@
     role="dialog"
     aria-modal="true"
   >
-    <div class="modal-card">
+    <div class="modal-card card-frosted card-translucent">
       <div class="modal-header">
         <ModalTrafficLights @close="handleClose" />
         <div class="title">
@@ -42,10 +42,10 @@
               </div>
               <div class="section-actions">
                 <template v-if="isEditing">
-                  <button type="button" class="btn-glass" @click="cancelEdit">{{ $t('common.cancel') }}</button>
-                  <button type="button" class="btn-primary" @click="applyEdit">{{ $t('common.save') }}</button>
+                  <button type="button" class="btn-chip" @click="cancelEdit">{{ $t('common.cancel') }}</button>
+                  <button type="button" class="btn-chip btn-primary" @click="applyEdit">{{ $t('common.save') }}</button>
                 </template>
-                <button v-else type="button" class="btn-glass" @click="startEdit">{{ $t('common.edit') }}</button>
+                <button v-else type="button" class="btn-chip" @click="startEdit">{{ $t('common.edit') }}</button>
               </div>
             </div>
 
@@ -526,9 +526,11 @@ function generateNetscapeFromCollection(collection) {
 </script>
 
 <style scoped>
-.macos-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.2); z-index: 2000; display:flex; align-items:center; justify-content:center; }
-.modal-card { width: 720px; max-width: calc(100% - 40px); background: var(--macos-background); border-radius: 12px; border: 1px solid var(--macos-separator); box-shadow: var(--macos-shadow-3); display:flex; flex-direction: column; overflow:hidden; }
-.modal-header { height: 36px; display:flex; align-items:center; justify-content: space-between; padding: 0 10px; border-bottom: 1px solid var(--macos-divider-weak); }
+.macos-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.2); z-index: 2000; display:flex; align-items:center; justify-content:center; backdrop-filter: blur(8px); }
+.modal-card { width: 720px; max-width: calc(100% - 40px); border-radius: 12px; display:flex; flex-direction: column; overflow:hidden; }
+/* Always-on active frosted look (align to AnalysisModal) */
+.modal-card.card-frosted.card-translucent { background: color-mix(in oklab, var(--macos-surface) 76%, transparent); border: 1px solid rgba(255,255,255,0.28); box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24); }
+.modal-header { height: 36px; display:flex; align-items:center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.16); }
 .modal-header .title { font-size: 14px; font-weight: 600; color: var(--macos-text-primary); }
 .modal-body { padding: 16px 18px; max-height: 70vh; overflow-y: auto; }
 .form-grid { display:flex; flex-direction: column; gap: 16px; }
@@ -596,10 +598,8 @@ function generateNetscapeFromCollection(collection) {
 .empty-preview { border: 1px dashed var(--macos-separator); border-radius: 10px; padding: 24px 16px; text-align: center; color: var(--macos-text-tertiary); display:flex; flex-direction: column; gap: 6px; align-items:center; }
 .empty-preview .title { font-weight: 600; color: var(--macos-text-secondary); }
 .empty-preview .desc { font-size: 12px; }
-.modal-footer { border-top: 1px solid var(--macos-divider-weak); padding: 10px 16px; display:flex; align-items:center; justify-content: space-between; background: color-mix(in oklab, var(--macos-background) 95%, rgba(0,0,0,0.02)); }
+.modal-footer { border-top: 1px solid rgba(255,255,255,0.16); padding: 10px 16px; display:flex; align-items:center; justify-content: space-between; background: transparent; }
 .modal-footer .actions { display:flex; align-items:center; gap: 8px; }
-.btn-primary { background: var(--macos-blue); color: white; border: none; border-radius: 8px; padding: 6px 14px; font-size: 13px; transition: background .2s ease; }
-.btn-primary:hover { background: color-mix(in oklab, var(--macos-blue) 85%, white); }
-.btn-primary:disabled { background: rgba(60,60,67,0.15); color: var(--macos-text-tertiary); cursor: not-allowed; }
+/* local .btn-primary removed in favor of global .btn-chip.btn-primary */
 .left-hint { font-size: 11px; color: var(--macos-text-tertiary); }
 </style>

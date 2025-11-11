@@ -11,9 +11,15 @@
               <div class="language-indicator" :style="{ backgroundColor: getLanguageColor(index) }"></div>
               <span class="language-name">{{ language.language_name }}</span>
               <span class="subtitle-count">({{ getSubtitleCount(language.language_name) }})</span>
-              <button v-if="availableLanguages.length > 1" @click.stop="removeLanguage(language.language_code)"
-                class="tab-close">
-                ×
+              <button
+                v-if="availableLanguages.length > 1"
+                @click.stop="removeLanguage(language.language_code)"
+                class="tab-close btn-chip-icon"
+                :data-tooltip="$t('common.delete')"
+                data-tip-pos="top"
+                :aria-label="$t('common.delete')"
+              >
+                <Icon name="close" class="w-3.5 h-3.5" />
               </button>
             </div>
           </button>
@@ -21,18 +27,25 @@
 
         <!-- 指标说明按钮 - 使用图标 -->
         <div class="tabs-right">
-          <!-- 添加语言按钮 -->
-          <button @click="$emit('add-language')" class="action-btn add-language-btn" title="添加语言">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-            </svg>
+          <!-- 添加语言按钮：复用全局 btn-chip-icon + Icon + data-tooltip -->
+          <button
+            class="btn-chip-icon"
+            :data-tooltip="$t('subtitle.add_language.title')"
+            data-tip-pos="top"
+            :aria-label="$t('subtitle.add_language.title')"
+            @click="$emit('add-language')">
+            <Icon name="plus" class="w-4 h-4" />
           </button>
 
-          <!-- 指标面板切换按钮 -->
-          <button @click="toggleMetricsPanel" class="action-btn metrics-btn" :class="{ 'active': isMetricsPanelExpanded }" title="显示/隐藏指标说明">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
-            </svg>
+          <!-- 指标面板切换按钮：复用全局 btn-chip-icon -->
+          <button
+            class="btn-chip-icon"
+            :class="{ active: isMetricsPanelExpanded }"
+            :data-tooltip="$t('subtitle.list.metrics_explanation')"
+            data-tip-pos="top"
+            :aria-label="$t('subtitle.list.metrics_explanation')"
+            @click="toggleMetricsPanel">
+            <Icon name="info" class="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -577,119 +590,7 @@ export default {
   transform: translateY(-1px);
 }
 
-/* 统一的操作按钮样式 */
-.action-btn {
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--macos-border);
-  border-radius: 6px;
-  background: var(--macos-background);
-  color: var(--macos-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-  position: relative;
-  overflow: hidden;
-}
-
-.action-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.1) 100%);
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.action-btn:hover {
-  background: var(--macos-background-secondary);
-  color: var(--macos-text-primary);
-  border-color: var(--macos-blue);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.action-btn:hover::before {
-  opacity: 1;
-}
-
-.action-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* 确保 tabs-right 中的按钮样式优先级 */
-.tabs-right .action-btn {
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--macos-border);
-  border-radius: 6px;
-  background: var(--macos-background);
-  color: var(--macos-text-secondary);
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.tabs-right .action-btn:hover {
-  background: var(--macos-background-secondary);
-  color: var(--macos-text-primary);
-  border-color: var(--macos-blue);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* 添加语言按钮特殊样式 */
-.add-language-btn {
-  border-style: dashed;
-  border-color: var(--macos-border);
-}
-
-.add-language-btn:hover {
-  border-style: solid;
-  border-color: var(--macos-success-text);
-  color: var(--macos-success-text);
-  background: var(--macos-success-bg);
-}
-
-.tabs-right .add-language-btn {
-  border-style: dashed;
-}
-
-.tabs-right .add-language-btn:hover {
-  border-style: solid;
-  border-color: var(--macos-success-text);
-  color: var(--macos-success-text);
-  background: var(--macos-success-bg);
-}
-
-/* 指标按钮激活状态 */
-.metrics-btn.active {
-  background: var(--macos-blue);
-  color: white;
-  border-color: var(--macos-blue);
-  box-shadow: 0 2px 8px rgba(var(--macos-blue-rgb), 0.3);
-}
-
-.metrics-btn.active:hover {
-  background: var(--macos-blue-hover);
-  border-color: var(--macos-blue-hover);
-}
-
-.tabs-right .metrics-btn.active {
-  background: var(--macos-blue);
-  color: white;
-  border-color: var(--macos-blue);
-}
+/* 顶部右侧按钮改为复用 .btn-chip-icon（全局样式控制 hover/active/tooltip） */
 
 
 .tab-content {
@@ -734,30 +635,27 @@ export default {
 }
 
 .tab-close {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  border: none;
-  background: transparent;
+  width: 18px;
+  height: 18px;
+  border: none; /* 覆盖 btn-chip-icon 的边框，使其更贴合标签 */
+  background: transparent; /* 贴合标签背景 */
   border-radius: 50%;
   color: inherit;
-  opacity: 0;
-  transition: all 0.2s ease;
+  opacity: 0; /* 悬停标签时才出现 */
+  transition: all 0.18s ease;
   flex-shrink: 0;
   margin-left: 2px;
+  box-shadow: none;
 }
 
 .language-tab:hover .tab-close {
   opacity: 0.7;
 }
 
-.tab-close:hover {
-  background: rgba(255, 255, 255, 0.2);
-  opacity: 1;
-  transform: scale(1.1);
-}
+.tab-close:hover { background: rgba(255, 255, 255, 0.20); opacity: 1; transform: scale(1.05); }
 
 .language-tab.active .tab-close:hover {
   background: rgba(255, 255, 255, 0.2);
@@ -864,11 +762,7 @@ export default {
   min-width: fit-content;
 }
 
-.metric-label {
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: var(--fs-nano);
-}
+.metric-label { text-transform: uppercase; letter-spacing: 0.5px; }
 
 .metric-value {
   font-weight: 700;
@@ -1062,16 +956,6 @@ export default {
     margin-left: 8px;
   }
   
-  .action-btn {
-    width: 28px;
-    height: 28px;
-  }
-  
-  .action-btn svg {
-    width: 12px;
-    height: 12px;
-  }
-  
   .language-tab {
     max-width: 100px;
     min-width: 70px;
@@ -1124,16 +1008,6 @@ export default {
     min-width: 70px;
     padding-left: 8px;
     margin-left: 8px;
-  }
-  
-  .action-btn {
-    width: 28px;
-    height: 28px;
-  }
-  
-  .action-btn svg {
-    width: 12px;
-    height: 12px;
   }
   
   .tabs-left {
@@ -1333,13 +1207,7 @@ export default {
   color: var(--macos-text-primary);
 }
 
-.metric-label {
-  font-size: var(--fs-micro);
-  font-weight: 500;
-  color: var(--macos-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
+.metric-label { text-transform: uppercase; letter-spacing: 0.5px; }
 
 .metric-description {
   padding: 12px;
@@ -1384,11 +1252,7 @@ export default {
   background: rgba(239, 68, 68, 0.05);
 }
 
-.threshold-label {
-  font-size: var(--fs-caption);
-  font-weight: 500;
-  color: var(--macos-text-primary);
-}
+.threshold-label { font-weight: 500; }
 
 .threshold-value {
   font-size: var(--fs-caption);

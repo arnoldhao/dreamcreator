@@ -1035,7 +1035,8 @@ const resetForm = () => {
 /* macOS Tahoe 风格：半透明磨砂 + 柔和阴影，与 AnalysisModal 保持一致 */
 .macos-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.2); backdrop-filter: blur(8px); display:flex; align-items:center; justify-content:center; z-index: 2000; padding: 16px; }
 .modal-card { width: min(640px, 96vw); max-height: 82vh; display:flex; flex-direction: column; overflow: hidden; border-radius: 12px; border: 1px solid rgba(60,60,67,0.20); box-shadow: var(--macos-shadow-2, 0 12px 30px rgba(0,0,0,0.24)); }
-.modal-card.card-frosted.card-translucent { background: color-mix(in oklab, var(--macos-surface) 88%, transparent); border-color: rgba(255,255,255,0.28); box-shadow: var(--macos-shadow-2, 0 12px 30px rgba(0,0,0,0.24)), 0 12px 30px rgba(0,0,0,0.24); }
+/* lighten base to enhance translucency; sheen/inner strokes come from global .card-frosted */
+.modal-card.card-frosted.card-translucent { background: color-mix(in oklab, var(--macos-surface) 76%, transparent); border-color: rgba(255,255,255,0.28); box-shadow: var(--macos-shadow-2, 0 12px 30px rgba(0,0,0,0.24)), 0 12px 30px rgba(0,0,0,0.24); }
 .modal-header { height: 36px; display:flex; align-items:center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.16); }
 .modal-header .title-area { display:flex; align-items:center; gap: 10px; min-width: 0; }
 .modal-header .title-text { font-size: var(--fs-base); font-weight: 600; color: var(--macos-text-primary); }
@@ -1276,13 +1277,7 @@ const resetForm = () => {
   gap: 6px;
 }
 
-.option-label {
-  font-size: var(--fs-sub);
-  font-weight: 500;
-  color: var(--macos-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
+.option-label { font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
 
 .select-macos option.option-header {
   background: var(--macos-background-secondary);
@@ -1309,7 +1304,7 @@ const resetForm = () => {
 .options-actions { display:flex; align-items:center; justify-content:center; gap: 16px; padding-top: 22px; width: 100%; }
 
 // Footer
-.modal-footer { display:flex; justify-content: flex-end; gap: 12px; padding: 8px 10px; border-top: 1px solid var(--macos-divider-weak); background: var(--macos-background-secondary); }
+.modal-footer { display:flex; justify-content: flex-end; gap: 12px; padding: 8px 10px; border-top: 1px solid var(--macos-divider-weak); background: color-mix(in oklab, var(--macos-surface) 82%, transparent); }
 
 // 分割线样式
 .section-divider {
