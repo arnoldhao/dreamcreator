@@ -503,6 +503,68 @@
 .toolbar-chip[data-tooltip][data-tip-align='right']::before { left: auto; right: 10px; }
 .toolbar-chip[data-tooltip][data-tip-align='right'][data-tip-pos='top']:hover::after { transform: translateY(-2px); }
 
+/* btn-chip tooltips (parity with toolbar-chip) */
+.btn-chip[data-tooltip] { position: relative; }
+.btn-chip[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: -36px;
+  transform: translateX(-50%);
+  background: rgba(60,60,67,0.92);
+  color: #fff;
+  font-size: var(--fs-caption);
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+.btn-chip[data-tooltip]::before { display: none; content: none; }
+.btn-chip[data-tooltip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(2px); }
+.btn-chip[data-tooltip][data-tip-pos='top']::after { bottom: auto; top: -36px; }
+.btn-chip[data-tooltip][data-tip-align='right']::after { left: auto; right: 0; transform: translateX(0); }
+.btn-chip[data-tooltip][data-tip-align='right']:hover::after { transform: translateY(2px); }
+.btn-chip[data-tooltip][data-tip-align='right'][data-tip-pos='top']:hover::after { transform: translateY(-2px); }
+
+/* btn-chip-icon tooltips */
+.btn-chip-icon[data-tooltip] { position: relative; }
+.btn-chip-icon[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: -36px;
+  transform: translateX(-50%);
+  background: rgba(60,60,67,0.92);
+  color: #fff;
+  font-size: var(--fs-caption);
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+.btn-chip-icon[data-tooltip]::before { display: none; content: none; }
+.btn-chip-icon[data-tooltip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(2px); }
+.btn-chip-icon[data-tooltip][data-tip-pos='top']::after { bottom: auto; top: -36px; }
+.btn-chip-icon[data-tooltip][data-tip-align='right']::after { left: auto; right: 0; transform: translateX(0); }
+.btn-chip-icon[data-tooltip][data-tip-align='right']:hover::after { transform: translateY(2px); }
+.btn-chip-icon[data-tooltip][data-tip-align='right'][data-tip-pos='top']:hover::after { transform: translateY(-2px); }
+
 /* removed sr-icon-btn tooltips; use icon-chip-ghost/toolbars chip */
 
 /* Generic tooltip anchor for non-button elements (e.g., metric dots) */
@@ -648,6 +710,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box; /* width/height include border */
+  padding: 0; /* ensure perfect circle across UAs */
+  line-height: 0; /* avoid baseline expansion */
+  flex: 0 0 auto; /* prevent flex growth/shrink affecting geometry */
+  vertical-align: middle; /* align with text baseline environments */
+  overflow: hidden; /* clip inner effects to circle */
   width: 28px;
   height: 28px;
   border-radius: 999px;
@@ -660,6 +728,10 @@
   box-shadow: 0 1px 0 rgba(255,255,255,0.10) inset, 0 3px 9px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.14);
   text-shadow: 0 1px 1px rgba(0,0,0,0.38);
 }
+.btn-chip-icon.btn-sm { width: 24px; height: 24px; }
+.btn-chip-icon.btn-xs { width: 22px; height: 22px; }
+/* Extra small circular icon button for very tight spaces */
+.btn-chip-icon.btn-xxs { width: 18px; height: 18px; }
 .btn-chip-icon:hover { background: rgba(30,30,30,0.42); border-color: rgba(255,255,255,0.24); transform: translateZ(0) scale(1.02); }
 .btn-chip-icon:active { transform: translateZ(0) scale(0.98); }
 .btn-chip-icon:disabled {

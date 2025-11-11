@@ -454,7 +454,7 @@ function onModalClick(act) {
 
         <!-- middle area: content title (left) + actions (right) -->
         <div id="app-toolbar-center" class="flex-1 flex items-center justify-between px-4 relative min-w-0">
-          <div class="title-strong capitalize flex items-center gap-2 min-w-0">
+          <div class="title-strong capitalize flex items-center gap-2 min-w-0 flex-1">
             <span class="shrink-0">{{ contentTitle }}</span>
             <!-- Show editable project name on subtitle edit page
                  Hide when export inspector is open to prevent layout squeeze -->
@@ -465,13 +465,19 @@ function onModalClick(act) {
               <span class="text-[var(--macos-text-tertiary)]">—</span>
               <div class="project-inline min-w-0">
                 <template v-if="!editingProjectName">
-                  <span class="pill one-line" :title="subtitleStore.currentProject?.project_name || '-'">{{ subtitleStore.currentProject?.project_name || '-' }}</span>
-                  <button class="toolbar-chip" :data-tooltip="$t('common.edit')" data-tip-pos="top" @click="beginEditProjectName"><Icon name="edit" class="w-4 h-4" /></button>
+                  <span class="project-name-text" :title="subtitleStore.currentProject?.project_name || '-'">{{ subtitleStore.currentProject?.project_name || '-' }}</span>
+                  <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.edit')" data-tip-pos="top" @click="beginEditProjectName">
+                    <Icon name="edit" class="w-3 h-3" />
+                  </button>
                 </template>
                 <template v-else>
                   <input v-model="tempProjectName" class="inline-edit pill-input" @keydown.enter.stop.prevent="saveEditProjectName" @keydown.esc.stop.prevent="cancelEditProjectName" />
-                  <button class="toolbar-chip" :data-tooltip="$t('common.confirm')" data-tip-pos="top" @click="saveEditProjectName"><Icon name="status-success" class="w-4 h-4" /></button>
-                  <button class="toolbar-chip" :data-tooltip="$t('common.cancel')" data-tip-pos="top" @click="cancelEditProjectName"><Icon name="close" class="w-4 h-4" /></button>
+                  <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.confirm')" data-tip-pos="top" @click="saveEditProjectName">
+                    <Icon name="status-success" class="w-3 h-3" />
+                  </button>
+                  <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.cancel')" data-tip-pos="top" @click="cancelEditProjectName">
+                    <Icon name="close" class="w-3 h-3" />
+                  </button>
                 </template>
               </div>
             </template>
@@ -492,7 +498,7 @@ function onModalClick(act) {
                    @input="emitSubtitleSearch"
                    :style="{ width: (searchFocused ? 320 : 200) + 'px', transition: 'width 120ms ease' }" />
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 ml-2">
             <!-- modal actions (always visible) -->
               <template v-for="act in modalActions" :key="act.key">
                 <!-- Replace subtitle metrics button with current standard chip when in subtitle edit -->
@@ -729,9 +735,12 @@ function onModalClick(act) {
 .toolbar-center-search input { pointer-events: auto; }
 
 /* Inline project name editor in toolbar */
-.project-inline { display:inline-flex; align-items:center; gap:6px; max-width: min(70%, 480px); }
-.project-inline .pill { display:inline-block; max-width: min(65vw, 420px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--macos-text-primary); font-size: var(--fs-sub); font-weight: 400; height: 22px; line-height: 22px; padding: 0 8px; border: 1px solid var(--macos-separator); border-radius: 999px; background: var(--macos-background); }
-.project-inline .pill-input { height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--macos-separator); background: var(--macos-background); color: var(--macos-text-primary); font-size: var(--fs-sub); min-width: 200px; max-width: min(65vw, 420px); }
+.project-inline { display:flex; align-items:center; gap:6px; flex: 1 1 auto; min-width: 0; }
+/* Project name as plain text with ellipsis and flex-resize */
+.project-inline .project-name-text { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--macos-text-primary); font-size: var(--fs-sub); font-weight: 400; }
+/* Inline editor adapts to available width; keep compact height for toolbar */
+.project-inline .pill-input { flex: 1 1 auto; min-width: 120px; max-width: 100%; height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--macos-separator); background: var(--macos-background); color: var(--macos-text-primary); font-size: var(--fs-sub); }
+.project-inline .pill-input:focus { outline: none; border-color: var(--macos-blue); box-shadow: 0 0 0 2px color-mix(in oklab, var(--macos-blue) 30%, transparent); }
 
 /* Toolbar primary CTA chips for modal actions */
 [data-ui='frosted'] .chip-frosted.chip-primary-action {
