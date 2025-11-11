@@ -484,19 +484,23 @@ function onModalClick(act) {
           </div>
           <!-- centered search for DOWNLOAD -->
           <div v-if="navStore.currentNav === navStore.navOptions.DOWNLOAD" class="toolbar-center-search">
-            <input v-model="downloadNewSearch" type="text" class="input-macos h-[26px] px-2 text-sm"
-                   :placeholder="$t('sidebar.search_placeholder')"
-                   @focus="onDownloadSearchFocus" @blur="searchFocused = false"
-                   @input="emitDownloadNewSearch"
-                   :style="{ width: (searchFocused ? 320 : 200) + 'px', transition: 'width 120ms ease' }" />
+            <div class="btn-chip btn-sm search-chip" :style="{ width: (searchFocused ? 320 : 200) + 'px', transition: 'width 120ms ease' }">
+              <Icon name="search" class="search-icon" />
+              <input v-model="downloadNewSearch" type="text" class="search-input"
+                     :placeholder="$t('sidebar.search_placeholder')"
+                     @focus="onDownloadSearchFocus" @blur="searchFocused = false"
+                     @input="emitDownloadNewSearch" />
+            </div>
           </div>
           <!-- centered search for SUBTITLE: only on home (no project) -->
           <div v-else-if="navStore.currentNav === navStore.navOptions.SUBTITLE && !subtitleStore.currentProject" class="toolbar-center-search">
-            <input v-model="subtitleSearch" type="text" class="input-macos h-[26px] px-2 text-sm"
-                   :placeholder="$t('sidebar.search_placeholder')"
-                   @focus="onSubtitleSearchFocus" @blur="searchFocused = false"
-                   @input="emitSubtitleSearch"
-                   :style="{ width: (searchFocused ? 320 : 200) + 'px', transition: 'width 120ms ease' }" />
+            <div class="btn-chip btn-sm search-chip" :style="{ width: (searchFocused ? 320 : 200) + 'px', transition: 'width 120ms ease' }">
+              <Icon name="search" class="search-icon" />
+              <input v-model="subtitleSearch" type="text" class="search-input"
+                     :placeholder="$t('sidebar.search_placeholder')"
+                     @focus="onSubtitleSearchFocus" @blur="searchFocused = false"
+                     @input="emitSubtitleSearch" />
+            </div>
           </div>
           <div class="flex items-center gap-2 ml-2">
             <!-- modal actions (always visible) -->
@@ -733,6 +737,43 @@ function onModalClick(act) {
 /* centered search overlay */
 .toolbar-center-search { position: absolute; left: 0; right: 0; text-align: center; pointer-events: none; }
 .toolbar-center-search input { pointer-events: auto; }
+
+/* Search field styled to match btn-chip aesthetics */
+.search-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px; /* match btn-chip geometry */
+  /* make it colorless/quiet by default */
+  background: transparent !important;
+  border-color: var(--macos-separator) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  color: var(--macos-text-secondary);
+}
+.search-chip:hover { background: var(--macos-hover-translucent) !important; border-color: var(--macos-divider-weak) !important; }
+.search-chip .search-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--macos-text-tertiary);
+  pointer-events: none; /* decorative */
+}
+.search-chip .search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--macos-text-primary);
+  font-size: var(--fs-sub);
+}
+.search-chip .search-input::placeholder { color: var(--macos-text-tertiary); }
+/* Focus ring on the chip container when input focused */
+.search-chip:focus-within {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--macos-blue) 28%, transparent);
+  border-color: color-mix(in oklab, var(--macos-blue) 24%, white 12%);
+}
 
 /* Inline project name editor in toolbar */
 .project-inline { display:flex; align-items:center; gap:6px; flex: 1 1 auto; min-width: 0; }
