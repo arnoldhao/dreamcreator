@@ -273,6 +273,81 @@
   background: transparent;
 }
 
+/* Shared list-row chip styles (Ribbon / Settings left menu) */
+/* Base row chip: icon lane + label lane, ghost by default; selected uses .ribbon-active */
+.source-chip {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  column-gap: 8px;
+  align-items: center;
+  height: 28px;
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: 8px; /* create comfortable leading inset for icon */
+  background: transparent;
+  border-color: transparent;
+  color: var(--macos-text-secondary);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.source-chip .icon-cell { height: 28px; display: flex; align-items: center; justify-content: center; }
+.source-chip .label-cell { min-width: 0; height: 28px; display: flex; align-items: center; justify-content: flex-start; }
+.source-chip.active { border-radius: 10px; }
+/* Rest state for unselected rows: no background/border, regardless of UI */
+.source-chip:not(.active) { background: transparent !important; border-color: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+
+/* Frosted UI: keep hover clean for unselected rows */
+[data-ui='frosted'] .source-chip:not(.active):hover,
+[data-ui='frosted'] .source-chip:not(.active):active,
+[data-ui='frosted'] .source-chip:not(.active):focus {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--macos-text-secondary) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Classic UI: subtle hover highlight for unselected rows */
+[data-ui='classic'] .source-chip:not(.active):hover {
+  background: color-mix(in oklab, var(--macos-blue) 12%, transparent) !important;
+  border-color: var(--macos-blue) !important;
+  color: var(--macos-text-primary) !important;
+}
+
+/* Selected state: frosted floating surface with a light primary tint */
+.ribbon-active {
+  padding: 0 8px; /* keep left inset consistent with base */
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--macos-blue) 12%, color-mix(in oklab, var(--macos-surface) 80%, transparent));
+  border: 1px solid color-mix(in oklab, var(--macos-blue) 28%, rgba(255,255,255,0.22));
+  -webkit-backdrop-filter: var(--macos-surface-blur);
+  backdrop-filter: var(--macos-surface-blur);
+  box-shadow: var(--macos-shadow-2);
+  color: var(--macos-text-primary);
+}
+.ribbon-active:hover, .ribbon-active:active { transform: none !important; }
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .ribbon-active {
+    background: color-mix(in oklab, var(--macos-blue) 12%, rgba(255,255,255,0.12));
+    border-color: color-mix(in oklab, var(--macos-blue) 28%, rgba(0,0,0,0.15));
+    box-shadow: none;
+  }
+}
+[data-ui='classic'] .ribbon-active {
+  background: color-mix(in oklab, var(--macos-blue) 10%, var(--macos-background)) !important;
+  border-color: color-mix(in oklab, var(--macos-blue) 45%, var(--macos-separator)) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: var(--macos-shadow-1) !important;
+  color: var(--macos-text-primary) !important;
+}
+
+.source-row-icon { width: 16px; height: 16px; color: inherit; display: inline-flex; align-items: center; justify-content: center; }
+.source-row-label { flex: 1 1 auto; width: 100%; text-align: left; font-size: var(--fs-base); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* vertical rhythm between rows */
+.source-group { display: flex; flex-direction: column; gap: 6px; }
+
 .source-list {
   display: flex;
   flex-direction: column;

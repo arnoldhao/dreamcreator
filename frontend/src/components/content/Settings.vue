@@ -4,10 +4,12 @@
 
     <!-- left list (independent of background and divider) -->
     <aside class="sr-left" :style="{ width: leftWidth, minWidth: leftWidth }">
-      <div v-for="g in groups" :key="g.key" class="sr-item" :class="{ active: current === g.key }"
-        @click="current = g.key">
-        <Icon :name="g.icon" class="sr-item-icon" />
-        <span class="sr-item-label truncate">{{ g.label }}</span>
+      <div class="source-group">
+        <div v-for="g in groups" :key="g.key" class="source-chip" :class="{ 'ribbon-active active': current === g.key }"
+          @click="current = g.key">
+          <span class="icon-cell"><Icon :name="g.icon" class="source-row-icon" /></span>
+          <span class="label-cell"><span class="source-row-label truncate">{{ g.label }}</span></span>
+        </div>
       </div>
     </aside>
 
@@ -469,50 +471,7 @@ const copyText = async (text) => { await copyToClipboard(text, t) }
 
 /* divider/background moved to settings-host (::before/::after) */
 
-/* left menu row mimics Ribbon */
-.sr-item {
-  height: 28px;
-  display: flex;
-  align-items: center;
-  border-radius: 8px;
-  padding: 0 10px 0 12px;
-  color: var(--macos-text-secondary);
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
-}
-
-.sr-item:hover {
-  background: var(--macos-gray-hover);
-}
-
-.sr-item.active {
-  background: var(--macos-gray-hover);
-  color: var(--macos-blue);
-  font-weight: 400;
-}
-
-.sr-item.active:hover {
-  background: var(--macos-gray-hover);
-}
-
-.sr-item-icon {
-  width: 18px;
-  height: 18px;
-  margin-right: 8px;
-  color: var(--macos-text-secondary);
-}
-
-.sr-item.active .sr-item-icon {
-  color: var(--macos-blue);
-}
-
-.sr-item-label {
-  font-size: var(--fs-base);
-  line-height: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* Left list now reuses global .source-chip/.ribbon-active styles */
 
 /* right content card: only wraps content, background fills column */
 .sr-right {
