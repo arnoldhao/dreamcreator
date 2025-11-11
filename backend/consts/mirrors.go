@@ -198,9 +198,9 @@ func GetYTDLPAPIURL() (string, error) {
 
 // Dependencies Embedded Versions
 const (
-	EMBEDDED_YTDLP_VERSION          = "2025.09.26"
-	EMBEDDED_FFMPEG_VERSION_DARWIN  = "121256-g0fdb5829e3"
-	EMBEDDED_FFMPEG_VERSION_WINDOWS = "7.1.2-1"
+	EMBEDDED_YTDLP_VERSION          = "2025.10.22"
+	EMBEDDED_FFMPEG_VERSION_DARWIN  = "121725-g7b18eafabd"
+	EMBEDDED_FFMPEG_VERSION_WINDOWS = "7.1.2-4"
 )
 
 func YtdlpEmbedVersion(osType string) (string, error) {
