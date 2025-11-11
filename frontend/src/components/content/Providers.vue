@@ -3,26 +3,31 @@
     <!-- 左列：Provider 列表（移除“提供商”标题行） -->
     <aside class="sr-left" :style="{ width: leftWidth, minWidth: leftWidth }">
       <div class="sr-left-scroll">
-        <div v-for="it in providerListItems" :key="it.key"
-             class="sr-item"
-             :class="{ active: selectedProviderId===it.id }"
-             @click="selectInstance(it.id)">
-          <span class="sr-item-label truncate">{{ it.name }}</span>
+        <div class="source-group">
+          <div v-for="it in providerListItems" :key="it.key"
+               class="source-chip"
+               :class="{ 'ribbon-active active': selectedProviderId===it.id }"
+               @click="selectInstance(it.id)">
+            <span class="icon-cell"><Icon name="database" class="source-row-icon" /></span>
+            <span class="label-cell"><span class="source-row-label truncate">{{ it.name }}</span></span>
+          </div>
         </div>
       </div>
       <div class="sr-left-actions">
-        <button ref="addBtnRef" class="icon-chip-ghost" :data-tooltip="'新增'" data-tip-pos="top" @click.stop="toggleAddMenu"><Icon name="plus" class="w-4 h-4"/></button>
-        <button class="icon-chip-ghost" :data-tooltip="'删除'" data-tip-pos="top" :disabled="!canDeleteCurrent" @click="onLeftDelete"><Icon name="minus" class="w-4 h-4"/></button>
-        <button class="icon-chip-ghost danger" style="margin-left:auto" title="初始化（危险操作）" @click="onInitBolt"><Icon name="status-warning" class="w-4 h-4"/></button>
+        <button ref="addBtnRef" class="icon-chip-ghost" :data-tooltip="t('providers.add')" :aria-label="t('providers.add')" data-tip-pos="top" @click.stop="toggleAddMenu"><Icon name="plus" class="w-4 h-4"/></button>
+        <button class="icon-chip-ghost" :data-tooltip="t('common.delete')" :aria-label="t('common.delete')" data-tip-pos="top" :disabled="!canDeleteCurrent" @click="onLeftDelete"><Icon name="minus" class="w-4 h-4"/></button>
+        <button class="icon-chip-ghost danger" style="margin-left:auto" :title="t('providers.init_danger')" :data-tooltip="t('providers.init_danger')" @click="onInitBolt"><Icon name="status-warning" class="w-4 h-4"/></button>
       </div>
       
       <!-- Add menu popover (teleported to body to avoid clipping) -->
       <teleport to="body">
-        <div v-if="showAddMenu" ref="addMenuEl" class="macos-popover card-frosted card-translucent add-popover" :style="[addMenuStyle, { visibility: addMenuVisible ? 'visible' : 'hidden' }]" @click.stop>
-          <div class="popover-item" v-for="s in (addables.special||[])" :key="'sp:'+s.type" @click="onAddPickCompat(s.type)">{{ s.type === 'openai_compat' ? t('providers.add_openai') : t('providers.add_anthropic') }}</div>
-          <div class="popover-divider" v-if="(addables.presets||[]).length"></div>
-          <div class="popover-item" v-for="p in (addables.presets||[])" :key="'pre:'+p.id" @click="onAddHiddenPreset(p)">{{ p.name }}</div>
-        </div>
+        <PopoverMenu v-if="showAddMenu"
+          ref="addMenuEl"
+          class="add-popover"
+          :items="addMenuItems"
+          :style="[addMenuStyle, { visibility: addMenuVisible ? 'visible' : 'hidden' }]"
+          @select="onAddMenuSelect"
+        />
       </teleport>
     </aside>
 
@@ -54,7 +59,7 @@
                        placeholder="sk-..."
                        @input="onKeyInput($event.target.value)"
                        @blur="onFieldBlur" />
-                <button class="icon-input-end" @click="showKey = !showKey" :aria-label="showKey ? '隐藏' : '显示'" :data-tooltip="showKey ? '隐藏' : '显示'">
+                <button class="icon-input-end" @click="showKey = !showKey" :aria-label="showKey ? t('common.hide') : t('common.show')" :data-tooltip="showKey ? t('common.hide') : t('common.show')">
                   <Icon :name="showKey ? 'eye' : 'eye-off'" class="w-4 h-4" />
                 </button>
               </div>
@@ -135,7 +140,7 @@
               <div class="field-label">{{ t('providers.api_key') }}</div>
               <div class="field-input">
                 <input :type="showKeyCreate ? 'text' : 'password'" v-model="newProv.api_key" class="input-macos input-full" placeholder="sk-xxxx" />
-                <button class="icon-input-end" @click="showKeyCreate = !showKeyCreate" :aria-label="showKeyCreate ? '隐藏' : '显示'">
+                <button class="icon-input-end" @click="showKeyCreate = !showKeyCreate" :aria-label="showKeyCreate ? t('common.hide') : t('common.show')" :data-tooltip="showKeyCreate ? t('common.hide') : t('common.show')">
                   <Icon :name="showKeyCreate ? 'eye' : 'eye-off'" class="w-4 h-4" />
                 </button>
               </div>
@@ -160,6 +165,7 @@ import { useI18n } from 'vue-i18n'
 import useLLMStore from '@/stores/llm.js'
 import { createProvider as apiCreateProvider, resetLLMData, canDelete, listAddableProviders } from '@/services/llmProviderService.js'
 import useLayoutStore from '@/stores/layout.js'
+import PopoverMenu from '@/components/common/PopoverMenu.vue'
 
 const llm = useLLMStore()
 const layout = useLayoutStore()
@@ -369,7 +375,8 @@ async function toggleAddMenu(){
     try {
       if (window.ResizeObserver && addMenuEl.value) {
         addMenuRO = new ResizeObserver(() => positionAddMenu())
-        addMenuRO.observe(addMenuEl.value)
+        const el = addMenuEl.value?.$el || addMenuEl.value
+        if (el) addMenuRO.observe(el)
       }
     } catch {}
     // defer placement to next animation frame to ensure layout is ready
@@ -387,7 +394,7 @@ function closeAddMenu(){
 function positionAddMenu(){
   try {
     const btn = addBtnRef.value
-    const menu = addMenuEl.value
+    const menu = addMenuEl.value?.$el || addMenuEl.value
     if (!btn || !menu) return
     const br = btn.getBoundingClientRect()
     const mr = menu.getBoundingClientRect()
@@ -431,6 +438,36 @@ async function onAddHiddenPreset(preset){
     window?.$message?.error?.(t('providers.enable_preset_failed'))
   } finally {
     closeAddMenu()
+  }
+}
+
+// Build items for add menu (reuse PopoverMenu)
+const addMenuItems = computed(() => {
+  const items = []
+  const sp = Array.isArray(addables.value?.special) ? addables.value.special : []
+  sp.forEach(s => {
+    const key = `sp:${s.type}`
+    const labelKey = s.type === 'openai_compat' ? 'providers.add_openai' : 'providers.add_anthropic'
+    items.push({ key, labelKey, icon: 'plus' })
+  })
+  const presets = Array.isArray(addables.value?.presets) ? addables.value.presets : []
+  if (presets.length && sp.length) items.push({ key: 'div:presets', type: 'divider' })
+  presets.forEach(p => {
+    items.push({ key: `pre:${p.id}`, label: p.name, icon: 'database' })
+  })
+  return items
+})
+
+function onAddMenuSelect(it){
+  if (!it || !it.key) return
+  if (String(it.key).startsWith('sp:')) {
+    const kind = String(it.key).slice(3)
+    return onAddPickCompat(kind)
+  }
+  if (String(it.key).startsWith('pre:')) {
+    const id = String(it.key).slice(4)
+    const preset = (addables.value?.presets || []).find(p => String(p.id) === id)
+    return onAddHiddenPreset(preset)
   }
 }
 // onAddPickPreset 已移除：统一采用 policy=custom 的新增
@@ -499,10 +536,7 @@ async function onInitBolt(){
 .sr-left { min-height: 0; --cmd-area-h: 44px; }
 .sr-left-scroll { flex: 0 1 auto; height: calc(100% - var(--cmd-area-h)); min-height: 0; overflow-y: auto; overflow-x: hidden; }
 .sr-right { position: relative; z-index: 1; background: var(--macos-background); padding: 12px; overflow: auto; font-size: var(--fs-base); }
-.sr-item { height: 28px; display: flex; align-items: center; border-radius: 8px; padding: 0 10px 0 12px; color: var(--macos-text-secondary); cursor: pointer; transition: background 120ms ease, color 120ms ease; }
-.sr-item:hover { background: var(--macos-gray-hover); }
-.sr-item.active { background: var(--macos-gray-hover); color: var(--macos-blue); font-weight: 400; }
-.sr-item-label { font-size: var(--fs-base); line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sr-item, .sr-item:hover, .sr-item.active, .sr-item-label { /* deprecated: replaced by .source-chip styles */ }
 .sr-left-actions { position: absolute; bottom: 0; left: 6px; right: 6px; height: var(--cmd-area-h); display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--macos-divider-weak); background: transparent; }
 .sr-group-title { font-size: var(--fs-sub); color: var(--macos-text-secondary); margin: 4px 4px 6px; }
 
@@ -531,9 +565,10 @@ async function onInitBolt(){
 /* use global icon-chip-ghost; keep danger tone */
 
 /* Add popover placement near left actions */
-.add-popover { min-width: 180px; width: max-content; max-width: 360px; max-height: 420px; overflow-y: auto; overflow-x: hidden; pointer-events: auto; }
-.add-popover .popover-item { white-space: nowrap; justify-content: center; text-align: center; }
-.add-popover .popover-divider { height: 1px; background: var(--macos-divider-weak); margin: 6px -8px; }
+/* style teleported popover via deep selector so it applies to child component root */
+:deep(.add-popover) { min-width: 180px; width: max-content; max-width: 360px; max-height: 420px; overflow-y: auto; overflow-x: hidden; pointer-events: auto; }
+:deep(.add-popover .popover-item) { white-space: nowrap; }
+:deep(.add-popover .popover-divider) { height: 1px; background: var(--macos-divider-weak); margin: 6px -8px; }
 
 /* Popover base (local copy to avoid style scoping in Ribbon) */
 .macos-popover { border-radius: 10px; box-shadow: var(--macos-shadow-2); padding: 6px; z-index: 1200; }

@@ -42,7 +42,9 @@
     "saved": "Saved",
     "save_failed": "Save Failed",
     "deleted": "Deleted",
-    "name": "Name"
+    "name": "Name",
+    "show": "Show",
+    "hide": "Hide"
   },
   "cookies": {
     "status": {

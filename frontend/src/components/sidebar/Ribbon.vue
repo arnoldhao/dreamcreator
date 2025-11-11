@@ -26,38 +26,13 @@
           <span class="label-cell"><span class="source-row-label truncate">{{ $t(m.label) }}</span></span>
         </div>
 
-        <!-- Settings popover menu -->
-        <div v-if="m.key === navStore.navOptions.SETTINGS && showSettingsMenu"
-             class="macos-popover card-frosted card-translucent" @click.stop>
-          <div class="popover-item" @mouseenter="onPopoverEnter($event)" @mouseleave="onPopoverLeave($event)" @click="openSettings('general')">
-            <Icon name="settings" class="w-4 h-4 mr-2" />
-            <span class="popover-label">
-              <span class="popover-label-track">
-                <span class="popover-label-inner">{{ $t('settings.general.name') }}</span>
-                <span class="popover-label-inner" aria-hidden="true">{{ $t('settings.general.name') }}</span>
-              </span>
-            </span>
-          </div>
-          <div class="popover-item" @mouseenter="onPopoverEnter($event)" @mouseleave="onPopoverLeave($event)" @click="openSettings('dependency')">
-            <Icon name="package" class="w-4 h-4 mr-2" />
-            <span class="popover-label">
-              <span class="popover-label-track">
-                <span class="popover-label-inner">{{ $t('settings.dependency.title') }}</span>
-                <span class="popover-label-inner" aria-hidden="true">{{ $t('settings.dependency.title') }}</span>
-              </span>
-            </span>
-          </div>
-          <div class="popover-item" @mouseenter="onPopoverEnter($event)" @mouseleave="onPopoverLeave($event)" @click="openProviders()">
-            <Icon name="database" class="w-4 h-4 mr-2" />
-            <span class="popover-label">
-              <span class="popover-label-track">
-                <span class="popover-label-inner">{{ $t('settings.model_provider') }}</span>
-                <span class="popover-label-inner" aria-hidden="true">{{ $t('settings.model_provider') }}</span>
-              </span>
-            </span>
-          </div>
-          
-        </div>
+        <!-- Settings popover menu (reused component) -->
+        <PopoverMenu
+          v-if="m.key === navStore.navOptions.SETTINGS && showSettingsMenu"
+          :items="settingsMenuItems"
+          :style="{ position: 'absolute', bottom: '36px', left: '8px', right: '8px' }"
+          @select="onSettingsSelect"
+        />
       </div>
     </div>
   </aside>
@@ -69,6 +44,7 @@ import useNavStore from 'stores/nav.js'
 import useLayoutStore from '@/stores/layout.js'
 import useSettingsStore from '@/stores/settings.js'
 import usePreferencesStore from '@/stores/preferences.js'
+import PopoverMenu from '@/components/common/PopoverMenu.vue'
 
 const navStore = useNavStore()
 const layout = useLayoutStore()
@@ -137,35 +113,18 @@ function handleDocClick() { showSettingsMenu.value = false }
 onMounted(() => document.addEventListener('click', handleDocClick))
 onBeforeUnmount(() => document.removeEventListener('click', handleDocClick))
 
-// Popover label marquee-on-hover for overflowed text (one-direction seamless)
-function onPopoverEnter(ev) {
-  try {
-    const item = ev.currentTarget
-    const label = item && item.querySelector && item.querySelector('.popover-label')
-    const inner = label && label.querySelector && label.querySelector('.popover-label-inner')
-    if (!label || !inner) return
-    // Ensure layout updated
-    const cw = label.clientWidth
-    const sw = inner.scrollWidth
-    if (sw <= cw + 1) return // no overflow, no marquee
-    const gap = 32 // separation between original and clone
-    const distance = sw + gap // seamless loop distance equals content width + gap
-    const duration = Math.min(12, Math.max(2, distance / 40)) // ~40px/s, clamp 2s..12s
-    label.style.setProperty('--marquee-gap', gap + 'px')
-    label.style.setProperty('--marquee-distance', distance + 'px')
-    label.style.setProperty('--marquee-duration', duration + 's')
-    label.classList.add('marquee')
-  } catch {}
-}
-function onPopoverLeave(ev) {
-  try {
-    const item = ev.currentTarget
-    const label = item && item.querySelector && item.querySelector('.popover-label')
-    if (!label) return
-    label.classList.remove('marquee')
-    label.style.removeProperty('--marquee-distance')
-    label.style.removeProperty('--marquee-duration')
-  } catch {}
+// Settings popover menu items (reused)
+const settingsMenuItems = computed(() => ([
+  { key: 'general', icon: 'settings', labelKey: 'settings.general.name' },
+  { key: 'dependency', icon: 'package', labelKey: 'settings.dependency.title' },
+  { key: 'providers', icon: 'database', labelKey: 'settings.model_provider' },
+]))
+
+function onSettingsSelect(it) {
+  if (!it) return
+  if (it.key === 'providers') return openProviders()
+  if (it.key === 'dependency') return openSettings('dependency')
+  return openSettings('general')
 }
 
 </script>
