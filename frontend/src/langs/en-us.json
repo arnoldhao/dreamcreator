@@ -473,6 +473,7 @@
   },
   "subtitle": {
     "title": "Subtitle",
+    "all_subs": "All Subs",
   "common": {
     "custom": "Custom",
       "select_sub_file": "Select Subtitle File",

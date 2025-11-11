@@ -475,6 +475,7 @@
   },
   "subtitle": {
     "title": "字幕",
+    "all_subs": "所有字幕",
   "common": {
     "custom": "自定义",
       "select_sub_file": "选择字幕文件",

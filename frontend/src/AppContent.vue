@@ -353,7 +353,7 @@ function getPageActions() {
 
     if (subtitleStore.currentProject) {
       modals.push({ key: 'subtitle:metrics', icon: 'info', titleKey: 'subtitle.list.metrics_explanation' })
-      modals.push({ key: 'subtitle:back-home', icon: 'home', titleKey: 'ribbon.subtitle' })
+      modals.push({ key: 'subtitle:back-home', icon: 'home', titleKey: 'subtitle.all_subs' })
     }
 
     return {
@@ -502,6 +502,30 @@ function onModalClick(act) {
                         :aria-label="$t(act.titleKey)"
                         @click="onModalClick(act)">
                   <span class="chip-label">{{ metricsStandardName || $t('subtitle.list.metrics_explanation') }}</span>
+                </button>
+                <button v-else-if="act.key === 'subtitle:open-file'"
+                        class="chip-frosted chip-sm chip-translucent-primary"
+                        :data-tooltip="$t(act.titleKey)"
+                        :aria-label="$t(act.titleKey)"
+                        @click="onModalClick(act)">
+                  <Icon :name="act.icon" class="chip-icon" />
+                  <span class="chip-label">{{ $t(act.titleKey) }}</span>
+                </button>
+                <button v-else-if="act.key === 'subtitle:back-home'"
+                        class="chip-frosted chip-sm chip-translucent-primary"
+                        :data-tooltip="$t(act.titleKey)"
+                        :aria-label="$t(act.titleKey)"
+                        @click="onModalClick(act)">
+                  <Icon :name="act.icon" class="chip-icon" />
+                  <span class="chip-label">{{ $t(act.titleKey) }}</span>
+                </button>
+                <button v-else-if="act.key === 'download:new-task'"
+                        class="chip-frosted chip-sm chip-translucent-primary"
+                        :data-tooltip="$t(act.titleKey)"
+                        :aria-label="$t(act.titleKey)"
+                        @click="onModalClick(act)">
+                  <Icon :name="act.icon" class="chip-icon" />
+                  <span class="chip-label">{{ $t(act.titleKey) }}</span>
                 </button>
                 <button v-else-if="primaryModalActions.has(act.key)"
                         class="chip-frosted chip-sm chip-primary-action"
@@ -730,6 +754,16 @@ function onModalClick(act) {
   margin-right: 4px;
   color: inherit;
 }
+/* Keep icon sizing consistent for translucent-primary variant */
+[data-ui='frosted'] .chip-frosted.chip-translucent-primary .chip-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  color: inherit;
+}
 @supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
   [data-ui='frosted'] .chip-frosted.chip-primary-action {
     background: var(--macos-blue);
@@ -748,6 +782,13 @@ function onModalClick(act) {
   color: inherit;
 }
 [data-ui='classic'] .chip-frosted.chip-primary-action .chip-label { font-weight: 600; }
+/* Classic icon sizing for translucent-primary */
+[data-ui='classic'] .chip-frosted.chip-translucent-primary .chip-icon {
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  color: inherit;
+}
 
 /* Top fade under the toolbar when scrolled */
 #app-content .page-scroll { position: relative; }

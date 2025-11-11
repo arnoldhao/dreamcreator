@@ -987,6 +987,18 @@
   border-color: var(--macos-blue) !important;
   color: var(--macos-text-primary) !important;
 }
+[data-ui='classic'] .chip-frosted.chip-translucent-primary {
+  /* Quiet at rest in Classic, like chip-translucent */
+  background: transparent !important;
+  border-color: var(--macos-separator) !important;
+  color: var(--macos-text-secondary) !important;
+  box-shadow: none !important;
+}
+[data-ui='classic'] .chip-frosted.chip-translucent-primary:hover {
+  background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important;
+  border-color: var(--macos-blue) !important;
+  color: var(--macos-text-primary) !important;
+}
 [data-ui='classic'] .badge,
 [data-ui='classic'] .macos-page .badge {
   border: 1px solid var(--macos-separator) !important;
@@ -1044,6 +1056,17 @@
   border-color: rgba(255,255,255,0.28);
 }
 .chip-frosted.chip-translucent:active { transform: translateZ(0) scale(0.98); }
+/* Translucent primary-tinted chip (same geometry/material as chip-translucent) */
+.chip-frosted.chip-translucent-primary {
+  background: color-mix(in oklab, var(--macos-blue) 22%, rgba(30,30,30,0.26));
+  border-color: color-mix(in oklab, var(--macos-blue) 36%, rgba(255,255,255,0.18));
+}
+.chip-frosted.chip-translucent-primary .chip-label { text-shadow: 0 1px 2px rgba(0,0,0,0.45); }
+.chip-frosted.chip-translucent-primary:hover {
+  background: color-mix(in oklab, var(--macos-blue) 32%, rgba(30,30,30,0.50));
+  border-color: color-mix(in oklab, var(--macos-blue) 42%, rgba(255,255,255,0.28));
+}
+.chip-frosted.chip-translucent-primary:active { transform: translateZ(0) scale(0.98); }
 @supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
   .chip-frosted.chip-translucent { background: rgba(255,255,255,0.12); color: #111; border-color: rgba(0,0,0,0.15); }
 .chip-frosted.chip-translucent:hover {
@@ -1052,6 +1075,17 @@
   border-color: var(--macos-blue);
   color: #fff;
 }
+
+  .chip-frosted.chip-translucent-primary {
+    background: color-mix(in oklab, var(--macos-blue) 20%, rgba(255,255,255,0.12));
+    color: #111;
+    border-color: color-mix(in oklab, var(--macos-blue) 50%, rgba(0,0,0,0.15));
+  }
+  .chip-frosted.chip-translucent-primary:hover {
+    background: color-mix(in oklab, var(--macos-blue) 42%, white 2%);
+    border-color: var(--macos-blue);
+    color: #fff;
+  }
 
 /* When any modal is open, disable floating filter's blur and interaction to avoid composite flicker behind modal */
 body.modal-open .floating-filter {
