@@ -86,8 +86,8 @@
             <button class="btn-chip btn-sm" @click="retryTask"><Icon name="refresh" class="w-4 h-4 mr-1"/>{{ t('download.retry') }}</button>
           </div>
           <div class="right-actions">
-            <button class="btn-chip btn-primary btn-sm" @click="start" :disabled="started">{{ started ? (t('download.processing') || 'Processing...') : (t('download.analyze') || 'Analyze') }}</button>
             <button class="btn-chip btn-sm" @click="close">{{ t('common.close') }}</button>
+            <button class="btn-chip btn-primary btn-sm" @click="start" :disabled="started">{{ started ? (t('download.processing') || 'Processing...') : (t('download.analyze') || 'Analyze') }}</button>
           </div>
         </div>
       </div>

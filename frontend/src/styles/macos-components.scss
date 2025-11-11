@@ -1184,6 +1184,35 @@
 .macos-modal .modal-card.card-frosted.card-translucent { background: color-mix(in oklab, var(--macos-surface) 76%, transparent); border-color: rgba(255,255,255,0.28); box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24); }
 .macos-modal .modal-card.card-frosted.card-translucent:hover { background: color-mix(in oklab, var(--macos-surface) 76%, transparent); border-color: rgba(255,255,255,0.28); }
 
+/* Toasts: use the same Tahoe frosted material as modal cards */
+.macos-toast .toast-card.card-frosted {
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
+}
+.macos-toast .toast-card.card-frosted.card-translucent {
+  /* Slightly more transparent than modals for a HUD feel; configurable via --toast-surface-mix */
+  background: color-mix(in oklab, var(--macos-surface) var(--toast-surface-mix, 64%), transparent);
+  border-color: rgba(255,255,255,0.28);
+  box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24);
+}
+.macos-toast .toast-card.card-frosted.card-translucent:hover {
+  background: color-mix(in oklab, var(--macos-surface) var(--toast-surface-mix, 64%), transparent);
+  border-color: rgba(255,255,255,0.28);
+}
+
+/* Ensure toasts stay frosted even in Classic UI (match modal behavior expectation) */
+[data-ui='classic'] .macos-toast .toast-card.card-frosted {
+  -webkit-backdrop-filter: saturate(180%) blur(22px) !important;
+  backdrop-filter: saturate(180%) blur(22px) !important;
+  background: color-mix(in oklab, var(--macos-surface) var(--toast-surface-mix, 64%), transparent) !important;
+  border-color: rgba(255,255,255,0.28) !important;
+  box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24) !important;
+}
+[data-ui='classic'] .macos-toast .toast-card.card-frosted.card-translucent:hover {
+  background: color-mix(in oklab, var(--macos-surface) var(--toast-surface-mix, 64%), transparent) !important;
+  border-color: rgba(255,255,255,0.28) !important;
+}
+
 /* Segmented control: use surface in frosted mode */
 [data-ui='frosted'] .segmented {
   background: var(--macos-surface);
