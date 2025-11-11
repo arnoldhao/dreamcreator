@@ -744,7 +744,7 @@ async function confirmRename(project) {
 .list-wrap { display:block; }
 .list-wrap.compact .list-row { height: 34px; }
 .list-wrap.comfortable .list-row { height: 44px; }
-.list-header { position: sticky; top: 0; z-index: 1; background: var(--macos-background); color: var(--macos-text-tertiary); font-size: var(--fs-caption); text-transform: uppercase; letter-spacing: .02em; padding: 8px 6px; border: 0; }
+.list-header { position: sticky; top: 0; z-index: 1; background: transparent; color: var(--macos-text-tertiary); font-size: var(--fs-caption); text-transform: uppercase; letter-spacing: .02em; padding: 8px 6px; border: 0; }
 .list-wrap .list-header { margin-top: 10px; }
 .list-wrap .list-header:first-of-type { margin-top: 0; }
 .list-row { display:grid; grid-template-columns: 34px 1fr auto 120px 40px; align-items:center; gap: 8px; padding: 0 6px; border-radius: 6px; transition: background .12s ease; overflow: visible; }
@@ -752,7 +752,7 @@ async function confirmRename(project) {
 .col-icon { display:flex; align-items:center; justify-content:center; }
 .col-title { min-width:0; font-size: var(--fs-base); color: var(--macos-text-primary); display:flex; align-items:center; gap: 6px; overflow: visible; }
 .col-title .name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.col-title .rename-input { height: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--macos-separator); background: var(--macos-background); color: var(--macos-text-primary); font-size: var(--fs-sub); min-width: 160px; }
+.col-title .rename-input { height: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--macos-separator); background: var(--macos-background); color: var(--macos-text-primary); font-size: var(--fs-sub); flex: 1 1 auto; min-width: 0; }
 .col-title .rename-btn { visibility: hidden; }
 .list-row:hover .col-title .rename-btn { visibility: visible; }
 .col-pills { display:flex; justify-content:flex-end; }
