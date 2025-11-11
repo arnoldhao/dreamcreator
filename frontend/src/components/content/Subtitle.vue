@@ -769,20 +769,13 @@ async function confirmRename(project) {
 .mono { font-family: var(--font-mono); }
 
 /* floating filter */
-.floating-filter { position: fixed; bottom: 16px; z-index: 1200; display: inline-flex; align-items: center; gap: 4px; padding: 6px; border-radius: 10px; 
-  /* stronger frosted look */
-  background: color-mix(in oklab, var(--macos-surface) 80%, transparent);
-  border: 1px solid rgba(255,255,255,0.22);
-  -webkit-backdrop-filter: var(--macos-surface-blur);
-  backdrop-filter: var(--macos-surface-blur);
-  box-shadow: var(--macos-shadow-2);
-}
+.floating-filter { position: fixed; bottom: 16px; z-index: 1200; display: inline-flex; align-items: center; gap: 8px; padding: 6px; border-radius: 10px; }
 .floating-filter .count-pill { font-size: var(--fs-sub); }
 .floating-filter .lang-label { font-size: var(--fs-sub); color: var(--macos-text-primary); }
 .floating-filter .filter-toggle { display:inline-flex; align-items:center; gap:6px; cursor: pointer; color: var(--macos-text-secondary); height: 28px; padding: 0 6px; border-radius: 6px; line-height: 0; }
 .floating-filter .count-pill { line-height: 1; }
 .floating-filter .filter-select { height: 28px; }
-  .floating-filter .divider-v { width: 1px; height: 18px; background: var(--macos-divider-weak); margin: 0; }
+  .floating-filter .divider-v { width: 1px; height: 18px; background: var(--macos-divider-weak); margin: 0 2px; }
   .floating-filter .filter-toggle .w-4 { display: block; }
   /* Add Language button: circle when idle (btn-chip-icon), expand to show label on hover */
   .floating-filter .btn-chip-icon.expand-left { width: 28px; height: 28px; padding: 0; gap: 6px; overflow: hidden; line-height: 0; }
@@ -800,6 +793,10 @@ async function confirmRename(project) {
 }
 .floating-filter .filter-toggle .w-4 { display: block; }
 .floating-filter .filter-toggle .count { display: block; }
+
+/* Align icon-only ghost buttons with Download template */
+.floating-filter .icon-chip-ghost { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; line-height: 0; background: transparent; border-color: var(--macos-separator); color: var(--macos-text-secondary); box-shadow: none; }
+.floating-filter .icon-chip-ghost:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); border-color: var(--macos-blue); color: #fff; }
 
 /* danger button tone for delete */
 /* subtitle page delete button follows download style: icon only, no bg */
