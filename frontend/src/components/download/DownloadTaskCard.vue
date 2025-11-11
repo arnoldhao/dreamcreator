@@ -7,9 +7,9 @@
       <div v-else class="thumb-fallback">
         <Icon name="video" class="w-4 h-4"></Icon>
       </div>
-      <!-- overlay actions on hover when completed -->
-      <div v-if="isCompleted" class="thumb-overlay" @click.stop>
-        <button v-if="task.outputDir" class="icon-chip-ghost" :aria-label="$t('download.open_folder')" @click.stop="$emit('open-directory')">
+      <!-- overlay actions on hover: show open-folder + delete when completed; otherwise only centered delete -->
+      <div class="thumb-overlay" @click.stop>
+        <button v-if="isCompleted && task.outputDir" class="icon-chip-ghost" :aria-label="$t('download.open_folder')" @click.stop="$emit('open-directory')">
           <Icon name="folder" class="w-4 h-4" />
         </button>
         <button class="icon-chip-ghost" :aria-label="$t('download.delete')" @click.stop="$emit('delete')">
