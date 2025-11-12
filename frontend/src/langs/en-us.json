@@ -390,6 +390,7 @@
     "failed_desc": "Download failed",
     "cancelled_desc": "Task cancelled",
     "unknown_source": "Unknown Source",
+    "unknown_uploader": "Unknown Uploader",
     "unknown_video": "Unknown Video",
     "none_content": "None",
     "unknown_status": "Unknown Status",

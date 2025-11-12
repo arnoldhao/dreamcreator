@@ -391,6 +391,7 @@
     "failed_desc": "下载失败",
     "cancelled_desc": "任务取消",
     "unknown_source": "未知来源",
+    "unknown_uploader": "未知作者",
     "unknown_video": "未知视频",
     "none_content": "None",
     "unknown_status": "未知状态",

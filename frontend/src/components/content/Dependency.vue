@@ -345,12 +345,13 @@ export default {
 /* Modal (macOS look) */
 /* use global .macos-modal overlay */
 .macos-modal { animation: fadeIn 0.18s ease-out; }
-.mirror-modal { width: 440px; max-width: calc(100% - 40px); background: var(--macos-background); border: 1px solid var(--macos-separator); border-radius: 12px; box-shadow: var(--macos-shadow-3); overflow: hidden; display: flex; flex-direction: column; }
-.modal-header.sheet { display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 10px 12px; background: var(--macos-background-secondary); border-bottom: 1px solid var(--macos-separator); }
+.mirror-modal { width: 440px; max-width: calc(100% - 40px); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+/* Match frosted modal header/footer like AnalysisModal/SubtitlePickerModal */
+.modal-header.sheet { display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.16); }
 .title-area { flex: 1; display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
 .title-text { font-size: var(--fs-base); font-weight: 600; color: var(--macos-text-primary); }
 .modal-body { padding: 12px; max-height: 60vh; overflow-y: auto; }
-.modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 10px 12px; background: var(--macos-background-secondary); border-top: 1px solid var(--macos-separator); }
+.modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 10px 12px; border-top: 1px solid rgba(255,255,255,0.16); }
 .mirror-list { display: flex; flex-direction: column; gap: 8px; }
 .mirror-option { padding: 10px 12px; border: 1px solid var(--macos-separator); border-radius: 10px; background: var(--macos-background); cursor: pointer; transition: background .16s ease, border-color .16s ease, box-shadow .16s ease; }
 .mirror-option:hover { background: color-mix(in oklab, var(--macos-background-secondary) 82%, transparent); }
