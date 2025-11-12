@@ -4,13 +4,16 @@
 
     <!-- Title -->
     <div v-if="task" class="title-bar">
-      <div class="title-text one-line" :title="task?.title">{{ task?.title }}</div>
+      <div class="title-text one-line" :title="titleText">{{ titleText }}</div>
     </div>
 
     <!-- Cover preview (thumbnail) -->
-    <div v-if="task?.thumbnail" class="thumb-box mt-2">
-      <ProxiedImage :src="task.thumbnail" :alt="$t('download.thumbnail')"
-        class="w-full h-full object-cover" error-icon="image" />
+    <div class="thumb-box mt-2">
+      <ProxiedImage v-if="task?.thumbnail" :src="task.thumbnail" :alt="$t('download.thumbnail')"
+        class="w-full h-full object-cover" error-icon="video" />
+      <div v-else class="thumb-fallback">
+        <Icon name="video" class="w-6 h-6" />
+      </div>
       <!-- Restore overlay progress on thumbnail header -->
       <div class="thumb-progress" v-if="isVideoDownloading">
         <div class="bar" :style="{ width: percentText }"></div>
@@ -107,9 +110,9 @@
     <!-- Group 1: Task Info (boxed) -->
     <div class="macos-group"><div class="macos-group-title">{{ $t('download.task_info') }}</div></div>
     <div class="macos-box card-frosted card-translucent">
-      <div class="macos-row"><span class="k">{{ $t('download.source') }}</span><span class="v one-line">{{ taskSource }}</span></div>
-      <div class="macos-row"><span class="k">{{ $t('download.uploader') }}</span><span class="v one-line">{{ task?.uploader || '-' }}</span></div>
-      <div class="macos-row"><span class="k">{{ $t('download.extractor') }}</span><span class="v one-line">{{ task?.extractor || '-' }}</span></div>
+      <div class="macos-row"><span class="k">{{ $t('download.source') }}</span><span class="v one-line">{{ sourceText }}</span></div>
+      <div class="macos-row"><span class="k">{{ $t('download.uploader') }}</span><span class="v one-line">{{ uploaderText }}</span></div>
+      <div class="macos-row"><span class="k">{{ $t('download.extractor') }}</span><span class="v one-line">{{ extractorText }}</span></div>
       <div class="macos-row"><span class="k">{{ $t('download.resolution') }}</span><span class="v one-line">{{ task?.resolution || '-' }}</span></div>
       <div class="macos-row"><span class="k">{{ $t('download.format') }}</span><span class="v one-line">{{ task?.format || '-' }}</span></div>
       <div class="macos-row"><span class="k">{{ $t('download.duration') }}</span><span class="v one-line">{{ formatDuration(task?.duration) }}</span></div>
@@ -473,11 +476,27 @@ const percentText = computed(() => {
 })
 const formatDate = (ts) => fmtDate(ts)
 const formatEstimated = (eta) => fmtETA(eta)
-const taskSource = computed(() => {
+const titleText = computed(() => {
+  const s = task.value?.title
+  return (s && String(s).trim()) ? s : (t('download.unknown_video') || 'Unknown Video')
+})
+const sourceTextRaw = computed(() => {
   const src = task.value?.source
   if (src && String(src).trim()) return src
   const url = task.value?.url
-  try { return url ? new URL(url).hostname : ('' ) } catch { return '' }
+  try { return url ? new URL(url).hostname : '' } catch { return '' }
+})
+const sourceText = computed(() => {
+  const s = sourceTextRaw.value
+  return (s && String(s).trim()) ? s : (t('download.unknown_source') || 'Unknown Source')
+})
+const uploaderText = computed(() => {
+  const s = task.value?.uploader
+  return (s && String(s).trim()) ? s : (t('download.unknown_uploader') || t('common.unknown') || 'Unknown')
+})
+const extractorText = computed(() => {
+  const s = task.value?.extractor
+  return (s && String(s).trim()) ? s : (t('download.unknown_source') || 'Unknown Source')
 })
 
 const copy = async (text) => { await copyToClipboard(text, t) }
@@ -559,8 +578,11 @@ onUnmounted(() => eventBus.off('download_task:refresh', refresh))
 .progress { width:100%; height:2px; background: var(--macos-divider-weak); border-radius: 999px; overflow:hidden; margin-top: 6px; }
 .progress.big { height:3px; }
 .progress .bar { height:100%; background: var(--macos-blue); }
-.thumb-box { width: 100%; height: 140px; border: 1px solid var(--macos-separator); border-radius: 10px; overflow: hidden; background: var(--macos-background-secondary); box-shadow: var(--macos-shadow-1); }
+.thumb-box { width: 100%; aspect-ratio: 16 / 9; border: 1px solid var(--macos-separator); border-radius: 10px; overflow: hidden; background: var(--macos-background-secondary); box-shadow: var(--macos-shadow-1); }
 .thumb-box { position: relative; }
+.thumb-fallback { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color: var(--macos-text-tertiary); }
+.thumb-box :deep(.proxied-image-wrapper) { position:absolute; inset:0; width:100%; height:100%; }
+.thumb-box :deep(.proxied-image-wrapper .image-content) { width:100% !important; height:100% !important; object-fit: cover !important; display:block; }
 .thumb-box::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.22), rgba(0,0,0,0.06) 40%, rgba(0,0,0,0) 70%); pointer-events: none; }
 .thumb-status { position:absolute; right:8px; bottom:8px; z-index:1; }
 .thumb-status .chip-frosted .chip-label { display:inline-flex; align-items:center; height:100%; line-height:1; }

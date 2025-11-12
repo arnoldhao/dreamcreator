@@ -19,11 +19,11 @@
     </div>
     <div class="main">
       <div class="title-row">
-        <div class="title" :title="task.title">{{ task.title }}</div>
+        <div class="title" :title="titleText">{{ titleText }}</div>
       </div>
-      <div class="meta">{{ formatDuration(task.duration) }} · {{ formatFileSize(task.fileSize) }} · {{ task.extractor }}</div>
+      <div class="meta">{{ formatDuration(task.duration) }} · {{ formatFileSize(task.fileSize) }} · {{ extractorText }}</div>
       <div class="bottom-row">
-        <div class="uploader" v-if="task.uploader" :title="task.uploader">{{ task.uploader }}</div>
+        <div class="uploader" :title="uploaderText">{{ uploaderText }}</div>
         <div class="chip-frosted chip-md chip-translucent bottom-stats" :class="combinedStatClass" @click.stop="onBottomPillClick" :title="pillTitle">
           <span class="chip-dot"></span>
           <span class="chip-label">
@@ -58,6 +58,18 @@ const props = defineProps({
   active: { type: Boolean, default: false },
 })
 const { t } = useI18n()
+const titleText = computed(() => {
+  const s = props.task?.title
+  return (s && String(s).trim()) ? s : (t('download.unknown_video') || 'Unknown Video')
+})
+const extractorText = computed(() => {
+  const s = props.task?.extractor
+  return (s && String(s).trim()) ? s : (t('download.unknown_source') || 'Unknown Source')
+})
+const uploaderText = computed(() => {
+  const s = props.task?.uploader
+  return (s && String(s).trim()) ? s : (t('download.unknown_uploader') || t('common.unknown') || 'Unknown')
+})
 const isCompleted = computed(() => props.task?.stage === 'completed')
 const isFailed = computed(() => props.task?.stage === 'failed')
 const pillTitle = computed(() => props.task?.stage === 'failed' ? (t('download.failed_desc') || '') : '')
@@ -205,16 +217,40 @@ const formatFileSize = (bytes) => fmtSize(bytes, t)
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--macos-blue) 28%, white 8%);
 }
 /* no sweep on selection */
-.thumb { position: relative; width: 100%; min-height: 40px; height: auto; border-radius: 6px; overflow: visible; background: var(--macos-background-secondary); display:flex; align-items:center; justify-content:center; }
-.thumb-fallback { width:100%; height:100%; display:flex; align-items:center; justify-content:center; color: var(--macos-text-tertiary); }
-.thumb :deep(.proxied-image-wrapper) { width: 100%; height: auto; }
-/* Keep original aspect; fit within max height */
+/*
+  Fix card/thumb deformation by enforcing a fixed 16:9 area for thumbnails.
+  - The thumb container keeps a 16:9 ratio based on its width.
+  - ProxiedImage fills the container and uses object-fit: cover (default) to avoid distortion.
+*/
+.thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--macos-background-secondary);
+}
+.thumb-fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color: var(--macos-text-tertiary);
+}
+.thumb :deep(.proxied-image-wrapper) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* Ensure the img fully covers the fixed-ratio box */
 .thumb :deep(.proxied-image-wrapper .image-content) {
-  width: auto !important;
-  max-width: 100% !important;
-  height: auto !important;
-  max-height: var(--dl-thumb-max, 120px) !important;
-  object-fit: contain !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
   display: block;
   border-radius: 6px;
 }
