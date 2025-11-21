@@ -14,6 +14,10 @@ import SubtitleExportPanel from '@/components/panels/SubtitleExportPanel.vue'
 import CookiesPanel from '@/components/panels/CookiesPanel.vue'
 import InspectorHomePanel from '@/components/panels/InspectorHomePanel.vue'
 import DownloadTaskPanel from '@/components/panels/DownloadTaskPanel.vue'
+import SubtitleTasksPanel from '@/components/panels/SubtitleTasksPanel.vue'
+import GlossaryPanel from '@/components/panels/GlossaryPanel.vue'
+import TargetLanguagesPanel from '@/components/panels/TargetLanguagesPanel.vue'
+import ProfilesPanel from '@/components/panels/ProfilesPanel.vue'
 
 const inspector = useInspectorStore()
 
@@ -22,6 +26,10 @@ const map = {
   CookiesPanel,
   InspectorHomePanel,
   DownloadTaskPanel,
+  SubtitleTasksPanel,
+  GlossaryPanel,
+  TargetLanguagesPanel,
+  ProfilesPanel,
 }
 
 const ResolvedComponent = computed(() => {

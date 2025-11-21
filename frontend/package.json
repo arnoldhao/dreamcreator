@@ -12,6 +12,7 @@
     "@telemetrydeck/sdk": "^2.0.4",
     "dayjs": "^1.11.13",
     "lodash": "^4.17.21",
+    "markdown-it": "^14.1.0",
     "mitt": "^3.0.1",
     "pinia": "^2.2.2",
     "unplugin-auto-import": "^0.18.2",

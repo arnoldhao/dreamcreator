@@ -1,7 +1,7 @@
 <template>
   <div class="sep-root">
-    <!-- Group: Summary -->
-    <div class="macos-group"><div class="macos-group-title">{{ $t('subtitle.export.summary') }}</div></div>
+    <!-- Top spacing header (remove visible label '字幕摘要' for consistency) -->
+    <div class="macos-group sep-header"><div class="grow"></div></div>
     <div class="macos-box card-frosted card-translucent" v-if="project">
       <div class="macos-row"><span class="k">{{ $t('subtitle.common.project_name') }}</span><span class="v one-line" :title="project?.project_name">{{ project?.project_name || '-' }}</span></div>
       <div class="macos-row"><span class="k">{{ $t('subtitle.common.lang') }}</span><span class="v">{{ lang }}</span></div>
@@ -49,6 +49,8 @@ const onExport = () => {}
 
 <style scoped>
 .sep-root { padding: 10px; font-size: var(--fs-base); color: var(--macos-text-primary); }
+.sep-header { display:flex; align-items:center; }
+.sep-header + .macos-box { margin-top: 8px; }
 .title-bar { display:flex; align-items:center; justify-content: space-between; gap: 8px; margin-top: 2px; margin-bottom: 8px; }
 .title-text { font-size: var(--fs-base); font-weight: 600; color: var(--macos-text-primary); min-width:0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pill { font-size: var(--fs-caption); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--macos-separator); color: var(--macos-text-secondary); background: var(--macos-background); }

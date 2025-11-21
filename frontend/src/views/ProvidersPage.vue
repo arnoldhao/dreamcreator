@@ -76,44 +76,33 @@
               </div>
             </div>
 
+            <!-- Models block (between Base URL and Profiles) -->
             <div class="sr-section-divider subtle"></div>
-            <div class="profiles-head">
-              <span>{{ t('providers.profiles_title') }}</span>
-              <button class="btn-chip-ghost btn-sm" @click="openNewProfile"
-                      :disabled="!(currentProvider && (currentProvider.models || []).length)">
-                <Icon name="plus" class="w-4 h-4 mr-1" />{{ t('providers.profiles_add') }}
+            <div class="profiles-head" style="align-items:center">
+              <span>{{ t('providers.models_title') }}</span>
+              <div style="margin-left:auto; display:flex; gap:8px">
+                <button class="btn-chip-ghost btn-sm" @click="onTest(currentProvider)" :disabled="!currentProvider">
+                  <Icon name="link" class="w-4 h-4 mr-1" />{{ t('providers.test_connection') }}
+                </button>
+                <button class="btn-chip-ghost btn-sm" @click="onRefreshModels(currentProvider)" :disabled="!currentProvider">
+                  <Icon name="refresh" class="w-4 h-4 mr-1" />{{ t('providers.models_refresh') }}
+                </button>
+              </div>
+            </div>
+            <div class="models-list" style="display:flex; flex-wrap:wrap; gap:6px; padding:4px 0 8px 0; min-height:28px">
+              <template v-if="allModels.length">
+                <span v-for="m in visibleModels" :key="m" class="chip-frosted chip-sm"><span class="chip-label">{{ m }}</span></span>
+              </template>
+              <div v-else class="muted">{{ t('providers.models_empty') }}</div>
+            </div>
+            <div v-if="hasMoreModels" style="margin-top: 4px; display:flex; justify-content:center">
+              <button class="btn-chip-ghost btn-sm" @click="toggleModels()">
+                {{ modelExpand ? t('providers.models_show_less') : t('providers.models_show_more') }}
+                <span class="muted" v-if="!modelExpand && moreCount>0" style="margin-left:6px">(+{{ moreCount }})</span>
               </button>
             </div>
-            <div v-if="providerProfiles.length" class="profile-list">
-              <div class="list-header">
-                <div class="col">{{ t('providers.profile_model') }}</div>
-                <div class="col">{{ t('providers.profile_temperature') }}</div>
-                <div class="col">{{ t('providers.profile_top_p') }}</div>
-                <div class="col">{{ t('providers.profile_json_mode') }}</div>
-                <div class="col actions"></div>
-              </div>
-              <div class="list-row" v-for="prof in providerProfiles" :key="prof.id">
-                <div class="col">{{ prof.model || '-' }}</div>
-                <div class="col">{{ typeof prof.temperature === 'number' ? prof.temperature : '-' }}</div>
-                <div class="col">{{ typeof prof.top_p === 'number' ? prof.top_p : '-' }}</div>
-                <div class="col">
-                  <span :class="['badge', prof.json_mode ? 'badge-primary' : 'badge-ghost']">
-                    {{ prof.json_mode ? t('providers.profile_json_mode_on') : t('providers.profile_json_mode_off') }}
-                  </span>
-                </div>
-                <div class="col actions">
-                  <button class="icon-chip-ghost" :data-tooltip="t('common.edit')" data-tip-pos="top" @click="beginEditProfile(prof)">
-                    <Icon name="edit" class="w-4 h-4" />
-                  </button>
-                  <button class="icon-chip-ghost danger" :data-tooltip="t('common.delete')" data-tip-pos="top" @click="onDeleteProfile(prof)">
-                    <Icon name="trash" class="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div v-else class="profile-empty">
-              {{ t('providers.profiles_empty') }}
-            </div>
+
+            <!-- Profiles section removed: Profile management will be global (Inspector) -->
 
             <!-- 已去除显式保存按钮；失焦即自动保存 -->
           </template>
@@ -197,10 +186,19 @@ const currentProvider = computed(() => {
 watch(currentProvider, (cp) => {
   if (mode.value === 'provider' && cp) {
     prepareFormForCurrent()
+    modelExpand.value = false
   }
 })
 
 const formProv = ref({ name:'', base_url:'', enabled:true, api_key_input:'' })
+// Models expand/collapse settings
+const modelExpand = ref(false)
+const modelsLimit = 24
+const allModels = computed(() => Array.isArray(currentProvider.value?.models) ? currentProvider.value.models.filter(Boolean) : [])
+const visibleModels = computed(() => modelExpand.value ? allModels.value : allModels.value.slice(0, modelsLimit))
+const hasMoreModels = computed(() => allModels.value.length > modelsLimit)
+const moreCount = computed(() => Math.max(0, allModels.value.length - modelsLimit))
+function toggleModels(){ modelExpand.value = !modelExpand.value }
 const defaultRateLimit = () => ({ rps: 2, rpm: 120, burst: 4, concurrency: 4 })
 const defaultNewProv = () => ({ name:'', base_url:'', api_key:'', enabled:true, rate_limit: defaultRateLimit() })
 const newProv = ref(defaultNewProv())
@@ -238,9 +236,23 @@ async function onSavePreset(){
   // 仅 custom 可改名
   const nextName = (isCustomProvider(existing) && (formProv.value?.name || '').trim()) ? (formProv.value?.name || '').trim() : existing.name
   const payload = { name: nextName, enabled: existing?.enabled ?? true }
-  const base = (formProv.value.base_url || existing.base_url || '').trim(); if (base) payload.base_url = base
-  const key = (formProv.value.api_key_input || '').trim(); if (key) payload.api_key = key
+  const baseInput = (formProv.value.base_url || '').trim()
+  const keyInput = (formProv.value.api_key_input || '').trim()
+  const base = (baseInput || existing.base_url || '').trim(); if (base) payload.base_url = base
+  const key = keyInput; if (key) payload.api_key = key
+  const baseChanged = baseInput && baseInput !== (existing.base_url || '')
+  const keyChanged = !!keyInput && keyInput !== (existing.api_key || '')
   await llm.saveProvider(existing.id, payload)
+  // Best practice: if endpoint or key changed, refresh models immediately
+  try {
+    if (baseChanged || keyChanged) {
+      const r = await llm.refresh(existing.id)
+      if (r?.ok) {
+        await llm.fetchProviders()
+        window.$message?.success?.(t('providers.models_refreshed'))
+      }
+    }
+  } catch {}
 }
 
 // 自定义判断：按 policy
@@ -312,44 +324,29 @@ async function onLeftDelete(){
 }
 
 // Actions
-async function onTest(p){ const r = await llm.testConn(p.id); if (r?.ok) window.$message?.success?.('连接成功，模型数：' + (r.models?.length||0)); else window.$message?.error?.('连接失败：' + (r?.error||'')) }
-async function onRefreshModels(p){ const r = await llm.refresh(p.id); if (r?.ok) window.$message?.success?.('已刷新模型：' + (r.models?.length||0)); else window.$message?.error?.('刷新失败：' + (r?.error||'')) }
+async function onTest(p){
+  const r = await llm.testConn(p.id)
+  if (r?.ok) {
+    window.$message?.success?.('连接成功，模型数：' + (r.models?.length||0))
+    // test 通过也可能带来可用模型，刷新本地 provider 列表
+    try { await llm.fetchProviders() } catch {}
+  } else {
+    window.$message?.error?.('连接失败：' + (r?.error||''))
+  }
+}
+async function onRefreshModels(p){
+  const r = await llm.refresh(p.id)
+  if (r?.ok) {
+    window.$message?.success?.('已刷新模型：' + (r.models?.length||0))
+    // 立即拉取最新 provider 列表以更新 models 展示
+    try { await llm.fetchProviders() } catch {}
+  } else {
+    window.$message?.error?.('刷新失败：' + (r?.error||''))
+  }
+}
 
 // Profiles filtered by current provider
-const providerProfiles = computed(() => {
-  if (!currentProvider.value) return []
-  const list = profilesList.value || []
-  return list.filter(x => x?.provider_id === currentProvider.value.id)
-})
-async function openNewProfile(){
-  if (!currentProvider.value) return
-  const models = Array.isArray(currentProvider.value.models) ? currentProvider.value.models.filter(Boolean) : []
-  if (!models.length) {
-    // 需要先探测/刷新模型列表，避免后端校验报错（provider_id/model required）
-    window.$message?.warning?.('请先测试/刷新模型，再新增配置')
-    return
-  }
-  const p = { provider_id: currentProvider.value.id, model: models[0], temperature: 0.2, top_p: 1, json_mode: true, max_tokens: 2048, cost_weight: 1.0 }
-  await llm.addProfile(p)
-}
-function beginEditProfile(p){ window.$message?.info?.('请在后续版本使用详细编辑器'); }
-async function onDeleteProfile(p){
-  const ok = await new Promise(resolve => {
-    if (window?.$dialog?.confirm) {
-      window.$dialog.confirm(t('providers.profile_delete_confirm'), {
-        title: t('common.delete_confirm'),
-        positiveText: t('common.delete'),
-        negativeText: t('common.cancel'),
-        onPositiveClick: () => resolve(true),
-        onNegativeClick: () => resolve(false),
-      })
-    } else {
-      resolve(confirm(t('providers.profile_delete_confirm')))
-    }
-  })
-  if (!ok) return
-  await llm.removeProfile(p.id)
-}
+// Profiles removed from Provider view; management will be via global inspector later
 
 async function loadAll(){
   await Promise.all([llm.fetchProviders(), llm.fetchProfiles()])
@@ -531,11 +528,11 @@ async function onInitBolt(){
 
 <style scoped>
 /* 1:1 复刻 Settings 的两栏结构和风格 */
-.sr-root { position: absolute; inset: 0; display: grid; grid-template-columns: var(--left-col, 160px) 1fr; overflow: hidden; }
-.sr-left { position: relative; z-index: 1; padding: 6px; display: flex; flex-direction: column; gap: 6px; justify-content: flex-start; }
+.sr-root { position: absolute; inset: 0; display: grid; grid-template-columns: var(--left-col, 160px) 1fr; grid-template-rows: 1fr; overflow: auto; scrollbar-gutter: stable; }
+.sr-left { position: sticky; top: 0; align-self: start; z-index: 1; height: 100%; padding: 6px; display: flex; flex-direction: column; gap: 6px; justify-content: flex-start; }
 .sr-left { min-height: 0; --cmd-area-h: 44px; }
 .sr-left-scroll { flex: 0 1 auto; height: calc(100% - var(--cmd-area-h)); min-height: 0; overflow-y: auto; overflow-x: hidden; padding-right: 10px; scrollbar-gutter: stable; }
-.sr-right { position: relative; z-index: 1; background: var(--macos-background); padding: 12px; overflow: auto; font-size: var(--fs-base); height: 100%; }
+.sr-right { position: relative; z-index: 1; background: var(--macos-background); padding: 12px; overflow: visible; font-size: var(--fs-base); }
 .sr-item, .sr-item:hover, .sr-item.active, .sr-item-label { /* deprecated: replaced by .source-chip styles */ }
 .sr-left-actions { position: absolute; bottom: 0; left: 6px; right: 6px; height: var(--cmd-area-h); display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--macos-divider-weak); background: transparent; }
 .sr-group-title { font-size: var(--fs-sub); color: var(--macos-text-secondary); margin: 4px 4px 6px; }

@@ -157,7 +157,7 @@ import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import ModalTrafficLights from '@/components/common/ModalTrafficLights.vue'
 import { useI18n } from 'vue-i18n'
 import { ListAllCookies, SyncCookies } from 'wailsjs/go/api/CookiesAPI'
-import { useDtStore } from '@/handlers/downtasks'
+import { useDtStore } from '@/stores/downloadTasks'
 // 统一的语义图标：浏览器用概念图标（不混入品牌）
 
 const props = defineProps({ show: Boolean })

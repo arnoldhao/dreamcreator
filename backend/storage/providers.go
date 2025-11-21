@@ -11,9 +11,10 @@ import (
     "dreamcreator/backend/pkg/logger"
     "go.uber.org/zap"
     "dreamcreator/backend/types"
+    "sort"
 )
 
-// ProviderRecord 和 LLMProfileRecord 是为了存储层解耦 model 包而定义的镜像结构
+// ProviderRecord 是为了存储层解耦 model 包而定义的镜像结构
 // 注意：API 层与服务层请使用各自的结构体，存储层仅负责持久化与取回。
 
 type ProviderRecord struct {
@@ -48,15 +49,16 @@ type RateLimitRec struct {
     Concurrency int `json:"concurrency"`
 }
 
-type LLMProfileRecord struct {
+// legacy LLMProfileRecord removed (use GlobalProfileRecord instead)
+
+// GlobalProfileRecord mirrors types.GlobalProfile for Bolt storage
+type GlobalProfileRecord struct {
     ID           string            `json:"id"`
-    ProviderID   string            `json:"provider_id"`
-    Model        string            `json:"model"`
+    Name         string            `json:"name"`
     Temperature  float64           `json:"temperature"`
     TopP         float64           `json:"top_p"`
     JSONMode     bool              `json:"json_mode"`
     SysPromptTpl string            `json:"sys_prompt_tpl"`
-    CostWeight   float64           `json:"cost_weight"`
     MaxTokens    int               `json:"max_tokens"`
     Metadata     map[string]string `json:"metadata"`
     CreatedAt    time.Time         `json:"created_at"`
@@ -149,70 +151,61 @@ func (s *BoltStorage) DeleteProvider(id string) error {
     })
 }
 
-// --- LLM Profile CRUD ---
+// legacy LLM Profile CRUD removed
 
-func (s *BoltStorage) SaveLLMProfile(p *LLMProfileRecord) error {
-    if p == nil || p.ID == "" {
-        return fmt.Errorf("llm profile or id empty")
+// --- Global Profiles CRUD ---
+
+func (s *BoltStorage) SaveGlobalProfile(p *GlobalProfileRecord) error {
+    if p == nil || strings.TrimSpace(p.ID) == "" {
+        return fmt.Errorf("global profile or id empty")
     }
     p.UpdatedAt = time.Now()
-    if p.CreatedAt.IsZero() {
-        p.CreatedAt = p.UpdatedAt
-    }
+    if p.CreatedAt.IsZero() { p.CreatedAt = p.UpdatedAt }
     return s.db.Update(func(tx *bbolt.Tx) error {
-        b := tx.Bucket(llmProfilesBucket)
+        b := tx.Bucket(globalProfilesBucket)
         buf, err := json.Marshal(p)
-        if err != nil {
-            return err
-        }
+        if err != nil { return err }
         return b.Put([]byte(p.ID), buf)
     })
 }
 
-func (s *BoltStorage) GetLLMProfile(id string) (*LLMProfileRecord, error) {
-    if id == "" {
-        return nil, fmt.Errorf("id empty")
-    }
-    var rec LLMProfileRecord
+func (s *BoltStorage) GetGlobalProfile(id string) (*GlobalProfileRecord, error) {
+    if strings.TrimSpace(id) == "" { return nil, fmt.Errorf("id empty") }
+    var rec GlobalProfileRecord
     err := s.db.View(func(tx *bbolt.Tx) error {
-        b := tx.Bucket(llmProfilesBucket)
+        b := tx.Bucket(globalProfilesBucket)
         v := b.Get([]byte(id))
-        if v == nil {
-            return fmt.Errorf("llm_profile not found: %s", id)
-        }
+        if v == nil { return fmt.Errorf("global_profile not found: %s", id) }
         return json.Unmarshal(v, &rec)
     })
-    if err != nil {
-        return nil, err
-    }
+    if err != nil { return nil, err }
     return &rec, nil
 }
 
-func (s *BoltStorage) ListLLMProfiles() ([]*LLMProfileRecord, error) {
-    var out []*LLMProfileRecord
+func (s *BoltStorage) ListGlobalProfiles() ([]*GlobalProfileRecord, error) {
+    out := []*GlobalProfileRecord{}
     err := s.db.View(func(tx *bbolt.Tx) error {
-        b := tx.Bucket(llmProfilesBucket)
+        b := tx.Bucket(globalProfilesBucket)
         return b.ForEach(func(k, v []byte) error {
-            var rec LLMProfileRecord
-            if err := json.Unmarshal(v, &rec); err != nil {
-                return err
-            }
+            var rec GlobalProfileRecord
+            if err := json.Unmarshal(v, &rec); err != nil { return err }
             out = append(out, &rec)
             return nil
         })
     })
-    if err != nil {
-        return nil, err
-    }
+    if err != nil { return nil, err }
+    // stable order by UpdatedAt desc, then name
+    sort.SliceStable(out, func(i, j int) bool {
+        if !out[i].UpdatedAt.Equal(out[j].UpdatedAt) { return out[i].UpdatedAt.After(out[j].UpdatedAt) }
+        return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
+    })
     return out, nil
 }
 
-func (s *BoltStorage) DeleteLLMProfile(id string) error {
-    if id == "" {
-        return fmt.Errorf("id empty")
-    }
+func (s *BoltStorage) DeleteGlobalProfile(id string) error {
+    if strings.TrimSpace(id) == "" { return fmt.Errorf("id empty") }
     return s.db.Update(func(tx *bbolt.Tx) error {
-        b := tx.Bucket(llmProfilesBucket)
+        b := tx.Bucket(globalProfilesBucket)
         return b.Delete([]byte(id))
     })
 }
@@ -298,15 +291,15 @@ func (s *BoltStorage) ListModelMeta(providerID string) ([]*ModelMetaRecord, erro
 
 // --- Maintenance helpers ---
 
-// ResetLLMData clears providers, llm profiles and models cache buckets.
+// ResetLLMData clears providers, global profiles and models cache buckets.
 func (s *BoltStorage) ResetLLMData() error {
     return s.db.Update(func(tx *bbolt.Tx) error {
         if err := tx.DeleteBucket(providersBucket); err != nil && err != bbolt.ErrBucketNotFound { return err }
-        if err := tx.DeleteBucket(llmProfilesBucket); err != nil && err != bbolt.ErrBucketNotFound { return err }
+        if err := tx.DeleteBucket(globalProfilesBucket); err != nil && err != bbolt.ErrBucketNotFound { return err }
         if err := tx.DeleteBucket(modelsCacheBucket); err != nil && err != bbolt.ErrBucketNotFound { return err }
         if err := tx.DeleteBucket(modelsMetaBucket); err != nil && err != bbolt.ErrBucketNotFound { return err }
         if _, err := tx.CreateBucketIfNotExists(providersBucket); err != nil { return err }
-        if _, err := tx.CreateBucketIfNotExists(llmProfilesBucket); err != nil { return err }
+        if _, err := tx.CreateBucketIfNotExists(globalProfilesBucket); err != nil { return err }
         if _, err := tx.CreateBucketIfNotExists(modelsCacheBucket); err != nil { return err }
         if _, err := tx.CreateBucketIfNotExists(modelsMetaBucket); err != nil { return err }
         return nil

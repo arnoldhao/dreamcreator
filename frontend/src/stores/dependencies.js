@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ListDependencies, InstallDependencyWithMirror, UpdateDependencyWithMirror, CheckUpdates, ListMirrors, ValidateDependencies, RepairDependency, QuickValidateDependencies } from 'wailsjs/go/api/DependenciesAPI'
-import { useDtStore } from '@/handlers/downtasks'
+import { useDtStore } from '@/stores/downloadTasks'
 import { i18nGlobal } from '@/utils/i18n.js'
 import WebSocketService from '@/services/websocket'
 

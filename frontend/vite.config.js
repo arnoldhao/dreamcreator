@@ -13,7 +13,8 @@ export default defineConfig({
     plugins: [
         vue(),
         AutoImport({
-            imports: [],
+            // Provide common auto-imports to silence warnings and help DX
+            imports: ['vue', 'vue-i18n', 'pinia'],
         }),
         Components({
             resolvers: [NaiveUiResolver()],

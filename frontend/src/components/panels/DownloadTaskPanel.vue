@@ -172,7 +172,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import useNavStore from '@/stores/nav.js'
 import { useSubtitleStore } from '@/stores/subtitle'
-import { useDtStore } from '@/handlers/downtasks'
+import { useDtStore } from '@/stores/downloadTasks'
 import { ListTasks } from 'wailsjs/go/api/DowntasksAPI'
 import { OpenDirectory, OpenPath } from 'wailsjs/go/systems/Service'
 import useInspectorStore from '@/stores/inspector.js'
@@ -315,9 +315,23 @@ function onOpenSubtitleClick() {
 }
 
 const refresh = async () => {
-  try { const r = await ListTasks(); if (r?.success) {
-    const arr = JSON.parse(r.data||'[]'); task.value = arr.find(x => x.id === props.taskId) || task.value
-  }} catch {}
+  try {
+    const r = await ListTasks(); if (r?.success) {
+      const arr = JSON.parse(r.data||'[]')
+      let found = arr.find(x => x.id === props.taskId)
+      // 合并最近一次的进度（来自 dtStore.taskProgressMap），避免切回 Inspector 时丢失速度/ETA
+      try {
+        const overlay = dtStore?.taskProgressMap?.[props.taskId]
+        if (found && overlay) {
+          found = { ...found, ...overlay }
+          found.downloadProcess = found.downloadProcess || {}
+          if (Object.prototype.hasOwnProperty.call(overlay, 'speed')) found.downloadProcess.speed = overlay.speed
+          if (Object.prototype.hasOwnProperty.call(overlay, 'estimatedTime')) found.downloadProcess.estimatedTime = overlay.estimatedTime
+        }
+      } catch {}
+      task.value = found || task.value
+    }
+  } catch {}
 }
 
 const onProgress = (data) => {
@@ -409,8 +423,31 @@ watch(() => task.value, (t) => {
   } catch {}
 })
 
-onMounted(async () => { await refresh(); dtStore.registerProgressCallback(onProgress); dtStore.registerSignalCallback(onSignal); dtStore.registerStageCallback(onStage) })
-onUnmounted(() => { dtStore.unregisterProgressCallback(onProgress); dtStore.unregisterSignalCallback(onSignal); dtStore.unregisterStageCallback(onStage) })
+onMounted(async () => {
+  await refresh();
+  dtStore.registerProgressCallback(onProgress);
+  dtStore.registerSignalCallback(onSignal);
+  dtStore.registerStageCallback(onStage);
+  // 页面可见/窗口焦点时兜底刷新一次，保证 Inspector 面板数据及时
+  try {
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('focus', onWindowFocus)
+  } catch {}
+})
+onUnmounted(() => {
+  dtStore.unregisterProgressCallback(onProgress);
+  dtStore.unregisterSignalCallback(onSignal);
+  dtStore.unregisterStageCallback(onStage);
+  try {
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.removeEventListener('focus', onWindowFocus)
+  } catch {}
+})
+
+function onVisibilityChange() {
+  try { if (document.visibilityState === 'visible') refresh() } catch {}
+}
+function onWindowFocus() { refresh() }
 
 // picker state
 const showPicker = ref(false)

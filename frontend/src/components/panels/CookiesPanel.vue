@@ -190,7 +190,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ListAllCookies, SyncCookies, CreateManualCollection, UpdateManualCollection, DeleteCookieCollection, ExportCookieCollection } from 'wailsjs/go/api/CookiesAPI'
-import { useDtStore } from '@/handlers/downtasks'
+import { useDtStore } from '@/stores/downloadTasks'
 import CookiesSearchModal from '@/components/modal/CookiesSearchModal.vue'
 import ManualCookiesModal from '@/components/modal/ManualCookiesModal.vue'
 import { isWindows } from '@/utils/platform.js'

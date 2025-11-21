@@ -9,8 +9,16 @@ class WebSocketService {
     this.maxReconnectAttempts = -1; // 无限重连
     this.reconnectInterval = 1000; // 初始重连间隔1秒
     this.maxReconnectInterval = 30000; // 最大重连间隔30秒
+    this.jitterRatio = 0.25; // 抖动比例，避免同一时间风暴式重连
     this.heartbeatInterval = 25000; // 心跳间隔25秒
     this.connectionLost = false;
+
+    // 当网络恢复时，立即尝试重连（避免等待指数退避）
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('online', () => {
+        this.scheduleReconnect(true);
+      });
+    }
   }
 
   async connect() {
@@ -91,25 +99,37 @@ class WebSocketService {
 
   // 计划重连
   scheduleReconnect() {
+    this.scheduleReconnect(false);
+  }
+
+  // 支持立即重连（如网络恢复）与带抖动的指数退避
+  scheduleReconnect(immediate = false) {
     if (this.autoReconnectTimer) return;
-    
-    const delay = Math.min(
-      this.reconnectInterval * Math.pow(2, this.reconnectAttempts),
-      this.maxReconnectInterval
-    );
-    
-    console.log(`Scheduling reconnect in ${delay}ms (attempt ${this.reconnectAttempts + 1})`);
-    
+    if (this.isConnected() || this.connecting) return;
+
+    let delay = 0;
+    if (!immediate) {
+      const base = Math.min(
+        this.reconnectInterval * Math.pow(2, this.reconnectAttempts),
+        this.maxReconnectInterval
+      );
+      const jitter = base * this.jitterRatio;
+      // Uniform 抖动 [-jitter, +jitter]
+      delay = Math.max(0, Math.floor(base + (Math.random() * 2 - 1) * jitter));
+    }
+
+    console.log(`Scheduling reconnect in ${delay}ms (attempt ${this.reconnectAttempts + 1}${immediate ? ', immediate' : ''})`);
+
     this.autoReconnectTimer = setTimeout(async () => {
       this.autoReconnectTimer = null;
-      
+
       if (this.maxReconnectAttempts === -1 || this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts++;
         try {
           await this.connect();
         } catch (error) {
           console.error('Reconnect failed:', error);
-          this.scheduleReconnect();
+          this.scheduleReconnect(false);
         }
       }
     }, delay);

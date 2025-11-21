@@ -1,8 +1,8 @@
 <script setup>
-import WindowMin from '@/components/icons/WindowMin.vue'
-import WindowMax from '@/components/icons/WindowMax.vue'
-import WindowRestore from '@/components/icons/WindowRestore.vue'
-import WindowClose from '@/components/icons/WindowClose.vue'
+import WindowMin from '@/components/window-controls/WindowMin.vue'
+import WindowMax from '@/components/window-controls/WindowMax.vue'
+import WindowRestore from '@/components/window-controls/WindowRestore.vue'
+import WindowClose from '@/components/window-controls/WindowClose.vue'
 import { computed } from 'vue'
 import { Quit, WindowMinimise, WindowToggleMaximise } from 'wailsjs/runtime/runtime.js'
 

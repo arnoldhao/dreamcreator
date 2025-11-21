@@ -21,7 +21,8 @@ const (
 	EVENT_DOWNTASKS_STAGE       WSResponseEventType = "response_downtasks_stage"
 	EVENT_DOWNTASKS_ANALYSIS    WSResponseEventType = "response_downtasks_analysis"
 	// SUBTITLE
-	EVENT_SUBTITLE_PROGRESS WSResponseEventType = "response_subtitle_progress"
+	EVENT_SUBTITLE_PROGRESS  WSResponseEventType = "response_subtitle_progress"
+	EVENT_SUBTITLE_CHAT      WSResponseEventType = "response_subtitle_chat"
 )
 
 // Topics
@@ -34,5 +35,6 @@ const (
 	TopicDowntasksStage      = "downtasks.stage"
 	TopicDowntasksAnalysis   = "downtasks.analysis"
 	// SUBTITLE
-	TopicSubtitleProgress = "subtitle.progress"
+	TopicSubtitleProgress    = "subtitle.progress"
+	TopicSubtitleConversation = "subtitle.conversation"
 )

@@ -276,13 +276,14 @@ func (s *FormatConverterImpl) fromItt(filePath string, file []byte) (types.Subti
 	// 检测语言 - 使用相对距离逻辑
 	langInt, langCode := s.detector.DetectLanguageInt(allText)
 
-	// 设置语言元数据
-	project.LanguageMetadata[langCode] = types.LanguageMetadata{
-		DetectedLang: int(langInt),
-		LanguageName: langCode,
-		Quality:      "imported",
-		SyncStatus:   "synced",
-	}
+    // 设置语言元数据（标记为原始语言）
+    project.LanguageMetadata[langCode] = types.LanguageMetadata{
+        DetectedLang: int(langInt),
+        LanguageName: langCode,
+        Quality:      "imported",
+        SyncStatus:   "synced",
+        Status:       types.LanguageContentStatus{IsOriginal: true, LastUpdated: time.Now().Unix()},
+    }
 	// 完善 ITT 导出配置的语言
 	if project.Metadata.ExportConfigs.ITT != nil {
 		project.Metadata.ExportConfigs.ITT.Language = langCode
@@ -486,13 +487,14 @@ func (s *FormatConverterImpl) fromSrt(filePath string, file []byte) (types.Subti
 	// 检测语言 - 使用相对距离逻辑
 	langInt, langCode := s.detector.DetectLanguageInt(allText)
 
-	// 设置语言元数据
-	project.LanguageMetadata[langCode] = types.LanguageMetadata{
-		DetectedLang: int(langInt),
-		LanguageName: langCode,
-		Quality:      "imported",
-		SyncStatus:   "synced",
-	}
+    // 设置语言元数据（标记为原始语言）
+    project.LanguageMetadata[langCode] = types.LanguageMetadata{
+        DetectedLang: int(langInt),
+        LanguageName: langCode,
+        Quality:      "imported",
+        SyncStatus:   "synced",
+        Status:       types.LanguageContentStatus{IsOriginal: true, LastUpdated: time.Now().Unix()},
+    }
 
 	// 将内容分配到对应的片段
 	for i, content := range allContents {
@@ -999,7 +1001,7 @@ func (s *FormatConverterImpl) fromAss(filePath string, file []byte) (types.Subti
 	if langCode == "" {
 		langCode = "Chinese"
 	}
-	project.LanguageMetadata[langCode] = types.LanguageMetadata{DetectedLang: int(langInt), LanguageName: langCode, Quality: "imported", SyncStatus: "synced"}
+    project.LanguageMetadata[langCode] = types.LanguageMetadata{DetectedLang: int(langInt), LanguageName: langCode, Quality: "imported", SyncStatus: "synced", Status: types.LanguageContentStatus{IsOriginal: true, LastUpdated: time.Now().Unix()}}
 	for i, c := range allContents {
 		if i < len(project.Segments) {
 			project.Segments[i].Languages[langCode] = c
@@ -1683,12 +1685,13 @@ func (s *FormatConverterImpl) fromVtt(filePath string, file []byte) (types.Subti
 
 	// 语言检测 & 分配
 	langInt, langCode := s.detector.DetectLanguageInt(allText)
-	project.LanguageMetadata[langCode] = types.LanguageMetadata{
-		DetectedLang: int(langInt),
-		LanguageName: langCode,
-		Quality:      "imported",
-		SyncStatus:   "synced",
-	}
+    project.LanguageMetadata[langCode] = types.LanguageMetadata{
+        DetectedLang: int(langInt),
+        LanguageName: langCode,
+        Quality:      "imported",
+        SyncStatus:   "synced",
+        Status:       types.LanguageContentStatus{IsOriginal: true, LastUpdated: time.Now().Unix()},
+    }
 	for i, c := range allContents {
 		if i < len(project.Segments) {
 			project.Segments[i].Languages[langCode] = c

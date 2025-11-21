@@ -33,23 +33,22 @@ const osSvgs = Object.fromEntries(
 const osName = computed(() => ICON_MAP[props.name])
 const raw = computed(() => (osName.value ? osSvgs[osName.value] : null))
 
-// 统一规范化：去掉固定宽高、使用 currentColor
+// 统一规范化：去掉根节点固定宽高、使用 currentColor（不影响内部几何的 width/height）
 const svg = computed(() => {
   if (!raw.value) return ''
   let s = raw.value
-  s = s.replace(/\s(width|height)="[^"]*"/g, '')
-  // 保留 fill="none"，其余强制为 currentColor
+  // 仅清理根 svg 标签上的 width/height，并保证 root 默认 currentColor
+  s = s.replace(/<svg\b([^>]*)>/, (m, attrs) => {
+    let a = attrs.replace(/\s(width|height)="[^"]*"/g, '')
+    const hasFill = /\sfill=/.test(a)
+    const hasStroke = /\sstroke=/.test(a)
+    if (!hasFill) a += ' fill="currentColor"'
+    if (!hasStroke) a += ' stroke="currentColor"'
+    return `<svg${a}>`
+  })
+  // 保留 fill="none"，其余强制为 currentColor（影响内部 path/rect 等）
   s = s.replace(/fill="(?!none)[^"]*"/g, 'fill="currentColor"')
   s = s.replace(/stroke="(?!none)[^"]*"/g, 'stroke="currentColor"')
-  // 确保根节点提供默认的 currentColor（影响未声明 fill/stroke 的路径）
-  s = s.replace(/<svg\b([^>]*)>/, (m, attrs) => {
-    const hasFill = /\sfill=/.test(attrs)
-    const hasStroke = /\sstroke=/.test(attrs)
-    let injected = attrs
-    if (!hasFill) injected += ' fill="currentColor"'
-    if (!hasStroke) injected += ' stroke="currentColor"'
-    return `<svg${injected}>`
-  })
   return s
 })
 
