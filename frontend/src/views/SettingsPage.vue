@@ -161,7 +161,7 @@
               <div class="k">{{ $t('settings.general.download_directory') }}</div>
               <div class="v">
                 <span class="result-field mr-2 text-secondary" :class="{ 'text-tertiary': !prefStore.download?.dir }" :title="prefStore.download?.dir">{{ prefStore.download?.dir }}</span>
-                <button class="icon-chip-ghost" @click="onSelectDownloadDir" :data-tooltip="t('download.open_folder')" :aria-label="t('download.open_folder')"><Icon name="folder" class="w-4 h-4" /></button>
+                <button class="icon-chip-ghost" @click="onSelectDownloadDir" :aria-label="t('download.open_folder')"><Icon name="folder" class="w-4 h-4" /></button>
               </div>
             </div>
           </template>
@@ -235,9 +235,9 @@
                   <span class="result-field mr-2 text-secondary"
                     :class="{ 'text-tertiary': !prefStore.logger.directory }"
                     :title="prefStore.logger.directory">{{ prefStore.logger.directory }}</span>
-                <button class="icon-chip-ghost" @click="openDirectory(prefStore.logger.directory)" :data-tooltip="t('download.open_folder')" :aria-label="t('download.open_folder')"><Icon
+                <button class="icon-chip-ghost" @click="openDirectory(prefStore.logger.directory)" :aria-label="t('download.open_folder')"><Icon
                       name="folder" class="w-4 h-4" /></button>
-                <button class="icon-chip-ghost" @click="onSelectLoggerDir" :data-tooltip="t('common.change') || 'Change'" :aria-label="t('common.change') || 'Change'"><Icon name="settings" class="w-4 h-4" /></button>
+                <button class="icon-chip-ghost" @click="onSelectLoggerDir" :aria-label="t('common.change') || 'Change'"><Icon name="settings" class="w-4 h-4" /></button>
                 </div>
               </div>
             </template>
@@ -249,7 +249,7 @@
               <div class="k">{{ $t('settings.general.config_path') }}</div>
               <div class="v">
                 <span class="result-field mr-2 text-secondary">{{ prefPath }}</span>
-                <button class="icon-chip-ghost" @click="openDirectory(prefPath)" :data-tooltip="t('download.open_folder')" :aria-label="t('download.open_folder')"><Icon
+                <button class="icon-chip-ghost" @click="openDirectory(prefPath)" :aria-label="t('download.open_folder')"><Icon
                     name="folder" class="w-4 h-4" /></button>
               </div>
             </div>
@@ -257,11 +257,12 @@
               <div class="k">{{ $t('settings.general.data_path') }}</div>
               <div class="v">
                 <span class="result-field mr-2 text-secondary">{{ taskDbPath }}</span>
-                <button class="icon-chip-ghost" @click="openDirectory(taskDbPath)" :data-tooltip="t('download.open_folder')" :aria-label="t('download.open_folder')"><Icon
+                <button class="icon-chip-ghost" @click="openDirectory(taskDbPath)" :aria-label="t('download.open_folder')"><Icon
                     name="folder" class="w-4 h-4" /></button>
               </div>
             </div>
           </template>
+
 
           <!-- Listened -->
           <template v-else-if="current === 'listened'">
@@ -269,7 +270,7 @@
               <div class="k">WebSocket</div>
               <div class="v">
                 <span class="result-field mr-2 text-secondary" :title="wsListendAddress">{{ wsListendAddress }}</span>
-                <button class="icon-chip-ghost" @click="copyText(wsListendAddress)" :data-tooltip="$t('common.copy')" :aria-label="$t('common.copy')">
+                <button class="icon-chip-ghost" @click="copyText(wsListendAddress)" :aria-label="$t('common.copy')">
                   <Icon name="file-copy" class="w-4 h-4" />
                 </button>
               </div>
@@ -278,7 +279,7 @@
               <div class="k">MCP Server</div>
               <div class="v">
                 <span class="result-field mr-2 text-secondary" :title="mcpListendAddress">{{ mcpListendAddress }}</span>
-                <button class="icon-chip-ghost" @click="copyText(mcpListendAddress)" :data-tooltip="$t('common.copy')" :aria-label="$t('common.copy')">
+                <button class="icon-chip-ghost" @click="copyText(mcpListendAddress)" :aria-label="$t('common.copy')">
                   <Icon name="file-copy" class="w-4 h-4" />
                 </button>
               </div>
@@ -304,7 +305,7 @@
       </template>
     </section>
   </div>
-
+  
 </template>
 
 <script setup>
@@ -437,6 +438,109 @@ const mcpListendAddress = computed(() => { const info = prefStore.listendInfo?.m
 const copyText = async (text) => { await copyToClipboard(text, t) }
 
 // Debug helpers removed
+
+// ---------- Glossary states & methods ----------
+const glSets = ref([])
+const glCurrentSet = ref('')
+const glEntries = ref([])
+const glCounts = ref({})
+const glTotalTerms = ref(0)
+const glNewSetName = ref('')
+const showSetModal = ref(false)
+const setModalMode = ref('create')
+const editingSet = ref(null)
+const glNewSource = ref('')
+const glNewDNT = ref(false)
+const glNewTargetLang = ref('')
+const glNewTranslation = ref('')
+
+async function loadSets() {
+  try {
+    const sets = await subtitleService.listGlossarySets()
+    glSets.value = Array.isArray(sets) ? sets : []
+    if (!glCurrentSet.value && glSets.value.length) glCurrentSet.value = glSets.value[0].id
+    // load counts for each set
+    const map = {}
+    let total = 0
+    await Promise.all(glSets.value.map(async s => {
+      try { const list = await subtitleService.listGlossaryBySet(s.id); map[s.id] = Array.isArray(list) ? list.length : 0; total += map[s.id] } catch { map[s.id] = 0 }
+    }))
+    glCounts.value = map
+    glTotalTerms.value = total
+  } catch { glSets.value = [] }
+}
+async function loadEntries() {
+  if (!glCurrentSet.value) { glEntries.value = []; return }
+  try {
+    const list = await subtitleService.listGlossaryBySet(glCurrentSet.value)
+    glEntries.value = Array.isArray(list) ? list : []
+    // update count cache for current set
+    const m = { ...glCounts.value }; m[glCurrentSet.value] = glEntries.value.length; glCounts.value = m
+    glTotalTerms.value = Object.values(glCounts.value).reduce((a,b)=>a+(b||0),0)
+  } catch { glEntries.value = [] }
+}
+function pickSet(id) { glCurrentSet.value = id; loadEntries() }
+async function addSet() {
+  const name = (glNewSetName.value || '').trim(); if (!name) return
+  try {
+    const saved = await subtitleService.upsertGlossarySet({ name })
+    if (saved && saved.id) { glSets.value.push(saved); glNewSetName.value=''; if (!glCurrentSet.value) { glCurrentSet.value = saved.id; loadEntries() } }
+  } catch (e) { $message?.error?.('Add set failed') }
+}
+function openSetModal(mode = 'create', s = null) {
+  setModalMode.value = mode
+  editingSet.value = s ? { ...s } : null
+  showSetModal.value = true
+}
+function closeSetModal() { showSetModal.value = false; editingSet.value = null }
+async function handleSetSubmit(payload) {
+  try {
+    if (setModalMode.value === 'edit' && editingSet.value) {
+      const saved = await subtitleService.upsertGlossarySet({ id: editingSet.value.id, ...payload })
+      const idx = glSets.value.findIndex(x => x.id === editingSet.value.id)
+      if (idx >= 0) glSets.value[idx] = saved
+    } else {
+      const saved = await subtitleService.upsertGlossarySet(payload)
+      if (saved && saved.id) { glSets.value.push(saved); const m = { ...glCounts.value }; m[saved.id] = 0; glCounts.value = m; if (!glCurrentSet.value) { glCurrentSet.value = saved.id } }
+    }
+  } catch { $message?.error?.('Save set failed') }
+  finally { closeSetModal() }
+}
+async function delSet(s) {
+  try { await subtitleService.deleteGlossarySet(s.id); glSets.value = glSets.value.filter(x => x.id !== s.id); if (glCurrentSet.value === s.id) { glCurrentSet.value = glSets.value[0]?.id || ''; loadEntries() } }
+  catch { $message?.error?.('Delete set failed') }
+}
+async function addEntry() {
+  const src = (glNewSource.value||'').trim(); if (!src) return
+  const entry = { source: src, do_not_translate: !!glNewDNT.value, translations: {}, set_id: glCurrentSet.value }
+  const lang = (glNewTargetLang.value||'').trim(); const tr = (glNewTranslation.value||'').trim()
+  if (lang && tr) entry.translations[lang] = tr
+  try {
+    const saved = await subtitleService.upsertGlossaryEntry(entry)
+    if (saved) glEntries.value.push(saved)
+    glNewSource.value = ''; glNewDNT.value=false; glNewTargetLang.value=''; glNewTranslation.value=''
+    // update count cache for current set
+    const m = { ...glCounts.value }; m[glCurrentSet.value] = (m[glCurrentSet.value]||0) + 1; glCounts.value = m
+    glTotalTerms.value = Object.values(glCounts.value).reduce((a,b)=>a+(b||0),0)
+  } catch { $message?.error?.('Add entry failed') }
+}
+async function delEntry(e) {
+  try { await subtitleService.deleteGlossaryEntry(e.id); glEntries.value = glEntries.value.filter(x => x.id !== e.id); const m = { ...glCounts.value }; m[glCurrentSet.value] = Math.max((m[glCurrentSet.value]||1)-1, 0); glCounts.value = m; glTotalTerms.value = Object.values(glCounts.value).reduce((a,b)=>a+(b||0),0) } catch { $message?.error?.('Delete entry failed') }
+}
+async function toggleDNT(e, ev) {
+  const checked = !!ev?.target?.checked
+  const payload = { ...e, do_not_translate: checked }
+  try {
+    const saved = await subtitleService.upsertGlossaryEntry(payload)
+    if (saved) {
+      const idx = glEntries.value.findIndex(x => x.id === e.id)
+      if (idx >= 0) glEntries.value[idx] = saved
+    }
+  } catch { $message?.error?.('Update entry failed') }
+}
+
+watch(glCurrentSet, () => { loadEntries() })
+onMounted(() => { loadSets().then(loadEntries) })
 </script>
 
 <style scoped>
@@ -449,11 +553,17 @@ const copyText = async (text) => { await copyToClipboard(text, t) }
   inset: 0;
   display: grid;
   grid-template-columns: 160px 1fr;
+  grid-template-rows: 1fr;
+  overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .sr-left {
-  position: relative;
+  position: sticky;
+  top: 0;
+  align-self: start;
   z-index: 1;
+  height: 100%;
   padding: 6px;
   display: flex;
   flex-direction: column;
@@ -466,7 +576,7 @@ const copyText = async (text) => { await copyToClipboard(text, t) }
   z-index: 1;
   background: var(--macos-background);
   padding: 12px;
-  overflow: auto;
+  overflow: visible;
 }
 
 /* divider/background moved to settings-host (::before/::after) */
@@ -504,6 +614,9 @@ const copyText = async (text) => { await copyToClipboard(text, t) }
   max-width: 100%;
   box-sizing: border-box;
 }
+
+/* Glossary styles */
+.grow { flex: 1 1 auto; }
 
 /* theme-aware subtle surface for card: slightly gray */
 /* background/border handled by card-frosted/card-translucent or classic override */

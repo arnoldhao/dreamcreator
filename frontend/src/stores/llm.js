@@ -1,15 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { 
-  listEnabledProviders as listProviders, createProvider, updateProvider, deleteProvider, testProvider, refreshModels,
-  listLLMProfiles, createLLMProfile, updateLLMProfile, deleteLLMProfile
+  listEnabledProviders as listProviders, createProvider, updateProvider, deleteProvider, testProvider, refreshModels
 } from '@/services/llmProviderService.js'
 import { useI18n } from 'vue-i18n'
 
 export default function useLLMStore() {
   const { t } = useI18n()
   const providers = ref([])
-  const profiles = ref([])
+  const profiles = ref([]) // legacy state removed; keep empty array to avoid UI break
   const loading = ref(false)
 
   const providerTypes = [
@@ -71,34 +70,10 @@ export default function useLLMStore() {
     return await refreshModels(id)
   }
 
-  async function fetchProfiles() {
-    loading.value = true
-    try {
-      profiles.value = await listLLMProfiles()
-    } catch (e) {
-      window.$message?.error?.(t('common.refresh_failed'))
-    } finally {
-      loading.value = false
-    }
-  }
-
-  async function addProfile(p) {
-    await createLLMProfile(p)
-    window.$message?.success?.(t('common.saved'))
-    await fetchProfiles()
-  }
-
-  async function saveProfile(id, p) {
-    await updateLLMProfile(id, p)
-    window.$message?.success?.(t('common.saved'))
-    await fetchProfiles()
-  }
-
-  async function removeProfile(id) {
-    await deleteLLMProfile(id)
-    window.$message?.success?.(t('common.deleted'))
-    await fetchProfiles()
-  }
+  async function fetchProfiles() { profiles.value = [] }
+  async function addProfile() { window.$message?.info?.('Profiles moved to Global Profiles'); }
+  async function saveProfile() { window.$message?.info?.('Profiles moved to Global Profiles'); }
+  async function removeProfile() { window.$message?.info?.('Profiles moved to Global Profiles'); }
 
   const providerMap = computed(() => {
     const list = Array.isArray(providers.value) ? providers.value.filter(Boolean) : []

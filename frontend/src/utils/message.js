@@ -146,10 +146,27 @@ function setupMacosDialog(){
         h(ModalTrafficLights, { onClose: tlClose }),
         h('div', { style:{ display:'flex', alignItems:'center', gap:'10px', minWidth:0 } }, [
           h('div', { style: dotStyleByType(props.type) }),
-          h('div', { style:{ fontWeight:600, fontSize:'12px', lineHeight:1.2 } }, props.title||'Info')
+          h('div', { style:{ fontWeight:600, fontSize:'12px', lineHeight:1.2, overflowWrap:'anywhere', wordBreak:'break-word', whiteSpace:'normal', maxWidth:'100%' } }, props.title||'Info')
         ])
       ]),
-      h('div', { class:'modal-body', style:{ padding:'12px', fontSize:'13px', lineHeight:'1.35', whiteSpace:'pre-wrap', overflow:'auto' } }, props.content||''),
+      h('div', { class:'modal-body', style:{
+        padding:'12px',
+        fontSize:'13px',
+        lineHeight:'1.35',
+        // wrap long words/paths and preserve newlines
+        whiteSpace:'pre-wrap',
+        overflowWrap:'anywhere',
+        wordBreak:'break-word',
+        // vertical scroll only when needed; avoid horizontal scrollbar
+        overflowX:'hidden',
+        overflowY:'auto',
+        // cap content height; dialog grows until this, then scrolls
+        maxHeight:'56vh',
+        // allow flex container to shrink this area as header/footer take space
+        flex:'1 1 auto',
+        minHeight:0,
+        minWidth:0
+      } }, props.content||''),
       h('div', { class:'modal-footer', style:{ padding:'10px 12px', display:'flex', alignItems:'center', justifyContent:'flex-end', gap:'10px', borderTop:'1px solid rgba(255,255,255,0.16)' } }, [
         props.negativeText ? h('button', { class: 'btn-chip-ghost', onClick:neg }, props.negativeText) : null,
         h('button', { class: 'btn-chip btn-primary', onClick:pos }, props.positiveText||'OK')

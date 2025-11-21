@@ -15,5 +15,6 @@ export const WS_RESPONSE_EVENT = {
     EVENT_DOWNTASKS_STAGE: 'response_downtasks_stage',
     EVENT_DOWNTASKS_ANALYSIS: 'response_downtasks_analysis',
     // SUBTITLE
-    EVENT_SUBTITLE_PROGRESS: 'response_subtitle_progress'
+    EVENT_SUBTITLE_PROGRESS: 'response_subtitle_progress',
+    EVENT_SUBTITLE_CHAT: 'response_subtitle_chat'
 }

@@ -230,7 +230,12 @@ func (s *Service) handleSubtitleChange(sub *types.SubtitleProject, converter zhc
 		// 保存metadata
 		metadata.Status.ConversionTasks = tasks
 		metadata.Status.LastUpdated = time.Now().Unix()
-		metadata.SyncStatus = "done"
+		// 与 LLM 翻译保持一致：根据任务状态设置 SyncStatus
+		if status == types.ConversionStatusFailed {
+			metadata.SyncStatus = "failed"
+		} else {
+			metadata.SyncStatus = "done"
+		}
 		sub.LanguageMetadata[converter.String()] = metadata
 
 		// 返回

@@ -64,13 +64,15 @@ func main() {
 	downloadClient := downinfo.NewClient(downinfo.DefaultConfig())
 	preferencesService.SetPackageClients(proxyManager, downloadClient)
 
-	// Services
-	// # Downtasks
-	dtService := downtasks.NewService(eventBus, proxyManager, downloadClient, preferencesService, boltStorage)
-	// # Imagesproxies
-	ipsService := imageproxies.NewService(proxyManager, boltStorage)
-	// # Subtitles
-	subtitlesService := subtitles.NewService(boltStorage, proxyManager, eventBus)
+    // Services
+    // # Downtasks
+    dtService := downtasks.NewService(eventBus, proxyManager, downloadClient, preferencesService, boltStorage)
+    // # Imagesproxies
+    ipsService := imageproxies.NewService(proxyManager, boltStorage)
+    // # LLM Service (providers)
+    llmService := provider.NewService(boltStorage, proxyManager)
+    // # Subtitles (inject provider service for AI translation)
+    subtitlesService := subtitles.NewService(boltStorage, proxyManager, eventBus, llmService)
 
 	// Packages
 	// # Websocket
@@ -90,7 +92,6 @@ func main() {
     // # Cookies API (New)
     cookiesAPI := api.NewCookiesAPI(dtService)
     // # LLM API (Wails style)
-    llmService := provider.NewService(boltStorage, proxyManager)
     llmAPI := api.NewLLMAPI(llmService)
 
 	// MCP

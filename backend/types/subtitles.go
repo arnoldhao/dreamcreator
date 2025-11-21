@@ -142,23 +142,29 @@ func (p *SubtitleProject) GetTotalDuration() time.Duration {
 // ProjectMetadata 表示字幕项目的元数据信息。
 // 包含项目的基本信息、FCPXML视频配置和可选的源文件信息。
 type ProjectMetadata struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	CreatedAt   int64  `json:"created_at"`
-	UpdatedAt   int64  `json:"updated_at"`
-	Version     string `json:"version"`
+    ID          string `json:"id"`
+    Name        string `json:"name"`
+    Description string `json:"description,omitempty"`
+    CreatedAt   int64  `json:"created_at"`
+    UpdatedAt   int64  `json:"updated_at"`
+    Version     string `json:"version"`
 
-	// 源文件信息
-	SourceInfo *SourceFileInfo `json:"source_info,omitempty"`
-	// 导出信息
-	ExportConfigs ExportConfigs `json:"export_configs"`
+    // 源文件信息
+    SourceInfo *SourceFileInfo `json:"source_info,omitempty"`
+    // 导出信息
+    ExportConfigs ExportConfigs `json:"export_configs"`
 
-	// 关联来源（可选）：用于与下载任务建立双向关系
-	OriginTaskID string `json:"origin_task_id,omitempty"`
+    // 关联来源（可选）：用于与下载任务建立双向关系
+    OriginTaskID string `json:"origin_task_id,omitempty"`
 
-	// 原始 ITT 信息（用于高保真还原导出）
-	SourceITT *ITTSourceInfo `json:"source_itt,omitempty"`
+    // 原始 ITT 信息（用于高保真还原导出）
+    SourceITT *ITTSourceInfo `json:"source_itt,omitempty"`
+
+    // TaskTerms 为项目级“强制术语”（用于重试时回填，或作为本次任务 extras 的持久化缓存）
+    TaskTerms     []GlossaryEntry `json:"task_terms,omitempty"`
+
+    // Analysis 保存由 LLM 进行的“项目级初始化分析”产物（风格、术语、场景等）
+    Analysis *ProjectAnalysis `json:"analysis,omitempty"`
 }
 
 func (v *ProjectMetadata) Validate() error {
@@ -492,11 +498,50 @@ func (s *SubtitleSegment) GetText(langCode string) string {
 
 // LanguageContent 语言内容
 type LanguageContent struct {
-	Text              string             `json:"text"`
-	SubtitleGuideline *SubtitleGuideline `json:"subtitle_guideline"` // 字幕指南
-	Style             *Style             `json:"style"`
-	StyleID           string             `json:"style_id,omitempty"`
-	RegionID          string             `json:"region_id,omitempty"`
+    Text              string             `json:"text"`
+    SubtitleGuideline *SubtitleGuideline `json:"subtitle_guideline"` // 字幕指南
+    Style             *Style             `json:"style"`
+    StyleID           string             `json:"style_id,omitempty"`
+    RegionID          string             `json:"region_id,omitempty"`
+    // 处理元信息（翻译/审校/缓存/错误）
+    Process           *LanguageProcess   `json:"process,omitempty"`
+}
+
+// ProjectAnalysis 汇总了 LLM 对整部字幕的全局分析结果
+type ProjectAnalysis struct {
+    Genre       string             `json:"genre,omitempty"`
+    Tone        string             `json:"tone,omitempty"`
+    StyleGuide  []string           `json:"style_guide,omitempty"`
+    SceneOutline []SceneOutline    `json:"scene_outline,omitempty"`
+    Roles       []RoleInfo         `json:"roles,omitempty"`
+    // InitialGlossary 作为初始化阶段抽取的术语/固定短语草案
+    InitialGlossary []GlossaryEntry `json:"initial_glossary,omitempty"`
+    // Notes 其他补充信息（例如口头禅、称呼习惯）
+    Notes      map[string]string  `json:"notes,omitempty"`
+}
+
+// SceneOutline 表示场景分段的大纲
+type SceneOutline struct {
+    StartID string `json:"start_id"`
+    EndID   string `json:"end_id"`
+    Summary string `json:"summary"`
+}
+
+// RoleInfo 表示角色/人称信息
+type RoleInfo struct {
+    Name   string `json:"name,omitempty"`
+    Person string `json:"person,omitempty"` // 第一人称/第三人称等
+    Notes  string `json:"notes,omitempty"`
+}
+
+// LanguageProcess 描述该语言内容最近的一次处理状态
+type LanguageProcess struct {
+    Status    string `json:"status"`              // ok, cached, reviewed, fallback, error
+    Provider  string `json:"provider,omitempty"`  // llm provider 名称
+    Model     string `json:"model,omitempty"`     // 模型名
+    TaskID    string `json:"task_id,omitempty"`   // 所属转换任务ID
+    UpdatedAt int64  `json:"updated_at,omitempty"`
+    Error     string `json:"error,omitempty"`     // 错误信息（若有）
 }
 
 type SubtitleGuideline struct {
@@ -650,30 +695,72 @@ const (
 
 // 转换任务信息
 type ConversionTask struct {
-	ID           string           `json:"id"`
-	Type         string           `json:"type"` // "zhconvert" 或 "llm_translate"
-	Status       ConversionStatus `json:"status"`
-	Progress     float64          `json:"progress"` // 0-100
-	StartTime    int64            `json:"start_time"`
-	EndTime      int64            `json:"end_time,omitempty"`
-	ErrorMessage string           `json:"error_message,omitempty"`
+    ID           string           `json:"id"`
+    Type         string           `json:"type"` // "zhconvert" 或 "llm_translate"
+    Status       ConversionStatus `json:"status"`
+    Progress     float64          `json:"progress"` // 0-100
+    StartTime    int64            `json:"start_time"`
+    EndTime      int64            `json:"end_time,omitempty"`
+    ErrorMessage string           `json:"error_message,omitempty"`
 
-	// 转换参数
-	SourceLang    string `json:"source_lang"`
-	TargetLang    string `json:"target_lang"`
+    // 转换参数
+    SourceLang    string `json:"source_lang"`
+    TargetLang    string `json:"target_lang"`
 	Converter     int    `json:"converter,omitempty"` // zhconvert 转换器类型
 	ConverterName string `json:"converter_name,omitempty"`
 	Provider      string `json:"provider,omitempty"` // LLM 提供商
+	Model         string `json:"model,omitempty"`    // LLM 模型（用于尽早展示）
+	ProviderID    string `json:"provider_id,omitempty"`
 
-	// 进度详情
-	TotalSegments     int `json:"total_segments"`
-	ProcessedSegments int `json:"processed_segments"`
-	FailedSegments    int `json:"failed_segments"`
+    // 进度详情
+    TotalSegments     int `json:"total_segments"`
+    ProcessedSegments int `json:"processed_segments"`
+    FailedSegments    int `json:"failed_segments"`
+
+    // Project-level aggregates (useful for retries):
+    // project_total_segments: total segments in the project (unfiltered)
+    // project_completed_segments: how many were already completed before this task (for failed-only retries)
+    ProjectTotalSegments     int `json:"project_total_segments,omitempty"`
+    ProjectCompletedSegments int `json:"project_completed_segments,omitempty"`
+
+    // 阶段信息（用于更细粒度的前端展示，例如 analysis/batch/parse/apply 等）
+    Stage       string `json:"stage,omitempty"`
+    StageDetail string `json:"stage_detail,omitempty"`
+
+    // LLM token usage (aggregated across this task).
+    // 前端应基于 TotalTokens / (EndTime - StartTime) 计算“任务级平均 token/s”，
+    // 而不是单条流式消息的即时速度；后者留待未来在会话/消息级别扩展。
+    PromptTokens    int `json:"prompt_tokens,omitempty"`
+    CompletionTokens int `json:"completion_tokens,omitempty"`
+    TotalTokens      int `json:"total_tokens,omitempty"`
+    RequestCount     int `json:"request_count,omitempty"`
+}
+
+// LLMTaskView 提供跨项目聚合视图（用于历史/Inspector）
+// 内联 ConversionTask 字段，附带所属项目与语言信息以便展示与重试
+type LLMTaskView struct {
+    ConversionTask `json:",inline"`
+    ProjectID      string `json:"project_id"`
+    ProjectName    string `json:"project_name"`
 }
 
 // 语言内容状态
 type LanguageContentStatus struct {
-	IsOriginal      bool             `json:"is_original"`      // 是否为原始语言
-	ConversionTasks []ConversionTask `json:"conversion_tasks"` // 转换任务历史
-	LastUpdated     int64            `json:"last_updated"`
+	IsOriginal      bool                           `json:"is_original"`                 // 是否为原始语言
+	ConversionTasks []ConversionTask               `json:"conversion_tasks"`            // 转换任务历史
+	LastUpdated     int64                          `json:"last_updated"`
+	// LLMConversations 保存该语言下各次转换任务对应的会话（key 为 ConversionTask.ID）
+	LLMConversations map[string]LLMConversation `json:"llm_conversations,omitempty"`
+}
+
+// LLMChatEvent 通过 WebSocket 推送给前端的“单条消息/状态更新”事件
+// 用于实时展示字幕 AI 翻译时与 LLM 的对话过程
+type LLMChatEvent struct {
+	ProjectID      string          `json:"project_id"`
+	Language       string          `json:"language"`
+	TaskID         string          `json:"task_id"`
+	ConversationID string          `json:"conversation_id"`
+	Status         string          `json:"status"`                    // running/finished/failed
+	Message        *LLMChatMessage `json:"message,omitempty"`         // 新增消息（可为空，仅表示状态更新）
+	MessagesTotal  int             `json:"messages_total,omitempty"`  // 当前会话累计消息数
 }

@@ -236,32 +236,34 @@ func (api *LLMAPI) RefreshModels(id string) types.JSResp {
     return types.JSResp{Success: ok, Data: string(data), Msg: func() string { if err!=nil { return err.Error() }; return "" }()}
 }
 
-// ---- LLM Profiles ----
+// ---- LLM Profiles (legacy) removed; use Global Profiles instead ----
 
-func (api *LLMAPI) ListLLMProfiles() types.JSResp {
-    list, err := api.svc.ListLLMProfiles(api.ctx)
+// ---- Global Profiles (model-agnostic) ----
+
+func (api *LLMAPI) ListGlobalProfiles() types.JSResp {
+    list, err := api.svc.ListGlobalProfiles(api.ctx)
     if err != nil { return types.JSResp{Success: false, Msg: err.Error()} }
     data, _ := json.Marshal(list)
     return types.JSResp{Success: true, Data: string(data)}
 }
 
-func (api *LLMAPI) CreateLLMProfile(p types.LLMProfile) types.JSResp {
-    out, err := api.svc.CreateLLMProfile(api.ctx, &p)
+func (api *LLMAPI) CreateGlobalProfile(p types.GlobalProfile) types.JSResp {
+    out, err := api.svc.CreateGlobalProfile(api.ctx, &p)
     if err != nil { return types.JSResp{Success: false, Msg: err.Error()} }
     data, _ := json.Marshal(out)
     return types.JSResp{Success: true, Data: string(data)}
 }
 
-func (api *LLMAPI) UpdateLLMProfile(id string, p types.LLMProfile) types.JSResp {
+func (api *LLMAPI) UpdateGlobalProfile(id string, p types.GlobalProfile) types.JSResp {
     p.ID = id
-    out, err := api.svc.UpdateLLMProfile(api.ctx, &p)
+    out, err := api.svc.UpdateGlobalProfile(api.ctx, &p)
     if err != nil { return types.JSResp{Success: false, Msg: err.Error()} }
     data, _ := json.Marshal(out)
     return types.JSResp{Success: true, Data: string(data)}
 }
 
-func (api *LLMAPI) DeleteLLMProfile(id string) types.JSResp {
-    if err := api.svc.DeleteLLMProfile(api.ctx, id); err != nil {
+func (api *LLMAPI) DeleteGlobalProfile(id string) types.JSResp {
+    if err := api.svc.DeleteGlobalProfile(api.ctx, id); err != nil {
         return types.JSResp{Success: false, Msg: err.Error()}
     }
     return types.JSResp{Success: true}

@@ -1,28 +1,48 @@
 package provider
 
 import (
-	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"errors"
-	"os"
-	"strings"
-	"time"
+    "context"
+    "crypto/rand"
+    "encoding/hex"
+    "errors"
+    "os"
+    "strings"
+    "time"
 
-	"dreamcreator/backend/pkg/logger"
-	openaiclient "dreamcreator/backend/pkg/provider/openai"
-	"dreamcreator/backend/pkg/proxy"
-	"dreamcreator/backend/pkg/rate"
-	"dreamcreator/backend/storage"
-	"dreamcreator/backend/types"
+    "dreamcreator/backend/pkg/logger"
+    openaiclient "dreamcreator/backend/pkg/provider/openai"
+    anthropicclient "dreamcreator/backend/pkg/provider/anthropic"
+    "dreamcreator/backend/pkg/proxy"
+    "dreamcreator/backend/pkg/rate"
+    "dreamcreator/backend/storage"
+    "dreamcreator/backend/types"
+
+    "strconv"
 
 	"go.uber.org/zap"
 )
 
 type Service struct {
-	store   *storage.BoltStorage
-	proxies *proxy.Manager
-	limits  *rate.LimiterManager
+    store   *storage.BoltStorage
+    proxies *proxy.Manager
+    limits  *rate.LimiterManager
+}
+
+// ChatStreamCallback can be attached to a context via WithChatStreamCallback
+// so that higher layers (e.g. subtitles) can observe streaming deltas while
+// still using aggregated helpers like ChatCompletionWithOptionsUsage.
+type ChatStreamCallback func(string) error
+
+type chatStreamCtxKey struct{}
+
+// WithChatStreamCallback returns a derived context that carries a streaming
+// delta callback for chat completions. Provider.Service will honor this
+// callback when invoking OpenAI-compatible backends that support streaming.
+func WithChatStreamCallback(ctx context.Context, cb ChatStreamCallback) context.Context {
+    if cb == nil {
+        return ctx
+    }
+    return context.WithValue(ctx, chatStreamCtxKey{}, cb)
 }
 
 func NewService(store *storage.BoltStorage, proxies *proxy.Manager) *Service {
@@ -31,6 +51,74 @@ func NewService(store *storage.BoltStorage, proxies *proxy.Manager) *Service {
 		proxies: proxies,
 		limits:  rate.NewLimiterManager(),
 	}
+}
+
+// ChatMessage is a provider-agnostic chat message
+type ChatMessage struct {
+    Role    string `json:"role"`
+    Content string `json:"content"`
+}
+
+// ChatOptions allow fine-grained control over completion parameters (OpenAI-compatible backends)
+type ChatOptions struct {
+    Temperature float64
+    TopP        float64
+    MaxTokens   int
+    JSONMode    bool
+}
+
+// ChatStream streams deltas; onDelta receives partial text chunks in order.
+func (s *Service) ChatStream(ctx context.Context, providerID, model string, messages []ChatMessage, temperature float64, onDelta func(string) error) error {
+    rec, err := s.store.GetProvider(providerID)
+    if err != nil { return err }
+    if !rec.Enabled { return errors.New("provider disabled") }
+    if lim := s.limits.Get(providerID); lim != nil { if e := lim.Acquire(ctx); e == nil { defer lim.Release() } }
+    httpc := s.proxies.GetHTTPClient()
+    typ := strings.ToLower(strings.TrimSpace(rec.Type))
+    switch types.ProviderType(typ) {
+    case types.ProviderAnthropicCompat:
+        // TODO: implement SSE streaming for Anthropic if needed
+        return errors.New("stream not supported for anthropic yet")
+    default:
+        client := openaiclient.NewClient(rec.BaseURL, rec.APIKey, httpc)
+        mm := make([]openaiclient.ChatMessage, len(messages))
+        for i := range messages { mm[i] = openaiclient.ChatMessage{Role: messages[i].Role, Content: messages[i].Content} }
+        return client.ChatCompletionsStream(ctx, model, mm, temperature, onDelta)
+    }
+}
+
+// CreateEmbeddings returns embedding vectors for each input string
+func (s *Service) CreateEmbeddings(ctx context.Context, providerID, model string, inputs []string) ([][]float32, error) {
+    rec, err := s.store.GetProvider(providerID)
+    if err != nil { return nil, err }
+    if !rec.Enabled { return nil, errors.New("provider disabled") }
+    if lim := s.limits.Get(providerID); lim != nil { if e := lim.Acquire(ctx); e == nil { defer lim.Release() } }
+    httpc := s.proxies.GetHTTPClient()
+    typ := strings.ToLower(strings.TrimSpace(rec.Type))
+    switch types.ProviderType(typ) {
+    case types.ProviderAnthropicCompat:
+        return nil, errors.New("embeddings not supported for anthropic")
+    default:
+        client := openaiclient.NewClient(rec.BaseURL, rec.APIKey, httpc)
+        return client.CreateEmbeddings(ctx, model, inputs)
+    }
+}
+
+// CreateImageBase64 generates images and returns raw bytes of each image (decoded from base64)
+func (s *Service) CreateImageBase64(ctx context.Context, providerID, model, prompt, size string, n int) ([][]byte, error) {
+    rec, err := s.store.GetProvider(providerID)
+    if err != nil { return nil, err }
+    if !rec.Enabled { return nil, errors.New("provider disabled") }
+    if lim := s.limits.Get(providerID); lim != nil { if e := lim.Acquire(ctx); e == nil { defer lim.Release() } }
+    httpc := s.proxies.GetHTTPClient()
+    typ := strings.ToLower(strings.TrimSpace(rec.Type))
+    switch types.ProviderType(typ) {
+    case types.ProviderAnthropicCompat:
+        return nil, errors.New("images not supported for anthropic")
+    default:
+        client := openaiclient.NewClient(rec.BaseURL, rec.APIKey, httpc)
+        return client.CreateImageBase64(ctx, model, prompt, size, n)
+    }
 }
 
 // --- ID utils ---
@@ -337,168 +425,299 @@ func (s *Service) ListProviders(ctx context.Context) ([]*types.Provider, error) 
 
 // --- LLM Profile ops ---
 
-func (s *Service) CreateLLMProfile(ctx context.Context, p *types.LLMProfile) (*types.LLMProfile, error) {
-	if p == nil {
-		return nil, errors.New("nil profile")
-	}
-	if p.ProviderID == "" || p.Model == "" {
-		return nil, errors.New("provider_id/model required")
-	}
-	if p.ID == "" {
-		p.ID = genID("llmprof")
-	}
-	rec := &storage.LLMProfileRecord{
-		ID:           p.ID,
-		ProviderID:   p.ProviderID,
-		Model:        p.Model,
-		Temperature:  p.Temperature,
-		TopP:         p.TopP,
-		JSONMode:     p.JSONMode,
-		SysPromptTpl: p.SysPromptTpl,
-		CostWeight:   p.CostWeight,
-		MaxTokens:    p.MaxTokens,
-		Metadata:     p.Metadata,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-	}
-	if err := s.store.SaveLLMProfile(rec); err != nil {
-		return nil, err
-	}
-	return s.GetLLMProfile(ctx, rec.ID)
+// legacy LLMProfile APIs removed in favor of Global Profiles
+
+// --- Global Profiles ops ---
+
+func (s *Service) CreateGlobalProfile(ctx context.Context, p *types.GlobalProfile) (*types.GlobalProfile, error) {
+    if p == nil { return nil, errors.New("nil profile") }
+    if strings.TrimSpace(p.Name) == "" { return nil, errors.New("name required") }
+    if p.ID == "" { p.ID = genID("gprof") }
+    rec := &storage.GlobalProfileRecord{
+        ID: p.ID,
+        Name: strings.TrimSpace(p.Name),
+        Temperature: p.Temperature,
+        TopP: p.TopP,
+        JSONMode: p.JSONMode,
+        SysPromptTpl: p.SysPromptTpl,
+        MaxTokens: p.MaxTokens,
+        Metadata: p.Metadata,
+        CreatedAt: time.Now(),
+        UpdatedAt: time.Now(),
+    }
+    if err := s.store.SaveGlobalProfile(rec); err != nil { return nil, err }
+    return s.GetGlobalProfile(ctx, rec.ID)
 }
 
-func (s *Service) GetLLMProfile(ctx context.Context, id string) (*types.LLMProfile, error) {
-	rec, err := s.store.GetLLMProfile(id)
-	if err != nil {
-		return nil, err
-	}
-	return &types.LLMProfile{
-		ID:           rec.ID,
-		ProviderID:   rec.ProviderID,
-		Model:        rec.Model,
-		Temperature:  rec.Temperature,
-		TopP:         rec.TopP,
-		JSONMode:     rec.JSONMode,
-		SysPromptTpl: rec.SysPromptTpl,
-		CostWeight:   rec.CostWeight,
-		MaxTokens:    rec.MaxTokens,
-		Metadata:     rec.Metadata,
-		CreatedAt:    rec.CreatedAt,
-		UpdatedAt:    rec.UpdatedAt,
-	}, nil
+func (s *Service) GetGlobalProfile(ctx context.Context, id string) (*types.GlobalProfile, error) {
+    rec, err := s.store.GetGlobalProfile(id)
+    if err != nil { return nil, err }
+    return &types.GlobalProfile{
+        ID: rec.ID,
+        Name: rec.Name,
+        Temperature: rec.Temperature,
+        TopP: rec.TopP,
+        JSONMode: rec.JSONMode,
+        SysPromptTpl: rec.SysPromptTpl,
+        MaxTokens: rec.MaxTokens,
+        Metadata: rec.Metadata,
+        CreatedAt: rec.CreatedAt,
+        UpdatedAt: rec.UpdatedAt,
+    }, nil
 }
 
-func (s *Service) ListLLMProfiles(ctx context.Context) ([]*types.LLMProfile, error) {
-	recs, err := s.store.ListLLMProfiles()
-	if err != nil {
-		return nil, err
-	}
-	out := make([]*types.LLMProfile, 0, len(recs))
-	for _, r := range recs {
-		out = append(out, &types.LLMProfile{
-			ID:           r.ID,
-			ProviderID:   r.ProviderID,
-			Model:        r.Model,
-			Temperature:  r.Temperature,
-			TopP:         r.TopP,
-			JSONMode:     r.JSONMode,
-			SysPromptTpl: r.SysPromptTpl,
-			CostWeight:   r.CostWeight,
-			MaxTokens:    r.MaxTokens,
-			Metadata:     r.Metadata,
-			CreatedAt:    r.CreatedAt,
-			UpdatedAt:    r.UpdatedAt,
-		})
-	}
-	return out, nil
+func (s *Service) ListGlobalProfiles(ctx context.Context) ([]*types.GlobalProfile, error) {
+    recs, err := s.store.ListGlobalProfiles()
+    if err != nil { return nil, err }
+    out := make([]*types.GlobalProfile, 0, len(recs))
+    for _, r := range recs {
+        out = append(out, &types.GlobalProfile{
+            ID: r.ID,
+            Name: r.Name,
+            Temperature: r.Temperature,
+            TopP: r.TopP,
+            JSONMode: r.JSONMode,
+            SysPromptTpl: r.SysPromptTpl,
+            MaxTokens: r.MaxTokens,
+            Metadata: r.Metadata,
+            CreatedAt: r.CreatedAt,
+            UpdatedAt: r.UpdatedAt,
+        })
+    }
+    return out, nil
 }
 
-func (s *Service) UpdateLLMProfile(ctx context.Context, p *types.LLMProfile) (*types.LLMProfile, error) {
-	if p == nil || p.ID == "" {
-		return nil, errors.New("id required")
-	}
-	rec, err := s.store.GetLLMProfile(p.ID)
-	if err != nil {
-		return nil, err
-	}
-	if p.ProviderID != "" {
-		rec.ProviderID = p.ProviderID
-	}
-	if p.Model != "" {
-		rec.Model = p.Model
-	}
-	rec.Temperature = p.Temperature
-	rec.TopP = p.TopP
-	rec.JSONMode = p.JSONMode
-	rec.SysPromptTpl = p.SysPromptTpl
-	rec.CostWeight = p.CostWeight
-	rec.MaxTokens = p.MaxTokens
-	if p.Metadata != nil {
-		rec.Metadata = p.Metadata
-	}
-	rec.UpdatedAt = time.Now()
-	if err := s.store.SaveLLMProfile(rec); err != nil {
-		return nil, err
-	}
-	return s.GetLLMProfile(ctx, rec.ID)
+func (s *Service) UpdateGlobalProfile(ctx context.Context, p *types.GlobalProfile) (*types.GlobalProfile, error) {
+    if p == nil || p.ID == "" { return nil, errors.New("id required") }
+    rec, err := s.store.GetGlobalProfile(p.ID)
+    if err != nil { return nil, err }
+    if strings.TrimSpace(p.Name) != "" { rec.Name = strings.TrimSpace(p.Name) }
+    rec.Temperature = p.Temperature
+    rec.TopP = p.TopP
+    rec.JSONMode = p.JSONMode
+    rec.SysPromptTpl = p.SysPromptTpl
+    rec.MaxTokens = p.MaxTokens
+    if p.Metadata != nil { rec.Metadata = p.Metadata }
+    rec.UpdatedAt = time.Now()
+    if err := s.store.SaveGlobalProfile(rec); err != nil { return nil, err }
+    return s.GetGlobalProfile(ctx, rec.ID)
 }
 
-func (s *Service) DeleteLLMProfile(ctx context.Context, id string) error {
-	return s.store.DeleteLLMProfile(id)
+func (s *Service) DeleteGlobalProfile(ctx context.Context, id string) error {
+    return s.store.DeleteGlobalProfile(id)
 }
 
 // --- Models cache and test ---
 
 func (s *Service) RefreshModels(ctx context.Context, providerID string) ([]string, error) {
-	rec, err := s.store.GetProvider(providerID)
-	if err != nil {
-		return nil, err
-	}
+    rec, err := s.store.GetProvider(providerID)
+    if err != nil { return nil, err }
 
-	// MOCK 支持
-	if os.Getenv("MOCK_LLM") == "true" || os.Getenv("MOCK_LLM") == "1" {
-		models := []string{"gpt-4o-mini", "gpt-4o", "text-embedding-3-large"}
-		rec.Models = models
-		if err := s.store.SaveProvider(rec); err != nil {
-			return nil, err
-		}
-		_ = s.store.SaveModelsCache(&storage.ModelsCacheRecord{ProviderID: providerID, Models: models})
-		return models, nil
-	}
+    // MOCK 支持
+    if os.Getenv("MOCK_LLM") == "true" || os.Getenv("MOCK_LLM") == "1" {
+        models := []string{"gpt-4o-mini", "gpt-4o", "text-embedding-3-large"}
+        if strings.Contains(strings.ToLower(rec.Name), "anthropic") || strings.Contains(strings.ToLower(rec.BaseURL), "anthropic") {
+            models = defaultAnthropicModels()
+        }
+        rec.Models = models
+        if err := s.store.SaveProvider(rec); err != nil { return nil, err }
+        _ = s.store.SaveModelsCache(&storage.ModelsCacheRecord{ProviderID: providerID, Models: models})
+        return models, nil
+    }
 
-	// 限速器：每次调用前申请许可
-	limiter := s.limits.Get(providerID)
-	if limiter != nil {
-		if err := limiter.Acquire(ctx); err != nil {
-			return nil, err
-		}
-		defer limiter.Release()
-	}
-	client := openaiclient.NewClient(rec.BaseURL, rec.APIKey, s.proxies.GetHTTPClient())
-	models, err := client.ListModels(ctx)
-	if err != nil {
-		logger.Warn("list models failed", zap.Error(err))
-		return nil, err
-	}
-	rec.Models = models
-	if err := s.store.SaveProvider(rec); err != nil {
-		return nil, err
-	}
-	_ = s.store.SaveModelsCache(&storage.ModelsCacheRecord{ProviderID: providerID, Models: models})
-	return models, nil
+    // 限速器
+    if lim := s.limits.Get(providerID); lim != nil {
+        if err := lim.Acquire(ctx); err != nil { return nil, err }
+        defer lim.Release()
+    }
+
+    typ := strings.ToLower(strings.TrimSpace(rec.Type))
+    httpc := s.proxies.GetHTTPClient()
+    var models []string
+    switch types.ProviderType(typ) {
+    case types.ProviderAnthropicCompat:
+        // Anthropic 无稳定 /models 端点，返回常见模型清单
+        models = defaultAnthropicModels()
+    default:
+        // OpenAI 兼容
+        client := openaiclient.NewClient(rec.BaseURL, rec.APIKey, httpc)
+        models, err = client.ListModels(ctx)
+        if err != nil { logger.Warn("list models failed", zap.Error(err)); return nil, err }
+    }
+    rec.Models = models
+    if err := s.store.SaveProvider(rec); err != nil { return nil, err }
+    _ = s.store.SaveModelsCache(&storage.ModelsCacheRecord{ProviderID: providerID, Models: models})
+    return models, nil
+}
+
+func defaultAnthropicModels() []string {
+    return []string{
+        "claude-3-5-sonnet-20241022",
+        "claude-3-5-haiku-20241022",
+        "claude-3-opus-20240229",
+        "claude-3-sonnet-20240229",
+        "claude-3-haiku-20240307",
+    }
 }
 
 func (s *Service) TestConnection(ctx context.Context, providerID string) (ok bool, models []string, errMsg string) {
-	models, err := s.RefreshModels(ctx, providerID)
-	if err != nil {
-		return false, nil, err.Error()
-	}
-	return true, models, ""
+    rec, err := s.store.GetProvider(providerID)
+    if err != nil { return false, nil, err.Error() }
+    typ := strings.ToLower(strings.TrimSpace(rec.Type))
+    if types.ProviderType(typ) == types.ProviderAnthropicCompat {
+        // Attempt a lightweight messages call to validate key/baseURL
+        if lim := s.limits.Get(providerID); lim != nil { if e := lim.Acquire(ctx); e == nil { defer lim.Release() } }
+        httpc := s.proxies.GetHTTPClient()
+        client := anthropicclient.NewClient(rec.BaseURL, rec.APIKey, httpc)
+        // Apply a short timeout for test
+        tctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+        defer cancel()
+        // choose a small/cheap model
+        model := defaultAnthropicModels()[1]
+        _, e := client.ChatMessages(tctx, model, "", []anthropicclient.Message{{Role: "user", Content: []anthropicclient.ContentBlock{{Type: "text", Text: "ping"}}}}, 0.0, 64)
+        if e != nil { return false, nil, e.Error() }
+        // return static list on success
+        return true, defaultAnthropicModels(), ""
+    }
+    // OpenAI compat → list models
+    models, err = s.RefreshModels(ctx, providerID)
+    if err != nil { return false, nil, err.Error() }
+    return true, models, ""
 }
 
 // ResetLLMData clears provider, profiles and models cache data.
 func (s *Service) ResetLLMData(ctx context.Context) error {
-	return s.store.ResetLLMData()
+    return s.store.ResetLLMData()
+}
+
+// ChatCompletion executes a chat completion for a specific provider.
+// For now we treat most vendors as OpenAI-compatible (Groq, Together, etc.).
+func (s *Service) ChatCompletion(ctx context.Context, providerID, model string, messages []ChatMessage, temperature float64) (string, error) {
+    return s.ChatCompletionWithOptions(ctx, providerID, model, messages, ChatOptions{Temperature: temperature})
+}
+
+// ChatCompletionWithOptions supports additional parameters like top_p, max_tokens and JSON mode for OpenAI-compatible providers.
+func (s *Service) ChatCompletionWithOptions(ctx context.Context, providerID, model string, messages []ChatMessage, opts ChatOptions) (string, error) {
+    // Apply per-request timeout to avoid indefinite hangs
+    ctx, cancel := context.WithTimeout(ctx, s.requestTimeout())
+    defer cancel()
+    rec, err := s.store.GetProvider(providerID)
+    if err != nil { return "", err }
+    if !rec.Enabled { return "", errors.New("provider disabled") }
+    // Rate limit per provider id
+    if lim := s.limits.Get(providerID); lim != nil {
+        if err := lim.Acquire(ctx); err != nil { return "", err }
+        defer lim.Release()
+    }
+    httpc := s.proxies.GetHTTPClient()
+    // Determine protocol type; default to openai_compat
+    typ := strings.ToLower(strings.TrimSpace(rec.Type))
+    if typ == "" {
+        if strings.Contains(strings.ToLower(rec.BaseURL), "anthropic") {
+            typ = string(types.ProviderAnthropicCompat)
+        } else {
+            typ = string(types.ProviderOpenAICompat)
+        }
+    }
+    switch types.ProviderType(typ) {
+    case types.ProviderAnthropicCompat:
+        // Convert provider-agnostic messages to Anthropic format
+        sys := make([]string, 0, 2)
+        msgs := make([]anthropicclient.Message, 0, len(messages))
+        for _, m := range messages {
+            r := strings.ToLower(strings.TrimSpace(m.Role))
+            if r == "system" { sys = append(sys, m.Content); continue }
+            if r != "user" && r != "assistant" { r = "user" }
+            msgs = append(msgs, anthropicclient.Message{Role: r, Content: []anthropicclient.ContentBlock{{Type: "text", Text: m.Content}}})
+        }
+        client := anthropicclient.NewClient(rec.BaseURL, rec.APIKey, httpc)
+        // Only temperature applied for Anthropic in this wrapper
+        return client.ChatMessages(ctx, model, strings.Join(sys, "\n\n"), msgs, opts.Temperature, opts.MaxTokens)
+    default:
+        // OpenAI-compatible
+        client := openaiclient.NewClient(rec.BaseURL, rec.APIKey, httpc)
+        mm := make([]openaiclient.ChatMessage, len(messages))
+        for i := range messages { mm[i] = openaiclient.ChatMessage{Role: messages[i].Role, Content: messages[i].Content} }
+        return client.ChatCompletionsWithOpts(ctx, model, mm, opts.Temperature, opts.TopP, opts.MaxTokens, opts.JSONMode)
+    }
+}
+
+// ChatCompletionWithOptionsUsage is like ChatCompletionWithOptions but also returns token usage (if available).
+func (s *Service) ChatCompletionWithOptionsUsage(ctx context.Context, providerID, model string, messages []ChatMessage, opts ChatOptions) (string, TokenUsage, error) {
+    // Apply per-request timeout to avoid indefinite hangs
+    ctx, cancel := context.WithTimeout(ctx, s.requestTimeout())
+    defer cancel()
+    var usage TokenUsage
+    rec, err := s.store.GetProvider(providerID)
+    if err != nil { return "", usage, err }
+    if !rec.Enabled { return "", usage, errors.New("provider disabled") }
+    // Rate limit per provider id
+    if lim := s.limits.Get(providerID); lim != nil {
+        if err := lim.Acquire(ctx); err != nil { return "", usage, err }
+        defer lim.Release()
+    }
+    httpc := s.proxies.GetHTTPClient()
+    // Determine protocol type; default to openai_compat
+    typ := strings.ToLower(strings.TrimSpace(rec.Type))
+    if typ == "" {
+        if strings.Contains(strings.ToLower(rec.BaseURL), "anthropic") {
+            typ = string(types.ProviderAnthropicCompat)
+        } else {
+            typ = string(types.ProviderOpenAICompat)
+        }
+    }
+    // Optional stream callback from context (OpenAI-compatible providers only).
+    var cb ChatStreamCallback
+    if v := ctx.Value(chatStreamCtxKey{}); v != nil {
+        if fn, ok := v.(ChatStreamCallback); ok && fn != nil {
+            cb = fn
+        }
+    }
+
+    switch types.ProviderType(typ) {
+    case types.ProviderAnthropicCompat:
+        // Convert provider-agnostic messages to Anthropic format
+        sys := make([]string, 0, 2)
+        msgs := make([]anthropicclient.Message, 0, len(messages))
+        for _, m := range messages {
+            r := strings.ToLower(strings.TrimSpace(m.Role))
+            if r == "system" { sys = append(sys, m.Content); continue }
+            if r != "user" && r != "assistant" { r = "user" }
+            msgs = append(msgs, anthropicclient.Message{Role: r, Content: []anthropicclient.ContentBlock{{Type: "text", Text: m.Content}}})
+        }
+        client := anthropicclient.NewClient(rec.BaseURL, rec.APIKey, httpc)
+        content, pt, ct, tt, e := client.ChatMessagesWithUsage(ctx, model, strings.Join(sys, "\n\n"), msgs, opts.Temperature, opts.MaxTokens)
+        if e != nil { return "", usage, e }
+        usage = TokenUsage{PromptTokens: pt, CompletionTokens: ct, TotalTokens: tt}
+        return content, usage, nil
+    default:
+        // OpenAI-compatible
+        client := openaiclient.NewClient(rec.BaseURL, rec.APIKey, httpc)
+        mm := make([]openaiclient.ChatMessage, len(messages))
+        for i := range messages {
+            mm[i] = openaiclient.ChatMessage{Role: messages[i].Role, Content: messages[i].Content}
+        }
+        var onDelta func(string) error
+        if cb != nil {
+            onDelta = func(delta string) error { return cb(delta) }
+        }
+        content, pt, ct, tt, e := client.ChatCompletionsWithOptsUsage(ctx, model, mm, opts.Temperature, opts.TopP, opts.MaxTokens, opts.JSONMode, onDelta)
+        if e != nil { return "", usage, e }
+        usage = TokenUsage{PromptTokens: pt, CompletionTokens: ct, TotalTokens: tt}
+        return content, usage, nil
+    }
+}
+
+// requestTimeout returns per-request timeout for LLM calls.
+// Environment override: LLM_REQUEST_TIMEOUT_SECONDS (int). Default: 120s.
+func (s *Service) requestTimeout() time.Duration {
+    if v := os.Getenv("LLM_REQUEST_TIMEOUT_SECONDS"); strings.TrimSpace(v) != "" {
+        if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n > 0 {
+            return time.Duration(n) * time.Second
+        }
+    }
+    // Fallback: shorter than proxy default to prevent long hangs per call
+    return 120 * time.Second
 }
 
 // --- Defaults initialization (Presets via Policy) ---
@@ -581,13 +800,18 @@ func defaultRateLimitRec() storage.RateLimitRec {
 // applySeedDefaults rewrites a preset provider record to its initial default
 // configuration based on seeds (without changing ID/CreatedAt/Policy/Name).
 func (s *Service) applySeedDefaults(rec *storage.ProviderRecord) {
-	sd, ok := seedByName(rec.Name)
-	rec.Type = string(types.ProviderOpenAICompat)
-	if ok {
-		rec.BaseURL = normalizeBase(sd.BaseURL)
-	} else {
-		rec.BaseURL = ""
-	}
+    sd, ok := seedByName(rec.Name)
+    // set protocol type by name heuristic
+    if strings.Contains(strings.ToLower(rec.Name), "anthropic") {
+        rec.Type = string(types.ProviderAnthropicCompat)
+    } else {
+        rec.Type = string(types.ProviderOpenAICompat)
+    }
+    if ok {
+        rec.BaseURL = normalizeBase(sd.BaseURL)
+    } else {
+        rec.BaseURL = ""
+    }
 	// Clear auth/config/state and set defaults
 	rec.APIKey = ""
 	rec.Models = nil
@@ -620,14 +844,16 @@ func (s *Service) EnsureDefaultProviders(ctx context.Context) (int, error) {
 	// Seed defaults
 	count := 0
 	now := time.Now()
-	for _, sd := range defaultSeeds() {
-		id := genID("prov")
-		rec := &storage.ProviderRecord{
-			ID:        id,
-			Type:      string(types.ProviderOpenAICompat),
-			Policy:    string(sd.Policy),
-			Name:      sd.Name,
-			BaseURL:   strings.TrimRight(sd.BaseURL, "/"),
+    for _, sd := range defaultSeeds() {
+        id := genID("prov")
+        ptype := string(types.ProviderOpenAICompat)
+        if strings.Contains(strings.ToLower(sd.Name), "anthropic") { ptype = string(types.ProviderAnthropicCompat) }
+        rec := &storage.ProviderRecord{
+            ID:        id,
+            Type:      ptype,
+            Policy:    string(sd.Policy),
+            Name:      sd.Name,
+            BaseURL:   strings.TrimRight(sd.BaseURL, "/"),
 			APIKey:    "",
 			Models:    nil,
 			RateLimit: storage.RateLimitRec{RPS: 2, RPM: 120, Burst: 4, Concurrency: 4},

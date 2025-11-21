@@ -275,7 +275,8 @@ import { subtitleService } from '@/services/subtitleService.js'
         const updatedMetadata = { ...this.projectData.metadata, export_configs: this.exportConfigs }
         const result = await subtitleService.saveProjectMetadata(updatedMetadata)
         if (result.success) {
-          const projectData = JSON.parse(result.data)
+          const raw = result.data
+          const projectData = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {}
           this.$emit('update:projectData', projectData)
           this.savedExportConfigs = JSON.parse(JSON.stringify(this.exportConfigs))
           try { $message?.success?.(this.$t('subtitle.common.save') + ' ' + this.$t('common.success')) } catch {}

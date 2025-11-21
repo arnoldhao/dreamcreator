@@ -1,5 +1,5 @@
 <script setup>
-import AppContent from './AppContent.vue'
+import AppLayout from '@/layouts/AppLayout.vue'
 import { onMounted, ref, watch } from 'vue'
 import usePreferencesStore from './stores/preferences.js'
 import { useI18n } from 'vue-i18n'
@@ -53,7 +53,7 @@ watch(
 
 <template>
   <div class="app-container">
-    <app-content :loading="initializing" />
+    <app-layout :loading="initializing" />
   </div>
 </template>
 

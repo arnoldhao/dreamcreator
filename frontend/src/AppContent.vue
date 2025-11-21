@@ -12,15 +12,15 @@ import Inspector from '@/components/inspector/Inspector.vue'
 import useInspectorStore from '@/stores/inspector.js'
 import { EventsOn, WindowIsFullscreen, WindowIsMaximised, WindowToggleMaximise } from 'wailsjs/runtime/runtime.js'
 import { isMacOS, isWindows } from '@/utils/platform.js'
-import VideoDownloadPage from "@/components/content/VideoDownloadPage.vue";
-import Subtitle from '@/components/content/Subtitle.vue';
+import VideoDownloadPage from "@/views/DownloadPage.vue";
+import Subtitle from '@/views/SubtitlePage.vue';
 import { useSubtitleStore } from '@/stores/subtitle.js'
 import { subtitleService } from '@/services/subtitleService.js'
 import { useI18n } from 'vue-i18n'
 import useSettingsStore from '@/stores/settings.js'
-import Dependency from '@/components/content/Dependency.vue'
-import Settings from '@/components/content/Settings.vue'
-import Providers from '@/components/content/Providers.vue'
+import Dependency from '@/views/DependencyPage.vue'
+import Settings from '@/views/SettingsPage.vue'
+import Providers from '@/views/ProvidersPage.vue'
 
 const props = defineProps({
   loading: Boolean,
@@ -347,20 +347,26 @@ function getPageActions() {
     return { modals: [], panels: [] }
   }
   if (navStore.currentNav === navStore.navOptions.SUBTITLE) {
-    const modals = [
-      { key: 'subtitle:open-file', icon: 'file-plus', titleKey: 'subtitle.common.open_file' },
-    ]
-
-    if (subtitleStore.currentProject) {
-      modals.push({ key: 'subtitle:metrics', icon: 'info', titleKey: 'subtitle.list.metrics_explanation' })
+    const modals = []
+    if (!subtitleStore.currentProject) {
+      // Only show Open File on the all-subtitles (hub) view
+      modals.push({ key: 'subtitle:open-file', icon: 'file-plus', titleKey: 'subtitle.common.open_file' })
+    } else {
+      // When a project is open: hide Open File; show back-home (metrics moved to bottom toolbar)
       modals.push({ key: 'subtitle:back-home', icon: 'home', titleKey: 'subtitle.all_subs' })
     }
 
     return {
       modals,
-      // show export as panel action when a project is open
+      // Glossary and Target Languages visible on subtitle page; Export only when a project is open
       panels: [
-        ... (subtitleStore.currentProject ? [{ key: 'SubtitleExportPanel', icon: 'download-file', titleKey: 'subtitle.export.title' }] : []),
+        { key: 'GlossaryPanel', icon: 'database', titleKey: 'glossary.title' },
+        { key: 'TargetLanguagesPanel', icon: 'languages', titleKey: 'subtitle.target_languages.title' },
+        { key: 'SubtitleTasksPanel', icon: 'list', titleKey: 'subtitle.tasks_title' },
+        { key: 'ProfilesPanel', icon: 'layers', titleKey: 'profiles.inspector_title' },
+        ... (subtitleStore.currentProject ? [
+          { key: 'SubtitleExportPanel', icon: 'download-file', titleKey: 'subtitle.export.title' }
+        ] : []),
       ],
     }
   }
@@ -466,16 +472,16 @@ function onModalClick(act) {
               <div class="project-inline min-w-0">
                 <template v-if="!editingProjectName">
                   <span class="project-name-text" :title="subtitleStore.currentProject?.project_name || '-'">{{ subtitleStore.currentProject?.project_name || '-' }}</span>
-                  <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.edit')" data-tip-pos="top" @click="beginEditProjectName">
+                  <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.edit')" data-tip-pos="bottom" @click="beginEditProjectName">
                     <Icon name="edit" class="w-3 h-3" />
                   </button>
                 </template>
                 <template v-else>
                   <input v-model="tempProjectName" class="inline-edit pill-input" @keydown.enter.stop.prevent="saveEditProjectName" @keydown.esc.stop.prevent="cancelEditProjectName" />
-                  <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.confirm')" data-tip-pos="top" @click="saveEditProjectName">
+                  <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.confirm')" data-tip-pos="bottom" @click="saveEditProjectName">
                     <Icon name="status-success" class="w-3 h-3" />
                   </button>
-                  <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.cancel')" data-tip-pos="top" @click="cancelEditProjectName">
+                  <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.cancel')" data-tip-pos="bottom" @click="cancelEditProjectName">
                     <Icon name="close" class="w-3 h-3" />
                   </button>
                 </template>
@@ -508,14 +514,14 @@ function onModalClick(act) {
                 <!-- Replace subtitle metrics button with current standard chip when in subtitle edit -->
                 <button v-if="act.key === 'subtitle:metrics' && subtitleStore.currentProject"
                         class="chip-frosted chip-sm chip-translucent"
-                        :data-tooltip="$t(act.titleKey)"
+                        :data-tooltip="$t(act.titleKey)" data-tip-pos="bottom"
                         :aria-label="$t(act.titleKey)"
                         @click="onModalClick(act)">
                   <span class="chip-label">{{ metricsStandardName || $t('subtitle.list.metrics_explanation') }}</span>
                 </button>
                 <button v-else-if="act.key === 'subtitle:open-file'"
                         class="chip-frosted chip-sm chip-translucent-primary"
-                        :data-tooltip="$t(act.titleKey)"
+                        :data-tooltip="$t(act.titleKey)" data-tip-pos="bottom"
                         :aria-label="$t(act.titleKey)"
                         @click="onModalClick(act)">
                   <Icon :name="act.icon" class="chip-icon" />
@@ -523,7 +529,7 @@ function onModalClick(act) {
                 </button>
                 <button v-else-if="act.key === 'subtitle:back-home'"
                         class="chip-frosted chip-sm chip-translucent-primary"
-                        :data-tooltip="$t(act.titleKey)"
+                        :data-tooltip="$t(act.titleKey)" data-tip-pos="bottom"
                         :aria-label="$t(act.titleKey)"
                         @click="onModalClick(act)">
                   <Icon :name="act.icon" class="chip-icon" />
@@ -531,7 +537,7 @@ function onModalClick(act) {
                 </button>
                 <button v-else-if="act.key === 'download:new-task'"
                         class="chip-frosted chip-sm chip-translucent-primary"
-                        :data-tooltip="$t(act.titleKey)"
+                        :data-tooltip="$t(act.titleKey)" data-tip-pos="bottom"
                         :aria-label="$t(act.titleKey)"
                         @click="onModalClick(act)">
                   <Icon :name="act.icon" class="chip-icon" />
@@ -539,7 +545,7 @@ function onModalClick(act) {
                 </button>
                 <button v-else-if="primaryModalActions.has(act.key)"
                         class="chip-frosted chip-sm chip-primary-action"
-                        :data-tooltip="$t(act.titleKey)"
+                        :data-tooltip="$t(act.titleKey)" data-tip-pos="bottom"
                         :aria-label="$t(act.titleKey)"
                         @click="onModalClick(act)">
                   <Icon :name="act.icon" class="chip-icon" />
@@ -572,6 +578,7 @@ function onModalClick(act) {
               <div class="inspector-title text-xs uppercase tracking-wide text-[var(--macos-text-tertiary)]">{{ inspector.title }}</div>
               <div class="flex items-center gap-2">
                 <button v-for="act in inspector.actions" :key="act.key" class="toolbar-chip"
+                  :data-tooltip="$t(act.titleKey)" data-tip-pos="bottom"
                   :aria-label="$t(act.titleKey)" :class="{ active: isDownloadNewActive(act.key) }"
                   @click="onInspectorAction(act.key)">
                   <Icon :name="act.icon" class="w-4 h-4" />
@@ -583,6 +590,7 @@ function onModalClick(act) {
               <div class="inspector-title text-xs uppercase tracking-wide text-[var(--macos-text-tertiary)]">{{ inspector.title }}</div>
               <div class="flex items-center gap-2">
                 <button v-for="act in inspector.actions" :key="act.key" class="toolbar-chip"
+                  :data-tooltip="$t(act.titleKey)" data-tip-pos="bottom"
                   :aria-label="$t(act.titleKey)" :class="{ active: inspector.panel === act.key }"
                   @click="onInspectorAction(act.key)">
                   <Icon :name="act.icon" class="w-4 h-4" />
@@ -594,11 +602,12 @@ function onModalClick(act) {
               <div class="inspector-title text-xs uppercase tracking-wide text-[var(--macos-text-tertiary)]">{{ inspector.title }}</div>
               <div class="flex items-center gap-2">
                 <button v-for="act in inspector.actions" :key="act.key" class="toolbar-chip"
+                  :data-tooltip="$t(act.titleKey)" data-tip-pos="bottom"
                   :aria-label="$t(act.titleKey)" :class="{ active: inspector.panel === act.key }"
                   @click="onInspectorAction(act.key)">
                   <Icon :name="act.icon" class="w-4 h-4" />
                 </button>
-                <button class="toolbar-chip" :data-tooltip="$t('common.close')" @click="inspector.close()">
+                <button class="toolbar-chip" :data-tooltip="$t('common.close')" data-tip-pos="bottom" @click="inspector.close()">
                   <Icon name="close" class="w-4 h-4" />
                 </button>
               </div>

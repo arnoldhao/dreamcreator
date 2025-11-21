@@ -5,6 +5,7 @@ import WebSocketService from '@/services/websocket'
 export const useDtStore = defineStore('downtasks', {
   state: () => ({
     taskProgressMap: {}, // 任务进度映射
+    subtitleProgressMap: {}, // 字幕任务进度（保留最近一次，用于刷新后回填）
     progressCallbacks: [], // 进度回调函数
     signalCallbacks: [], // 信号回调函数
     stageCallbacks: [], // 阶段事件回调
@@ -12,6 +13,7 @@ export const useDtStore = defineStore('downtasks', {
     cookieSyncCallbacks: [], // cookie 同步回调函数
     analysisCallbacks: [], // 原因分析事件回调
     subtitleProgressCallbacks: [], // 字幕进度回调函数
+    subtitleChatCallbacks: [],     // 字幕翻译 LLM 对话回调
     wsInited: false, // WebSocket 监听是否已初始化（避免重复注册）
   }),
   actions: {
@@ -148,17 +150,35 @@ export const useDtStore = defineStore('downtasks', {
         case WS_RESPONSE_EVENT.EVENT_SUBTITLE_PROGRESS:
           this.handleSubtitleProgress(data.data)
           break
+        case WS_RESPONSE_EVENT.EVENT_SUBTITLE_CHAT:
+          this.handleSubtitleChat(data.data)
+          break
         default:
           console.warn('Unknown event:', data.event)
       }
     },
     // 处理字幕进度事件
     handleSubtitleProgress(data) {
+      // 持久化最近一次字幕任务进度，便于页面主动刷新后仍可显示进度
+      try {
+        const id = data?.id
+        if (id) this.subtitleProgressMap[id] = data
+      } catch {}
       this.subtitleProgressCallbacks.forEach((callback) => {
         try {
           callback(data)
         } catch (error) {
           console.error('Subtitle progress callback error:', error)
+        }
+      })
+    },
+    // 处理字幕 LLM 对话事件
+    handleSubtitleChat(data) {
+      this.subtitleChatCallbacks.forEach((callback) => {
+        try {
+          callback(data)
+        } catch (error) {
+          console.error('Subtitle talk callback error:', error)
         }
       })
     },
@@ -169,6 +189,13 @@ export const useDtStore = defineStore('downtasks', {
     // 取消注册字幕进度回调
     unregisterSubtitleProgressCallback(callback) {
       this.subtitleProgressCallbacks = this.subtitleProgressCallbacks.filter((cb) => cb !== callback)
+    },
+    // 注册/取消 字幕 LLM 对话回调
+    registerSubtitleChatCallback(callback) {
+      this.subtitleChatCallbacks.push(callback)
+    },
+    unregisterSubtitleChatCallback(callback) {
+      this.subtitleChatCallbacks = this.subtitleChatCallbacks.filter((cb) => cb !== callback)
     },
     // 注册进度回调
     registerProgressCallback(callback) {

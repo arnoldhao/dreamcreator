@@ -9,10 +9,10 @@ import {
   DeleteProvider,
   TestProvider,
   RefreshModels,
-  ListLLMProfiles,
-  CreateLLMProfile,
-  UpdateLLMProfile,
-  DeleteLLMProfile,
+  ListGlobalProfiles,
+  CreateGlobalProfile,
+  UpdateGlobalProfile,
+  DeleteGlobalProfile,
   ResetLLMData,
   ListAddableProviders,
 } from 'wailsjs/go/api/LLMAPI'
@@ -40,14 +40,13 @@ export const testProvider = async (id) => toJS(await TestProvider(id))
 export const refreshModels = async (id) => toJS(await RefreshModels(id))
 
 // LLM Profiles
-export const listLLMProfiles = async () => toJS(await ListLLMProfiles())
-export const createLLMProfile = async (p) => toJS(await CreateLLMProfile(p))
-export const getLLMProfile = async (id) => {
-  const list = toJS(await ListLLMProfiles())
-  return (list || []).find(x => x?.id === id)
-}
-export const updateLLMProfile = async (id, p) => toJS(await UpdateLLMProfile(id, p))
-export const deleteLLMProfile = async (id) => toJS(await DeleteLLMProfile(id))
+// legacy LLMProfile API removed
+
+// Global Profiles (model-agnostic)
+export const listGlobalProfiles = async () => toJS(await ListGlobalProfiles())
+export const createGlobalProfile = async (p) => toJS(await CreateGlobalProfile(p))
+export const updateGlobalProfile = async (id, p) => toJS(await UpdateGlobalProfile(id, p))
+export const deleteGlobalProfile = async (id) => toJS(await DeleteGlobalProfile(id))
 
 export const resetLLMData = async () => toJS(await ResetLLMData())
 

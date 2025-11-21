@@ -1,51 +1,463 @@
 package subtitles
 
 import (
-	"dreamcreator/backend/pkg/events"
-	"dreamcreator/backend/pkg/proxy"
-	"dreamcreator/backend/pkg/zhconvert"
-	"dreamcreator/backend/storage"
-	"dreamcreator/backend/types"
+    "dreamcreator/backend/pkg/events"
+    "dreamcreator/backend/pkg/provider"
+    "dreamcreator/backend/pkg/proxy"
+    "dreamcreator/backend/pkg/zhconvert"
+    "dreamcreator/backend/storage"
+    "dreamcreator/backend/types"
 
-	"context"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
+    "context"
+    "fmt"
+    "os"
+    "path/filepath"
+    "sort"
+    "strings"
+    "time"
 )
 
 type Service struct {
-	ctx context.Context
-	// 使用接口类型
-	formatConverter FormatConverter
-	textProcessor   TextProcessor
-	qualityAssessor QualityAssessor
+    ctx context.Context
+    // 使用接口类型
+    formatConverter FormatConverter
+    textProcessor   TextProcessor
+    qualityAssessor QualityAssessor
 
-	// bolt storage
-	boltStorage *storage.BoltStorage
-	// proxy
-	proxyManager proxy.ProxyManager
-	// zhconvert
-	zhConverter *zhconvert.Converter
-	// 事件总线
-	eventBus events.EventBus
+    // bolt storage
+    boltStorage *storage.BoltStorage
+    // proxy
+    proxyManager proxy.ProxyManager
+    // zhconvert
+    zhConverter *zhconvert.Converter
+    // 事件总线
+    eventBus events.EventBus
+
+    // LLM provider service (for AI translation)
+    providerService ProviderService
 }
 
-func NewService(boltStorage *storage.BoltStorage, proxyManager proxy.ProxyManager, eventBus events.EventBus) *Service {
-	return &Service{
-		formatConverter: NewFormatConverter(),
-		textProcessor:   NewTextProcessor(),
-		qualityAssessor: NewQualityAssessor(),
-		boltStorage:     boltStorage,
-		proxyManager:    proxyManager,
-		zhConverter:     zhconvert.New(zhconvert.DefaultConfig(), proxyManager),
-		eventBus:        eventBus,
-	}
+// ProviderService abstracts LLM chat completion so subtitles module doesn't own HTTP details
+type ProviderService interface{
+    ChatCompletion(ctx context.Context, providerID, model string, messages []provider.ChatMessage, temperature float64) (string, error)
+    ChatCompletionWithOptions(ctx context.Context, providerID, model string, messages []provider.ChatMessage, opts provider.ChatOptions) (string, error)
+    ChatCompletionWithOptionsUsage(ctx context.Context, providerID, model string, messages []provider.ChatMessage, opts provider.ChatOptions) (string, provider.TokenUsage, error)
+}
+
+func NewService(boltStorage *storage.BoltStorage, proxyManager proxy.ProxyManager, eventBus events.EventBus, providerSvc ProviderService) *Service {
+    return &Service{
+        formatConverter: NewFormatConverter(),
+        textProcessor:   NewTextProcessor(),
+        qualityAssessor: NewQualityAssessor(),
+        boltStorage:     boltStorage,
+        proxyManager:    proxyManager,
+        zhConverter:     zhconvert.New(zhconvert.DefaultConfig(), proxyManager),
+        eventBus:        eventBus,
+        providerService: providerSvc,
+    }
 }
 
 func (s *Service) SetContext(ctx context.Context) {
-	s.ctx = ctx
+    s.ctx = ctx
+}
+
+// persistTaskProgress updates the active task record for a target language in storage.
+// Best-effort: logs are kept minimal to avoid noisy output during tight loops.
+func (s *Service) persistTaskProgress(projectID, targetLang string, conv types.ConversionTask) {
+    if s.boltStorage == nil { return }
+    if strings.TrimSpace(projectID) == "" || strings.TrimSpace(targetLang) == "" { return }
+    p, err := s.boltStorage.GetSubtitle(projectID)
+    if err != nil || p == nil { return }
+    m := p.LanguageMetadata[targetLang]
+    if len(m.Status.ConversionTasks) > 0 {
+        for i := range m.Status.ConversionTasks {
+            if m.Status.ConversionTasks[i].ID == conv.ID {
+                m.Status.ConversionTasks[i] = conv
+                break
+            }
+        }
+        m.Status.LastUpdated = time.Now().Unix()
+        p.LanguageMetadata[targetLang] = m
+        _ = s.boltStorage.SaveSubtitle(p)
+    }
+}
+
+// -------- LLM Tasks history (aggregated from projects) --------
+
+// ListLLMTasks lists all subtitle translation tasks (LLM and zhconvert) across all projects.
+// If projectID is not empty, filters by project.
+// Note: Although the name is kept for API compatibility, this now includes both
+//       Type == "llm_translate" and Type == "zhconvert" tasks.
+func (s *Service) ListLLMTasks(projectID string) ([]*types.LLMTaskView, error) {
+    if s.boltStorage == nil { return nil, fmt.Errorf("bolt storage is nil") }
+    subs, err := s.boltStorage.ListSubtitles()
+    if err != nil { return nil, err }
+    out := make([]*types.LLMTaskView, 0, 64)
+    for _, p := range subs {
+        if p == nil { continue }
+        if strings.TrimSpace(projectID) != "" && p.ID != projectID { continue }
+        pname := p.ProjectName
+        if pname == "" { pname = p.Metadata.Name }
+        for lang, meta := range p.LanguageMetadata {
+            _ = lang // kept for future use; task contains Source/Target
+            tasks := meta.Status.ConversionTasks
+            for i := range tasks {
+                t := tasks[i]
+                // Include both AI translation and zhconvert tasks
+                tt := strings.TrimSpace(strings.ToLower(t.Type))
+                if tt != "llm_translate" && tt != "zhconvert" { continue }
+                view := &types.LLMTaskView{ ConversionTask: t, ProjectID: p.ID, ProjectName: pname }
+                out = append(out, view)
+            }
+        }
+    }
+    // sort by StartTime desc
+    sort.Slice(out, func(i, j int) bool { return out[i].StartTime > out[j].StartTime })
+    return out, nil
+}
+
+// GetLLMTask returns one task view by id
+func (s *Service) GetLLMTask(taskID string) (*types.LLMTaskView, error) {
+    if strings.TrimSpace(taskID) == "" { return nil, fmt.Errorf("task id is empty") }
+    list, err := s.ListLLMTasks("")
+    if err != nil { return nil, err }
+    for _, v := range list { if v != nil && v.ID == taskID { return v, nil } }
+    return nil, fmt.Errorf("llm task not found: %s", taskID)
+}
+
+// DeleteLLMTask deletes a historical task by id. Refuses to delete when the task is still processing.
+func (s *Service) DeleteLLMTask(taskID string) error {
+    if strings.TrimSpace(taskID) == "" { return fmt.Errorf("task id is empty") }
+    subs, err := s.boltStorage.ListSubtitles()
+    if err != nil { return err }
+    for _, p := range subs {
+        if p == nil { continue }
+        changed := false
+        for lang, meta := range p.LanguageMetadata {
+            tasks := meta.Status.ConversionTasks
+            idx := -1
+            for i := range tasks {
+                if tasks[i].ID == taskID {
+                    if tasks[i].Status == types.ConversionStatusProcessing || meta.ActiveTaskID == taskID {
+                        return fmt.Errorf("cannot delete processing task: %s", taskID)
+                    }
+                    idx = i
+                    break
+                }
+            }
+            if idx >= 0 {
+                // remove idx
+                meta.Status.ConversionTasks = append(tasks[:idx], tasks[idx+1:]...)
+                p.LanguageMetadata[lang] = meta
+                changed = true
+                break
+            }
+        }
+        if changed {
+            return s.boltStorage.SaveSubtitle(p)
+        }
+    }
+    return fmt.Errorf("llm task not found: %s", taskID)
+}
+
+// RetryLLMTaskFailedOnly restarts translation for failed/fallback segments using provided provider/model based on task id.
+func (s *Service) RetryLLMTaskFailedOnly(taskID, providerID, model string) error {
+    if strings.TrimSpace(taskID) == "" { return fmt.Errorf("task id is empty") }
+    if strings.TrimSpace(providerID) == "" || strings.TrimSpace(model) == "" { return fmt.Errorf("providerID/model is empty") }
+    // locate project/origin/target by task id
+    subs, err := s.boltStorage.ListSubtitles()
+    if err != nil { return err }
+    for _, p := range subs {
+        if p == nil { continue }
+        for lang, meta := range p.LanguageMetadata {
+            _ = lang
+            for i := range meta.Status.ConversionTasks {
+                t := meta.Status.ConversionTasks[i]
+                if t.ID == taskID {
+                    // Use failed-only variant with no glossary options (hint glossary mode by default)
+                    return s.TranslateSubtitleLLMFailedOnlyWithOptions(p.ID, t.SourceLang, t.TargetLang, providerID, model, nil, nil, false)
+                }
+            }
+        }
+	}
+	return fmt.Errorf("llm task not found: %s", taskID)
+}
+
+// GetLLMConversationForLanguage 返回指定项目 + 目标语言下最近一次 LLM 翻译任务的会话。
+// 选择策略：
+// - 若该语言存在 ActiveTaskID，则优先返回该任务的会话；
+// - 否则在 ConversionTasks 中按时间/追加顺序选取最近一次 Type == "llm_translate" 的任务；
+// - 若尚未有会话记录，则基于 ConversionTask 构造一个空会话骨架并持久化。
+func (s *Service) GetLLMConversationForLanguage(projectID, lang string) (*types.LLMConversation, error) {
+	if strings.TrimSpace(projectID) == "" || strings.TrimSpace(lang) == "" {
+		return nil, fmt.Errorf("projectID or lang is empty")
+	}
+	proj, err := s.boltStorage.GetSubtitle(projectID)
+	if err != nil {
+		return nil, err
+	}
+	if proj == nil {
+		return nil, fmt.Errorf("project not found: %s", projectID)
+	}
+	meta, ok := proj.LanguageMetadata[lang]
+	if !ok {
+		return nil, fmt.Errorf("language metadata not found: %s", lang)
+	}
+
+	// 决定使用哪个任务 ID（仅针对 LLM 翻译任务：Type == llm_translate）
+	var taskID string
+	active := strings.TrimSpace(meta.ActiveTaskID)
+	if active != "" {
+		// 仅当 ActiveTaskID 对应的任务为 llm_translate 时才使用
+		for i := range meta.Status.ConversionTasks {
+			t := meta.Status.ConversionTasks[i]
+			if t.ID == active && strings.EqualFold(strings.TrimSpace(t.Type), "llm_translate") {
+				taskID = active
+				break
+			}
+		}
+	}
+	if taskID == "" {
+		// 从历史任务中找最近的一次 llm_translate 任务
+		for i := len(meta.Status.ConversionTasks) - 1; i >= 0; i-- {
+			t := meta.Status.ConversionTasks[i]
+			if strings.EqualFold(strings.TrimSpace(t.Type), "llm_translate") {
+				taskID = t.ID
+				break
+			}
+		}
+	}
+	if taskID == "" {
+		return nil, fmt.Errorf("no llm_translate task for language: %s", lang)
+	}
+
+	if meta.Status.LLMConversations == nil {
+		meta.Status.LLMConversations = make(map[string]types.LLMConversation)
+	}
+	if conv, ok := meta.Status.LLMConversations[taskID]; ok {
+		// 尝试与任务状态对齐
+		for i := range meta.Status.ConversionTasks {
+			t := meta.Status.ConversionTasks[i]
+			if t.ID != taskID {
+				continue
+			}
+			switch t.Status {
+			case types.ConversionStatusCompleted:
+				conv.Status = types.LLMConversationStatusFinished
+				if conv.EndedAt == 0 {
+					conv.EndedAt = t.EndTime
+				}
+			case types.ConversionStatusFailed, types.ConversionStatusCancelled:
+				conv.Status = types.LLMConversationStatusFailed
+				if conv.EndedAt == 0 {
+					conv.EndedAt = t.EndTime
+				}
+			default:
+				conv.Status = types.LLMConversationStatusRunning
+			}
+			meta.Status.LLMConversations[taskID] = conv
+			proj.LanguageMetadata[lang] = meta
+			_ = s.boltStorage.SaveSubtitle(proj)
+			break
+		}
+		convCopy := conv
+		return &convCopy, nil
+	}
+
+	// 尚无会话记录：基于 ConversionTask 构造骨架
+	var base *types.ConversionTask
+	for i := range meta.Status.ConversionTasks {
+		t := meta.Status.ConversionTasks[i]
+		if t.ID == taskID {
+			base = &t
+			break
+		}
+	}
+	if base == nil {
+		return nil, fmt.Errorf("task not found for conversation: %s", taskID)
+	}
+	status := types.LLMConversationStatusRunning
+	switch base.Status {
+	case types.ConversionStatusCompleted:
+		status = types.LLMConversationStatusFinished
+	case types.ConversionStatusFailed, types.ConversionStatusCancelled:
+		status = types.LLMConversationStatusFailed
+	default:
+		status = types.LLMConversationStatusRunning
+	}
+	conv := types.LLMConversation{
+		ID:        taskID,
+		ProjectID: projectID,
+		Language:  lang,
+		TaskID:    taskID,
+		Provider:  base.Provider,
+		Model:     base.Model,
+		Status:    status,
+		StartedAt: base.StartTime,
+		EndedAt:   base.EndTime,
+	}
+	meta.Status.LLMConversations[taskID] = conv
+	proj.LanguageMetadata[lang] = meta
+	if err := s.boltStorage.SaveSubtitle(proj); err != nil {
+		return nil, err
+	}
+	convCopy := conv
+	return &convCopy, nil
+}
+
+// -------- Glossary helpers (CRUD via storage) --------
+
+// ListGlossary returns all glossary entries
+func (s *Service) ListGlossary() ([]*types.GlossaryEntry, error) {
+    if s.boltStorage == nil { return nil, fmt.Errorf("bolt storage is nil") }
+    return s.boltStorage.ListGlossaryEntries()
+}
+
+func (s *Service) ListGlossaryBySet(setID string) ([]*types.GlossaryEntry, error) {
+    if s.boltStorage == nil { return nil, fmt.Errorf("bolt storage is nil") }
+    return s.boltStorage.ListGlossaryEntriesBySet(setID)
+}
+
+// UpsertGlossaryEntry creates or updates a glossary entry
+func (s *Service) UpsertGlossaryEntry(e *types.GlossaryEntry) (*types.GlossaryEntry, error) {
+    if e == nil { return nil, fmt.Errorf("entry is nil") }
+    if strings.TrimSpace(e.Source) == "" { return nil, fmt.Errorf("source is empty") }
+    if e.Translations == nil { e.Translations = map[string]string{} }
+    // Enforce single translation entry when provided (prefer 'all' if exists)
+    if len(e.Translations) > 1 {
+        if v, ok := e.Translations["all"]; ok {
+            e.Translations = map[string]string{"all": v}
+        } else if v, ok := e.Translations["*"]; ok {
+            e.Translations = map[string]string{"*": v}
+        } else {
+            keys := make([]string, 0, len(e.Translations))
+            for k := range e.Translations { keys = append(keys, k) }
+            sort.Strings(keys)
+            k := keys[0]
+            e.Translations = map[string]string{k: e.Translations[k]}
+        }
+    }
+    if e.DoNotTranslate {
+        e.Translations = map[string]string{}
+    }
+    if strings.TrimSpace(e.ID) == "" {
+        e.ID = fmt.Sprintf("glo_%d", time.Now().UnixNano())
+        e.CreatedAt = time.Now().Unix()
+    }
+    if err := s.boltStorage.SaveGlossaryEntry(e); err != nil {
+        return nil, err
+    }
+    return e, nil
+}
+
+// DeleteGlossaryEntry deletes one glossary entry by id
+func (s *Service) DeleteGlossaryEntry(id string) error {
+    if strings.TrimSpace(id) == "" { return fmt.Errorf("id is empty") }
+    return s.boltStorage.DeleteGlossaryEntry(id)
+}
+
+// Glossary sets
+func (s *Service) ListGlossarySets() ([]*types.GlossarySet, error) {
+    if s.boltStorage == nil { return nil, fmt.Errorf("bolt storage is nil") }
+    return s.boltStorage.ListGlossarySets()
+}
+
+func (s *Service) UpsertGlossarySet(gs *types.GlossarySet) (*types.GlossarySet, error) {
+    if gs == nil { return nil, fmt.Errorf("glossary set nil") }
+    if strings.TrimSpace(gs.ID) == "" {
+        gs.ID = fmt.Sprintf("gls_%d", time.Now().UnixNano())
+        gs.CreatedAt = time.Now().Unix()
+    }
+    if strings.TrimSpace(gs.Name) == "" { return nil, fmt.Errorf("name is empty") }
+    if err := s.boltStorage.SaveGlossarySet(gs); err != nil { return nil, err }
+    return gs, nil
+}
+
+func (s *Service) DeleteGlossarySet(id string) error {
+    if strings.TrimSpace(id) == "" { return fmt.Errorf("id is empty") }
+    return s.boltStorage.DeleteGlossarySet(id)
+}
+
+// -------- Target Languages (CRUD via storage) --------
+
+// default list used to bootstrap storage when empty
+var defaultTargetLanguages = []types.TargetLanguage{
+	{ Code: "en", Name: "English" },
+	{ Code: "zh-CN", Name: "简体中文" },
+	{ Code: "zh-TW", Name: "繁體中文" },
+	{ Code: "ja", Name: "日本語" },
+	{ Code: "ko", Name: "한국어" },
+	{ Code: "fr", Name: "Français" },
+	{ Code: "de", Name: "Deutsch" },
+	{ Code: "es", Name: "Español" },
+	{ Code: "ru", Name: "Русский" },
+	{ Code: "vi", Name: "Tiếng Việt" },
+	{ Code: "pt-BR", Name: "Português (Brasil)" },
+	{ Code: "pt-PT", Name: "Português (Portugal)" },
+	{ Code: "id", Name: "Bahasa Indonesia" },
+	{ Code: "hi", Name: "हिन्दी" },
+	{ Code: "ar", Name: "العربية" },
+	{ Code: "it", Name: "Italiano" },
+	{ Code: "tr", Name: "Türkçe" },
+	{ Code: "th", Name: "ไทย" },
+	{ Code: "nl", Name: "Nederlands" },
+	{ Code: "pl", Name: "Polski" },
+}
+
+func (s *Service) ListTargetLanguages() ([]*types.TargetLanguage, error) {
+    if s.boltStorage == nil { return nil, fmt.Errorf("bolt storage is nil") }
+    list, err := s.boltStorage.ListTargetLanguages()
+    if err != nil { return nil, err }
+    if len(list) == 0 {
+        // bootstrap with defaults
+        for i := range defaultTargetLanguages {
+            tl := defaultTargetLanguages[i]
+            now := time.Now().Unix()
+            tl.CreatedAt, tl.UpdatedAt = now, now
+            _ = s.boltStorage.SaveTargetLanguage(&tl)
+        }
+        return s.boltStorage.ListTargetLanguages()
+    }
+    return list, nil
+}
+
+func (s *Service) UpsertTargetLanguage(l *types.TargetLanguage) (*types.TargetLanguage, error) {
+    if l == nil { return nil, fmt.Errorf("target language is nil") }
+    l.Code = strings.TrimSpace(l.Code)
+    l.Name = strings.TrimSpace(l.Name)
+    if l.Code == "" { return nil, fmt.Errorf("code is empty") }
+    if l.Name == "" { l.Name = l.Code }
+    if s.boltStorage == nil { return nil, fmt.Errorf("bolt storage is nil") }
+    if err := s.boltStorage.SaveTargetLanguage(l); err != nil { return nil, err }
+    return l, nil
+}
+
+func (s *Service) DeleteTargetLanguage(code string) error {
+    code = strings.TrimSpace(code)
+    if code == "" { return fmt.Errorf("code is empty") }
+    if s.boltStorage == nil { return fmt.Errorf("bolt storage is nil") }
+    return s.boltStorage.DeleteTargetLanguage(code)
+}
+
+// ResetTargetLanguagesToDefault clears current list and restores defaults
+func (s *Service) ResetTargetLanguagesToDefault() error {
+    if s.boltStorage == nil { return fmt.Errorf("bolt storage is nil") }
+    // delete all existing
+    list, err := s.boltStorage.ListTargetLanguages()
+    if err != nil { return err }
+    for _, l := range list {
+        if l != nil && strings.TrimSpace(l.Code) != "" {
+            _ = s.boltStorage.DeleteTargetLanguage(l.Code)
+        }
+    }
+    // reinsert defaults
+    now := time.Now().Unix()
+    for i := range defaultTargetLanguages {
+        tl := defaultTargetLanguages[i]
+        tl.CreatedAt, tl.UpdatedAt = now, now
+        if err := s.boltStorage.SaveTargetLanguage(&tl); err != nil { return err }
+    }
+    return nil
 }
 
 // 统一错误处理
@@ -102,7 +514,7 @@ func (s *Service) UpdateExportConfig(id string, config types.ExportConfigs) (*ty
 	return project, nil
 }
 
-func (s *Service) ConvertSubtile(id, langCode, targetFormat string) ([]byte, error) {
+func (s *Service) ConvertSubtitle(id, langCode, targetFormat string) ([]byte, error) {
 	// 1. get file info
 	if id == "" {
 		return nil, s.handleError("convert subtitle", fmt.Errorf("id is empty"))
@@ -204,6 +616,42 @@ func (s *Service) GetSubtitle(id string) (*types.SubtitleProject, error) {
 	}
 
 	return project, nil
+}
+
+// RemoveProjectLanguage 删除项目中的一种翻译语言（不可删除原始语言）。
+// 依据约定：原始语言的 LanguageMetadata.Translator 为空字符串。
+func (s *Service) RemoveProjectLanguage(projectID, langCode string) (*types.SubtitleProject, error) {
+    if strings.TrimSpace(projectID) == "" || strings.TrimSpace(langCode) == "" {
+        return nil, fmt.Errorf("id or langCode is empty")
+    }
+    if s.boltStorage == nil { return nil, fmt.Errorf("bolt storage is nil") }
+    p, err := s.boltStorage.GetSubtitle(projectID)
+    if err != nil { return nil, err }
+    if p == nil { return nil, fmt.Errorf("project not found") }
+
+    // 不允许删除原始语言：以 IsOriginal 权威标记判断
+    meta, ok := p.LanguageMetadata[langCode]
+    if !ok {
+        return nil, fmt.Errorf("language not found: %s", langCode)
+    }
+    if meta.Status.IsOriginal {
+        return nil, fmt.Errorf("cannot delete original language")
+    }
+
+    // 删除每个片段的该语言内容
+    for i := range p.Segments {
+        if p.Segments[i].Languages != nil {
+            delete(p.Segments[i].Languages, langCode)
+        }
+        if p.Segments[i].GuidelineStandard != nil {
+            delete(p.Segments[i].GuidelineStandard, langCode)
+        }
+    }
+    // 删除语言元数据
+    delete(p.LanguageMetadata, langCode)
+    p.UpdatedAt = time.Now().Unix()
+    if err := s.boltStorage.SaveSubtitle(p); err != nil { return nil, err }
+    return p, nil
 }
 
 // FindSubtitleBySourcePath scans existing projects and returns the one whose

@@ -187,6 +187,133 @@ body {
     white-space: pre-wrap;
 }
 
+/* Global empty state */
+.dc-empty-shell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 68vh;
+    padding: 32px 16px;
+    width: 100%;
+    box-sizing: border-box;
+}
+.dc-empty-card {
+    width: 100%;
+    max-width: 560px;
+    text-align: center;
+    padding: 22px 20px 20px;
+    border: 1px solid var(--macos-divider-weak);
+    box-shadow: var(--macos-shadow-1);
+}
+.dc-empty-card .dc-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+}
+.dc-empty-card .dc-icon-bg {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: color-mix(in srgb, var(--macos-background) 90%, transparent);
+    border: 1px solid var(--macos-divider-weak);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.dc-empty-card .dc-empty-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--macos-text-primary);
+    margin-bottom: 6px;
+}
+.dc-empty-card .dc-empty-subtitle {
+    font-size: 14px;
+    color: var(--macos-text-secondary);
+    margin-bottom: 16px;
+}
+.dc-empty-card .dc-empty-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.dc-empty-card .dc-icon-bg :deep(svg) {
+    color: var(--macos-text-primary);
+    opacity: 0.85;
+}
+
+/* Global floating filter (shared by Download/Subtitles) */
+.floating-filter {
+    position: fixed;
+    bottom: 24px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    box-shadow: var(--macos-shadow-2);
+    z-index: 1200;
+    border-radius: 10px;
+}
+.floating-filter .count-pill {
+    font-size: var(--fs-sub);
+    line-height: 1;
+}
+.floating-filter .filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    color: var(--macos-text-secondary);
+    height: 28px;
+    padding: 0 6px;
+    border-radius: 6px;
+    line-height: 0;
+}
+.floating-filter .count {
+    line-height: 1;
+}
+.floating-filter .filter-select {
+    height: 28px;
+}
+.floating-filter .divider-v {
+    width: 1px;
+    height: 18px;
+    background: var(--macos-divider-weak);
+    margin: 0 2px;
+    opacity: 0.7;
+}
+.floating-filter .spinning {
+    animation: macos-spin .6s ease-in-out both;
+}
+@keyframes macos-spin { to { transform: rotate(360deg); } }
+.floating-filter .icon-chip-ghost {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+    background: transparent;
+    border-color: var(--macos-separator);
+    color: var(--macos-text-secondary);
+    box-shadow: none;
+}
+.floating-filter .icon-chip-ghost:hover {
+    background: color-mix(in oklab, var(--macos-blue) 16%, transparent);
+    border-color: var(--macos-blue);
+    color: #fff;
+}
+.floating-filter .icon-chip-ghost .w-4,
+.floating-filter .filter-toggle .w-4 {
+    display: block;
+}
+.floating-filter .filter-toggle .count-pill {
+    display: block;
+    line-height: 1;
+}
+
 @keyframes rotate {
     100% {
         transform: rotate(360deg);

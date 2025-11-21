@@ -2,17 +2,17 @@
   <div class="macos-page min-w-0" @click.capture="onBackgroundClick">
 
     <div class="dl-grid">
-      <div v-if="filteredTasks.length === 0" class="dl-empty">
+      <div v-if="filteredTasks.length === 0" class="dl-empty dc-empty-shell">
         <!-- Empty for all: no tasks yet -->
-        <div v-if="isFilterAll" class="macos-card card-frosted card-translucent empty-card" @click.stop>
-          <div class="icon-wrap">
-            <div class="icon-bg">
+        <div v-if="isFilterAll" class="macos-card card-frosted card-translucent dc-empty-card" @click.stop>
+          <div class="dc-icon-wrap">
+            <div class="dc-icon-bg">
               <Icon name="download-cloud" class="w-8 h-8 text-[var(--macos-text-secondary)]" />
             </div>
           </div>
-          <div class="title">{{ $t('download.no_download_tasks') }}</div>
-          <div class="subtitle">{{ $t('download.start_first_download_task') }}</div>
-          <div class="actions">
+          <div class="dc-empty-title">{{ $t('download.no_download_tasks') }}</div>
+          <div class="dc-empty-subtitle">{{ $t('download.start_first_download_task') }}</div>
+          <div class="dc-empty-actions">
             <button class="btn-chip-ghost btn-primary btn-sm" @click.stop="showDownloadModal = true">
               <Icon name="plus" class="w-4 h-4 mr-1" />
               {{ $t('download.new_task') }}
@@ -24,15 +24,15 @@
           </div>
         </div>
         <!-- Empty for filtered: no results under current filter -->
-        <div v-else class="macos-card card-frosted card-translucent empty-card" @click.stop>
-          <div class="icon-wrap">
-            <div class="icon-bg">
+        <div v-else class="macos-card card-frosted card-translucent dc-empty-card" @click.stop>
+          <div class="dc-icon-wrap">
+            <div class="dc-icon-bg">
               <Icon name="filter-x" class="w-8 h-8 text-[var(--macos-text-secondary)]" />
             </div>
           </div>
-          <div class="title">{{ $t('download.no_filter_results') }}</div>
-          <div class="subtitle">{{ currentFilterLabel }}</div>
-          <div class="actions">
+          <div class="dc-empty-title">{{ $t('download.no_filter_results') }}</div>
+          <div class="dc-empty-subtitle">{{ currentFilterLabel }}</div>
+          <div class="dc-empty-actions">
             <button class="btn-chip-ghost btn-primary btn-sm" @click.stop="resetFilters">
               <Icon name="refresh" class="w-4 h-4 mr-1" />
               {{ $t('common.reset') }}
@@ -60,7 +60,7 @@
     <CookiesManagerModal v-if="showCookies" @close="showCookies = false" />
 
     <!-- floating filter at bottom-right -->
-    <div class="floating-filter chip-frosted chip-translucent chip-panel" @click.stop :style="{ right: (inspector.visible ? (layout.inspectorWidth + 12) : 12) + 'px' }">
+    <div class="floating-filter chip-frosted chip-translucent chip-panel" @click.stop :style="{ right: floatingRight + 'px' }">
       <button class="icon-chip-ghost" :data-tooltip="$t('download.refresh')" data-tip-pos="top" @click="onRefreshClick">
         <Icon name="refresh" class="w-4 h-4" :class="{ spinning: refreshing }" />
       </button>
@@ -84,7 +84,7 @@ import { useI18n } from 'vue-i18n'
 import ProxiedImage from '@/components/common/ProxiedImage.vue'
 import { ListTasks, DeleteTask } from 'wailsjs/go/api/DowntasksAPI'
 import { OpenDirectory } from 'wailsjs/go/systems/Service'
-import { useDtStore } from '@/handlers/downtasks'
+import { useDtStore } from '@/stores/downloadTasks'
 import eventBus from '@/utils/eventBus.js'
 import useInspectorStore from '@/stores/inspector.js'
 import useNavStore from '@/stores/nav.js'
@@ -123,7 +123,24 @@ const refreshTasks = async () => {
   try {
     const r = await ListTasks()
     if (r?.success) {
-      tasks.value = JSON.parse(r.data || '[]')
+      const arr = JSON.parse(r.data || '[]')
+      // 合并最近一次的进度（来自 dtStore.taskProgressMap），确保切回页面时不会出现短暂的进度缺失
+      try {
+        const map = dtStore?.taskProgressMap || {}
+        tasks.value = (arr || []).map(item => {
+          const id = item?.id
+          const overlay = id ? map[id] : null
+          if (!overlay) return item
+          const merged = { ...item, ...overlay }
+          // 回填速度/ETA 到持久字段，避免 UI 在切回时出现空白
+          merged.downloadProcess = merged.downloadProcess || {}
+          if (Object.prototype.hasOwnProperty.call(overlay, 'speed')) merged.downloadProcess.speed = overlay.speed
+          if (Object.prototype.hasOwnProperty.call(overlay, 'estimatedTime')) merged.downloadProcess.estimatedTime = overlay.estimatedTime
+          return merged
+        })
+      } catch {
+        tasks.value = arr
+      }
     }
   } catch (e) { console.warn('ListTasks failed', e) }
 }
@@ -151,6 +168,11 @@ const isFilterAll = computed(() => filter.value === 'all')
 const currentFilterLabel = computed(() => {
   const opt = (filterOptions.value || []).find(o => o.value === filter.value)
   return opt ? opt.label : ''
+})
+
+const floatingRight = computed(() => {
+  const base = inspector.visible ? (layout.inspectorWidth + 12) : 12
+  return base + 6
 })
 
 const selectedTask = computed(() => tasks.value.find(t => t.id === activeTaskId.value))
@@ -275,6 +297,11 @@ onMounted(() => {
   eventBus.on('download:toggle-detail', onToggleDetail)
   // If inspector is closed (e.g., returning to this page), ensure selection is cleared
   if (!inspector.visible) activeTaskId.value = null
+  // 页面可见性/焦点恢复时主动刷新一次，兜底获取后端最新数据
+  try {
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('focus', onWindowFocus)
+  } catch {}
 })
 onUnmounted(() => {
   dtStore.unregisterProgressCallback(onProgress)
@@ -285,6 +312,10 @@ onUnmounted(() => {
   eventBus.off('download:new-task', () => {})
   eventBus.off('download:toggle-cookies', onToggleCookies)
   eventBus.off('download:toggle-detail', onToggleDetail)
+  try {
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.removeEventListener('focus', onWindowFocus)
+  } catch {}
 })
 
 function onTaskClick(task) {
@@ -330,6 +361,12 @@ function onToggleDetail() {
     }
   }
 }
+
+// 页面恢复刷新：当页面重新可见或窗口获得焦点时拉取一次任务列表
+function onVisibilityChange() {
+  try { if (document.visibilityState === 'visible') refreshTasks() } catch {}
+}
+function onWindowFocus() { refreshTasks() }
 
 const isCookiesActive = computed(() => inspector.visible && inspector.panel === 'CookiesPanel')
 const isDetailActive = computed(() => inspector.visible && inspector.panel === 'DownloadTaskPanel')
@@ -382,34 +419,8 @@ watch(() => navStore.currentNav, (v) => {
 .dl-tiles-enter-from, .dl-tiles-leave-to { opacity: 0; transform: scale(0.98); }
 .dl-actions { display:none; }
 .dl-search { display:none; }
- .dl-empty { padding: 40px 12px; display:flex; align-items:center; justify-content:center; }
- .empty-card { width: 100%; max-width: 560px; padding: 24px; border-radius: 12px; display:flex; flex-direction:column; align-items:center; text-align:center; gap: 12px; }
- .empty-card .icon-wrap { margin-bottom: 4px; }
- .empty-card .icon-bg { width: 56px; height: 56px; border-radius: 50%; display:flex; align-items:center; justify-content:center; background: linear-gradient(180deg, rgba(0,0,0,0.03), rgba(0,0,0,0.06)); border: 1px solid var(--macos-separator); }
-.empty-card .title { font-size: var(--fs-title); font-weight: 600; color: var(--macos-text-primary); }
-.empty-card .subtitle { font-size: var(--fs-sub); color: var(--macos-text-secondary); }
- .empty-card .actions { display:flex; align-items:center; gap: 8px; margin-top: 4px; }
 
 /* remove legacy task row styles (migrated to DownloadTaskCard) */
 
 /* use global .segmented/.seg-item */
-
-/* floating filter */
-.floating-filter { position: fixed; bottom: 16px; z-index: 1200; display: inline-flex; align-items: center; gap: 8px; padding: 6px; border-radius: 10px; }
-/* New wider chip panel variant for floating control */
-/* moved to global: styles/macos-components.scss (.chip-panel) */
-/* Align count chip visuals with Subtitle page (use global chip styles) */
-.floating-filter .count-pill { font-size: var(--fs-sub); line-height: 1; }
-.floating-filter .filter-toggle { display:inline-flex; align-items:center; gap:6px; cursor: pointer; color: var(--macos-text-secondary); height: 28px; padding: 0 6px; border-radius: 6px; line-height: 0; }
-.floating-filter .count { line-height: 1; }
-.floating-filter .filter-select { height: 28px; }
-.floating-filter .divider-v { width: 1px; height: 18px; background: var(--macos-divider-weak); margin: 0 2px; }
-/* refresh click animation */
-.floating-filter .spinning { animation: macos-spin .6s ease-in-out both; }
-@keyframes macos-spin { to { transform: rotate(360deg); } }
-/* normalize icon vertical metrics to avoid baseline drift */
-.floating-filter .icon-chip-ghost { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; line-height: 0; background: transparent; border-color: var(--macos-separator); color: var(--macos-text-secondary); box-shadow: none; }
-.floating-filter .icon-chip-ghost:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent); border-color: var(--macos-blue); color: #fff; }
-.floating-filter .icon-chip-ghost .w-4, .floating-filter .filter-toggle .w-4 { display: block; }
-.floating-filter .filter-toggle .count-pill { display: block; line-height: 1; }
 </style>

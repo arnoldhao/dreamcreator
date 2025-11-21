@@ -404,7 +404,8 @@ export default {
 
           const result = await subtitleService.saveSubtitleSegment(subtitle.id, updatedSegment)
           if (result.success) {
-            const projectData = JSON.parse(result.data)
+            const raw = result.data
+            const projectData = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {}
             this.$emit('update:projectData', projectData)
           } else {
             throw new Error(result.msg)

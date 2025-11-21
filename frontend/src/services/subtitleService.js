@@ -5,12 +5,33 @@ import {
   UpdateSubtitleSegment,
   UpdateLanguageContent,
   UpdateLanguageMetadata,
+  RemoveProjectLanguage,
   // 新增中文转换相关 API
   GetSupportedConverters,
-  ZHConvertSubtitle
+  ZHConvertSubtitle,
+  // LLM 翻译 + 术语表
+  TranslateSubtitleLLM,
+  TranslateSubtitleLLMWithOptions,
+  TranslateSubtitleLLMRetryFailedWithOptions,
+  TranslateSubtitleLLMWithGlobalProfile,
+  TranslateSubtitleLLMWithGlobalProfileOptions,
+  TranslateSubtitleLLMRetryFailedWithGlobalProfileOptions,
+  ListGlossary,
+  ListGlossaryBySet,
+  UpsertGlossaryEntry,
+  DeleteGlossaryEntry,
+  ListGlossarySets,
+  UpsertGlossarySet,
+  DeleteGlossarySet,
+  // Target languages (AI translation)
+  ListTargetLanguages,
+  UpsertTargetLanguage,
+  DeleteTargetLanguage,
+  ResetTargetLanguagesToDefault
 } from 'wailsjs/go/api/SubtitlesAPI';
 import { createAutoSaveManager } from '@/utils/autoSave.js';
-import { useDtStore } from '@/handlers/downtasks'
+import { useDtStore } from '@/stores/downloadTasks'
+import { useSubtitleStore } from '@/stores/subtitle'
 import { i18nGlobal } from '@/utils/i18n.js'
 
 /**
@@ -26,6 +47,8 @@ export class SubtitleService {
     this.projectUpdateCallbacks = new Set();
     // 新增中文转换相关状态
     this.supportedConverters = [];
+    // 目标语言缓存（用于 code -> name 映射）
+    this.targetLanguages = [];
     this.conversionCallbacks = new Set();
     this.dtStore = null;
     // 记录 WebSocket 回调绑定与订阅状态，避免重复注册造成多次提示
@@ -104,8 +127,7 @@ export class SubtitleService {
       // 如果有数据返回，可以更新本地状态
       if (result.data) {
         try {
-          const updatedProject = JSON.parse(result.data);
-          // 可以触发项目更新事件
+          const updatedProject = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
           this.handleProjectUpdate(updatedProject);
         } catch (parseError) {
           console.warn('Failed to parse updated project data:', parseError);
@@ -125,6 +147,22 @@ export class SubtitleService {
    */
   handleProjectUpdate(updatedProject) {
     this.currentProject = updatedProject;
+    // 同步到 Pinia store，确保页面计算属性（语言数量等）即时更新
+    try {
+      const store = useSubtitleStore()
+      // 更新列表中的项目与当前项目引用
+      if (typeof store.updateProject === 'function') {
+        store.updateProject(updatedProject)
+      } else if (typeof store.setCurrentProject === 'function') {
+        store.setCurrentProject(updatedProject)
+      } else {
+        // 直接赋值兜底（不建议，但保证不丢刷新）
+        store.currentProject = updatedProject
+      }
+    } catch (e) {
+      // 安全兜底：不影响后续回调
+      console.warn('sync store currentProject failed:', e)
+    }
     // 触发项目更新回调
     this.projectUpdateCallbacks.forEach(callback => {
       try {
@@ -330,6 +368,165 @@ export class SubtitleService {
     }
   }
 
+  // ==================== LLM 翻译（AI） ====================
+
+  async translateSubtitleLLM(sourceLang, targetLang, providerID, model) {
+    if (!this.currentProject?.id) throw new Error('No project loaded')
+    if (!sourceLang || !targetLang || !providerID || !model) throw new Error('Missing params')
+    const res = await TranslateSubtitleLLM(this.currentProject.id, sourceLang, targetLang, providerID, model)
+    if (!res?.success) throw new Error(res?.msg || 'Start translate failed')
+    return true
+  }
+
+  async translateSubtitleLLMWithGlossary(sourceLang, targetLang, providerID, model, setIDs = [], taskTerms = [], strictGlossary = false) {
+    if (!this.currentProject?.id) throw new Error('No project loaded')
+    const res = await TranslateSubtitleLLMWithOptions(this.currentProject.id, sourceLang, targetLang, providerID, model, setIDs, taskTerms, strictGlossary)
+    if (!res?.success) throw new Error(res?.msg || 'Start translate failed')
+    return true
+  }
+
+  async retryFailedTranslations(sourceLang, targetLang, providerID, model, setIDs = [], taskTerms = [], strictGlossary = false) {
+    if (!this.currentProject?.id) throw new Error('No project loaded')
+    const res = await TranslateSubtitleLLMRetryFailedWithOptions(this.currentProject.id, sourceLang, targetLang, providerID, model, setIDs, taskTerms, strictGlossary)
+    if (!res?.success) throw new Error(res?.msg || 'Start retry failed')
+    return true
+  }
+
+  async translateSubtitleLLMWithGlobalProfile(sourceLang, targetLang, providerID, model, profileID) {
+    if (!this.currentProject?.id) throw new Error('No project loaded')
+    if (!sourceLang || !targetLang || !providerID || !model || !profileID) throw new Error('Missing params')
+    const res = await TranslateSubtitleLLMWithGlobalProfile(this.currentProject.id, sourceLang, targetLang, providerID, model, profileID)
+    if (!res?.success) throw new Error(res?.msg || 'Start translate failed')
+    return true
+  }
+
+  async translateSubtitleLLMWithGlobalProfileAndGlossary(sourceLang, targetLang, providerID, model, profileID, setIDs = [], taskTerms = [], strictGlossary = false) {
+    if (!this.currentProject?.id) throw new Error('No project loaded')
+    const res = await TranslateSubtitleLLMWithGlobalProfileOptions(this.currentProject.id, sourceLang, targetLang, providerID, model, profileID, setIDs, taskTerms, strictGlossary)
+    if (!res?.success) throw new Error(res?.msg || 'Start translate failed')
+    return true
+  }
+
+  async retryFailedTranslationsWithGlobalProfile(sourceLang, targetLang, providerID, model, profileID, setIDs = [], taskTerms = [], strictGlossary = false) {
+    if (!this.currentProject?.id) throw new Error('No project loaded')
+    const res = await TranslateSubtitleLLMRetryFailedWithGlobalProfileOptions(this.currentProject.id, sourceLang, targetLang, providerID, model, profileID, setIDs, taskTerms, strictGlossary)
+    if (!res?.success) throw new Error(res?.msg || 'Start retry failed')
+    return true
+  }
+
+  // ==================== 术语表（Glossary） ====================
+
+  async listGlossary() {
+    const res = await ListGlossary()
+    if (!res?.success) throw new Error(res?.msg || 'List glossary failed')
+    const raw = res.data
+    if (Array.isArray(raw)) return raw
+    try { return JSON.parse(raw || '[]') } catch { return [] }
+  }
+  async listGlossaryBySet(setID) {
+    const res = await ListGlossaryBySet(setID)
+    if (!res?.success) throw new Error(res?.msg || 'List glossary by set failed')
+    const raw = res.data
+    if (Array.isArray(raw)) return raw
+    try { return JSON.parse(raw || '[]') } catch { return [] }
+  }
+
+  async upsertGlossaryEntry(entry) {
+    const res = await UpsertGlossaryEntry(entry)
+    if (!res?.success) throw new Error(res?.msg || 'Upsert glossary failed')
+    const raw = res.data
+    if (raw && typeof raw === 'object') return raw
+    try { return JSON.parse(raw || '{}') } catch { return null }
+  }
+
+  async deleteGlossaryEntry(id) {
+    const res = await DeleteGlossaryEntry(id)
+    if (!res?.success) throw new Error(res?.msg || 'Delete glossary failed')
+    return true
+  }
+
+  // Glossary sets (for Settings management and modal selection)
+  async listGlossarySets() {
+    const res = await ListGlossarySets()
+    if (!res?.success) throw new Error(res?.msg || 'List glossary sets failed')
+    const raw = res.data
+    if (Array.isArray(raw)) return raw
+    try { return JSON.parse(raw || '[]') } catch { return [] }
+  }
+  async upsertGlossarySet(gs) {
+    const res = await UpsertGlossarySet(gs)
+    if (!res?.success) throw new Error(res?.msg || 'Upsert glossary set failed')
+    const raw = res.data
+    if (raw && typeof raw === 'object') return raw
+    try { return JSON.parse(raw || '{}') } catch { return null }
+  }
+  async deleteGlossarySet(id) {
+    const res = await DeleteGlossarySet(id)
+    if (!res?.success) throw new Error(res?.msg || 'Delete glossary set failed')
+    return true
+  }
+
+  // ==================== 目标语言（AI 翻译） ====================
+
+  async listTargetLanguages() {
+    const res = await ListTargetLanguages()
+    if (!res?.success) throw new Error(res?.msg || 'List target languages failed')
+    const raw = res.data
+    const list = Array.isArray(raw) ? raw : (function () {
+      try { return JSON.parse(raw || '[]') } catch { return [] }
+    }())
+    // 兜底：确保每一项都有 name（至少等于 code）
+    const normalized = (list || []).map(it => {
+      if (!it) return it
+      if (!it.name && it.code) it.name = it.code
+      return it
+    })
+    this.targetLanguages = normalized
+    return normalized
+  }
+
+  async upsertTargetLanguage(lang) {
+    const res = await UpsertTargetLanguage(lang)
+    if (!res?.success) throw new Error(res?.msg || 'Upsert target language failed')
+    const raw = res.data
+    let out = null
+    if (raw && typeof raw === 'object') out = raw
+    else {
+      try { out = JSON.parse(raw || '{}') } catch { out = null }
+    }
+    if (out && out.code) {
+      if (!out.name) out.name = out.code
+      // 更新本地缓存
+      const idx = Array.isArray(this.targetLanguages)
+        ? this.targetLanguages.findIndex(l => l && l.code === out.code)
+        : -1
+      if (idx >= 0) this.targetLanguages[idx] = out
+      else {
+        if (!Array.isArray(this.targetLanguages)) this.targetLanguages = []
+        this.targetLanguages.push(out)
+      }
+    }
+    return out
+  }
+
+  async deleteTargetLanguage(code) {
+    const res = await DeleteTargetLanguage(code)
+    if (!res?.success) throw new Error(res?.msg || 'Delete target language failed')
+    try {
+      if (Array.isArray(this.targetLanguages)) {
+        this.targetLanguages = this.targetLanguages.filter(l => !l || l.code !== code)
+      }
+    } catch {}
+    return true
+  }
+
+  async resetTargetLanguages() {
+    const res = await ResetTargetLanguagesToDefault()
+    if (!res?.success) throw new Error(res?.msg || 'Reset target languages failed')
+    try { await this.listTargetLanguages() } catch {}
+    return true
+  }
+
   /**
    * 加载支持的转换器列表
    * @returns {Promise<string[]>} 转换器列表
@@ -338,7 +535,8 @@ export class SubtitleService {
     try {
       const result = await GetSupportedConverters();
       if (result.success) {
-        this.supportedConverters = JSON.parse(result.data || '[]');
+        const raw = result.data
+        this.supportedConverters = Array.isArray(raw) ? raw : (JSON.parse(raw || '[]'));
         return this.supportedConverters;
       } else {
         throw new Error(result.msg || 'Failed to get supported converters');
@@ -453,7 +651,7 @@ export class SubtitleService {
         // keep local state in sync if backend returned updated project
         try {
           if (saveRes.data) {
-            const updatedProject = JSON.parse(saveRes.data);
+            const updatedProject = typeof saveRes.data === 'string' ? JSON.parse(saveRes.data) : saveRes.data;
             this.handleProjectUpdate(updatedProject);
           }
         } catch {}
@@ -481,6 +679,22 @@ export class SubtitleService {
       console.error(error);
       throw error;
     }
+  }
+
+  /**
+   * 删除当前项目的一种翻译语言（不可删除原始语言）
+   */
+  async deleteLanguage(languageCode) {
+    if (!this.currentProject?.id) throw new Error('No project loaded')
+    if (!languageCode) throw new Error('Language code required')
+    const res = await RemoveProjectLanguage(this.currentProject.id, languageCode)
+    if (!res?.success) throw new Error(res?.msg || 'Delete language failed')
+    // 更新当前项目
+    try {
+      const updatedProject = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
+      this.handleProjectUpdate(updatedProject)
+    } catch {}
+    return true
   }
 
   // ==================== 状态管理方法 ====================
@@ -561,8 +775,12 @@ export class SubtitleService {
   // 在现有的 handleSubtitleProgress 方法中
   handleSubtitleProgress(data) {
     // 检查是否为终态
+    const statusRaw = String(data?.status || '').toLowerCase()
     const terminalStatuses = ['completed', 'failed', 'cancelled']
-    const isTerminalStatus = terminalStatuses.includes(data.status)
+    const isTerminalStatus = terminalStatuses.includes(statusRaw)
+    const failedCount = Number(data?.failed_segments ?? data?.failedSegments ?? 0)
+    const isPartial = failedCount > 0 && statusRaw === 'completed'
+    const hasError = statusRaw === 'failed' || statusRaw === 'cancelled' || isPartial
 
     // 触发转换进度事件
     const event = {
@@ -573,7 +791,14 @@ export class SubtitleService {
     }
 
     if (isTerminalStatus) {
-      $message.info(i18nGlobal.t('subtitle.add_language.conversion_finished', { status: data.status }))
+      const base = isPartial
+        ? (i18nGlobal.t('subtitle.add_language.conversion_partial', { count: failedCount }) || 'Conversion finished with partial failures')
+        : i18nGlobal.t('subtitle.add_language.conversion_finished', { status: data.status })
+      if (hasError) {
+        $message.warning(base)
+      } else {
+        $message.info(base)
+      }
     }
 
     this.conversionCallbacks.forEach(callback => {

@@ -99,7 +99,7 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useDtStore } from '@/handlers/downtasks'
+import { useDtStore } from '@/stores/downloadTasks'
 import ModalTrafficLights from '@/components/common/ModalTrafficLights.vue'
 import Icon from '@/components/base/Icon.vue'
 import { copyText as copyToClipboard } from '@/utils/clipboard.js'

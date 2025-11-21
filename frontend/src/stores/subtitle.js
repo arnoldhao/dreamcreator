@@ -29,7 +29,8 @@ export const useSubtitleStore = defineStore('subtitle', () => {
 
             const response = await ListSubtitles()
             if (response.success) {
-                const projectsData = JSON.parse(response.data)
+                const data = response.data
+                const projectsData = Array.isArray(data) ? data : JSON.parse(data || '[]')
                 projects.value = projectsData
                 lastRefreshTime.value = now
 

@@ -5,6 +5,8 @@ export const ICON_MAP = {
   search: 'search',
   open: 'square-arrow-out-up-right', // 外链/打开
   refresh: 'refresh-cw',
+  // semantic alias for retry; use a distinct glyph from refresh
+  retry: 'arrow-left-right',
   settings: 'settings',
   globe: 'globe',
   database: 'database',
@@ -28,6 +30,7 @@ export const ICON_MAP = {
   'panel-right': 'panel-right',
   'chevron-up': 'chevron-up',
   'chevron-down': 'chevron-down',
+  'chevron-right': 'chevron-right',
   'search-check': 'search-check',
   'shield-check': 'shield-check',
   link: 'link',

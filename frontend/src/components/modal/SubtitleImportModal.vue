@@ -1,4 +1,5 @@
 <template>
+
   <div v-if="show" class="macos-modal">
     <div class="modal-card card-frosted card-translucent" @keydown.esc.stop.prevent="emit('close')" tabindex="-1">
       <!-- Header: traffic lights left, title on right -->
