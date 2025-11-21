@@ -16,7 +16,7 @@
   <img src="https://img.shields.io/badge/stack-Go%20%E2%80%A2%20Wails%20%E2%80%A2%20Vue3-green" alt="技术栈" />
 </div>
 
-> 追创作是一款面向视频创作者的开源桌面工作站，聚焦「素材获取 → 字幕编辑 → 全球发行」的完整创作链路。
+> 追创作是一款面向视频创作者的开源桌面工作站，聚焦「素材获取 → 字幕编辑与 AI 翻译 → 全球发行」的完整创作链路。
 
 ---
 
@@ -34,11 +34,12 @@
 追创作（DreamCreator）依托 Go + Wails 后端与 Vue 3 前端，为创作者提供材料采集、字幕润色与跨语言交付的一站式体验。我们坚持界面极简、稳定可依赖，并在代理、Cookies 管理、依赖校验等基础能力上做了大量增强，力求成为视频创作者的趁手工具。
 
 ## 界面预览
-![DreamCreator 简体中文界面](images/ui_chs.png)
+![DreamCreator 简体中文界面](images/download_page.png)
 
 ## 核心能力
 - **素材获取 Download**：集成 yt-dlp，在千余个[视频网站](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)上进行分轨下载，支持浏览器同步与自定义集合的 Cookies 管理、HTTP/SOCKS/PAC 代理，以及可视化的任务进度。详细指南请查看[《素材获取》](https://dreamapp.cc/zh-CN/docs/dreamcreator/download)。
 - **字幕编辑 Subtitle**：支持 SRT、VTT、ASS/SSA、ITT、FCPXML 等格式，内置 Netflix/BBC/ADE 指导标准与交通灯反馈，结合繁化姬提供多地区中文转换。使用说明见[《字幕编辑》](https://dreamapp.cc/zh-CN/docs/dreamcreator/subtitles)。
+- **AI 翻译 Translate**：提供 LLM 驱动的多语言字幕翻译，兼容 OpenAI/Anthropic/自建的兼容 Provider，可套用全局写作风格（Global Profile）、术语表与严格模式，支持失败重试并保留翻译会话。
 - **全球发行 Transcode（开发中）**：当前通过 yt-dlp 调用 FFmpeg 实现基础转码，未来将扩展 GPU 转码与多套发行预设。规划详情可在[《全球发行》](https://dreamapp.cc/zh-CN/docs/dreamcreator/transcode)了解。
 
 ## 首次使用指南
@@ -52,11 +53,13 @@
 ### 功能速览
 1. **创建首个下载任务**：点击“新建任务”解析视频链接，先确认已选 Cookies，再在自定义或快速模式中选择需要的音视频轨与字幕。下载过程会分阶段展示“探测 → 获取 → 合并 → 收尾”。
 2. **润色字幕**：若在下载时选择了字幕，可在任务详情中点击“编辑”进入字幕工作台，按需选择 Netflix/BBC/ADE 指导标准，或通过“添加语言”调用繁化姬完成地区化转换。操作细节请参阅[《字幕编辑》](https://dreamapp.cc/zh-CN/docs/dreamcreator/subtitles)。
+3. **AI 翻译字幕**：在字幕工作台点击“添加语言”选择 AI 翻译标签，指定源/目标语言、Provider 与模型，可套用全局 Profile、术语表及严格模式；若有失败片段，可在此一键重试。
 
 ### 进阶能力
 1. **首次启动与代理**：初次运行会自动释放 yt-dlp 与 FFmpeg 并完成健康检查，若需代理可在 **设置 → 通用设置 → 网络** 配置 HTTP/SOCKS/PAC。
 2. **浏览器 Cookies**：在 **下载 → 浏览器 Cookies** 中，同步 Chrome/Edge/Firefox/Brave/Vivaldi 的 Cookies，或在“自定义集合”导入 Netscape/JSON/Header 数据，方便处理会员视频与地区限制。
 3. **自定义全局设置**：在 **设置 → 通用设置** 指定下载目录、数据目录、日志策略及自动更新偏好，获取更契合自身流程的体验。更多配置说明见[《软件配置》](https://dreamapp.cc/zh-CN/docs/dreamcreator/settings)。
+4. **配置 LLM Provider**：在 Providers 页面新增或启用 OpenAI/Anthropic 兼容或远程代理，自定义 API Base URL 与模型列表，必要时一键重置预设缓存，确保 AI 翻译稳定运行。
 
 ### 依赖管理
 1. **维护 yt-dlp 与 FFmpeg**：前往 **设置 → 依赖** 执行“快速校验/验证/检查更新”，必要时使用“修复”或“更新”保持依赖为最新，后台会自动校验 SHA 并替换旧版本。
