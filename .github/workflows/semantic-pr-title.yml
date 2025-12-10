@@ -28,5 +28,6 @@ jobs:
             chore
             revert
             breaking
+            deps
           requireScope: false
           wip: true
