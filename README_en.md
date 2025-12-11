@@ -37,7 +37,7 @@ DreamCreator combines a Go + Wails backend with a Vue 3 frontend to offer creato
 ![DreamCreator English UI](images/download_page.png)
 
 ## Core Capabilities
-- **Download**: Built on yt-dlp to access thousands of [video sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md), with browser cookie sync, custom collections, HTTP/SOCKS/PAC proxy support, and clear task visualisation. Explore details in the [Download guide](https://dreamapp.cc/docs/dreamcreator/download).
+- **Download**: Built on yt-dlp to access thousands of [video sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md), with browser cookie sync, custom collections, HTTP/SOCKS/PAC proxy support, and clear task visualisation. A bundled Deno JS runtime enables yt-dlp's EJS/JS challenge support to keep up with site changes. Explore details in the [Download guide](https://dreamapp.cc/docs/dreamcreator/download).
 - **Subtitles**: Import SRT, VTT, ASS/SSA, ITT, FCPXML and more. Netflix / BBC / ADE presets surface duration, CPS, WPM, and CPL via traffic-light indicators, while Fanhuaji enables accurate Mainland/Hong Kong/Taiwan conversions. See the [Subtitle guide](https://dreamapp.cc/docs/dreamcreator/subtitles).
 - **AI Translation**: LLM-powered subtitle translation with OpenAI/Anthropic-compatible or remote providers, global style profiles, glossary with strict mode, saved translation conversations, and one-click retries for failed segments.
 - **Transcode (in development)**: Currently leverages yt-dlp’s FFmpeg integration for baseline mux/remux. Planned upgrades include GPU acceleration and publishing presets—follow along in the [Transcode overview](https://dreamapp.cc/docs/dreamcreator/transcode).
@@ -62,7 +62,12 @@ DreamCreator combines a Go + Wails backend with a Vue 3 frontend to offer creato
 4. **LLM providers & profiles**: Use the Providers page to add OpenAI/Anthropic-compatible or remote endpoints, set API base URL and keys, refresh model lists, and reset presets/cache when needed to keep AI translation running smoothly.
 
 ### Dependency health
-1. **Keep yt-dlp & FFmpeg fresh**: Navigate to **Settings → Dependencies** to run Quick Check / Verify / Check Updates, and use Repair or Update to stay current; SHA verification ensures safe swaps.
+1. **Keep yt-dlp, FFmpeg & Deno fresh**: Navigate to **Settings → Dependencies** to run Quick Check / Verify / Check Updates, and use Repair or Update to stay current; SHA verification ensures safe swaps. DreamCreator ships with an embedded Deno runtime used as yt-dlp's JS engine for EJS/JS challenges.
+2. **Auto-prune old dependency versions**: From the same page, use the `Clean Old Versions` action to remove unused historical versions and keep only the active ones; DreamCreator reports how much disk space was freed.
+
+#### yt-dlp EJS support
+- Official EJS/JS challenge handling in yt-dlp is available starting from **yt-dlp 2025.11.22**. DreamCreator reads your installed yt-dlp version and only enables the embedded Deno JS runtime when the version is **2025.11.22 or newer**.
+- With older yt-dlp builds, downloads still work via the legacy extraction path, but you won't benefit from the latest EJS logic, which may cause failures or instability on some newly protected sites. For best compatibility, update yt-dlp to a recent version from **Settings → Dependencies**.
 
 ## Build from Source
 Prerequisites: Go 1.25.4, Node.js 24.11.0, Wails CLI.
