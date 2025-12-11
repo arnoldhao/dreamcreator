@@ -37,7 +37,7 @@
 ![DreamCreator 简体中文界面](images/download_page.png)
 
 ## 核心能力
-- **素材获取 Download**：集成 yt-dlp，在千余个[视频网站](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)上进行分轨下载，支持浏览器同步与自定义集合的 Cookies 管理、HTTP/SOCKS/PAC 代理，以及可视化的任务进度。详细指南请查看[《素材获取》](https://dreamapp.cc/zh-CN/docs/dreamcreator/download)。
+- **素材获取 Download**：集成 yt-dlp，在千余个[视频网站](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)上进行分轨下载，支持浏览器同步与自定义集合的 Cookies 管理、HTTP/SOCKS/PAC 代理，以及可视化的任务进度；内置 Deno JS 运行时，跟进 yt-dlp 的 EJS/JS 解密链路，提升对新版站点防护的兼容性。详细指南请查看[《素材获取》](https://dreamapp.cc/zh-CN/docs/dreamcreator/download)。
 - **字幕编辑 Subtitle**：支持 SRT、VTT、ASS/SSA、ITT、FCPXML 等格式，内置 Netflix/BBC/ADE 指导标准与交通灯反馈，结合繁化姬提供多地区中文转换。使用说明见[《字幕编辑》](https://dreamapp.cc/zh-CN/docs/dreamcreator/subtitles)。
 - **AI 翻译 Translate**：提供 LLM 驱动的多语言字幕翻译，兼容 OpenAI/Anthropic/自建的兼容 Provider，可套用全局写作风格（Global Profile）、术语表与严格模式，支持失败重试并保留翻译会话。
 - **全球发行 Transcode（开发中）**：当前通过 yt-dlp 调用 FFmpeg 实现基础转码，未来将扩展 GPU 转码与多套发行预设。规划详情可在[《全球发行》](https://dreamapp.cc/zh-CN/docs/dreamcreator/transcode)了解。
@@ -62,7 +62,12 @@
 4. **配置 LLM Provider**：在 Providers 页面新增或启用 OpenAI/Anthropic 兼容或远程代理，自定义 API Base URL 与模型列表，必要时一键重置预设缓存，确保 AI 翻译稳定运行。
 
 ### 依赖管理
-1. **维护 yt-dlp 与 FFmpeg**：前往 **设置 → 依赖** 执行“快速校验/验证/检查更新”，必要时使用“修复”或“更新”保持依赖为最新，后台会自动校验 SHA 并替换旧版本。
+1. **维护 yt-dlp、FFmpeg 与 Deno**：前往 **设置 → 依赖** 执行“快速校验/验证/检查更新”，必要时使用“修复”或“更新”保持依赖为最新，后台会自动校验 SHA 并替换旧版本。应用内置 Deno 运行时，用于支持 yt-dlp 的 EJS/JS 解密链路。
+2. **清理过时依赖文件**：在 **设置 → 依赖** 页面使用「清理旧版本依赖」操作，可自动移除不再使用的旧版本依赖目录，仅保留当前版本，并统计本次释放的空间，帮助减少依赖缓存占用。
+
+#### yt-dlp EJS 支持说明
+- 从 **yt-dlp 2025.11.22** 版本开始，官方引入了 EJS/JS 解密链路。追创作会在依赖检查时读取当前 yt-dlp 版本，仅当版本 **大于等于 2025.11.22** 时，才会自动启用内置 Deno JS 运行时并执行 EJS/JS 解密逻辑。
+- 如果你的 yt-dlp 版本低于 2025.11.22，下载功能仍然可用，但会退回传统解析路径，无法利用最新的 EJS 解密逻辑，部分新站点可能因此下载失败或表现不稳定。建议在「设置 → 依赖」中更新至最新稳定版本。
 
 ## 从源码构建
 运行环境：Go 1.25.4, Node.js 24.11.0, Wails CLI。
