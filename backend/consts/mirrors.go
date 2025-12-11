@@ -50,6 +50,24 @@ var YTDLPMirrors = map[string]Mirror{
 	},
 }
 
+// Deno镜像源配置
+var DenoMirrors = map[string]Mirror{
+	"github": {
+		Name:        "github",
+		DisplayName: "GitHub Official",
+		Description: "Official Deno Release",
+		Region:      "Global",
+		Speed:       "medium",
+	},
+	"ghproxy": {
+		Name:        "ghproxy",
+		DisplayName: "GitHub Proxy",
+		Description: "GitHub Proxy Mirror",
+		Region:      "China",
+		Speed:       "fast",
+	},
+}
+
 // FFmpeg下载URL配置
 var FFmpegDownloadURLs = map[string]map[string]map[string]string{
 	"windows": {
@@ -95,6 +113,12 @@ var YTDLPDownloadTemplates = map[string]string{
 	"ghproxy": "https://gh-proxy.com/github.com/yt-dlp/yt-dlp/releases/download/{version}/{filename}",
 }
 
+// Deno下载URL模板配置
+var DenoDownloadTemplates = map[string]string{
+	"github":  "https://github.com/denoland/deno/releases/download/{version}/{filename}",
+	"ghproxy": "https://gh-proxy.com/github.com/denoland/deno/releases/download/{version}/{filename}",
+}
+
 // 平台默认镜像源
 var DefaultMirrors = map[string]map[string]string{
 	"ffmpeg": {
@@ -104,6 +128,11 @@ var DefaultMirrors = map[string]map[string]string{
 	"yt-dlp": {
 		"darwin":  "ghproxy",
 		"windows": "ghproxy",
+	},
+	"deno": {
+		"darwin":  "ghproxy",
+		"windows": "ghproxy",
+		"linux":   "ghproxy",
 	},
 }
 
@@ -142,6 +171,54 @@ func BuildYTDLPDownloadURL(mirror, version, osType string) (string, error) {
 	url := strings.ReplaceAll(template, "{version}", version)
 	url = strings.ReplaceAll(url, "{filename}", filename)
 
+	return url, nil
+}
+
+// GetDenoFileName 根据平台构建 Deno 发行文件名
+func GetDenoFileName(osType, arch string) string {
+	switch osType {
+	case "windows":
+		switch arch {
+		case "amd64":
+			return "deno-x86_64-pc-windows-msvc.zip"
+		case "arm64":
+			return "deno-aarch64-pc-windows-msvc.zip"
+		default:
+			return "deno-x86_64-pc-windows-msvc.zip"
+		}
+	case "darwin":
+		switch arch {
+		case "amd64":
+			return "deno-x86_64-apple-darwin.zip"
+		case "arm64":
+			return "deno-aarch64-apple-darwin.zip"
+		default:
+			return "deno-x86_64-apple-darwin.zip"
+		}
+	case "linux":
+		switch arch {
+		case "amd64":
+			return "deno-x86_64-unknown-linux-gnu.zip"
+		case "arm64":
+			return "deno-aarch64-unknown-linux-gnu.zip"
+		default:
+			return "deno-x86_64-unknown-linux-gnu.zip"
+		}
+	default:
+		return "deno"
+	}
+}
+
+// BuildDenoDownloadURL 构建 Deno 下载URL
+func BuildDenoDownloadURL(mirror, version, osType, arch string) (string, error) {
+	template, exists := DenoDownloadTemplates[mirror]
+	if !exists {
+		return "", fmt.Errorf("unsupported mirror: %s", mirror)
+	}
+
+	filename := GetDenoFileName(osType, arch)
+	url := strings.ReplaceAll(template, "{version}", version)
+	url = strings.ReplaceAll(url, "{filename}", filename)
 	return url, nil
 }
 
@@ -196,11 +273,21 @@ func GetYTDLPAPIURL() (string, error) {
 	return url, nil
 }
 
+// GetDenoAPIURL 返回 Deno Releases API 地址
+func GetDenoAPIURL() (string, error) {
+	url := "https://api.github.com/repos/denoland/deno/releases/latest"
+	return url, nil
+}
+
 // Dependencies Embedded Versions
 const (
-	EMBEDDED_YTDLP_VERSION          = "2025.11.12"
+	EMBEDDED_YTDLP_VERSION          = "2025.12.08"
 	EMBEDDED_FFMPEG_VERSION_DARWIN  = "121793-g1eb2cbd865"
 	EMBEDDED_FFMPEG_VERSION_WINDOWS = "7.1.2-4"
+	EMBEDDED_DENO_VERSION           = "v2.5.6"
+
+	// YTDLP_EJS_MIN_VERSION 定义支持 EJS 的 yt-dlp 最低版本
+	YTDLP_EJS_MIN_VERSION = "2025.11.22"
 )
 
 func YtdlpEmbedVersion(osType string) (string, error) {
@@ -216,4 +303,8 @@ func FfmpegEmbedVersion(osType string) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported os type: %s", osType)
 	}
+}
+
+func DenoEmbedVersion(osType string) (string, error) {
+	return EMBEDDED_DENO_VERSION, nil
 }

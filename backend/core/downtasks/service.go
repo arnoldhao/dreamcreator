@@ -12,24 +12,25 @@ import (
 	"dreamcreator/backend/services/preferences"
 	"dreamcreator/backend/storage"
 	"dreamcreator/backend/types"
+	"dreamcreator/backend/utils"
 
 	"context"
 	"fmt"
-    "os"
-    "path/filepath"
-    "strings"
-    "sync"
-    "time"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
 	"encoding/json"
-    "math"
-    "net/url"
-    "net/http"
-    "runtime"
-    "sort"
-    "unicode/utf8"
+	"math"
+	"net/http"
+	"net/url"
+	"runtime"
+	"sort"
+	"unicode/utf8"
 
 	"github.com/lrstanley/go-ytdlp"
 	"go.uber.org/zap"
@@ -91,6 +92,7 @@ func NewService(eventBus events.EventBus,
 	// 注册依赖提供者
 	depManager.Register(providers.NewYTDLPProvider(eventBus))
 	depManager.Register(providers.NewFFmpegProvider(eventBus))
+	depManager.Register(providers.NewDenoProvider(eventBus))
 
 	// 初始化默认依赖信息
 	if err := depManager.InitializeDefaultDependencies(); err != nil {
@@ -206,257 +208,275 @@ func (s *Service) ListTasks() []*types.DtTaskStatus {
 
 // AnalyzeTask performs connectivity and dependency checks helpful for diagnosing failures
 func (s *Service) AnalyzeTask(id string) (*types.TaskAnalysis, error) {
-    if id == "" {
-        return nil, fmt.Errorf("id is required")
-    }
-    task, err := s.GetTaskStatus(id)
-    if err != nil {
-        return nil, err
-    }
-    if task == nil {
-        return nil, fmt.Errorf("task not found")
-    }
-    a := &types.TaskAnalysis{ID: task.ID, URL: task.URL}
+	if id == "" {
+		return nil, fmt.Errorf("id is required")
+	}
+	task, err := s.GetTaskStatus(id)
+	if err != nil {
+		return nil, err
+	}
+	if task == nil {
+		return nil, fmt.Errorf("task not found")
+	}
+	a := &types.TaskAnalysis{ID: task.ID, URL: task.URL}
 
-    // Hostname from URL
-    if u, err := url.Parse(task.URL); err == nil && u != nil {
-        a.Host = u.Hostname()
-    }
+	// Hostname from URL
+	if u, err := url.Parse(task.URL); err == nil && u != nil {
+		a.Host = u.Hostname()
+	}
 
-    // Connectivity: try HEAD https://host/ then fallback http and GET
-    if a.Host != "" {
-        client := s.depManager.GetHTTPClient()
-        // default to https
-        schemes := []string{"https", "http"}
-        var lastErr error
-        var status int
-        ok := false
-        for _, sch := range schemes {
-            testURL := sch + "://" + a.Host + "/"
-            // HEAD first
-            req, _ := http.NewRequestWithContext(s.ctx, http.MethodHead, testURL, nil)
-            resp, err := client.Do(req)
-            if err == nil && resp != nil {
-                status = resp.StatusCode
-                resp.Body.Close()
-                if status > 0 && status < 500 {
-                    ok = true
-                    break
-                }
-            } else {
-                lastErr = err
-            }
-            // fallback GET
-            req2, _ := http.NewRequestWithContext(s.ctx, http.MethodGet, testURL, nil)
-            resp2, err2 := client.Do(req2)
-            if err2 == nil && resp2 != nil {
-                status = resp2.StatusCode
-                resp2.Body.Close()
-                if status > 0 && status < 500 {
-                    ok = true
-                    break
-                }
-            } else {
-                lastErr = err2
-            }
-        }
-        a.Connectivity.OK = ok
-        a.Connectivity.Status = status
-        if !ok && lastErr != nil {
-            a.Connectivity.Error = lastErr.Error()
-        }
-    }
+	// Connectivity: try HEAD https://host/ then fallback http and GET
+	if a.Host != "" {
+		client := s.depManager.GetHTTPClient()
+		// default to https
+		schemes := []string{"https", "http"}
+		var lastErr error
+		var status int
+		ok := false
+		for _, sch := range schemes {
+			testURL := sch + "://" + a.Host + "/"
+			// HEAD first
+			req, _ := http.NewRequestWithContext(s.ctx, http.MethodHead, testURL, nil)
+			resp, err := client.Do(req)
+			if err == nil && resp != nil {
+				status = resp.StatusCode
+				resp.Body.Close()
+				if status > 0 && status < 500 {
+					ok = true
+					break
+				}
+			} else {
+				lastErr = err
+			}
+			// fallback GET
+			req2, _ := http.NewRequestWithContext(s.ctx, http.MethodGet, testURL, nil)
+			resp2, err2 := client.Do(req2)
+			if err2 == nil && resp2 != nil {
+				status = resp2.StatusCode
+				resp2.Body.Close()
+				if status > 0 && status < 500 {
+					ok = true
+					break
+				}
+			} else {
+				lastErr = err2
+			}
+		}
+		a.Connectivity.OK = ok
+		a.Connectivity.Status = status
+		if !ok && lastErr != nil {
+			a.Connectivity.Error = lastErr.Error()
+		}
+	}
 
-    // yt-dlp info: quick validate + latest version
-    if s.depManager != nil {
-        if info, err := s.depManager.Get(s.ctx, types.DependencyYTDLP); err == nil && info != nil {
-            a.YTDLP.Available = info.Available
-            a.YTDLP.Version = info.Version
-            a.YTDLP.ExecPath = info.ExecPath
-        }
-        if updates, err := s.depManager.CheckUpdates(s.ctx); err == nil {
-            if y, ok := updates[types.DependencyYTDLP]; ok && y != nil {
-                a.YTDLP.LatestVersion = y.LatestVersion
-                a.YTDLP.NeedUpdate = y.NeedUpdate
-                if a.YTDLP.Version == "" {
-                    a.YTDLP.Version = y.Version
-                }
-                if !a.YTDLP.Available {
-                    a.YTDLP.Available = y.Available
-                }
-            }
-        }
-    }
-    return a, nil
+	// yt-dlp info: quick validate + latest version
+	if s.depManager != nil {
+		if info, err := s.depManager.Get(s.ctx, types.DependencyYTDLP); err == nil && info != nil {
+			a.YTDLP.Available = info.Available
+			a.YTDLP.Version = info.Version
+			a.YTDLP.ExecPath = info.ExecPath
+		}
+		if updates, err := s.depManager.CheckUpdates(s.ctx); err == nil {
+			if y, ok := updates[types.DependencyYTDLP]; ok && y != nil {
+				a.YTDLP.LatestVersion = y.LatestVersion
+				a.YTDLP.NeedUpdate = y.NeedUpdate
+				if a.YTDLP.Version == "" {
+					a.YTDLP.Version = y.Version
+				}
+				if !a.YTDLP.Available {
+					a.YTDLP.Available = y.Available
+				}
+			}
+		}
+	}
+	return a, nil
 }
 
 // StartAnalysis launches a streaming analysis for a task and emits DTAnalysisEvent events
 func (s *Service) StartAnalysis(id string) error {
-    if id == "" {
-        return fmt.Errorf("id is required")
-    }
-    if s.eventBus == nil {
-        return fmt.Errorf("event bus is nil")
-    }
-    task, err := s.GetTaskStatus(id)
-    if err != nil {
-        return err
-    }
-    if task == nil {
-        return fmt.Errorf("task not found")
-    }
-    go func(t *types.DtTaskStatus) {
-        publish := func(step, action, message string, status int, errStr string) {
-            s.eventBus.Publish(s.ctx, &events.BaseEvent{ID: uuid.New().String(), Type: consts.TopicDowntasksAnalysis, Source: "downtasks", Timestamp: time.Now(), Data: &types.DTAnalysisEvent{ID: t.ID, Step: step, Action: action, Message: message, Status: status, Error: errStr}})
-        }
-        // Step 1: extract host
-        publish("extract_host", "start", "", 0, "")
-        var host string
-        if u, err := url.Parse(t.URL); err == nil && u != nil {
-            host = u.Hostname()
-        }
-        if strings.TrimSpace(host) == "" {
-            publish("extract_host", "fail", "", 0, "invalid url")
-            publish("complete", "complete", "", 0, "")
-            return
-        }
-        publish("extract_host", "ok", host, 0, "")
+	if id == "" {
+		return fmt.Errorf("id is required")
+	}
+	if s.eventBus == nil {
+		return fmt.Errorf("event bus is nil")
+	}
+	task, err := s.GetTaskStatus(id)
+	if err != nil {
+		return err
+	}
+	if task == nil {
+		return fmt.Errorf("task not found")
+	}
+	go func(t *types.DtTaskStatus) {
+		publish := func(step, action, message string, status int, errStr string) {
+			s.eventBus.Publish(s.ctx, &events.BaseEvent{ID: uuid.New().String(), Type: consts.TopicDowntasksAnalysis, Source: "downtasks", Timestamp: time.Now(), Data: &types.DTAnalysisEvent{ID: t.ID, Step: step, Action: action, Message: message, Status: status, Error: errStr}})
+		}
+		// Step 1: extract host
+		publish("extract_host", "start", "", 0, "")
+		var host string
+		if u, err := url.Parse(t.URL); err == nil && u != nil {
+			host = u.Hostname()
+		}
+		if strings.TrimSpace(host) == "" {
+			publish("extract_host", "fail", "", 0, "invalid url")
+			publish("complete", "complete", "", 0, "")
+			return
+		}
+		publish("extract_host", "ok", host, 0, "")
 
-        // Step 2: connectivity (HEAD/GET, https->http fallback)
-        publish("connectivity", "start", host, 0, "")
-        client := s.depManager.GetHTTPClient()
-        schemes := []string{"https", "http"}
-        var ok bool
-        var status int
-        var lastErr error
-        for _, sch := range schemes {
-            testURL := sch + "://" + host + "/"
-            req, _ := http.NewRequestWithContext(s.ctx, http.MethodHead, testURL, nil)
-            if resp, err := client.Do(req); err == nil && resp != nil {
-                status = resp.StatusCode
-                resp.Body.Close()
-                if status > 0 && status < 500 { ok = true; break }
-            } else { lastErr = err }
-            req2, _ := http.NewRequestWithContext(s.ctx, http.MethodGet, testURL, nil)
-            if resp2, err2 := client.Do(req2); err2 == nil && resp2 != nil {
-                status = resp2.StatusCode
-                resp2.Body.Close()
-                if status > 0 && status < 500 { ok = true; break }
-            } else { lastErr = err2 }
-        }
-        if !ok {
-            publish("connectivity", "fail", host, status, func() string { if lastErr!=nil { return lastErr.Error() }; return "" }())
-            publish("complete", "complete", "", 0, "")
-            return
-        }
-        publish("connectivity", "ok", host, status, "")
+		// Step 2: connectivity (HEAD/GET, https->http fallback)
+		publish("connectivity", "start", host, 0, "")
+		client := s.depManager.GetHTTPClient()
+		schemes := []string{"https", "http"}
+		var ok bool
+		var status int
+		var lastErr error
+		for _, sch := range schemes {
+			testURL := sch + "://" + host + "/"
+			req, _ := http.NewRequestWithContext(s.ctx, http.MethodHead, testURL, nil)
+			if resp, err := client.Do(req); err == nil && resp != nil {
+				status = resp.StatusCode
+				resp.Body.Close()
+				if status > 0 && status < 500 {
+					ok = true
+					break
+				}
+			} else {
+				lastErr = err
+			}
+			req2, _ := http.NewRequestWithContext(s.ctx, http.MethodGet, testURL, nil)
+			if resp2, err2 := client.Do(req2); err2 == nil && resp2 != nil {
+				status = resp2.StatusCode
+				resp2.Body.Close()
+				if status > 0 && status < 500 {
+					ok = true
+					break
+				}
+			} else {
+				lastErr = err2
+			}
+		}
+		if !ok {
+			publish("connectivity", "fail", host, status, func() string {
+				if lastErr != nil {
+					return lastErr.Error()
+				}
+				return ""
+			}())
+			publish("complete", "complete", "", 0, "")
+			return
+		}
+		publish("connectivity", "ok", host, status, "")
 
-        // Step 3: yt-dlp presence
-        publish("ytdlp_presence", "start", "", 0, "")
-        var available bool
-        var version string
-        if info, err := s.depManager.Get(s.ctx, types.DependencyYTDLP); err == nil && info != nil {
-            available = info.Available
-            version = info.Version
-        }
-        if !available {
-            publish("ytdlp_presence", "fail", "", 0, "not installed")
-            publish("complete", "complete", "", 0, "")
-            return
-        }
-        publish("ytdlp_presence", "ok", version, 0, "")
+		// Step 3: yt-dlp presence
+		publish("ytdlp_presence", "start", "", 0, "")
+		var available bool
+		var version string
+		if info, err := s.depManager.Get(s.ctx, types.DependencyYTDLP); err == nil && info != nil {
+			available = info.Available
+			version = info.Version
+		}
+		if !available {
+			publish("ytdlp_presence", "fail", "", 0, "not installed")
+			publish("complete", "complete", "", 0, "")
+			return
+		}
+		publish("ytdlp_presence", "ok", version, 0, "")
 
-        // Step 4: yt-dlp version compare
-        publish("ytdlp_version", "start", "", 0, "")
-        latest := ""
-        needUpdate := false
-        if updates, err := s.depManager.CheckUpdates(s.ctx); err == nil {
-            if y, ok2 := updates[types.DependencyYTDLP]; ok2 && y != nil {
-                latest = y.LatestVersion
-                needUpdate = y.NeedUpdate
-                if version == "" { version = y.Version }
-            }
-        }
-        if needUpdate {
-            publish("ytdlp_version", "fail", latest, 0, "outdated")
-            publish("complete", "complete", "", 0, "")
-            return
-        }
-        publish("ytdlp_version", "ok", latest, 0, "")
-        publish("complete", "complete", "", 0, "")
-    }(task)
-    return nil
+		// Step 4: yt-dlp version compare
+		publish("ytdlp_version", "start", "", 0, "")
+		latest := ""
+		needUpdate := false
+		if updates, err := s.depManager.CheckUpdates(s.ctx); err == nil {
+			if y, ok2 := updates[types.DependencyYTDLP]; ok2 && y != nil {
+				latest = y.LatestVersion
+				needUpdate = y.NeedUpdate
+				if version == "" {
+					version = y.Version
+				}
+			}
+		}
+		if needUpdate {
+			publish("ytdlp_version", "fail", latest, 0, "outdated")
+			publish("complete", "complete", "", 0, "")
+			return
+		}
+		publish("ytdlp_version", "ok", latest, 0, "")
+		publish("complete", "complete", "", 0, "")
+	}(task)
+	return nil
 }
+
 // RetryTask restarts a failed task with the original parameters
 func (s *Service) RetryTask(id string) error {
-    if id == "" {
-        return fmt.Errorf("id is required")
-    }
-    // Load the latest task pointer
-    task, err := s.GetTaskStatus(id)
-    if err != nil {
-        return err
-    }
-    if task == nil {
-        return fmt.Errorf("task not found")
-    }
-    // Prevent retrying an active task
-    if task.Stage == types.DtStageInitializing || task.Stage == types.DtStageDownloading {
-        return fmt.Errorf("task is running")
-    }
+	if id == "" {
+		return fmt.Errorf("id is required")
+	}
+	// Load the latest task pointer
+	task, err := s.GetTaskStatus(id)
+	if err != nil {
+		return err
+	}
+	if task == nil {
+		return fmt.Errorf("task not found")
+	}
+	// Prevent retrying an active task
+	if task.Stage == types.DtStageInitializing || task.Stage == types.DtStageDownloading {
+		return fmt.Errorf("task is running")
+	}
 
-    // Build request from persisted fields
-    req := &types.DownloadVideoRequest{
-        Type:    task.Type,
-        URL:     task.URL,
-        Browser: task.Browser,
-    }
-    if task.Type == consts.TASK_TYPE_CUSTOM {
-        req.FormatID = task.FormatID
-        req.DownloadSubs = task.DownloadSubs
-        req.SubLangs = append([]string{}, task.SubLangs...)
-        req.SubFormat = task.SubFormat
-        req.TranslateTo = task.TranslateTo
-        req.SubtitleStyle = task.SubtitleStyle
-    } else { // quick/mcp
-        req.Video = task.QuickVideo
-        if strings.TrimSpace(req.Video) == "" {
-            req.Video = "best"
-        }
-        req.BestCaption = task.DownloadSubs
-        if req.BestCaption && strings.TrimSpace(task.SubFormat) == "" {
-            req.SubFormat = "best"
-        } else {
-            req.SubFormat = task.SubFormat
-        }
-    }
+	// Build request from persisted fields
+	req := &types.DownloadVideoRequest{
+		Type:    task.Type,
+		URL:     task.URL,
+		Browser: task.Browser,
+	}
+	if task.Type == consts.TASK_TYPE_CUSTOM {
+		req.FormatID = task.FormatID
+		req.DownloadSubs = task.DownloadSubs
+		req.SubLangs = append([]string{}, task.SubLangs...)
+		req.SubFormat = task.SubFormat
+		req.TranslateTo = task.TranslateTo
+		req.SubtitleStyle = task.SubtitleStyle
+	} else { // quick/mcp
+		req.Video = task.QuickVideo
+		if strings.TrimSpace(req.Video) == "" {
+			req.Video = "best"
+		}
+		req.BestCaption = task.DownloadSubs
+		if req.BestCaption && strings.TrimSpace(task.SubFormat) == "" {
+			req.SubFormat = "best"
+		} else {
+			req.SubFormat = task.SubFormat
+		}
+	}
 
-    // Reset task to running state and clear transient fields
-    s.taskManager.UpdateTaskWith(task.ID, func(t *types.DtTaskStatus) {
-        t.Stage = types.DtStageDownloading
-        t.StageInfo = ""
-        t.Error = ""
-        t.Percentage = 0
-        t.Speed = ""
-        t.EstimatedTime = ""
-        // Reset process groups
-        t.DownloadProcess.Video = ""
-        t.DownloadProcess.Merge = ""
-        t.DownloadProcess.Finalize = ""
-        t.DownloadProcess.Speed = ""
-        t.DownloadProcess.EstimatedTime = ""
-        if t.SubtitleProcess.Status != "" {
-            t.SubtitleProcess.Status = "idle"
-        }
-    })
+	// Reset task to running state and clear transient fields
+	s.taskManager.UpdateTaskWith(task.ID, func(t *types.DtTaskStatus) {
+		t.Stage = types.DtStageDownloading
+		t.StageInfo = ""
+		t.Error = ""
+		t.Percentage = 0
+		t.Speed = ""
+		t.EstimatedTime = ""
+		// Reset process groups
+		t.DownloadProcess.Video = ""
+		t.DownloadProcess.Merge = ""
+		t.DownloadProcess.Finalize = ""
+		t.DownloadProcess.Speed = ""
+		t.DownloadProcess.EstimatedTime = ""
+		if t.SubtitleProcess.Status != "" {
+			t.SubtitleProcess.Status = "idle"
+		}
+	})
 
-    // Start pipelines as in Quick/Custom flows
-    infoChan := make(InfoChan, 1)
-    progressChan := make(ProgressChan, 100)
-    go s.processTask(task, req, infoChan, progressChan)
-    go s.fillTaskInfo(infoChan)
-    go s.monitorProgress(progressChan)
-    return nil
+	// Start pipelines as in Quick/Custom flows
+	infoChan := make(InfoChan, 1)
+	progressChan := make(ProgressChan, 100)
+	go s.processTask(task, req, infoChan, progressChan)
+	go s.fillTaskInfo(infoChan)
+	go s.monitorProgress(progressChan)
+	return nil
 }
 
 func (s *Service) Path() string {
@@ -554,28 +574,34 @@ func (s *Service) GetFormats() map[string][]*types.ConversionFormat {
 }
 
 func (s *Service) newCommand(enbaledFFMpeg bool, cookiesFile string) (*ytdlp.Command, error) {
-    // new
-    dl := ytdlp.New()
+	// new yt-dlp command
+	dl := ytdlp.New()
 
-    // proxy
-    if p := s.proxyManager.GetProxyString(); p != "" {
-        // If scheme-qualified socks5, prefer ALL_PROXY only.
-        lp := strings.ToLower(p)
-        if strings.HasPrefix(lp, "socks5://") {
-            dl.SetEnvVar("ALL_PROXY", p)
-        } else {
-            // Back-compat: pass host:port to HTTP(S)_PROXY
-            dl.SetEnvVar("HTTP_PROXY", p).
-                SetEnvVar("HTTPS_PROXY", p)
-        }
-    }
+	// proxy
+	if p := s.proxyManager.GetProxyString(); p != "" {
+		// If scheme-qualified socks5, prefer ALL_PROXY only.
+		lp := strings.ToLower(p)
+		if strings.HasPrefix(lp, "socks5://") {
+			dl.SetEnvVar("ALL_PROXY", p)
+		} else {
+			// Back-compat: pass host:port to HTTP(S)_PROXY
+			dl.SetEnvVar("HTTP_PROXY", p).
+				SetEnvVar("HTTPS_PROXY", p)
+		}
+	}
 
 	// Ensure Python/yt-dlp emits UTF-8 on Windows and elsewhere
 	// This avoids mojibake for non-ASCII filenames printed in logs
 	dl.SetEnvVar("PYTHONUTF8", "1").
 		SetEnvVar("PYTHONIOENCODING", "utf-8")
 
-	// yt-dlp mustinstall
+	// 如果当前日志级别为 debug，则启用 yt-dlp 的 verbose 模式（-v），
+	// 方便在调试时查看完整的 yt-dlp 调试输出（包括 JS runtimes 等）。
+	if logger.IsDebugEnabled() {
+		dl.Verbose()
+	}
+
+	// yt-dlp must install
 	ytExecPath, err := s.YTDLPExecPath()
 	if err != nil {
 		return nil, err
@@ -619,6 +645,94 @@ func (s *Service) newCommand(enbaledFFMpeg bool, cookiesFile string) (*ytdlp.Com
 	}
 
 	return dl, nil
+}
+
+// decorateWithDenoJSRuntime 构造带有 --js-runtimes deno:/path/to/deno 的参数列表。
+// 若 Deno 或其版本不可用，则只返回 url 本身。
+func (s *Service) decorateWithDenoJSRuntime(url string) []string {
+	args := []string{}
+
+	if s.depManager == nil {
+		return append(args, url)
+	}
+
+	// 检查 yt-dlp 版本是否满足 EJS 支持
+	yInfo, err := s.depManager.Get(s.ctx, types.DependencyYTDLP)
+	if err != nil || yInfo == nil || strings.TrimSpace(yInfo.Version) == "" {
+		return append(args, url)
+	}
+	minVer, _ := utils.ParseVersion(consts.YTDLP_EJS_MIN_VERSION)
+	if curVer, err := utils.ParseVersion(yInfo.Version); err != nil || curVer.Compare(minVer) < 0 {
+		return append(args, url)
+	}
+
+	// 获取 Deno 可执行路径
+	dInfo, err := s.depManager.Get(s.ctx, types.DependencyDeno)
+	if err != nil || dInfo == nil || !dInfo.Available || strings.TrimSpace(dInfo.ExecPath) == "" {
+		return append(args, url)
+	}
+
+	denoPath := strings.TrimSpace(dInfo.ExecPath)
+	if denoPath == "" {
+		return append(args, url)
+	}
+
+	// 按 yt-dlp 要求注入 --js-runtimes deno:/path/to/deno
+	args = append(args, "--js-runtimes", "deno:"+denoPath, url)
+	return args
+}
+
+// logYtdlpTrace 提取 yt-dlp 输出中类似 "[youtube] ..."/"[info] ..." 的行用于调试，
+// 避免将完整的 stdout/stderr（尤其是 JSON）写入日志。
+func logYtdlpTrace(stage string, result *ytdlp.Result) {
+	if result == nil {
+		return
+	}
+	var b strings.Builder
+	if result.Stderr != "" {
+		b.WriteString(result.Stderr)
+	}
+	if result.Stdout != "" {
+		if b.Len() > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(result.Stdout)
+	}
+	raw := strings.TrimSpace(b.String())
+	if raw == "" {
+		return
+	}
+	lines := strings.Split(raw, "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		l := strings.TrimSpace(line)
+		if l == "" {
+			continue
+		}
+		// 仅保留「状态行」与告警行，丢弃 JSON 内容：
+		//  - 以 "[" 开头的标记行，例如:
+		//    [youtube] Extracting URL: ...
+		//    [youtube] [jsc:deno] Solving JS challenges using deno
+		//    [info] Available formats for ...
+		//  - 以 WARNING/ERROR 开头的文本告警。
+		//  - 丢弃以 "{" 开头的 JSON 行（dump-single-json 的主体内容）。
+		if strings.HasPrefix(l, "{") {
+			continue
+		}
+		if strings.HasPrefix(l, "[") ||
+			strings.HasPrefix(l, "WARNING") ||
+			strings.HasPrefix(l, "ERROR") {
+			out = append(out, l)
+		}
+	}
+	if len(out) == 0 {
+		return
+	}
+	logger.Debug("yt-dlp trace",
+		zap.String("stage", stage),
+		zap.String("exec", result.Executable),
+		zap.Strings("lines", out),
+	)
 }
 
 // tempDir returns the preferred temporary directory for transient files.
@@ -674,10 +788,17 @@ func (s *Service) ParseURL(url string, browser string) (*ytdlp.ExtractedInfo, er
 		DumpSingleJSON().
 		NoPlaylist() // 保持与下载流程一致，避免返回整份播放列表
 
+	args := s.decorateWithDenoJSRuntime(url)
+
 	// 运行 yt-dlp 命令
-	result, err := dl.Run(s.ctx, url)
+	result, err := dl.Run(s.ctx, args...)
 	if err != nil {
 		return nil, err
+	}
+	// 在 debug 日志等级下，记录解析阶段的关键 trace 行（例如 [youtube] ...、[jsc:deno] ...），
+	// yt-dlp 自身会在 -v 模式下打印 Command-line config/JS runtimes 等详细信息。
+	if logger.IsDebugEnabled() {
+		logYtdlpTrace("parse", result)
 	}
 
 	// 解析 JSON 数据为 ExtractedInfo 结构体
@@ -1270,8 +1391,10 @@ func (s *Service) downloadVideo(task *types.DtTaskStatus, request *types.Downloa
 	videoStartedAt := time.Now()
 	beforeSnap := s.dirSnapshot(task.OutputDir)
 
+	args := s.decorateWithDenoJSRuntime(request.URL)
+
 	// 执行下载
-	result, err := dl.Run(s.ctx, request.URL)
+	result, err := dl.Run(s.ctx, args...)
 	if err != nil {
 		s.handleTaskError(task, err, progressChan)
 		return fmt.Errorf("Download video failed: %w", err)
@@ -1480,7 +1603,8 @@ func (s *Service) downloadSubtitlesOnly(task *types.DtTaskStatus, request *types
 	// 运行
 	startedAt := time.Now()
 	beforeSnap := s.dirSnapshot(task.OutputDir)
-	result, err := dl.Run(s.ctx, request.URL)
+	args := s.decorateWithDenoJSRuntime(request.URL)
+	result, err := dl.Run(s.ctx, args...)
 	if err != nil {
 		return err
 	}

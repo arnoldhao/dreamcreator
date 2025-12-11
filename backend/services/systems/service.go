@@ -92,9 +92,9 @@ func (s *Service) OpenDirectoryDialog(title string) (resp types.JSResp) {
 
 // OpenDirectory opens the specified directory in system file explorer
 func (s *Service) OpenDirectory(path string) {
-	url := "file:///" + path
-
-	wailsRuntime.BrowserOpenURL(s.ctx, url)
+	// Delegate to OpenPath to avoid BrowserOpenURL scheme restrictions in newer Wails versions.
+	// OpenPath already handles OS-specific open behaviour (open/xdg-open/Explorer).
+	_ = s.OpenPath(path)
 }
 
 // OpenPath opens a file (or directory) with the system default application

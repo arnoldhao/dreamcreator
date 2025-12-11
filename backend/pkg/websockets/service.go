@@ -58,14 +58,14 @@ func (s *Service) SetContext(ctx context.Context) {
 }
 
 func (s *Service) Start() {
-    upgrader := websocket.Upgrader{
-        CheckOrigin: func(r *http.Request) bool {
-            return true // Wails应用允许所有来源
-        },
-        ReadBufferSize:    1024,
-        WriteBufferSize:   1024,
-        EnableCompression: true,
-    }
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true // Wails应用允许所有来源
+		},
+		ReadBufferSize:    1024,
+		WriteBufferSize:   1024,
+		EnableCompression: true,
+	}
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		s.handleWebSocket(upgrader, w, r)
@@ -86,16 +86,16 @@ func (s *Service) Start() {
 }
 
 func (s *Service) handleWebSocket(upgrader websocket.Upgrader, w http.ResponseWriter, r *http.Request) {
-    conn, err := upgrader.Upgrade(w, r, nil)
-    if err != nil {
-        logger.Error("Failed to upgrade connection", zap.Error(err))
-        return
-    }
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		logger.Error("Failed to upgrade connection", zap.Error(err))
+		return
+	}
 
-    // 启用写压缩并设置读取限制，增强稳健性
-    conn.EnableWriteCompression(true)
-    // 限制单条消息体大小，防止异常占用
-    conn.SetReadLimit(1 << 20) // 1MB
+	// 启用写压缩并设置读取限制，增强稳健性
+	conn.EnableWriteCompression(true)
+	// 限制单条消息体大小，防止异常占用
+	conn.SetReadLimit(1 << 20) // 1MB
 
 	clientID := r.URL.Query().Get("id")
 	if clientID == "" {

@@ -49,7 +49,7 @@ export const useDtStore = defineStore('downtasks', {
           try {
             const payload = data?.data || {}
             const id = String(payload.id || payload.ID || '')
-            const isDependency = id.startsWith('dep-') || typeof payload.type === 'string' && ['yt-dlp','ffmpeg'].includes(String(payload.type).toLowerCase())
+            const isDependency = id.startsWith('dep-') || typeof payload.type === 'string' && ['yt-dlp','ffmpeg','deno'].includes(String(payload.type).toLowerCase())
             const shouldRefresh = payload.refresh === true // 后端 DTSignal: json:"refresh" -> JS: payload.refresh
             if (shouldRefresh && !isDependency) {
               this.handleSignal(payload)

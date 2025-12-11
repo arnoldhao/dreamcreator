@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<USAGE
-Usage: $0 --platform <os/arch> [--ytdlp-version <version>] [--ffmpeg-version <version>]
+Usage: $0 --platform <os/arch> [--ytdlp-version <version>] [--ffmpeg-version <version>] [--deno-version <version>]
 
 Downloads (or prepares placeholders for) embedded dependencies required by the
 backend/embedded package. The command must be run from the repository root.
@@ -14,6 +14,8 @@ Options:
                      defined in backend/consts/mirrors.go
   --ffmpeg-version   Explicit FFmpeg version to download; defaults to the value
                      defined in backend/consts/mirrors.go for the target OS
+  --deno-version     Explicit Deno version to download; defaults to the value
+                     defined in backend/consts/mirrors.go
   -h, --help         Show this help and exit
 USAGE
 }
@@ -62,6 +64,7 @@ PLACEHOLDER
 PLATFORM=""
 YTDLP_VERSION=""
 FFMPEG_VERSION=""
+DENO_VERSION=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -78,6 +81,11 @@ while [[ $# -gt 0 ]]; do
     --ffmpeg-version)
       [[ $# -ge 2 ]] || fail "--ffmpeg-version requires a value"
       FFMPEG_VERSION="$2"
+      shift 2
+      ;;
+    --deno-version)
+      [[ $# -ge 2 ]] || fail "--deno-version requires a value"
+      DENO_VERSION="$2"
       shift 2
       ;;
     -h|--help)
@@ -101,6 +109,11 @@ if [[ -z "$YTDLP_VERSION" ]]; then
   YTDLP_VERSION=$(read_const "EMBEDDED_YTDLP_VERSION")
 fi
 [[ -n "$YTDLP_VERSION" ]] || fail "Unable to determine yt-dlp version"
+
+if [[ -z "$DENO_VERSION" ]]; then
+  DENO_VERSION=$(read_const "EMBEDDED_DENO_VERSION")
+fi
+[[ -n "$DENO_VERSION" ]] || fail "Unable to determine Deno version"
 
 case "$OS" in
   windows)
@@ -134,6 +147,25 @@ case "$OS" in
     chmod +x "$ffmpeg_dest"
     rm -rf "$tmp_dir"
     trap - EXIT
+
+    echo "Fetching Deno ${DENO_VERSION} for windows/${ARCH}"
+    case "$ARCH" in
+      amd64) deno_filename="deno-x86_64-pc-windows-msvc.zip" ;;
+      arm64) deno_filename="deno-aarch64-pc-windows-msvc.zip" ;;
+      *) fail "Unsupported Windows arch for Deno: $ARCH" ;;
+    esac
+    deno_url="https://github.com/denoland/deno/releases/download/${DENO_VERSION}/${deno_filename}"
+    tmp_dir=$(mktemp -d)
+    trap 'rm -rf "$tmp_dir"' EXIT
+    curl -L "$deno_url" -o "$tmp_dir/deno.zip"
+    unzip -q "$tmp_dir/deno.zip" -d "$tmp_dir/extracted"
+    deno_path=$(find "$tmp_dir/extracted" -name 'deno.exe' -print -quit)
+    [[ -n "$deno_path" ]] || fail "deno.exe not found in extracted archive"
+    deno_dest="$BINARY_DIR/deno_${DENO_VERSION}_windows_${ARCH}.exe"
+    cp "$deno_path" "$deno_dest"
+    chmod +x "$deno_dest"
+    rm -rf "$tmp_dir"
+    trap - EXIT
     ;;
   darwin)
     if [[ -z "$FFMPEG_VERSION" ]]; then
@@ -162,6 +194,25 @@ case "$OS" in
     chmod +x "$ffmpeg_dest"
     rm -rf "$tmp_dir"
     trap - EXIT
+
+    echo "Fetching Deno ${DENO_VERSION} for darwin/${ARCH}"
+    case "$ARCH" in
+      amd64) deno_filename="deno-x86_64-apple-darwin.zip" ;;
+      arm64) deno_filename="deno-aarch64-apple-darwin.zip" ;;
+      *) fail "Unsupported macOS arch for Deno: $ARCH" ;;
+    esac
+    deno_url="https://github.com/denoland/deno/releases/download/${DENO_VERSION}/${deno_filename}"
+    tmp_dir=$(mktemp -d)
+    trap 'rm -rf "$tmp_dir"' EXIT
+    curl -L "$deno_url" -o "$tmp_dir/deno.zip"
+    unzip -q "$tmp_dir/deno.zip" -d "$tmp_dir/extracted"
+    deno_path=$(find "$tmp_dir/extracted" -type f -name 'deno' -print -quit)
+    [[ -n "$deno_path" ]] || fail "deno binary not found in extracted archive"
+    deno_dest="$BINARY_DIR/deno_${DENO_VERSION}_darwin_${ARCH}"
+    cp "$deno_path" "$deno_dest"
+    chmod +x "$deno_dest"
+    rm -rf "$tmp_dir"
+    trap - EXIT
     ;;
   linux)
     ensure_tools chmod
@@ -174,6 +225,8 @@ case "$OS" in
       ffmpeg_dest="$BINARY_DIR/ffmpeg_placeholder_linux_${ARCH}"
     fi
     create_placeholder "$ffmpeg_dest"
+    deno_dest="$BINARY_DIR/deno_${DENO_VERSION}_linux_${ARCH}"
+    create_placeholder "$deno_dest"
     ;;
   *)
     fail "Unsupported OS: $OS"

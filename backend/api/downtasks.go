@@ -282,40 +282,40 @@ func (api *DowntasksAPI) DeleteTask(id string) (resp *types.JSResp) {
 
 // RetryTask restarts a failed task by ID
 func (api *DowntasksAPI) RetryTask(id string) (resp *types.JSResp) {
-    if id == "" {
-        return &types.JSResp{Msg: "ID is required"}
-    }
-    if err := api.service.RetryTask(id); err != nil {
-        return &types.JSResp{Msg: err.Error()}
-    }
-    return &types.JSResp{Success: true}
+	if id == "" {
+		return &types.JSResp{Msg: "ID is required"}
+	}
+	if err := api.service.RetryTask(id); err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+	return &types.JSResp{Success: true}
 }
 
 // AnalyzeTask gathers diagnostics for a task (connectivity + yt-dlp state)
 func (api *DowntasksAPI) AnalyzeTask(id string) (resp *types.JSResp) {
-    if id == "" {
-        return &types.JSResp{Msg: "ID is required"}
-    }
-    a, err := api.service.AnalyzeTask(id)
-    if err != nil {
-        return &types.JSResp{Msg: err.Error()}
-    }
-    b, err := json.Marshal(a)
-    if err != nil {
-        return &types.JSResp{Msg: err.Error()}
-    }
-    return &types.JSResp{Success: true, Data: string(b)}
+	if id == "" {
+		return &types.JSResp{Msg: "ID is required"}
+	}
+	a, err := api.service.AnalyzeTask(id)
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+	b, err := json.Marshal(a)
+	if err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+	return &types.JSResp{Success: true, Data: string(b)}
 }
 
 // StartAnalysis triggers streaming analysis events for the given task ID
 func (api *DowntasksAPI) StartAnalysis(id string) (resp *types.JSResp) {
-    if id == "" {
-        return &types.JSResp{Msg: "ID is required"}
-    }
-    if err := api.service.StartAnalysis(id); err != nil {
-        return &types.JSResp{Msg: err.Error()}
-    }
-    return &types.JSResp{Success: true}
+	if id == "" {
+		return &types.JSResp{Msg: "ID is required"}
+	}
+	if err := api.service.StartAnalysis(id); err != nil {
+		return &types.JSResp{Msg: err.Error()}
+	}
+	return &types.JSResp{Success: true}
 }
 
 func (api *DowntasksAPI) GetFormats() (resp *types.JSResp) {

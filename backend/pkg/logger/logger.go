@@ -131,6 +131,12 @@ func InitLogger(cfg *Config) error {
 	return nil
 }
 
+// IsDebugEnabled 返回当前日志级别是否为 Debug（或更详细，如 Debug/Trace）。
+func IsDebugEnabled() bool {
+	// globalAtomicLevel.Level() 是原子读取，线程安全。
+	return globalAtomicLevel.Level() <= zap.DebugLevel
+}
+
 // GetLogger 获取全局logger实例
 func GetLogger() *zap.Logger {
 	configMutex.RLock()

@@ -28,6 +28,27 @@ const useDependenciesStore = defineStore('dependencies', {
                 lastCheckError: '',
                 lastCheckErrorCode: '',
             },
+                'deno': {
+                    // frontend-only properties
+                    installing: false,
+                    installProgress: '',
+                    installProgressPercent: 0,
+                    currentAction: '',
+                    installed: false,
+                // backend properties
+                type: 'deno',
+                name: 'Deno',
+                available: false,
+                path: '',
+                execPath: '',
+                version: '',
+                latestVersion: '',
+                needUpdate: false,
+                lastCheckAttempted: false,
+                lastCheckSuccess: true,
+                lastCheckError: '',
+                lastCheckErrorCode: '',
+            },
                 'ffmpeg': {
                     // frontend-only properties
                     installing: false,
