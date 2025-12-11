@@ -24,6 +24,8 @@ func GetEmbeddedBinaryVersion(dpType types.DependencyType) (string, error) {
 		return consts.YtdlpEmbedVersion(osType)
 	case types.DependencyFFmpeg:
 		return consts.FfmpegEmbedVersion(osType)
+	case types.DependencyDeno:
+		return consts.DenoEmbedVersion(osType)
 
 	default:
 		return "", fmt.Errorf("unsupported dependency type: %s", dpType)

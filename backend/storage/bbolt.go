@@ -24,19 +24,19 @@ var (
 	cookiesBucketV2     = []byte("cookies_v2")   // 用于存储新的 Cookie 集合
 	legacyCookiesBucket = []byte("cookies")      // 历史 Cookie 桶，启动时清理
 	// LLM Providers & Profiles
-	providersBucket     = []byte("providers")      // LLM Provider 管理
-    globalProfilesBucket = []byte("global_profiles") // Global LLM Profiles (not bound to provider/model)
-    modelsCacheBucket   = []byte("models_cache")   // Provider 模型缓存
-    modelsMetaBucket    = []byte("models_meta")    // 模型元信息（可选，更丰富）
-    glossaryBucket      = []byte("glossary")       // 翻译术语表（条目）
-    glossarySetsBucket  = []byte("glossary_sets")  // 术语集合（全局）
-    targetLangsBucket   = []byte("target_langs")   // 目标语言列表（AI 翻译使用）
+	providersBucket      = []byte("providers")       // LLM Provider 管理
+	globalProfilesBucket = []byte("global_profiles") // Global LLM Profiles (not bound to provider/model)
+	modelsCacheBucket    = []byte("models_cache")    // Provider 模型缓存
+	modelsMetaBucket     = []byte("models_meta")     // 模型元信息（可选，更丰富）
+	glossaryBucket       = []byte("glossary")        // 翻译术语表（条目）
+	glossarySetsBucket   = []byte("glossary_sets")   // 术语集合（全局）
+	targetLangsBucket    = []byte("target_langs")    // 目标语言列表（AI 翻译使用）
 	// other buckets...
 )
 
 type BoltStorage struct {
-    path string
-    db   *bbolt.DB // Keep DB private; expose required ops via methods
+	path string
+	db   *bbolt.DB // Keep DB private; expose required ops via methods
 }
 
 var NewBoltStorageForTest func(path string) (*BoltStorage, error)
@@ -62,7 +62,7 @@ func NewBoltStorage() (*BoltStorage, error) {
 	}
 
 	// 创建桶
-		err = db.Update(func(tx *bbolt.Tx) error {
+	err = db.Update(func(tx *bbolt.Tx) error {
 		// create tasks buckets
 		if _, err := tx.CreateBucketIfNotExists(taskBucket); err != nil {
 			return err
@@ -92,28 +92,28 @@ func NewBoltStorage() (*BoltStorage, error) {
 		if _, err := tx.CreateBucketIfNotExists(providersBucket); err != nil {
 			return err
 		}
-        if _, err := tx.CreateBucketIfNotExists(globalProfilesBucket); err != nil {
-            return err
-        }
-        if _, err := tx.CreateBucketIfNotExists(modelsCacheBucket); err != nil {
-            return err
-        }
-        if _, err := tx.CreateBucketIfNotExists(modelsMetaBucket); err != nil {
-            return err
-        }
+		if _, err := tx.CreateBucketIfNotExists(globalProfilesBucket); err != nil {
+			return err
+		}
+		if _, err := tx.CreateBucketIfNotExists(modelsCacheBucket); err != nil {
+			return err
+		}
+		if _, err := tx.CreateBucketIfNotExists(modelsMetaBucket); err != nil {
+			return err
+		}
 
-        // glossary bucket
-        if _, err := tx.CreateBucketIfNotExists(glossaryBucket); err != nil {
-            return err
-        }
-        if _, err := tx.CreateBucketIfNotExists(glossarySetsBucket); err != nil {
-            return err
-        }
+		// glossary bucket
+		if _, err := tx.CreateBucketIfNotExists(glossaryBucket); err != nil {
+			return err
+		}
+		if _, err := tx.CreateBucketIfNotExists(glossarySetsBucket); err != nil {
+			return err
+		}
 
-        // target languages bucket
-        if _, err := tx.CreateBucketIfNotExists(targetLangsBucket); err != nil {
-            return err
-        }
+		// target languages bucket
+		if _, err := tx.CreateBucketIfNotExists(targetLangsBucket); err != nil {
+			return err
+		}
 
 		// drop legacy cookies bucket if still present
 		if legacy := tx.Bucket(legacyCookiesBucket); legacy != nil {
@@ -247,197 +247,257 @@ func (s *BoltStorage) DeleteImage(url string) error {
 }
 
 func (s *BoltStorage) Close() error {
-    return s.db.Close()
+	return s.db.Close()
 }
 
 // -------- Glossary CRUD --------
 
 func (s *BoltStorage) SaveGlossaryEntry(e *types.GlossaryEntry) error {
-    if e == nil || strings.TrimSpace(e.ID) == "" {
-        return fmt.Errorf("glossary entry or id empty")
-    }
-    if strings.TrimSpace(e.SetID) == "" { e.SetID = "default" }
-    e.UpdatedAt = time.Now().Unix()
-    if e.CreatedAt == 0 { e.CreatedAt = e.UpdatedAt }
-    return s.db.Update(func(tx *bbolt.Tx) error {
-        b := tx.Bucket(glossaryBucket)
-        buf, err := json.Marshal(e)
-        if err != nil { return err }
-        return b.Put([]byte(e.ID), buf)
+	if e == nil || strings.TrimSpace(e.ID) == "" {
+		return fmt.Errorf("glossary entry or id empty")
+	}
+	if strings.TrimSpace(e.SetID) == "" {
+		e.SetID = "default"
+	}
+	e.UpdatedAt = time.Now().Unix()
+	if e.CreatedAt == 0 {
+		e.CreatedAt = e.UpdatedAt
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(glossaryBucket)
+		buf, err := json.Marshal(e)
+		if err != nil {
+			return err
+		}
+		return b.Put([]byte(e.ID), buf)
 	})
 }
 
 func (s *BoltStorage) GetGlossaryEntry(id string) (*types.GlossaryEntry, error) {
-    var out types.GlossaryEntry
-    err := s.db.View(func(tx *bbolt.Tx) error {
-        b := tx.Bucket(glossaryBucket)
-        v := b.Get([]byte(id))
-        if v == nil { return fmt.Errorf("glossary not found: %s", id) }
-        return json.Unmarshal(v, &out)
-    })
-    if err != nil { return nil, err }
-    return &out, nil
+	var out types.GlossaryEntry
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(glossaryBucket)
+		v := b.Get([]byte(id))
+		if v == nil {
+			return fmt.Errorf("glossary not found: %s", id)
+		}
+		return json.Unmarshal(v, &out)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (s *BoltStorage) ListGlossaryEntries() ([]*types.GlossaryEntry, error) {
-    var list []*types.GlossaryEntry
-    err := s.db.View(func(tx *bbolt.Tx) error {
-        b := tx.Bucket(glossaryBucket)
-        return b.ForEach(func(k, v []byte) error {
-            var e types.GlossaryEntry
-            if err := json.Unmarshal(v, &e); err != nil { return err }
-            list = append(list, &e)
-            return nil
-        })
-    })
-    if err != nil { return nil, err }
-    // stable sort by created time then source (optional)
-    sort.Slice(list, func(i, j int) bool {
-        if list[i].CreatedAt == list[j].CreatedAt {
-            return list[i].Source < list[j].Source
-        }
-        return list[i].CreatedAt < list[j].CreatedAt
-    })
-    return list, nil
+	var list []*types.GlossaryEntry
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(glossaryBucket)
+		return b.ForEach(func(k, v []byte) error {
+			var e types.GlossaryEntry
+			if err := json.Unmarshal(v, &e); err != nil {
+				return err
+			}
+			list = append(list, &e)
+			return nil
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	// stable sort by created time then source (optional)
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].CreatedAt == list[j].CreatedAt {
+			return list[i].Source < list[j].Source
+		}
+		return list[i].CreatedAt < list[j].CreatedAt
+	})
+	return list, nil
 }
 
 func (s *BoltStorage) ListGlossaryEntriesBySet(setID string) ([]*types.GlossaryEntry, error) {
-    if strings.TrimSpace(setID) == "" { setID = "default" }
-    list, err := s.ListGlossaryEntries()
-    if err != nil { return nil, err }
-    out := make([]*types.GlossaryEntry, 0, len(list))
-    for _, e := range list { if e != nil && strings.TrimSpace(e.SetID) == setID { out = append(out, e) } }
-    return out, nil
+	if strings.TrimSpace(setID) == "" {
+		setID = "default"
+	}
+	list, err := s.ListGlossaryEntries()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*types.GlossaryEntry, 0, len(list))
+	for _, e := range list {
+		if e != nil && strings.TrimSpace(e.SetID) == setID {
+			out = append(out, e)
+		}
+	}
+	return out, nil
 }
 
 func (s *BoltStorage) DeleteGlossaryEntry(id string) error {
-    return s.db.Update(func(tx *bbolt.Tx) error {
-        b := tx.Bucket(glossaryBucket)
-        return b.Delete([]byte(id))
-    })
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(glossaryBucket)
+		return b.Delete([]byte(id))
+	})
 }
 
 // -------- Glossary Sets CRUD --------
 
 func (s *BoltStorage) SaveGlossarySet(gs *types.GlossarySet) error {
-    if gs == nil || strings.TrimSpace(gs.ID) == "" { return fmt.Errorf("glossary set or id empty") }
-    gs.UpdatedAt = time.Now().Unix()
-    if gs.CreatedAt == 0 { gs.CreatedAt = gs.UpdatedAt }
-    return s.db.Update(func(tx *bbolt.Tx) error {
-        b := tx.Bucket(glossarySetsBucket)
-        buf, err := json.Marshal(gs)
-        if err != nil { return err }
-        return b.Put([]byte(gs.ID), buf)
-    })
+	if gs == nil || strings.TrimSpace(gs.ID) == "" {
+		return fmt.Errorf("glossary set or id empty")
+	}
+	gs.UpdatedAt = time.Now().Unix()
+	if gs.CreatedAt == 0 {
+		gs.CreatedAt = gs.UpdatedAt
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(glossarySetsBucket)
+		buf, err := json.Marshal(gs)
+		if err != nil {
+			return err
+		}
+		return b.Put([]byte(gs.ID), buf)
+	})
 }
 
 // -------- Target Languages CRUD --------
 
 // SaveTargetLanguage creates/updates a target language by its code (keyed by code)
 func (s *BoltStorage) SaveTargetLanguage(l *types.TargetLanguage) error {
-    if l == nil || strings.TrimSpace(l.Code) == "" { return fmt.Errorf("target language or code empty") }
-    l.UpdatedAt = time.Now().Unix()
-    if l.CreatedAt == 0 { l.CreatedAt = l.UpdatedAt }
-    return s.db.Update(func(tx *bbolt.Tx) error {
-        b := tx.Bucket(targetLangsBucket)
-        buf, err := json.Marshal(l)
-        if err != nil { return err }
-        return b.Put([]byte(l.Code), buf)
-    })
+	if l == nil || strings.TrimSpace(l.Code) == "" {
+		return fmt.Errorf("target language or code empty")
+	}
+	l.UpdatedAt = time.Now().Unix()
+	if l.CreatedAt == 0 {
+		l.CreatedAt = l.UpdatedAt
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(targetLangsBucket)
+		buf, err := json.Marshal(l)
+		if err != nil {
+			return err
+		}
+		return b.Put([]byte(l.Code), buf)
+	})
 }
 
 // GetTargetLanguage returns one language by code
 func (s *BoltStorage) GetTargetLanguage(code string) (*types.TargetLanguage, error) {
-    var out types.TargetLanguage
-    err := s.db.View(func(tx *bbolt.Tx) error {
-        b := tx.Bucket(targetLangsBucket)
-        v := b.Get([]byte(code))
-        if v == nil { return fmt.Errorf("target language not found: %s", code) }
-        return json.Unmarshal(v, &out)
-    })
-    if err != nil { return nil, err }
-    return &out, nil
+	var out types.TargetLanguage
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(targetLangsBucket)
+		v := b.Get([]byte(code))
+		if v == nil {
+			return fmt.Errorf("target language not found: %s", code)
+		}
+		return json.Unmarshal(v, &out)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 // ListTargetLanguages lists all target languages
 func (s *BoltStorage) ListTargetLanguages() ([]*types.TargetLanguage, error) {
-    var list []*types.TargetLanguage
-    err := s.db.View(func(tx *bbolt.Tx) error {
-        b := tx.Bucket(targetLangsBucket)
-        return b.ForEach(func(k, v []byte) error {
-            var l types.TargetLanguage
-            if err := json.Unmarshal(v, &l); err != nil { return err }
-            list = append(list, &l)
-            return nil
-        })
-    })
-    if err != nil { return nil, err }
-    sort.Slice(list, func(i, j int) bool {
-        if list[i].Name == list[j].Name { return list[i].Code < list[j].Code }
-        return list[i].Name < list[j].Name
-    })
-    return list, nil
+	var list []*types.TargetLanguage
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(targetLangsBucket)
+		return b.ForEach(func(k, v []byte) error {
+			var l types.TargetLanguage
+			if err := json.Unmarshal(v, &l); err != nil {
+				return err
+			}
+			list = append(list, &l)
+			return nil
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].Name == list[j].Name {
+			return list[i].Code < list[j].Code
+		}
+		return list[i].Name < list[j].Name
+	})
+	return list, nil
 }
 
 // DeleteTargetLanguage removes one language by code
 func (s *BoltStorage) DeleteTargetLanguage(code string) error {
-    return s.db.Update(func(tx *bbolt.Tx) error {
-        b := tx.Bucket(targetLangsBucket)
-        return b.Delete([]byte(code))
-    })
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(targetLangsBucket)
+		return b.Delete([]byte(code))
+	})
 }
 
 func (s *BoltStorage) GetGlossarySet(id string) (*types.GlossarySet, error) {
-    var out types.GlossarySet
-    err := s.db.View(func(tx *bbolt.Tx) error {
-        b := tx.Bucket(glossarySetsBucket)
-        v := b.Get([]byte(id))
-        if v == nil { return fmt.Errorf("glossary set not found: %s", id) }
-        return json.Unmarshal(v, &out)
-    })
-    if err != nil { return nil, err }
-    return &out, nil
+	var out types.GlossarySet
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(glossarySetsBucket)
+		v := b.Get([]byte(id))
+		if v == nil {
+			return fmt.Errorf("glossary set not found: %s", id)
+		}
+		return json.Unmarshal(v, &out)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (s *BoltStorage) ListGlossarySets() ([]*types.GlossarySet, error) {
-    var list []*types.GlossarySet
-    err := s.db.View(func(tx *bbolt.Tx) error {
-        b := tx.Bucket(glossarySetsBucket)
-        return b.ForEach(func(k, v []byte) error {
-            var gs types.GlossarySet
-            if err := json.Unmarshal(v, &gs); err != nil { return err }
-            list = append(list, &gs)
-            return nil
-        })
-    })
-    if err != nil { return nil, err }
-    sort.Slice(list, func(i, j int) bool { return list[i].CreatedAt < list[j].CreatedAt })
-    return list, nil
+	var list []*types.GlossarySet
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(glossarySetsBucket)
+		return b.ForEach(func(k, v []byte) error {
+			var gs types.GlossarySet
+			if err := json.Unmarshal(v, &gs); err != nil {
+				return err
+			}
+			list = append(list, &gs)
+			return nil
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(list, func(i, j int) bool { return list[i].CreatedAt < list[j].CreatedAt })
+	return list, nil
 }
 
 func (s *BoltStorage) DeleteGlossarySet(id string) error {
-    return s.db.Update(func(tx *bbolt.Tx) error {
-        // 1) delete the set record
-        if err := tx.Bucket(glossarySetsBucket).Delete([]byte(id)); err != nil { return err }
-        // 2) cascade: remove all glossary entries that belong to this set
-        gb := tx.Bucket(glossaryBucket)
-        // collect keys to delete to avoid cursor invalidation during iteration
-        keys := make([][]byte, 0, 16)
-        if err := gb.ForEach(func(k, v []byte) error {
-            var e types.GlossaryEntry
-            if err := json.Unmarshal(v, &e); err != nil { return err }
-            if strings.TrimSpace(e.SetID) == strings.TrimSpace(id) {
-                kk := make([]byte, len(k))
-                copy(kk, k)
-                keys = append(keys, kk)
-            }
-            return nil
-        }); err != nil { return err }
-        for _, k := range keys {
-            if err := gb.Delete(k); err != nil { return err }
-        }
-        return nil
-    })
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		// 1) delete the set record
+		if err := tx.Bucket(glossarySetsBucket).Delete([]byte(id)); err != nil {
+			return err
+		}
+		// 2) cascade: remove all glossary entries that belong to this set
+		gb := tx.Bucket(glossaryBucket)
+		// collect keys to delete to avoid cursor invalidation during iteration
+		keys := make([][]byte, 0, 16)
+		if err := gb.ForEach(func(k, v []byte) error {
+			var e types.GlossaryEntry
+			if err := json.Unmarshal(v, &e); err != nil {
+				return err
+			}
+			if strings.TrimSpace(e.SetID) == strings.TrimSpace(id) {
+				kk := make([]byte, len(k))
+				copy(kk, k)
+				keys = append(keys, kk)
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+		for _, k := range keys {
+			if err := gb.Delete(k); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // formatIDToKey 将整数 ID 转换为字节切片键

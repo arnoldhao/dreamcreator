@@ -15,6 +15,10 @@ jobs:
     env:
       TELEMETRYDECK_APP_ID: ${{ secrets.TELEMETRYDECK_APP_ID }}
       TELEMETRYDECK_ENDPOINT: ${{ secrets.TELEMETRYDECK_ENDPOINT }}
+      # Embedded dependency versions (yt-dlp/ffmpeg/deno)
+      YTDLP_VERSION: ${{ vars.YTDLP_VERSION }}
+      FFMPEG_VERSION: ${{ vars.FFMPEG_VERSION_DARWIN }}
+      DENO_VERSION: ${{ vars.DENO_VERSION }}
     strategy:
       matrix:
         platform:
@@ -89,7 +93,8 @@ jobs:
           ./scripts/fetch-embedded-binaries.sh \
             --platform "${{ matrix.platform }}" \
             --ytdlp-version "$YTDLP_VERSION" \
-            --ffmpeg-version "$FFMPEG_VERSION"
+            --ffmpeg-version "$FFMPEG_VERSION" \
+            --deno-version "$DENO_VERSION"
           echo "Downloaded binaries:"
           ls -la backend/embedded/binaries/
 

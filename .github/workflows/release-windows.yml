@@ -17,6 +17,10 @@ jobs:
       TELEMETRYDECK_ENDPOINT: ${{ secrets.TELEMETRYDECK_ENDPOINT }}
       WINDOWS_APP_ID: DreamCreator
       WINDOWS_APP_NAME: Dream Creator
+      # Embedded dependency versions (yt-dlp/ffmpeg/deno)
+      YTDLP_VERSION: ${{ vars.YTDLP_VERSION }}
+      FFMPEG_VERSION: ${{ vars.FFMPEG_VERSION_WINDOWS }}
+      DENO_VERSION: ${{ vars.DENO_VERSION }}
     strategy:
       matrix:
         platform:
@@ -112,7 +116,8 @@ jobs:
           ./scripts/fetch-embedded-binaries.sh \
             --platform "${{ matrix.platform }}" \
             --ytdlp-version "$YTDLP_VERSION" \
-            --ffmpeg-version "$FFMPEG_VERSION"
+            --ffmpeg-version "$FFMPEG_VERSION" \
+            --deno-version "$DENO_VERSION"
           echo "Downloaded binaries:"
           ls -la backend/embedded/binaries/
 

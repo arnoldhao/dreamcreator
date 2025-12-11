@@ -275,7 +275,8 @@ func parseBatchJSONItems(s string) ([]jsonlItem, error) {
 // TranslateSubtitleLLMBatchedWithAnalysis 执行“初始化分析 + 分批 JSONL 自我反思翻译”。
 // 注意：不替代现有单次大批量路径，作为可选新流程并行存在。
 // strictGlossary: 若为 true，则不在 glossary 中暴露占位符映射，仅要求模型严格保留占位符本身；
-//                 若为 false，则将命中的 enforce 术语附带 placeholder 字段，作为 hint 模式。
+//
+//	若为 false，则将命中的 enforce 术语附带 placeholder 字段，作为 hint 模式。
 func (s *Service) TranslateSubtitleLLMBatchedWithAnalysis(projectID, originLang, targetLang, providerID, model string, setIDs []string, extraEntries []types.GlossaryEntry, batchSize int, profileID string, filter func(*types.SubtitleSegment) bool, strictGlossary bool) error {
 	if batchSize <= 0 {
 		batchSize = 50

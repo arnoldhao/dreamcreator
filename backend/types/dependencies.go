@@ -10,24 +10,25 @@ type DependencyType string
 const (
 	DependencyFFmpeg DependencyType = "ffmpeg"
 	DependencyYTDLP  DependencyType = "yt-dlp"
+	DependencyDeno   DependencyType = "deno"
 )
 
 // DependencyInfo 依赖信息
 type DependencyInfo struct {
-    Type          DependencyType `json:"type"`
-    Name          string         `json:"name"`
-    Version       string         `json:"version"`
-    LatestVersion string         `json:"latestVersion"`
-    Path          string         `json:"path"`
-    ExecPath      string         `json:"execPath"`
-    Available     bool           `json:"available"`
-    NeedUpdate    bool           `json:"needUpdate"`
-    LastCheck     time.Time      `json:"lastCheck"`
-    // Last check result for update/version check
-    LastCheckAttempted bool   `json:"lastCheckAttempted"`
-    LastCheckSuccess   bool   `json:"lastCheckSuccess"`
-    LastCheckError     string `json:"lastCheckError"`
-    LastCheckErrorCode string `json:"lastCheckErrorCode"`
+	Type          DependencyType `json:"type"`
+	Name          string         `json:"name"`
+	Version       string         `json:"version"`
+	LatestVersion string         `json:"latestVersion"`
+	Path          string         `json:"path"`
+	ExecPath      string         `json:"execPath"`
+	Available     bool           `json:"available"`
+	NeedUpdate    bool           `json:"needUpdate"`
+	LastCheck     time.Time      `json:"lastCheck"`
+	// Last check result for update/version check
+	LastCheckAttempted bool   `json:"lastCheckAttempted"`
+	LastCheckSuccess   bool   `json:"lastCheckSuccess"`
+	LastCheckError     string `json:"lastCheckError"`
+	LastCheckErrorCode string `json:"lastCheckErrorCode"`
 }
 
 // DownloadConfig 下载配置

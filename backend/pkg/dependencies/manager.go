@@ -1,19 +1,19 @@
 package dependencies
 
 import (
-    "bytes"
-    "context"
-    "errors"
-    "fmt"
-    "io"
-    "net/http"
-    "net"
-    "os"
-    "path/filepath"
-    "runtime"
-    "strings"
-    "sync"
-    "time"
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
+	"time"
 
 	"dreamcreator/backend/consts"
 	"dreamcreator/backend/embedded"
@@ -82,6 +82,16 @@ func (m *manager) InitializeDefaultDependencies() error {
 		err = m.initializeFromEmbedded(types.DependencyFFmpeg)
 		if err != nil {
 			logger.Error("Failed to initialize ffmpeg dependency", zap.Error(err))
+			return err
+		}
+	}
+
+	// 检查 Deno 依赖
+	denoInfo, err := m.boltStorage.GetDependency(types.DependencyDeno)
+	if err != nil || denoInfo == nil || m.validator.ValidateFile(denoInfo.ExecPath) != nil {
+		err = m.initializeFromEmbedded(types.DependencyDeno)
+		if err != nil {
+			logger.Error("Failed to initialize deno dependency", zap.Error(err))
 			return err
 		}
 	}
@@ -311,14 +321,14 @@ func (m *manager) CheckUpdates(ctx context.Context) (map[types.DependencyType]*t
 				info = &types.DependencyInfo{Type: depType}
 			}
 
-            // 检查是否有更新
-            latestVersion, err := provider.GetLatestVersionWithMirror(ctx, m, "")
-            if err == nil {
-                info.LatestVersion = latestVersion
-                info.LastCheckAttempted = true
-                info.LastCheckSuccess = true
-                info.LastCheckError = ""
-                info.LastCheckErrorCode = ""
+			// 检查是否有更新
+			latestVersion, err := provider.GetLatestVersionWithMirror(ctx, m, "")
+			if err == nil {
+				info.LatestVersion = latestVersion
+				info.LastCheckAttempted = true
+				info.LastCheckSuccess = true
+				info.LastCheckError = ""
+				info.LastCheckErrorCode = ""
 
 				// 当前版本不为空才进行更新检查
 				if info.Version != "" {
@@ -340,19 +350,19 @@ func (m *manager) CheckUpdates(ctx context.Context) (map[types.DependencyType]*t
 							zap.Error(err))
 					}
 				}
-            } else {
-                logger.Warn("Failed to get latest version",
-                    zap.String("type", string(depType)),
-                    zap.Error(err))
-                // Record failed check details back to storage for frontend to display
-                if info == nil {
-                    info = &types.DependencyInfo{Type: depType}
-                }
-                info.LastCheckAttempted = true
-                info.LastCheckSuccess = false
-                info.LastCheckError = err.Error()
-                info.LastCheckErrorCode = classifyCheckError(err)
-            }
+			} else {
+				logger.Warn("Failed to get latest version",
+					zap.String("type", string(depType)),
+					zap.Error(err))
+				// Record failed check details back to storage for frontend to display
+				if info == nil {
+					info = &types.DependencyInfo{Type: depType}
+				}
+				info.LastCheckAttempted = true
+				info.LastCheckSuccess = false
+				info.LastCheckError = err.Error()
+				info.LastCheckErrorCode = classifyCheckError(err)
+			}
 
 			// 存储至Bbolt
 			if err := m.boltStorage.SaveDependency(info); err != nil {
@@ -371,27 +381,27 @@ func (m *manager) CheckUpdates(ctx context.Context) (map[types.DependencyType]*t
 
 // classifyCheckError 提取适合前端 i18n 展示的错误码
 func classifyCheckError(err error) string {
-    if err == nil {
-        return ""
-    }
-    var ne net.Error
-    if errors.As(err, &ne) {
-        if ne.Timeout() {
-            return "timeout"
-        }
-        return "network"
-    }
-    msg := strings.ToLower(err.Error())
-    if strings.Contains(msg, "status") || strings.Contains(msg, "failed to check") {
-        return "http_error"
-    }
-    if strings.Contains(msg, "decode") || strings.Contains(msg, "invalid character") || strings.Contains(msg, "eof") {
-        return "parse_error"
-    }
-    if strings.Contains(msg, "network") || strings.Contains(msg, "dial tcp") || strings.Contains(msg, "connection") {
-        return "network"
-    }
-    return "unknown"
+	if err == nil {
+		return ""
+	}
+	var ne net.Error
+	if errors.As(err, &ne) {
+		if ne.Timeout() {
+			return "timeout"
+		}
+		return "network"
+	}
+	msg := strings.ToLower(err.Error())
+	if strings.Contains(msg, "status") || strings.Contains(msg, "failed to check") {
+		return "http_error"
+	}
+	if strings.Contains(msg, "decode") || strings.Contains(msg, "invalid character") || strings.Contains(msg, "eof") {
+		return "parse_error"
+	}
+	if strings.Contains(msg, "network") || strings.Contains(msg, "dial tcp") || strings.Contains(msg, "connection") {
+		return "network"
+	}
+	return "unknown"
 }
 
 func (m *manager) DependenciesReady(ctx context.Context) (bool, error) {
@@ -511,6 +521,8 @@ func (m *manager) initializeFromEmbedded(depType types.DependencyType) error {
 		return m.initializeYTDLP()
 	} else if depType == types.DependencyFFmpeg {
 		return m.initializeFFmpeg()
+	} else if depType == types.DependencyDeno {
+		return m.initializeDeno()
 	} else {
 		return fmt.Errorf("unknown dependency type: %s", depType)
 	}
@@ -607,6 +619,52 @@ func (m *manager) initializeFFmpeg() error {
 	// 保存到存储
 	if err := m.boltStorage.SaveDependency(info); err != nil {
 		return fmt.Errorf("failed to save default FFmpeg dependency: %w", err)
+	}
+
+	return nil
+}
+
+func (m *manager) initializeDeno() error {
+	fileByte, version, err := getEmbeddedBinary(types.DependencyDeno)
+	if err != nil {
+		return err
+	}
+
+	// exec path
+	execPath, err := execPath(types.DependencyDeno, version)
+	if err != nil {
+		return err
+	}
+
+	// write
+	dest, err := os.OpenFile(execPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o755)
+	if err != nil {
+		return err
+	}
+	defer dest.Close()
+	reader := bytes.NewReader(fileByte)
+	if _, err = io.Copy(dest, reader); err != nil {
+		return err
+	}
+
+	info := &types.DependencyInfo{
+		Type:      types.DependencyDeno,
+		Name:      "Deno",
+		Path:      filepath.Dir(execPath),
+		ExecPath:  execPath,
+		Version:   version,
+		Available: true,
+		LastCheck: time.Now(),
+	}
+
+	// 校验文件
+	if err := m.validator.ValidateFile(execPath); err != nil {
+		return err
+	}
+
+	// 保存到存储
+	if err := m.boltStorage.SaveDependency(info); err != nil {
+		return fmt.Errorf("failed to save default Deno dependency: %w", err)
 	}
 
 	return nil

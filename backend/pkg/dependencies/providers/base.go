@@ -213,6 +213,8 @@ func (bp *BaseProvider) isExecutableFile(filename string) bool {
 		return baseName == "ffmpeg" || baseName == "ffmpeg.exe"
 	case types.DependencyYTDLP:
 		return baseName == "yt-dlp" || baseName == "yt-dlp.exe"
+	case types.DependencyDeno:
+		return baseName == "deno" || baseName == "deno.exe"
 	default:
 		return false
 	}

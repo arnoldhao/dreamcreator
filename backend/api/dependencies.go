@@ -88,6 +88,8 @@ func (api *DependenciesAPI) UpdateDependencyWithMirror(depType string, mirror st
 		depTypeEnum = types.DependencyYTDLP
 	case "ffmpeg":
 		depTypeEnum = types.DependencyFFmpeg
+	case "deno":
+		depTypeEnum = types.DependencyDeno
 	default:
 		return types.JSResp{
 			Success: false,
@@ -177,6 +179,20 @@ func (api *DependenciesAPI) ListMirrors(depType string) types.JSResp {
 			})
 		}
 
+	case "deno":
+		mirrors = consts.DenoMirrors
+		for mirrorName, mirror := range mirrors {
+			availableMirrors = append(availableMirrors, types.MirrorInfo{
+				Name:        mirror.Name,
+				DisplayName: mirror.DisplayName,
+				Description: mirror.Description,
+				Region:      mirror.Region,
+				Speed:       mirror.Speed,
+				Available:   true,
+				Recommended: mirrorName == consts.GetRecommendedMirror("deno", osType),
+			})
+		}
+
 	default:
 		return types.JSResp{
 			Success: false,
@@ -204,6 +220,8 @@ func (api *DependenciesAPI) InstallDependencyWithMirror(depType string, version 
 		depTypeEnum = types.DependencyYTDLP
 	case "ffmpeg":
 		depTypeEnum = types.DependencyFFmpeg
+	case "deno":
+		depTypeEnum = types.DependencyDeno
 	default:
 		logger.Error("Unsupported dependency type", zap.String("type", depType))
 		return types.JSResp{
@@ -254,6 +272,8 @@ func (api *DependenciesAPI) RepairDependency(depType string) types.JSResp {
 		depTypeEnum = types.DependencyYTDLP
 	case "ffmpeg":
 		depTypeEnum = types.DependencyFFmpeg
+	case "deno":
+		depTypeEnum = types.DependencyDeno
 	default:
 		logger.Error("Unsupported dependency type", zap.String("type", depType))
 		return types.JSResp{
