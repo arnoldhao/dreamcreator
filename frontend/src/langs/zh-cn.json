@@ -347,7 +347,11 @@
       "repair": "修复",
       "repairing": "修复中",
       "repair_success": "修复成功",
-      "repair_failed": "修复失败"
+      "repair_failed": "修复失败",
+      "clean_cache": "清理旧版本依赖",
+      "clean_success": "依赖缓存清理完成，释放 {size} MB 空间",
+      "clean_success_noop": "依赖缓存已是最新，无需清理",
+      "clean_failed": "依赖缓存清理失败"
       ,
       "error": {
         "timeout": "网络超时",

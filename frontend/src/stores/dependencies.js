@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ListDependencies, InstallDependencyWithMirror, UpdateDependencyWithMirror, CheckUpdates, ListMirrors, ValidateDependencies, RepairDependency, QuickValidateDependencies } from 'wailsjs/go/api/DependenciesAPI'
+import { ListDependencies, InstallDependencyWithMirror, UpdateDependencyWithMirror, CheckUpdates, ListMirrors, ValidateDependencies, RepairDependency, QuickValidateDependencies, CleanDependencies } from 'wailsjs/go/api/DependenciesAPI'
 import { useDtStore } from '@/stores/downloadTasks'
 import { i18nGlobal } from '@/utils/i18n.js'
 import WebSocketService from '@/services/websocket'
@@ -390,6 +390,45 @@ const useDependenciesStore = defineStore('dependencies', {
             } catch (e) {
                 $message.error(e.message || 'Quick validate failed')
                 return false
+            }
+        },
+
+        async cleanDependencies() {
+            this.loading = true
+            try {
+                const response = await CleanDependencies()
+                if (!response?.success) {
+                    throw new Error(response?.msg || 'Clean dependencies failed')
+                }
+
+                // 尝试解析释放空间信息（如果有的话，仅用于提示，不影响逻辑）
+                let freedBytes = 0
+                try {
+                    if (response.data) {
+                        const parsed = JSON.parse(response.data)
+                        if (parsed && typeof parsed.totalFreedBytes === 'number') {
+                            freedBytes = parsed.totalFreedBytes
+                        }
+                    }
+                } catch (_) {
+                    // ignore parse error, not critical
+                }
+
+                if (freedBytes > 0) {
+                    const mb = freedBytes / (1024 * 1024)
+                    $message.success(this.t('settings.dependency.clean_success', { size: mb.toFixed(1) }))
+                } else {
+                    $message.success(this.t('settings.dependency.clean_success_noop'))
+                }
+
+                await this.loadDependencies()
+                return true
+            } catch (error) {
+                console.error('Clean dependencies failed:', error)
+                $message.error(this.t('settings.dependency.clean_failed'))
+                return false
+            } finally {
+                this.loading = false
             }
         },
 
