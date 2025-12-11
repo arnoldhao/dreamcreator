@@ -63,6 +63,11 @@ func (s *Service) QuickValidateDependencies() (map[types.DependencyType]*types.D
 	return s.depManager.QuickValidate(s.ctx)
 }
 
+// CleanDependencies 清理未使用的依赖版本，仅保留当前版本
+func (s *Service) CleanDependencies() (*types.DependencyCleanResult, error) {
+	return s.depManager.CleanUnused(s.ctx)
+}
+
 // executablePath 获取可执行文件的文件夹路径
 func (s *Service) executablePath(depType types.DependencyType) (string, error) {
 	info, err := s.depManager.Get(s.ctx, depType)

@@ -293,3 +293,20 @@ func (api *DependenciesAPI) RepairDependency(depType string) types.JSResp {
 		Success: true,
 	}
 }
+
+// CleanDependencies 清理未使用的依赖版本，仅保留当前版本
+func (api *DependenciesAPI) CleanDependencies() types.JSResp {
+	result, err := api.downtasksService.CleanDependencies()
+	if err != nil {
+		return types.JSResp{
+			Success: false,
+			Msg:     err.Error(),
+		}
+	}
+
+	data, _ := json.Marshal(result)
+	return types.JSResp{
+		Success: true,
+		Data:    string(data),
+	}
+}

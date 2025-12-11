@@ -50,3 +50,16 @@ type MirrorInfo struct {
 	Available   bool   `json:"available"`
 	Recommended bool   `json:"recommended"`
 }
+
+// DependencyCleanStats 描述单个依赖类型的清理统计信息
+type DependencyCleanStats struct {
+	Type         DependencyType `json:"type"`
+	RemovedPaths []string       `json:"removedPaths"`
+	FreedBytes   int64          `json:"freedBytes"`
+}
+
+// DependencyCleanResult 描述一次依赖清理操作的总体结果
+type DependencyCleanResult struct {
+	TotalFreedBytes int64                  `json:"totalFreedBytes"`
+	Stats           []DependencyCleanStats `json:"stats"`
+}

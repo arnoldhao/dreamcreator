@@ -228,6 +228,11 @@ export default {
             await dependenciesStore.repairDependency(type)
         }
 
+        // 清理旧版本依赖，仅保留当前版本
+        const cleanDependencies = async () => {
+            await dependenciesStore.cleanDependencies()
+        }
+
         const showLastCheckError = (type) => {
             const dep = dependencies.value[type]
             if (!dep) return
@@ -281,12 +286,14 @@ export default {
             eventBus.on('dependency:validate', validateDependencies)
             eventBus.on('dependency:quick-validate', onQuickValidate)
             eventBus.on('dependency:check-updates', checkUpdates)
+            eventBus.on('dependency:clean', cleanDependencies)
         })
 
         onUnmounted(() => {
             eventBus.off('dependency:validate', validateDependencies)
             eventBus.off('dependency:quick-validate', onQuickValidate)
             eventBus.off('dependency:check-updates', checkUpdates)
+            eventBus.off('dependency:clean', cleanDependencies)
         })
 
         return {

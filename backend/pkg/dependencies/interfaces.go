@@ -54,6 +54,8 @@ type Manager interface {
 	ValidateDependencies(ctx context.Context) error
 	// QuickValidate 仅快速验证本地可执行是否可用
 	QuickValidate(ctx context.Context) (map[types.DependencyType]*types.DependencyInfo, error)
+	// CleanUnused 清理所有未被当前依赖信息使用的旧版本缓存
+	CleanUnused(ctx context.Context) (*types.DependencyCleanResult, error)
 	// RepairDependency 修复指定依赖
 	RepairDependency(ctx context.Context, depType types.DependencyType) error
 }

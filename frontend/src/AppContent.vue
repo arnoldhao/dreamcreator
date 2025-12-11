@@ -340,6 +340,7 @@ function getPageActions() {
           { key: 'dependency:quick-validate', icon: 'search-check', titleKey: 'settings.dependency.quick_validate' },
           { key: 'dependency:validate', icon: 'shield-check', titleKey: 'settings.dependency.validate' },
           { key: 'dependency:check-updates', icon: 'refresh', titleKey: 'settings.dependency.check_updates' },
+          { key: 'dependency:clean', icon: 'trash', titleKey: 'settings.dependency.clean_cache' },
         ],
         panels: [],
       }

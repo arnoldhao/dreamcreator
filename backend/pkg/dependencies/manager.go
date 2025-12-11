@@ -124,6 +124,121 @@ func (m *manager) GetHTTPClient() *http.Client {
 	return m.proxyManager.GetHTTPClient()
 }
 
+// CleanUnused 清理所有未被当前依赖信息使用的旧版本缓存，仅保留当前版本相关目录
+func (m *manager) CleanUnused(ctx context.Context) (*types.DependencyCleanResult, error) {
+	if m.boltStorage == nil {
+		return nil, errors.New("bolt storage not initialized")
+	}
+
+	// 从存储中获取当前依赖信息，确定每种依赖当前在用的路径
+	stored, err := m.boltStorage.ListAllDependencies()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list dependencies for cleaning: %w", err)
+	}
+
+	currentPaths := make(map[types.DependencyType]string)
+	for _, dep := range stored {
+		if dep == nil || dep.Path == "" {
+			continue
+		}
+		// 归一化路径，后续用前缀判断保护当前版本目录及其父目录
+		currentPaths[dep.Type] = filepath.Clean(dep.Path)
+	}
+
+	root := persistentDepsRoot()
+	result := &types.DependencyCleanResult{}
+	statsByType := make(map[types.DependencyType]*types.DependencyCleanStats)
+
+	// 目前支持的依赖类型列表
+	depTypes := []types.DependencyType{
+		types.DependencyYTDLP,
+		types.DependencyFFmpeg,
+		types.DependencyDeno,
+	}
+
+	for _, depType := range depTypes {
+		depRoot := filepath.Join(root, string(depType))
+
+		info, err := os.Stat(depRoot)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			logger.Warn("CleanUnused: failed to stat dependency root",
+				zap.String("type", string(depType)),
+				zap.String("root", depRoot),
+				zap.Error(err))
+			continue
+		}
+		if !info.IsDir() {
+			continue
+		}
+
+		entries, err := os.ReadDir(depRoot)
+		if err != nil {
+			logger.Warn("CleanUnused: failed to read dependency root",
+				zap.String("type", string(depType)),
+				zap.String("root", depRoot),
+				zap.Error(err))
+			continue
+		}
+
+		currentPath, hasCurrent := currentPaths[depType]
+		if hasCurrent {
+			currentPath = filepath.Clean(currentPath)
+		}
+
+		for _, entry := range entries {
+			entryPath := filepath.Join(depRoot, entry.Name())
+
+			// 保留当前版本所在目录及其父目录
+			if hasCurrent && currentPath != "" {
+				if entryPath == currentPath || strings.HasPrefix(currentPath, entryPath+string(os.PathSeparator)) {
+					continue
+				}
+			}
+
+			// 计算要删除路径的大小
+			size, sizeErr := calcPathSize(entryPath)
+			if sizeErr != nil {
+				logger.Warn("CleanUnused: failed to calculate path size",
+					zap.String("type", string(depType)),
+					zap.String("path", entryPath),
+					zap.Error(sizeErr))
+				// 即使计算失败，也尝试删除，避免长时间残留垃圾
+			}
+
+			if err := os.RemoveAll(entryPath); err != nil {
+				logger.Warn("CleanUnused: failed to remove path",
+					zap.String("type", string(depType)),
+					zap.String("path", entryPath),
+					zap.Error(err))
+				continue
+			}
+
+			if sizeErr == nil {
+				result.TotalFreedBytes += size
+				stats, ok := statsByType[depType]
+				if !ok {
+					stats = &types.DependencyCleanStats{
+						Type:         depType,
+						RemovedPaths: make([]string, 0),
+					}
+					statsByType[depType] = stats
+				}
+				stats.FreedBytes += size
+				stats.RemovedPaths = append(stats.RemovedPaths, entryPath)
+			}
+		}
+	}
+
+	for _, st := range statsByType {
+		result.Stats = append(result.Stats, *st)
+	}
+
+	return result, nil
+}
+
 // Get 获取依赖信息
 func (m *manager) Get(ctx context.Context, depType types.DependencyType) (*types.DependencyInfo, error) {
 	var lastErr error
@@ -244,6 +359,13 @@ func (m *manager) Install(ctx context.Context, depType types.DependencyType, con
 			} else {
 				// 发布下载进度事件：4.下载成功
 				m.pushEvent.PublishInstallEvent(string(depType), types.DependenciesInstallCompleted, 100)
+
+				// 安装成功后尝试清理旧版本缓存，仅保留当前版本
+				if _, cleanErr := m.CleanUnused(ctx); cleanErr != nil {
+					logger.Warn("Failed to clean unused dependencies after install",
+						zap.String("type", string(depType)),
+						zap.Error(cleanErr))
+				}
 			}
 		}
 
@@ -716,4 +838,34 @@ func execPath(depType types.DependencyType, version string) (string, error) {
 	}
 
 	return execPath, nil
+}
+
+// calcPathSize 计算给定路径（文件或目录）的总大小
+func calcPathSize(path string) (int64, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0, err
+	}
+
+	// 单个文件直接返回大小
+	if !info.IsDir() {
+		return info.Size(), nil
+	}
+
+	var total int64
+	// 目录则递归计算所有文件大小
+	err = filepath.Walk(path, func(_ string, fi os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if fi.IsDir() {
+			return nil
+		}
+		total += fi.Size()
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return total, nil
 }

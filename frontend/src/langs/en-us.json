@@ -345,7 +345,11 @@
       "repair": "Repair",
       "repairing": "Repairing",
       "repair_success": "Repair Success",
-      "repair_failed": "Repair Failed"
+      "repair_failed": "Repair Failed",
+      "clean_cache": "Clean Old Versions",
+      "clean_success": "Dependency cache cleaned ({size} MB freed)",
+      "clean_success_noop": "Dependency cache is already clean",
+      "clean_failed": "Failed to clean dependency cache"
       ,
       "error": {
         "timeout": "Network timeout",
