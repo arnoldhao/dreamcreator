@@ -45,6 +45,7 @@ import useLayoutStore from '@/stores/layout.js'
 import useSettingsStore from '@/stores/settings.js'
 import usePreferencesStore from '@/stores/preferences.js'
 import PopoverMenu from '@/components/common/PopoverMenu.vue'
+import { Events, Window } from '@wailsio/runtime'
 
 const navStore = useNavStore()
 const layout = useLayoutStore()
@@ -65,7 +66,7 @@ const props = defineProps({
 const emit = defineEmits(['update:value'])
 
 const widthPx = computed(() => `${props.width}px`)
-const uiFrosted = computed(() => (prefStore?.general?.uiStyle || 'frosted') === 'frosted')
+const uiFrosted = computed(() => true)
 const isDarkMode = computed(() => !!prefStore?.isDark)
 // 根据明暗主题调整毛玻璃底色（仅 ribbon 区域）
 const ribbonFrostedBg = computed(() => isDarkMode.value ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.28)')
@@ -95,7 +96,11 @@ function onBottomItemClick(m) {
 
 function openSettings(key) {
   settings.setPage(key)
-  emit('update:value', navStore.navOptions.SETTINGS)
+  try { Events.Emit('settings:navigate', key) } catch {}
+  try {
+    const sw = Window.Get('settings')
+    sw.Show()
+  } catch {}
   showSettingsMenu.value = false
 }
 

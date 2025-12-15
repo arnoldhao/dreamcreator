@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"go.uber.org/zap"
 )
@@ -118,7 +118,7 @@ func (api *SubtitlesAPI) ExportSubtitleToFile(id, langCode, targetFormat string)
 	defaultFilename := fmt.Sprintf("%s.%s", projectName, strings.ToLower(targetFormat))
 
 	// 3. 创建文件过滤器
-	filters := []runtime.FileFilter{
+	filters := []application.FileFilter{
 		{
 			DisplayName: fmt.Sprintf("%s Files (*.%s)", strings.ToUpper(targetFormat), strings.ToLower(targetFormat)),
 			Pattern:     fmt.Sprintf("*.%s", strings.ToLower(targetFormat)),
@@ -129,13 +129,19 @@ func (api *SubtitlesAPI) ExportSubtitleToFile(id, langCode, targetFormat string)
 		},
 	}
 
-	// 4. 显示保存文件对话框
-	filePath, err := runtime.SaveFileDialog(api.ctx, runtime.SaveDialogOptions{
-		Title:           "Save Subtitle",
-		DefaultFilename: defaultFilename,
-		Filters:         filters,
-		ShowHiddenFiles: true,
-	})
+	// 4. 显示保存文件对话框（Wails v3 dialogs API）
+	dialog := application.SaveFileDialog().
+		SetFilename(defaultFilename).
+		ShowHiddenFiles(true)
+	if app := application.Get(); app != nil {
+		if win, ok := app.Window.Get("main"); ok && win != nil {
+			dialog.AttachToWindow(win)
+		}
+	}
+	for _, f := range filters {
+		dialog.AddFilter(f.DisplayName, f.Pattern)
+	}
+	filePath, err := dialog.PromptForSingleSelection()
 
 	if err != nil {
 		msg := strings.ToLower(err.Error())

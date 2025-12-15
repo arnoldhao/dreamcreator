@@ -68,8 +68,12 @@ func (bp *BaseProvider) GetArchivePath(url, version string) string {
 	return filepath.Join(bp.cacheDir, string(bp.depType), archiveName)
 }
 
+func (bp *BaseProvider) extractedDir(version string) string {
+	return filepath.Join(bp.cacheDir, fmt.Sprintf("%s-%s-extracted", bp.name, version))
+}
+
 // DownloadAndExtract 下载并解压文件
-func (bp *BaseProvider) DownloadAndExtract(ctx context.Context, manager dependencies.Manager, url, version string, progress dependencies.ProgressCallback) (string, error) {
+func (bp *BaseProvider) DownloadAndExtract(ctx context.Context, manager dependencies.Manager, url, version string, progress dependencies.ProgressCallback, force bool) (string, error) {
 	// 获取目标路径
 	archivePath := bp.GetArchivePath(url, version)
 
@@ -77,12 +81,17 @@ func (bp *BaseProvider) DownloadAndExtract(ctx context.Context, manager dependen
 		return "", err
 	}
 
-	// 检查文件是否已存在且有效
+	// 强制更新：清理缓存，确保重新下载
+	if force {
+		_ = os.Remove(archivePath)
+		_ = os.RemoveAll(bp.extractedDir(version))
+	}
+
+	// 检查文件是否已存在且有效；无效则下载
 	if bp.isArchiveValid(archivePath) {
 		logger.Info("Archive already exists and is valid, skipping download",
 			zap.String("path", archivePath))
 	} else {
-		// 下载文件
 		if err := manager.GetDownloader().Download(ctx, url, archivePath, progress); err != nil {
 			logger.Warn("Failed to download archive",
 				zap.String("url", url),
@@ -134,7 +143,7 @@ func (bp *BaseProvider) extractZip(archivePath, version string) (string, error) 
 	defer r.Close()
 
 	// 修改：使用不同的目录名避免冲突
-	extractDir := filepath.Join(bp.cacheDir, fmt.Sprintf("%s-%s-extracted", bp.name, version))
+	extractDir := bp.extractedDir(version)
 	if err := os.MkdirAll(extractDir, 0755); err != nil {
 		return "", err
 	}

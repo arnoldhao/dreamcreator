@@ -1,3 +1,5 @@
+@import "./styles/shadcn.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

@@ -80,7 +80,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { UpdateProjectName } from 'wailsjs/go/api/SubtitlesAPI'
+import { UpdateProjectName } from 'bindings/dreamcreator/backend/api/subtitlesapi'
 import { useSubtitleStore } from '@/stores/subtitle'
 import { useSubtitleTasksStore } from '@/stores/subtitleTasks'
 

@@ -54,7 +54,7 @@ func (p *ffmpegProvider) Download(ctx context.Context, manager dependencies.Mana
 	}
 
 	// 使用 BaseProvider 的 DownloadAndExtract 方法
-	execPath, err := p.DownloadAndExtract(ctx, manager, downloadURL, version, progress)
+	execPath, err := p.DownloadAndExtract(ctx, manager, downloadURL, version, progress, config.ForceUpdate)
 	if err != nil {
 		return nil, err
 	}

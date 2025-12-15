@@ -111,14 +111,19 @@ func (s *Service) handleWebSocket(upgrader websocket.Upgrader, w http.ResponseWr
 	}
 
 	// 注册客户端
+	var oldClient *Client
 	s.clientMutex.Lock()
-	// 如果已存在同ID客户端，先关闭旧连接
-	if oldClient, exists := s.clients[clientID]; exists {
-		close(oldClient.send)
-		oldClient.conn.Close()
+	// 如果已存在同ID客户端，先移除旧连接；旧连接的 readPump defer 不能误删新连接
+	if existing, exists := s.clients[clientID]; exists {
+		oldClient = existing
+		delete(s.clients, clientID)
 	}
 	s.clients[clientID] = client
 	s.clientMutex.Unlock()
+
+	if oldClient != nil {
+		_ = oldClient.conn.Close()
+	}
 
 	logger.Info("WebSocket client connected", zap.String("id", clientID))
 
@@ -129,7 +134,7 @@ func (s *Service) handleWebSocket(upgrader websocket.Upgrader, w http.ResponseWr
 
 func (c *Client) readPump() {
 	defer func() {
-		c.service.unregisterClient(c.id)
+		c.service.unregisterClient(c)
 		c.conn.Close()
 	}()
 
@@ -274,15 +279,18 @@ func (s *Service) handleHeartbeat() {
 	}
 }
 
-func (s *Service) unregisterClient(clientID string) {
+func (s *Service) unregisterClient(client *Client) {
 	s.clientMutex.Lock()
 	defer s.clientMutex.Unlock()
 
-	if client, exists := s.clients[clientID]; exists {
-		close(client.send)
-		delete(s.clients, clientID)
-		logger.Info("WebSocket client disconnected", zap.String("id", clientID))
+	current, exists := s.clients[client.id]
+	if !exists || current != client {
+		return
 	}
+
+	close(current.send)
+	delete(s.clients, client.id)
+	logger.Info("WebSocket client disconnected", zap.String("id", client.id))
 }
 
 func (s *Service) SendToClient(message types.WSResponse) {

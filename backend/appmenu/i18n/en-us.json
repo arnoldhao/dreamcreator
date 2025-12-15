@@ -1,0 +1,31 @@
+{
+  "menu.app.about": "About {app}",
+  "menu.app.settings": "Settings",
+  "menu.app.hide": "Hide {app}",
+  "menu.app.show_all": "Show All",
+  "menu.app.quit": "Quit {app}",
+
+  "menu.file.title": "File",
+
+  "menu.edit.title": "Edit",
+  "menu.edit.undo": "Undo",
+  "menu.edit.redo": "Redo",
+  "menu.edit.cut": "Cut",
+  "menu.edit.copy": "Copy",
+  "menu.edit.paste": "Paste",
+  "menu.edit.paste_and_match_style": "Paste and Match Style",
+  "menu.edit.delete": "Delete",
+  "menu.edit.select_all": "Select All",
+  "menu.edit.speech": "Speech",
+  "menu.edit.start_speaking": "Start Speaking",
+  "menu.edit.stop_speaking": "Stop Speaking",
+
+  "menu.window.title": "Window",
+  "menu.window.minimise": "Minimize",
+  "menu.window.zoom": "Zoom",
+  "menu.window.bring_all_to_front": "Bring All to Front",
+  "menu.window.close": "Close Window",
+
+  "menu.help.title": "Help",
+  "menu.help.learn_more": "Learn More"
+}

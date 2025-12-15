@@ -1,4 +1,4 @@
-// 与项目统一：仅使用 Wails 绑定的 API（wailsjs/go/api/LLMAPI）。
+// 与项目统一：仅使用 Wails v3 生成的绑定 API（bindings/dreamcreator/backend/api/llmapi）。
 // 注意：不要在日志中输出 api_key。
 
 import {
@@ -15,7 +15,7 @@ import {
   DeleteGlobalProfile,
   ResetLLMData,
   ListAddableProviders,
-} from 'wailsjs/go/api/LLMAPI'
+} from 'bindings/dreamcreator/backend/api/llmapi'
 
 function toJS(resp) {
   if (!resp || typeof resp !== 'object' || !('success' in resp)) { return resp }

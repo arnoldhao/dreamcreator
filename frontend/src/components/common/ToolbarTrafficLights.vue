@@ -1,9 +1,9 @@
 <script setup>
-import { Quit, WindowMinimise, WindowToggleMaximise } from 'wailsjs/runtime/runtime.js'
+import { Application, Window } from '@wailsio/runtime'
 
-const handleClose = () => { try { Quit() } catch {} }
-const handleMinimise = () => { try { WindowMinimise() } catch {} }
-const handleMaximise = () => { try { WindowToggleMaximise() } catch {} }
+const handleClose = () => { try { Application.Quit() } catch {} }
+const handleMinimise = () => { try { Window.Minimise() } catch {} }
+const handleMaximise = () => { try { Window.ToggleMaximise() } catch {} }
 </script>
 
 <template>

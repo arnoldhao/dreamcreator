@@ -1,0 +1,26 @@
+version: '3'
+
+includes:
+  common: ./build/Taskfile.yml
+
+vars:
+  APP_NAME: "DreamCreator"
+  BIN_DIR: "build/bin"
+  VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+
+tasks:
+  build:
+    summary: Builds the backend application
+    cmds:
+      - task: common:build:backend
+
+  run:
+    summary: Runs the application
+    cmds:
+      - task: common:run
+
+  dev:
+    summary: Runs the application in development mode (Wails v3 standard flow)
+    cmds:
+      - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
+

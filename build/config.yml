@@ -1,0 +1,52 @@
+version: '3'
+
+info:
+  companyName: "Arnold HAO"
+  productName: "DreamCreator"
+  productIdentifier: "com.dreamcreator.app"
+  description: "DreamCreator desktop application"
+  copyright: "(c) 2025, Arnold HAO"
+  comments: ""
+  # Keep in sync with backend/consts/APP_VERSION if you want, but it's not required for dev.
+  version: "dev"
+
+dev_mode:
+  root_path: .
+  log_level: info
+  debounce: 800
+  ignore:
+    dir:
+      - .git
+      - node_modules
+      - bin
+    file:
+      - .DS_Store
+      - .gitignore
+      - .gitkeep
+    watched_extension:
+      - "*.go"
+    git_ignore: true
+
+  executes:
+    # 1) 安装前端依赖（仅第一次） - 使用标准 common:install:frontend:deps 任务
+    - cmd: wails3 task common:install:frontend:deps
+      type: once
+
+    # 2) 启动前端 Vite Dev Server（端口由 WAILS_VITE_PORT 控制）
+    - cmd: wails3 task common:dev:frontend
+      type: background
+
+    # 3) 整理 Go 依赖（参考官方示例，直接 go mod tidy）
+    - cmd: go mod tidy
+      type: blocking
+
+    # 4) 使用 Taskfile 的 build 任务构建后端
+    - cmd: wails3 task build
+      type: blocking
+
+    # 5) 使用 Taskfile 的 run 任务运行应用
+    - cmd: wails3 task run
+      type: primary
+
+fileAssociations: []
+other: []

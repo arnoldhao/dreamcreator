@@ -28,7 +28,7 @@ import {
   UpsertTargetLanguage,
   DeleteTargetLanguage,
   ResetTargetLanguagesToDefault
-} from 'wailsjs/go/api/SubtitlesAPI';
+} from 'bindings/dreamcreator/backend/api/subtitlesapi';
 import { createAutoSaveManager } from '@/utils/autoSave.js';
 import { useDtStore } from '@/stores/downloadTasks'
 import { useSubtitleStore } from '@/stores/subtitle'

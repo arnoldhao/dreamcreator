@@ -53,7 +53,7 @@ func (p *denoProvider) Download(ctx context.Context, manager dependencies.Manage
 	}
 
 	// 下载并解压或直接写入可执行文件
-	execPath, err := p.DownloadAndExtract(ctx, manager, downloadURL, version, progress)
+	execPath, err := p.DownloadAndExtract(ctx, manager, downloadURL, version, progress, config.ForceUpdate)
 	if err != nil {
 		return nil, err
 	}

@@ -23,7 +23,7 @@
   import { ref, watch, onMounted, computed } from 'vue'
   import Icon from '@/components/base/Icon.vue'
   // 确保从正确的路径导入 GetImage
-  import { GetImage } from 'wailsjs/go/api/UtilsAPI'
+  import { GetImage } from 'bindings/dreamcreator/backend/api/utilsapi'
   import { useLoggerStore } from '@/stores/logger'
   
   const props = defineProps({

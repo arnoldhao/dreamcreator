@@ -10,16 +10,13 @@ import ToolbarTrafficLights from '@/components/common/ToolbarTrafficLights.vue'
 import useLayoutStore from '@/stores/layout.js'
 import Inspector from '@/components/inspector/Inspector.vue'
 import useInspectorStore from '@/stores/inspector.js'
-import { EventsOn, WindowIsFullscreen, WindowIsMaximised, WindowToggleMaximise } from 'wailsjs/runtime/runtime.js'
+import { Events, Window } from '@wailsio/runtime'
 import { isMacOS, isWindows } from '@/utils/platform.js'
 import VideoDownloadPage from "@/views/DownloadPage.vue";
 import Subtitle from '@/views/SubtitlePage.vue';
 import { useSubtitleStore } from '@/stores/subtitle.js'
 import { subtitleService } from '@/services/subtitleService.js'
 import { useI18n } from 'vue-i18n'
-import useSettingsStore from '@/stores/settings.js'
-import Dependency from '@/views/DependencyPage.vue'
-import Settings from '@/views/SettingsPage.vue'
 import Providers from '@/views/ProvidersPage.vue'
 
 const props = defineProps({
@@ -34,7 +31,6 @@ const layout = useLayoutStore()
 const inspector = useInspectorStore()
 const subtitleStore = useSubtitleStore()
 const { t } = useI18n()
-const settingsStore = useSettingsStore()
 // download toolbar search
 const downloadNewSearch = ref('')
 const subtitleSearch = ref('')
@@ -82,13 +78,7 @@ const metricsStandardDesc = computed(() => {
 // Toolbar CTA buttons (primary emphasis) for key modal actions
 const primaryModalActions = new Set(['download:new-task', 'subtitle:open-file'])
 
-// 动态内容标题：在设置页显示当前子页标题
 const contentTitle = computed(() => {
-  if (navStore.currentNav === navStore.navOptions.SETTINGS) {
-    if (settingsStore.currentPage === 'dependency') return t('settings.dependency.title')
-    if (settingsStore.currentPage === 'about') return t('settings.about.title')
-    return t('settings.general.name')
-  }
   if (navStore.currentNav === navStore.navOptions.PROVIDERS) {
     return t('settings.model_provider')
   }
@@ -143,8 +133,8 @@ const leftCapWidth = computed(() => {
   return `${w}px`
 })
 
-// UI style: frosted/classic comes from preferences
-const uiFrosted = computed(() => (prefStore?.general?.uiStyle || 'frosted') === 'frosted')
+// UI style is fixed to frosted
+const uiFrosted = computed(() => true)
 const isDarkMode = computed(() => !!prefStore?.isDark)
 
 // ribbon/left-cap 的毛玻璃底色，按明暗主题区分
@@ -163,30 +153,20 @@ const leftCapStyle = computed(() => {
       WebkitBackdropFilter: 'none'
     }
   }
-  // ribbon visible
-  if (uiFrosted.value) {
-    // Background is painted by toolbar-left-stripe overlay; keep left cap transparent but with divider
-    return {
-      ...base,
-      borderRight: '1px solid var(--macos-divider-weak)',
-      background: 'transparent',
-      backdropFilter: 'none',
-      WebkitBackdropFilter: 'none',
-      isolation: 'isolate',
-      mixBlendMode: 'normal'
-    }
-  }
-  // classic
+  // ribbon visible: background is painted by toolbar-left-stripe overlay; keep left cap transparent but with divider
   return {
     ...base,
     borderRight: '1px solid var(--macos-divider-weak)',
-    background: 'var(--sidebar-bg)'
+    background: 'transparent',
+    backdropFilter: 'none',
+    WebkitBackdropFilter: 'none',
+    isolation: 'isolate',
+    mixBlendMode: 'normal'
   }
 })
 
 // Opaque layer to repaint middle+right backgrounds when opening a transparent hole under ribbon
 const opaqueLayerStyle = computed(() => {
-  if (!uiFrosted.value) return { display: 'none' }
   // Offset equals ribbon width when visible, otherwise 0
   const left = layout.ribbonVisible ? layout.ribbonWidth : 0
   return { left: left + 'px' }
@@ -194,7 +174,7 @@ const opaqueLayerStyle = computed(() => {
 
 // Background for the whole window: make only the left ribbon stripe transparent in frosted mode
 const windowBgVars = computed(() => {
-  if (!uiFrosted.value || !layout.ribbonVisible) return {}
+  if (!layout.ribbonVisible) return {}
   const w = Math.max(0, Number(layout.ribbonWidth) || 0)
   const bg = `linear-gradient(to right, transparent 0, transparent ${w}px, var(--macos-background) ${w}px, var(--macos-background) 100%)`
   return { '--window-bg': bg }
@@ -202,8 +182,6 @@ const windowBgVars = computed(() => {
 
 // Toolbar painting: remove toolbar's own frosted background under left cap and repaint middle+right
 const toolbarBgOverride = computed(() => {
-  // classic: 使用默认样式
-  if (!uiFrosted.value) return {}
   // frosted + ribbon 可见：清空 toolbar 自身底色，由我们分区绘制（左透右不透）
   if (layout.ribbonVisible) {
     return { background: 'transparent', backdropFilter: 'none', WebkitBackdropFilter: 'none' }
@@ -213,13 +191,12 @@ const toolbarBgOverride = computed(() => {
 })
 
 const toolbarLayerStyle = computed(() => {
-  if (!uiFrosted.value || !layout.ribbonVisible) return { display: 'none' }
+  if (!layout.ribbonVisible) return { display: 'none' }
   return { left: (layout.ribbonWidth || 0) + 'px' }
 })
 
 // Unified left frosted stripe for toolbar to match ribbon area; animates as one block
 const toolbarLeftStripeStyle = computed(() => {
-  if (!uiFrosted.value) return { display: 'none' }
   const bg = layout.ribbonVisible ? ribbonFrostedBg.value : 'var(--macos-surface-opaque)'
   const blur = layout.ribbonVisible ? 'var(--macos-surface-blur)' : 'none'
   return {
@@ -264,16 +241,18 @@ const onToggleMaximize = (isMaximised) => {
   }
 }
 
-EventsOn('window_changed', (info) => {
-  const { fullscreen, maximised } = info
+// Mirror old v2 EventsOn behaviour using the v3 Events API.
+Events.On('window_changed', (ev) => {
+  const info = ev?.data ?? ev
+  const { fullscreen, maximised } = info || {}
   onToggleFullscreen(fullscreen === true)
-  onToggleMaximize(maximised)
+  onToggleMaximize(!!maximised)
 })
 
 onMounted(async () => {
-  const fullscreen = await WindowIsFullscreen()
+  const fullscreen = await Window.IsFullscreen()
   onToggleFullscreen(fullscreen === true)
-  const maximised = await WindowIsMaximised()
+  const maximised = await Window.IsMaximised()
   onToggleMaximize(maximised)
 
   // initialize inspector actions for current page
@@ -426,6 +405,11 @@ function onModalClick(act) {
     return
   }
   eventBus.emit(act.key)
+}
+
+// Preserve template hook name from v2 runtime
+const WindowToggleMaximise = () => {
+  try { Window.ToggleMaximise() } catch {}
 }
 
 </script>
@@ -634,7 +618,7 @@ function onModalClick(act) {
         <!-- content column: includes local header when ribbon is visible -->
         <div class="flex flex-col flex-1 min-h-0 min-w-0">
           <div ref="pageScrollEl" class="page-scroll flex-1 min-h-0 overflow-auto"
-               :class="[{ 'with-top-divider': (navStore.currentNav === navStore.navOptions.SETTINGS) || (navStore.currentNav === navStore.navOptions.PROVIDERS) }, { 'scrolled': hasTopScroll }, { 'pad-bottom-for-fab': needsBottomPad }]">
+               :class="[{ 'with-top-divider': (navStore.currentNav === navStore.navOptions.PROVIDERS) }, { 'scrolled': hasTopScroll }, { 'pad-bottom-for-fab': needsBottomPad }]">
             <!-- download page (macOS style) -->
             <div v-show="navStore.currentNav === navStore.navOptions.DOWNLOAD" class="content-container min-w-0">
               <video-download-page />
@@ -649,17 +633,6 @@ function onModalClick(act) {
             <div v-if="navStore.currentNav === navStore.navOptions.PROVIDERS" class="content-container min-w-0 flex flex-1 min-h-0 relative">
               <div class="settings-host with-split" :style="{ '--settings-left': layout.ribbonWidth + 'px' }">
                 <Providers />
-              </div>
-            </div>
-
-            <!-- settings page -->
-            <div v-show="navStore.currentNav === navStore.navOptions.SETTINGS" class="content-container min-w-0 flex flex-1 min-h-0 relative">
-              <div class="settings-host" :class="{ 'with-split': [settingsStore.settingsOptions.GENERAL, settingsStore.settingsOptions.ABOUT].includes(settingsStore.currentPage) }" :style="{ '--settings-left': layout.ribbonWidth + 'px' }">
-                <component :is="{
-                  general: Settings,
-                  dependency: Dependency,
-                  about: Settings,
-                }[settingsStore.currentPage] || Settings" />
               </div>
             </div>
           </div>
@@ -814,6 +787,6 @@ function onModalClick(act) {
 /* Ensure content can scroll past floating controls on subtitle edit page */
 #app-content .page-scroll.pad-bottom-for-fab { padding-bottom: 48px !important; }
 
-/* Light + frosted: make left-cap ribbon toggle icon use primary text color for clarity */
-[data-ui="frosted"][data-theme="light"] .macos-toolbar-leftcap .toolbar-chip { color: var(--macos-text-primary); }
+/* Light theme: make left-cap ribbon toggle icon use primary text color for clarity */
+[data-theme="light"] .macos-toolbar-leftcap .toolbar-chip { color: var(--macos-text-primary); }
 </style>

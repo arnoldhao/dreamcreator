@@ -4,7 +4,7 @@ import WindowMax from '@/components/window-controls/WindowMax.vue'
 import WindowRestore from '@/components/window-controls/WindowRestore.vue'
 import WindowClose from '@/components/window-controls/WindowClose.vue'
 import { computed } from 'vue'
-import { Quit, WindowMinimise, WindowToggleMaximise } from 'wailsjs/runtime/runtime.js'
+import { Application, Window } from '@wailsio/runtime'
 
 const props = defineProps({
     size: {
@@ -20,16 +20,16 @@ const buttonSize = computed(() => {
     return props.size + 'px'
 })
 
-const handleMinimise = async () => {
-    WindowMinimise()
+const handleMinimise = () => {
+    try { Window.Minimise() } catch {}
 }
 
 const handleMaximise = () => {
-    WindowToggleMaximise()
+    try { Window.ToggleMaximise() } catch {}
 }
 
 const handleClose = () => {
-    Quit()
+    try { Application.Quit() } catch {}
 }
 </script>
 

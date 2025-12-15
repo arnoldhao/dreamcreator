@@ -245,9 +245,6 @@
     "general": {
       "name": "通用设置",
       "appearance": "外观",
-      "ui_style": "界面风格",
-      "ui_style_classic": "经典",
-      "ui_style_frosted": "磨砂",
       "theme": "主题",
       "appearance_light": "浅色",
       "appearance_dark": "深色",
@@ -303,7 +300,7 @@
       "status": {
         "processing": "处理中...",
         "preparing": "准备中...",
-        "downloading": "下载中 {percentage}%",
+        "downloading": "下载中...",
         "extracting": "解压中...",
         "validating": "验证中...",
         "cleaning": "清理中...",
@@ -336,6 +333,7 @@
       "install_failed": "安装失败",
       "update_success": "更新成功",
       "update_failed": "更新失败",
+      "reinstall": "重装",
       "select_mirror": "选择镜像",
       "recommended": "推荐",
       "load_mirrors_failed": "加载镜像失败",

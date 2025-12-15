@@ -35,6 +35,8 @@ export default defineConfig({
             '@': rootPath + 'src',
             stores: rootPath + 'src/stores',
             wailsjs: rootPath + 'wailsjs',
+            // Wails v3 bindings output directory
+            bindings: rootPath + 'bindings',
         },
     },
     define: {

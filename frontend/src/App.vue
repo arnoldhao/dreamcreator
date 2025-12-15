@@ -1,14 +1,20 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue'
+import SettingsWindowLayout from '@/layouts/SettingsWindowLayout.vue'
 import { onMounted, ref, watch } from 'vue'
 import usePreferencesStore from './stores/preferences.js'
 import { useI18n } from 'vue-i18n'
-import { WindowSetDarkTheme, WindowSetLightTheme } from 'wailsjs/runtime/runtime.js'
 import { applyMacosTheme, applyAccent } from '@/utils/theme.js'
 
 const prefStore = usePreferencesStore()
 const i18n = useI18n()
 const initializing = ref(true)
+const windowMode = ref('main')
+
+try {
+  const mode = new URLSearchParams(window.location.search).get('window')
+  windowMode.value = mode || 'main'
+} catch {}
 onMounted(async () => {
   try {
     initializing.value = true
@@ -25,9 +31,6 @@ onMounted(async () => {
 watch(
   () => prefStore.isDark,
   (isDark) => {
-    // Set Wails window theme
-    isDark ? WindowSetDarkTheme() : WindowSetLightTheme()
-    
     // Apply custom theme variables and accent
     applyMacosTheme(isDark)
     applyAccent(prefStore.general.theme, isDark)
@@ -53,7 +56,8 @@ watch(
 
 <template>
   <div class="app-container">
-    <app-layout :loading="initializing" />
+    <SettingsWindowLayout v-if="windowMode === 'settings'" />
+    <app-layout v-else :loading="initializing" />
   </div>
 </template>
 

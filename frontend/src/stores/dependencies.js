@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ListDependencies, InstallDependencyWithMirror, UpdateDependencyWithMirror, CheckUpdates, ListMirrors, ValidateDependencies, RepairDependency, QuickValidateDependencies, CleanDependencies } from 'wailsjs/go/api/DependenciesAPI'
+import { ListDependencies, InstallDependencyWithMirror, UpdateDependencyWithMirror, CheckUpdates, ListMirrors, ValidateDependencies, RepairDependency, QuickValidateDependencies, CleanDependencies } from 'bindings/dreamcreator/backend/api/dependenciesapi'
 import { useDtStore } from '@/stores/downloadTasks'
 import { i18nGlobal } from '@/utils/i18n.js'
 import WebSocketService from '@/services/websocket'
@@ -112,6 +112,8 @@ const useDependenciesStore = defineStore('dependencies', {
             if (this._wsListenersSetup) return;
 
             const dtStore = useDtStore();
+            // Ensure the WebSocket namespace listeners are registered (Settings window may not initialize dtStore).
+            dtStore.init();
 
             // 创建回调函数并保存引用
             this._dependencyProgressHandler = this.createDependencyProgressHandler();
@@ -140,8 +142,7 @@ const useDependenciesStore = defineStore('dependencies', {
                                 break
                             case 'downloading':
                                 const percent = formatPercentage(data.percentage || 0);
-                                let progressText = this.t('settings.dependency.status.downloading', { percentage: percent });
-                                this.dependencies[depType].installProgress = progressText
+                                this.dependencies[depType].installProgress = this.t('settings.dependency.status.downloading')
                                 this.dependencies[depType].installProgressPercent = percent
                                 break
                             case 'extracting':
@@ -176,7 +177,7 @@ const useDependenciesStore = defineStore('dependencies', {
                                 this.dependencies[depType].installing = false
                                 // toast success based on action
                                 const action = this.dependencies[depType].currentAction
-                                if (action === 'update') {
+                                if (action === 'update' || action === 'reinstall') {
                                     $message.success(this.t('settings.dependency.update_success'))
                                 } else {
                                     $message.success(this.t('settings.dependency.install_success'))
@@ -244,6 +245,28 @@ const useDependenciesStore = defineStore('dependencies', {
                 this.dependencies[type].installing = false
                 this.dependencies[type].installProgress = this.t('settings.dependency.status.updateFailed')
                 // dialog
+                $dialog.error({
+                    title: this.t('settings.dependency.update_failed'),
+                    content: error.message,
+                })
+            }
+        },
+
+        async reinstallDependency(type, mirror) {
+            await WebSocketService.ensureConnected()
+
+            this.dependencies[type].installing = true
+            this.dependencies[type].installProgress = this.t('settings.dependency.updating')
+            this.dependencies[type].currentAction = 'reinstall'
+
+            try {
+                const response = await UpdateDependencyWithMirror(type, mirror)
+                if (!response.success) {
+                    throw new Error(response.msg)
+                }
+            } catch (error) {
+                this.dependencies[type].installing = false
+                this.dependencies[type].installProgress = this.t('settings.dependency.status.updateFailed')
                 $dialog.error({
                     title: this.t('settings.dependency.update_failed'),
                     content: error.message,

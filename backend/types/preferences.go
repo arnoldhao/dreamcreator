@@ -26,7 +26,6 @@ func NewPreferences() Preferences {
 		General: PreferencesGeneral{
 			Appearance:  "auto",
 			Theme:       "blue",
-			UiStyle:     "frosted",
 			Language:    "auto",
 			CheckUpdate: true,
 		},
@@ -58,8 +57,6 @@ type PreferencesGeneral struct {
 	Appearance string `json:"appearance" yaml:"appearance"`
 	// Theme controls accent/highlight color (e.g., blue, purple)
 	Theme string `json:"theme" yaml:"theme"`
-	// UiStyle controls UI material style: 'frosted' | 'classic'
-	UiStyle     string `json:"uiStyle" yaml:"ui_style"`
 	Language    string `json:"language" yaml:"language"`
 	CheckUpdate bool   `json:"checkUpdate" yaml:"check_update"`
 	SkipVersion string `json:"skipVersion" yaml:"skip_version,omitempty"`

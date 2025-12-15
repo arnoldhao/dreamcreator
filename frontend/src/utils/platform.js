@@ -1,11 +1,16 @@
-import { Environment } from 'wailsjs/runtime/runtime.js'
+import { System } from '@wailsio/runtime'
 
 let os = ''
 
 export async function loadEnvironment() {
-    const env = await Environment()
-    os = env.platform
-    try { document.documentElement.setAttribute('data-platform', os || '') } catch {}
+    try {
+        const env = await System.Environment()
+        // Wails v3 exposes OS via env.OS; keep fallbacks for any legacy shape
+        os = env?.OS || env?.PlatformInfo?.OS || env?.platform || ''
+        document.documentElement.setAttribute('data-platform', os || '')
+    } catch {
+        os = ''
+    }
 }
 
 export function isMacOS() {

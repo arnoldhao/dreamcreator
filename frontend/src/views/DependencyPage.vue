@@ -126,8 +126,8 @@
 
 <script>
 import { onMounted, onUnmounted, ref, computed } from 'vue'
-import { ListMirrors } from 'wailsjs/go/api/DependenciesAPI'
-import { OpenDirectory } from 'wailsjs/go/systems/Service'
+import { ListMirrors } from 'bindings/dreamcreator/backend/api/dependenciesapi'
+import { OpenDirectory } from 'bindings/dreamcreator/backend/services/systems/service'
 import { useI18n } from 'vue-i18n'
 import useDependenciesStore from '@/stores/dependencies'
 import eventBus from '@/utils/eventBus.js'

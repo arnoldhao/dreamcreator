@@ -303,16 +303,4 @@ const formatFileSize = (bytes) => fmtSize(bytes, t)
   color: #fff;
 }
 
-/* Classic UI: still emphasize failed state with warning tint */
-:global([data-ui='classic']) .dl-card .bottom-stats.chip-frosted.chip-translucent.badge-error {
-  background: var(--macos-danger-bg) !important;
-  border-color: var(--macos-danger-text) !important;
-  color: var(--macos-danger-text) !important;
-}
-:global([data-ui='classic']) .dl-card .bottom-stats.chip-frosted.chip-translucent.badge-error:hover {
-  background: color-mix(in oklab, var(--macos-danger-text) 16%, transparent) !important;
-  border-color: var(--macos-danger-text) !important;
-  color: var(--macos-text-primary) !important;
-}
-
 </style>

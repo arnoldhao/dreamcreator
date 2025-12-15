@@ -168,6 +168,26 @@ function luminance({r,g,b}){
   return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2]
 }
 
+function applyShadcnAccentVars(root, baseHex) {
+  const baseRgb = hexToRgb(baseHex)
+  const baseHsl = hexToHsl(baseHex)
+  if (!baseRgb || !baseHsl) return
+
+  // shadcn tokens expect "H S% L%" (no `hsl()` wrapper)
+  root.style.setProperty('--dc-shadcn-primary', `${baseHsl.h} ${baseHsl.s}% ${baseHsl.l}%`)
+  root.style.setProperty('--dc-shadcn-ring', `${baseHsl.h} ${baseHsl.s}% ${baseHsl.l}%`)
+
+  // Choose a readable foreground for the primary color.
+  // Use shadcn defaults: near-black or near-white.
+  const isLightForeground = luminance(baseRgb) < 0.5
+  root.style.setProperty('--dc-shadcn-primary-foreground', isLightForeground ? '0 0% 98%' : '240 5.9% 10%')
+
+  // Keep sidebar in sync with the same accent.
+  root.style.setProperty('--dc-shadcn-sidebar-primary', `${baseHsl.h} ${baseHsl.s}% ${baseHsl.l}%`)
+  root.style.setProperty('--dc-shadcn-sidebar-ring', `${baseHsl.h} ${baseHsl.s}% ${baseHsl.l}%`)
+  root.style.setProperty('--dc-shadcn-sidebar-primary-foreground', isLightForeground ? '0 0% 98%' : '240 5.9% 10%')
+}
+
 // Apply only accent variables without changing scheme
 export function applyAccent(name = 'blue', isDark = null) {
   const root = document.documentElement;
@@ -183,6 +203,7 @@ export function applyAccent(name = 'blue', isDark = null) {
       root.style.setProperty('--macos-blue', colors.base);
       root.style.setProperty('--macos-blue-hover', colors.hover);
       root.style.setProperty('--macos-blue-active', colors.active);
+      applyShadcnAccentVars(root, colors.base)
       themeColors.primary = colors.base;
       themeColors.primaryHover = colors.hover;
       themeColors.primarySuppl = colors.hover;
@@ -194,6 +215,7 @@ export function applyAccent(name = 'blue', isDark = null) {
   root.style.setProperty('--macos-blue', colors.base);
   root.style.setProperty('--macos-blue-hover', colors.hover);
   root.style.setProperty('--macos-blue-active', colors.active);
+  applyShadcnAccentVars(root, colors.base)
   // Backward compatible primary vars
   themeColors.primary = colors.base;
   themeColors.primaryHover = colors.hover;
@@ -232,12 +254,6 @@ export function detectSystemTheme() {
 export function initThemeSystem() {
   const isDark = detectSystemTheme();
   applyMacosTheme(isDark);
-}
-
-// Apply app-wide UI surface style: 'frosted' | 'classic'
-export function applyUIStyle(style = 'frosted') {
-  const v = (style === 'classic') ? 'classic' : 'frosted'
-  document.documentElement.setAttribute('data-ui', v)
 }
 
 // 辅助函数 - 获取主题变量

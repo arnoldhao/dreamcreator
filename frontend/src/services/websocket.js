@@ -12,6 +12,7 @@ class WebSocketService {
     this.jitterRatio = 0.25; // 抖动比例，避免同一时间风暴式重连
     this.heartbeatInterval = 25000; // 心跳间隔25秒
     this.connectionLost = false;
+    this.clientId = this.getOrCreateClientId();
 
     // 当网络恢复时，立即尝试重连（避免等待指数退避）
     if (typeof window !== 'undefined' && window.addEventListener) {
@@ -21,12 +22,38 @@ class WebSocketService {
     }
   }
 
+  getOrCreateClientId() {
+    const key = 'dc_ws_client_id';
+
+    try {
+      const existing = sessionStorage.getItem(key);
+      if (existing) return existing;
+    } catch {
+      // ignore
+    }
+
+    const raw =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const id = `dreamcreator-${raw}`;
+
+    try {
+      sessionStorage.setItem(key, id);
+    } catch {
+      // ignore
+    }
+
+    return id;
+  }
+
   async connect() {
     if (this.connecting || this.isConnected()) return;
     
     this.connecting = true;
     try {
-      const socket = new WebSocket(`ws://localhost:34444/ws?id=dreamcreator`);
+      const socket = new WebSocket(`ws://localhost:34444/ws?id=${encodeURIComponent(this.clientId)}`);
       
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {

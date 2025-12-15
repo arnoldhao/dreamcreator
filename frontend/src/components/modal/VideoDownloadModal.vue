@@ -211,9 +211,9 @@
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
-import { GetContent, Download, QuickDownload, GetFormats } from 'wailsjs/go/api/DowntasksAPI'
-import { DependenciesReady } from 'wailsjs/go/api/DependenciesAPI'
-import { GetBrowserByDomain } from 'wailsjs/go/api/CookiesAPI'
+import { GetContent, Download, QuickDownload, GetFormats } from 'bindings/dreamcreator/backend/api/downtasksapi'
+import { DependenciesReady } from 'bindings/dreamcreator/backend/api/dependenciesapi'
+import { GetBrowserByDomain } from 'bindings/dreamcreator/backend/api/cookiesapi'
 import useNavStore from '@/stores/nav.js'
 import useSettingsStore from '@/stores/settings'
 import { useI18n } from 'vue-i18n'

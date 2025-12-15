@@ -132,8 +132,8 @@ import useInspectorStore from '@/stores/inspector.js'
 import useLayoutStore from '@/stores/layout.js'
 import { useSubtitleTasksStore } from '@/stores/subtitleTasks'
 import { useTargetLanguagesStore } from '@/stores/targetLanguages.js'
-import { SelectFile } from 'wailsjs/go/systems/Service'
-import { OpenFileWithOptions, GetSubtitle, DeleteSubtitle, DeleteAllSubtitle, UpdateProjectName } from 'wailsjs/go/api/SubtitlesAPI'
+import { SelectFile } from 'bindings/dreamcreator/backend/services/systems/service'
+import { OpenFileWithOptions, GetSubtitle, DeleteSubtitle, DeleteAllSubtitle, UpdateProjectName } from 'bindings/dreamcreator/backend/api/subtitlesapi'
 import { useSubtitleStore } from '@/stores/subtitle'
 import usePreferencesStore from '@/stores/preferences.js'
 import { subtitleService } from '@/services/subtitleService.js'
@@ -583,9 +583,9 @@ watch(currentProject, (project) => {
   }
 }, { immediate: true })
 // Toolbar background to match Ribbon/system theme
-const uiFrosted = computed(() => (prefStore?.general?.uiStyle || 'frosted') === 'frosted')
+const uiFrosted = computed(() => true)
 const isDarkMode = computed(() => !!prefStore?.isDark)
-const toolbarBg = computed(() => uiFrosted.value ? (isDarkMode.value ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.28)') : 'var(--macos-surface-opaque)')
+const toolbarBg = computed(() => (isDarkMode.value ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.28)'))
 const toolbarStyle = computed(() => {
   const base = { left: leftInset.value + 'px', right: rightInset.value + 'px', '--toolbar-bg': toolbarBg.value }
   if (uiFrosted.value) {

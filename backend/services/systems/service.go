@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type Service struct {
@@ -39,15 +39,26 @@ func (s *Service) SetContext(ctx context.Context, version string) {
 	s.ctx = ctx
 	s.appVersion = version
 
-	// maximize the window if screen size is lower than the minimum window size
-	if screen, err := wailsRuntime.ScreenGetAll(ctx); err == nil && len(screen) > 0 {
-		for _, sc := range screen {
-			if sc.IsCurrent {
-				if sc.Size.Width < consts.MIN_WINDOW_WIDTH || sc.Size.Height < consts.MIN_WINDOW_HEIGHT {
-					wailsRuntime.WindowMaximise(ctx)
-					break
-				}
-			}
+	// Maximise the current window if the screen size is lower than the minimum window size.
+	app := application.Get()
+	if app == nil {
+		return
+	}
+	screens := app.Screen.GetAll()
+	if len(screens) == 0 {
+		return
+	}
+	// Prefer primary screen if available.
+	screen := screens[0]
+	for _, sc := range screens {
+		if sc.IsPrimary {
+			screen = sc
+			break
+		}
+	}
+	if screen.Size.Width < consts.MIN_WINDOW_WIDTH || screen.Size.Height < consts.MIN_WINDOW_HEIGHT {
+		if win, ok := app.Window.Get("main"); ok && win != nil {
+			win.Maximise()
 		}
 	}
 }
@@ -68,20 +79,23 @@ func (s *Service) Info() (resp types.JSResp) {
 
 // OpenDirectoryDialog open directory dialog
 func (s *Service) OpenDirectoryDialog(title string) (resp types.JSResp) {
-	filepath, err := wailsRuntime.OpenDirectoryDialog(s.ctx, wailsRuntime.OpenDialogOptions{
-		Title: title,
-	})
-	if err != nil {
-		// Windows may return an error like "shellitem is nil" when user cancels.
-		// Treat cancellation as a benign result to align with macOS behaviour.
-		msg := strings.ToLower(err.Error())
-		if strings.Contains(msg, "shellitem") || strings.Contains(msg, "cancel") || strings.Contains(msg, "canceled") || strings.Contains(msg, "cancelled") {
-			resp.Success = true
-			resp.Data = map[string]any{"path": ""}
-			return
-		}
-		resp.Msg = err.Error()
+	app := application.Get()
+	if app == nil {
+		resp.Msg = "application not ready"
 		return
+	}
+	dialog := application.OpenFileDialog().
+		CanChooseDirectories(true).
+		CanChooseFiles(false).
+		ShowHiddenFiles(true).
+		SetTitle(title)
+	if win, ok := app.Window.Get("main"); ok && win != nil {
+		dialog.AttachToWindow(win)
+	}
+	filepath, err := dialog.PromptForSingleSelection()
+	if err != nil {
+		resp = handleDialogError(err)
+		return resp
 	}
 	resp.Success = true
 	resp.Data = map[string]any{
@@ -126,8 +140,14 @@ func (s *Service) OpenPath(path string) (resp types.JSResp) {
 
 // SelectFile open file dialog to select a file
 func (s *Service) SelectFile(title string, extensions []string) (resp types.JSResp) {
+	app := application.Get()
+	if app == nil {
+		resp.Msg = "application not ready"
+		return
+	}
+
 	// Build Windows/macOS friendly filters: include DisplayName and an aggregated pattern
-	var filters []wailsRuntime.FileFilter
+	var filters []application.FileFilter
 	if len(extensions) > 0 {
 		// sanitize, dedupe, and build patterns
 		seen := map[string]bool{}
@@ -142,37 +162,39 @@ func (s *Service) SelectFile(title string, extensions []string) (resp types.JSRe
 		}
 		if len(pats) > 0 {
 			agg := strings.Join(pats, ";")
-			filters = append(filters, wailsRuntime.FileFilter{
+			filters = append(filters, application.FileFilter{
 				DisplayName: "Supported Files (" + strings.Join(pats, ";") + ")",
 				Pattern:     agg,
 			})
 			// individual filters
 			for _, p := range pats {
 				ext := strings.TrimPrefix(p, "*.")
-				filters = append(filters, wailsRuntime.FileFilter{
+				filters = append(filters, application.FileFilter{
 					DisplayName: strings.ToUpper(ext) + " Files (*." + ext + ")",
 					Pattern:     p,
 				})
 			}
 		}
 		// Always include All Files at the end
-		filters = append(filters, wailsRuntime.FileFilter{DisplayName: "All Files (*.*)", Pattern: "*.*"})
+		filters = append(filters, application.FileFilter{DisplayName: "All Files (*.*)", Pattern: "*.*"})
 	}
 
-	filepath, err := wailsRuntime.OpenFileDialog(s.ctx, wailsRuntime.OpenDialogOptions{
-		Title:           title,
-		ShowHiddenFiles: true,
-		Filters:         filters,
-	})
+	dialog := application.OpenFileDialog().
+		CanChooseFiles(true).
+		ShowHiddenFiles(true)
+	if title != "" {
+		dialog.SetTitle(title)
+	}
+	for _, f := range filters {
+		dialog.AddFilter(f.DisplayName, f.Pattern)
+	}
+	if win, ok := app.Window.Get("main"); ok && win != nil {
+		dialog.AttachToWindow(win)
+	}
+	filepath, err := dialog.PromptForSingleSelection()
 	if err != nil {
-		msg := strings.ToLower(err.Error())
-		if strings.Contains(msg, "shellitem") || strings.Contains(msg, "cancel") || strings.Contains(msg, "canceled") || strings.Contains(msg, "cancelled") {
-			resp.Success = true
-			resp.Data = map[string]any{"path": ""}
-			return
-		}
-		resp.Msg = err.Error()
-		return
+		resp = handleDialogError(err)
+		return resp
 	}
 	resp.Success = true
 	resp.Data = map[string]any{
@@ -183,8 +205,14 @@ func (s *Service) SelectFile(title string, extensions []string) (resp types.JSRe
 
 // SaveFile open file dialog to save a file
 func (s *Service) SaveFile(title string, defaultName string, extensions []string) (resp types.JSResp) {
+	app := application.Get()
+	if app == nil {
+		resp.Msg = "application not ready"
+		return
+	}
+
 	// Reuse the same friendly filters as SelectFile
-	var filters []wailsRuntime.FileFilter
+	var filters []application.FileFilter
 	if len(extensions) > 0 {
 		seen := map[string]bool{}
 		pats := make([]string, 0, len(extensions))
@@ -198,36 +226,34 @@ func (s *Service) SaveFile(title string, defaultName string, extensions []string
 		}
 		if len(pats) > 0 {
 			agg := strings.Join(pats, ";")
-			filters = append(filters, wailsRuntime.FileFilter{
+			filters = append(filters, application.FileFilter{
 				DisplayName: "Supported Files (" + strings.Join(pats, ";") + ")",
 				Pattern:     agg,
 			})
 			for _, p := range pats {
 				ext := strings.TrimPrefix(p, "*.")
-				filters = append(filters, wailsRuntime.FileFilter{
+				filters = append(filters, application.FileFilter{
 					DisplayName: strings.ToUpper(ext) + " Files (*." + ext + ")",
 					Pattern:     p,
 				})
 			}
 		}
-		filters = append(filters, wailsRuntime.FileFilter{DisplayName: "All Files (*.*)", Pattern: "*.*"})
+		filters = append(filters, application.FileFilter{DisplayName: "All Files (*.*)", Pattern: "*.*"})
 	}
 
-	filepath, err := wailsRuntime.SaveFileDialog(s.ctx, wailsRuntime.SaveDialogOptions{
-		Title:           title,
-		ShowHiddenFiles: true,
-		DefaultFilename: defaultName,
-		Filters:         filters,
-	})
+	dialog := application.SaveFileDialog().
+		SetFilename(defaultName).
+		ShowHiddenFiles(true)
+	for _, f := range filters {
+		dialog.AddFilter(f.DisplayName, f.Pattern)
+	}
+	if win, ok := app.Window.Get("main"); ok && win != nil {
+		dialog.AttachToWindow(win)
+	}
+	filepath, err := dialog.PromptForSingleSelection()
 	if err != nil {
-		msg := strings.ToLower(err.Error())
-		if strings.Contains(msg, "shellitem") || strings.Contains(msg, "cancel") || strings.Contains(msg, "canceled") || strings.Contains(msg, "cancelled") {
-			resp.Success = true
-			resp.Data = map[string]any{"path": ""}
-			return
-		}
-		resp.Msg = err.Error()
-		return
+		resp = handleDialogError(err)
+		return resp
 	}
 	resp.Success = true
 	resp.Data = map[string]any{
@@ -246,36 +272,44 @@ func (s *Service) loopWindowEvent() {
 			continue
 		}
 
+		app := application.Get()
+		if app == nil {
+			continue
+		}
+		win, ok := app.Window.Get("main")
+		if !ok || win == nil {
+			continue
+		}
+
 		dirty = false
-		if f := wailsRuntime.WindowIsFullscreen(s.ctx); f != fullscreen {
+		if f := win.IsFullscreen(); f != fullscreen {
 			// full-screen switched
 			fullscreen = f
 			dirty = true
 		}
 
-		if w, h := wailsRuntime.WindowGetSize(s.ctx); w != width || h != height {
+		if w, h := win.Size(); w != width || h != height {
 			// window size changed
 			width, height = w, h
 			dirty = true
 		}
 
-		if m := wailsRuntime.WindowIsMaximised(s.ctx); m != maximised {
+		if m := win.IsMaximised(); m != maximised {
 			maximised = m
 			dirty = true
 		}
 
-		if m := wailsRuntime.WindowIsMinimised(s.ctx); m != minimised {
+		if m := win.IsMinimised(); m != minimised {
 			minimised = m
 			dirty = true
 		}
 
-		if n := wailsRuntime.WindowIsNormal(s.ctx); n != normal {
-			normal = n
-			dirty = true
-		}
+		// Wails v3 no longer has a direct "IsNormal", so derive it.
+		normal = !(fullscreen || maximised || minimised)
 
 		if dirty {
-			wailsRuntime.EventsEmit(s.ctx, "window_changed", map[string]any{
+			// Emit a custom event so the frontend can track window changes.
+			win.EmitEvent("window_changed", map[string]any{
 				"fullscreen": fullscreen,
 				"width":      width,
 				"height":     height,
@@ -290,4 +324,26 @@ func (s *Service) loopWindowEvent() {
 			}
 		}
 	}
+}
+
+// handleDialogError normalises platform-specific dialog errors so that
+// user-cancelled operations are treated as benign.
+func handleDialogError(err error) types.JSResp {
+	resp := types.JSResp{}
+	if err == nil {
+		resp.Success = true
+		return resp
+	}
+	msg := strings.ToLower(err.Error())
+	// Preserve the v2 behaviour: treat "cancel"/"shellitem is nil" as a normal cancel.
+	if strings.Contains(msg, "shellitem") ||
+		strings.Contains(msg, "cancel") ||
+		strings.Contains(msg, "canceled") ||
+		strings.Contains(msg, "cancelled") {
+		resp.Success = true
+		resp.Data = map[string]any{"path": ""}
+		return resp
+	}
+	resp.Msg = err.Error()
+	return resp
 }

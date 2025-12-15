@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { useDtStore } from '@/stores/downloadTasks'
-import { ListLLMTasks, DeleteLLMTask } from 'wailsjs/go/api/SubtitlesAPI'
+import { ListLLMTasks, DeleteLLMTask } from 'bindings/dreamcreator/backend/api/subtitlesapi'
 
 export const useSubtitleTasksStore = defineStore('subtitleTasks', {
   state: () => ({

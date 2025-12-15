@@ -109,22 +109,6 @@
                 </div>
               </div>
             </div>
-            <!-- UI Style: Classic vs Frosted -->
-            <div class="macos-row">
-              <div class="k">{{ $t('settings.general.ui_style') }}</div>
-              <div class="v">
-                <div class="segmented">
-                  <button class="seg-item" :class="{ active: prefStore.general.uiStyle === 'classic' }"
-                          @click="prefStore.general.uiStyle = 'classic'; applyUIStyle('classic'); prefStore.savePreferences()" :title="$t('settings.general.ui_style_classic')">
-                    {{ $t('settings.general.ui_style_classic') }}
-                  </button>
-                  <button class="seg-item" :class="{ active: prefStore.general.uiStyle !== 'classic' }"
-                          @click="prefStore.general.uiStyle = 'frosted'; applyUIStyle('frosted'); prefStore.savePreferences()" :title="$t('settings.general.ui_style_frosted')">
-                    {{ $t('settings.general.ui_style_frosted') }}
-                  </button>
-                </div>
-              </div>
-            </div>
             <div class="macos-row">
               <div class="k">{{ $t('settings.general.language') }}</div>
               <div class="v">
@@ -313,10 +297,10 @@ import { computed, ref, watch, onMounted } from 'vue'
 import useLayoutStore from '@/stores/layout.js'
 import usePreferencesStore from '@/stores/preferences.js'
 import useSettingsStore from '@/stores/settings.js'
-import { applyAccent, applyUIStyle } from '@/utils/theme.js'
+import { applyAccent } from '@/utils/theme.js'
 import { useI18n } from 'vue-i18n'
-import { OpenDirectoryDialog, OpenDirectory } from 'wailsjs/go/systems/Service'
-import { GetPreferencesPath, GetTaskDbPath } from 'wailsjs/go/api/PathsAPI'
+import { OpenDirectoryDialog, OpenDirectory } from 'bindings/dreamcreator/backend/services/systems/service'
+import { GetPreferencesPath, GetTaskDbPath } from 'bindings/dreamcreator/backend/api/pathsapi'
 import { copyText as copyToClipboard } from '@/utils/clipboard.js'
 
 const layout = useLayoutStore()
@@ -405,8 +389,8 @@ const onSelectLoggerDir = async () => {
 
 // About actions
 import iconUrl from '@/assets/images/icon.png'
-import { BrowserOpenURL } from 'wailsjs/runtime/runtime.js'
-import { GetAppVersion, CheckForUpdate } from 'wailsjs/go/preferences/Service.js'
+import { Browser } from '@wailsio/runtime'
+import { GetAppVersion, CheckForUpdate } from 'bindings/dreamcreator/backend/services/preferences/service'
 import { Project } from '@/consts/global.js'
 
 const appVersion = ref('')
@@ -414,7 +398,13 @@ onMounted(async () => {
   try { const r = await GetAppVersion(); if (r?.data?.version) appVersion.value = r.data.version } catch {}
 })
 
-const openUrl = (url) => { try { BrowserOpenURL(url) } catch { window.open(url, '_blank') } }
+const openUrl = (url) => {
+  try {
+    Browser.OpenURL(url)
+  } catch {
+    try { window.open(url, '_blank') } catch {}
+  }
+}
 const openWebsite = () => openUrl(Project.OfficialWebsite)
 const openGithub = () => openUrl(Project.Github)
 const openTwitter = () => openUrl(Project.Twitter)
@@ -619,7 +609,7 @@ onMounted(() => { loadSets().then(loadEntries) })
 .grow { flex: 1 1 auto; }
 
 /* theme-aware subtle surface for card: slightly gray */
-/* background/border handled by card-frosted/card-translucent or classic override */
+/* background/border handled by card-frosted/card-translucent */
 
 /* option rows */
 .sr-row {

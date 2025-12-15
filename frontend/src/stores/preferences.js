@@ -10,9 +10,9 @@ import {
     SetProxyConfig,
     SetDownloadConfig,
     SetLoggerConfig,
-} from 'wailsjs/go/preferences/Service.js'
-import { Info as GetSystemInfo } from 'wailsjs/go/systems/Service.js'
-import { BrowserOpenURL } from 'wailsjs/runtime/runtime.js'
+} from 'bindings/dreamcreator/backend/services/preferences/service'
+import { Info as GetSystemInfo } from 'bindings/dreamcreator/backend/services/systems/service'
+import { Browser } from '@wailsio/runtime'
 import { i18nGlobal } from '@/utils/i18n.js'
 import { h, nextTick, ref } from 'vue'
 import { compareVersion } from '@/utils/version.js'
@@ -57,7 +57,6 @@ const usePreferencesStore = defineStore('preferences', {
         general: {
             appearance: 'auto', // light/dark/auto
             theme: 'blue', // accent color
-            uiStyle: 'frosted', // 'frosted' | 'classic'
             language: 'auto',
             checkUpdate: true,
             skipVersion: '',
@@ -182,15 +181,13 @@ const usePreferencesStore = defineStore('preferences', {
                         g.appearance = g.appearance || g.theme
                         // set a default accent theme if none present
                         g.theme = g.theme && ['auto','light','dark'].includes(g.theme) ? 'blue' : (g.theme || 'blue')
-                        migrated.general = g
                     } else {
                         // ensure defaults exist
                         if (!g.appearance) g.appearance = 'auto'
                         if (!g.theme) g.theme = 'blue'
-                        migrated.general = g
                     }
-                    // ensure uiStyle default (new)
-                    if (!g.uiStyle) g.uiStyle = 'frosted'
+                    // Only keep supported general fields.
+                    migrated.general = pick(g, ['appearance', 'theme', 'language', 'checkUpdate', 'skipVersion'])
                 } catch (e) {}
                 this._applyPreferences(migrated)
                 const proxy = get(data, 'proxy')
@@ -225,6 +222,7 @@ const usePreferencesStore = defineStore('preferences', {
          */
         async savePreferences() {
             const pf = pick(this, ['behavior', 'general', 'proxy', 'download', 'logger', 'telemetry']) 
+            if (pf?.general) pf.general = pick(pf.general, ['appearance', 'theme', 'language', 'checkUpdate', 'skipVersion'])
             if (pf.telemetry) {
                 pf.telemetry = { ...pf.telemetry }
                 delete pf.telemetry.appId
@@ -481,7 +479,13 @@ const usePreferencesStore = defineStore('preferences', {
                                     }, i18nGlobal.t('dialogue.upgrade.later')),
                                     h('button', {
                                         class: 'btn-chip-ghost btn-primary btn-sm',
-                                        onClick: () => BrowserOpenURL(pageUrl)
+                                        onClick: () => {
+                                            try {
+                                                Browser.OpenURL(pageUrl)
+                                            } catch {
+                                                try { window.open(pageUrl, '_blank') } catch {}
+                                            }
+                                        }
                                     }, i18nGlobal.t('dialogue.upgrade.download_now'))
                                 ])
                             }

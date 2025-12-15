@@ -1,0 +1,152 @@
+/* DreamCreator shadcn component overrides (global, reusable).
+   Keep page-specific overrides in clearly scoped selectors. */
+
+/* Settings standalone window: apply a global glass blur, with actual translucency
+   controlled via `.dc-shadcn.settings-window` tokens (see `styles/shadcn.css`). */
+.dc-shadcn.settings-window {
+  /* Paint the "base material" for the whole Settings window (similar to the main ribbon),
+     then let inner shadcn surfaces be transparent where appropriate. */
+  background: color-mix(in srgb, var(--macos-background) 72%, transparent);
+  -webkit-backdrop-filter: var(--macos-surface-blur);
+  backdrop-filter: var(--macos-surface-blur);
+}
+
+/* macOS Tahoe (macOS 26): window corner radius depends on window style; for
+   hidden-titlebar "unified toolbar" windows, use the larger radius. */
+:root[data-platform='darwin'] .dc-shadcn.settings-window {
+  --dc-macos-window-radius: 20px;
+  border-radius: var(--dc-macos-window-radius);
+  overflow: hidden;
+}
+
+/* Keep the floating sidebar curvature consistent with the outer window rounding. */
+:root[data-platform='darwin'] .dc-shadcn.settings-window [data-sidebar="sidebar"] {
+  border-radius: var(--dc-macos-window-radius);
+}
+
+/* macOS hidden-titlebar windows: explicitly mark drag regions (Wails uses both
+   Chromium's -webkit-app-region and its own --wails-draggable CSS var). */
+:root[data-platform='darwin'] .dc-shadcn.settings-window .dc-settings-dragbar {
+  -webkit-app-region: drag;
+  --wails-draggable: drag;
+}
+
+:root[data-platform='darwin']
+  .dc-shadcn.settings-window
+  .dc-settings-dragbar
+  :is(button, input, textarea, select, a, [role="button"]) {
+  -webkit-app-region: no-drag;
+  --wails-draggable: no-drag;
+}
+
+
+.dc-shadcn.settings-window .dc-settings-content {
+  /* Allow sizing controls relative to the actual content column width. */
+  container-type: inline-size;
+  /* `p-4` on the content container => 16px * 2 (left+right) */
+  --dc-settings-content-padding-x: 32px;
+  /* For 2-column grids like `gap-4` => 16px between columns */
+  --dc-settings-two-col-gap: 16px;
+  /* Half of the usable content width (excluding padding + 2-col gap). */
+  --dc-settings-control-width: calc((100cqw - var(--dc-settings-content-padding-x) - var(--dc-settings-two-col-gap)) / 2);
+
+  /* Typography: closer to macOS Settings (smaller + lighter). */
+  font-size: 13px;
+  font-weight: 400;
+}
+
+/* Settings window dialogs: match Settings typography scale and buttons. */
+.dc-settings-dialog {
+  font-size: 13px;
+  font-weight: 400;
+}
+.dc-settings-dialog .dc-dialog-title {
+  font-size: 13px;
+  font-weight: 400;
+}
+.dc-settings-dialog .dc-dialog-description {
+  font-size: 12px;
+}
+.dc-settings-dialog .dc-settings-button {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 400;
+}
+.dc-settings-dialog .dc-radio-group-item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  gap: 8px;
+}
+.dc-settings-dialog .dc-radio-group-item .text-sm {
+  font-size: 12px;
+}
+.dc-settings-dialog .dc-radio-indicator {
+  height: 14px;
+  width: 14px;
+}
+.dc-settings-dialog .dc-radio-dot {
+  height: 8px;
+  width: 8px;
+}
+
+.dc-shadcn.settings-window .dc-settings-content :is(label) {
+  font-size: 12px;
+  font-weight: 400 !important;
+}
+
+.dc-shadcn.settings-window .dc-settings-content .text-sm.text-muted-foreground {
+  /* In Settings we prefer a smaller secondary description size. */
+  font-size: 12px;
+}
+
+.dc-shadcn.settings-window .dc-settings-content :is(select, option) {
+  /* Avoid inheriting the lighter content weight, which makes native menus look "off". */
+  font-size: 0.875rem; /* text-sm */
+  font-weight: 400;
+}
+
+.dc-shadcn.settings-window .dc-settings-button {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.dc-shadcn.settings-window .dc-settings-field {
+  height: 32px !important;
+  padding: 0 10px !important;
+}
+
+.dc-shadcn.settings-window .dc-switch {
+  height: 20px;
+  width: 36px;
+}
+
+.dc-shadcn.settings-window .dc-switch-thumb {
+  height: 16px;
+  width: 16px;
+  background-color: hsl(0 0% 100%) !important;
+}
+
+.dc-shadcn.settings-window .dc-switch-thumb[data-state="checked"] {
+  transform: translateX(16px) !important;
+}
+
+.dc-shadcn.settings-window .dc-color-swatch {
+  height: 24px;
+  width: 24px;
+}
+
+.dc-shadcn.settings-window .dc-settings-control {
+  width: min(var(--dc-settings-control-width), 100%) !important;
+}
+
+
+@media (prefers-reduced-transparency: reduce) {
+  .dc-shadcn.settings-window {
+    background: var(--macos-background);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

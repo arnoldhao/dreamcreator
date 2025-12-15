@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { ListSubtitles } from 'wailsjs/go/api/SubtitlesAPI'
+import { ListSubtitles } from 'bindings/dreamcreator/backend/api/subtitlesapi'
 
 export const useSubtitleStore = defineStore('subtitle', () => {
     // 状态

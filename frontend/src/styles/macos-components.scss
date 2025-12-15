@@ -269,7 +269,7 @@
 }
 
 /* Frosted 模式下，侧边栏默认使用透明底，交给组件内联样式决定明暗毛玻璃色 */
-[data-ui='frosted'] .macos-sidebar {
+.macos-sidebar {
   background: transparent;
 }
 
@@ -297,21 +297,14 @@
 .source-chip:not(.active) { background: transparent !important; border-color: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 
 /* Frosted UI: keep hover clean for unselected rows */
-[data-ui='frosted'] .source-chip:not(.active):hover,
-[data-ui='frosted'] .source-chip:not(.active):active,
-[data-ui='frosted'] .source-chip:not(.active):focus {
+.source-chip:not(.active):hover,
+.source-chip:not(.active):active,
+.source-chip:not(.active):focus {
   background: transparent !important;
   border-color: transparent !important;
   color: var(--macos-text-secondary) !important;
   transform: none !important;
   box-shadow: none !important;
-}
-
-/* Classic UI: subtle hover highlight for unselected rows */
-[data-ui='classic'] .source-chip:not(.active):hover {
-  background: color-mix(in oklab, var(--macos-blue) 12%, transparent) !important;
-  border-color: var(--macos-blue) !important;
-  color: var(--macos-text-primary) !important;
 }
 
 /* Selected state: frosted floating surface with a light primary tint */
@@ -332,14 +325,6 @@
     border-color: color-mix(in oklab, var(--macos-blue) 28%, rgba(0,0,0,0.15));
     box-shadow: none;
   }
-}
-[data-ui='classic'] .ribbon-active {
-  background: color-mix(in oklab, var(--macos-blue) 10%, var(--macos-background)) !important;
-  border-color: color-mix(in oklab, var(--macos-blue) 45%, var(--macos-separator)) !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-  box-shadow: var(--macos-shadow-1) !important;
-  color: var(--macos-text-primary) !important;
 }
 
 .source-row-icon { width: 16px; height: 16px; color: inherit; display: inline-flex; align-items: center; justify-content: center; }
@@ -961,24 +946,6 @@
   .btn-chip-icon.btn-warning { background: color-mix(in oklab, var(--macos-warning-text) 50%, white 12%); border-color: var(--macos-warning-text); color: #fff; }
   .btn-chip-icon.btn-info { background: color-mix(in oklab, var(--macos-text-secondary) 50%, white 12%); border-color: var(--macos-text-secondary); color: #fff; }
 }
-[data-ui='classic'] .btn-chip { background: var(--macos-background) !important; color: var(--macos-text-primary) !important; border: 1px solid var(--macos-separator) !important; box-shadow: none !important; text-shadow: none !important; }
-[data-ui='classic'] .btn-chip:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
-[data-ui='classic'] .btn-chip.btn-primary { background: var(--macos-blue) !important; border-color: var(--macos-blue) !important; color: #fff !important; }
-[data-ui='classic'] .btn-chip.btn-primary:hover { background: var(--macos-blue-hover) !important; border-color: var(--macos-blue-hover) !important; color: #fff !important; }
-[data-ui='classic'] .btn-chip.btn-danger { background: var(--macos-danger-text) !important; border-color: var(--macos-danger-text) !important; color: #fff !important; }
-[data-ui='classic'] .btn-chip.btn-danger:hover { background: color-mix(in oklab, var(--macos-danger-text) 86%, white 8%) !important; border-color: var(--macos-danger-text) !important; }
-[data-ui='classic'] .btn-chip.btn-success { background: var(--macos-success-text) !important; border-color: var(--macos-success-text) !important; color: #fff !important; }
-[data-ui='classic'] .btn-chip.btn-success:hover { background: color-mix(in oklab, var(--macos-success-text) 86%, white 8%) !important; border-color: var(--macos-success-text) !important; }
-[data-ui='classic'] .btn-chip.btn-warning { background: var(--macos-warning-text) !important; border-color: var(--macos-warning-text) !important; color: #fff !important; }
-[data-ui='classic'] .btn-chip.btn-warning:hover { background: color-mix(in oklab, var(--macos-warning-text) 86%, white 8%) !important; border-color: var(--macos-warning-text) !important; }
-[data-ui='classic'] .btn-chip.btn-info { background: var(--macos-text-secondary) !important; border-color: var(--macos-text-secondary) !important; color: #fff !important; }
-[data-ui='classic'] .btn-chip.btn-info:hover { background: color-mix(in oklab, var(--macos-text-secondary) 86%, white 8%) !important; border-color: var(--macos-text-secondary) !important; }
-[data-ui='classic'] .btn-chip-icon { background: var(--macos-background) !important; color: var(--macos-text-primary) !important; border: 1px solid var(--macos-separator) !important; box-shadow: none !important; text-shadow: none !important; }
-[data-ui='classic'] .btn-chip-icon:hover { background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important; border-color: var(--macos-blue) !important; color: var(--macos-text-primary) !important; }
-[data-ui='classic'] .btn-chip-icon.btn-danger { background: var(--macos-danger-text) !important; border-color: var(--macos-danger-text) !important; color: #fff !important; }
-[data-ui='classic'] .btn-chip-icon.btn-success { background: var(--macos-success-text) !important; border-color: var(--macos-success-text) !important; color: #fff !important; }
-[data-ui='classic'] .btn-chip-icon.btn-warning { background: var(--macos-warning-text) !important; border-color: var(--macos-warning-text) !important; color: #fff !important; }
-[data-ui='classic'] .btn-chip-icon.btn-info { background: var(--macos-text-secondary) !important; border-color: var(--macos-text-secondary) !important; color: #fff !important; }
 
 /* Quiet/Ghost chip variants: low-contrast, same family as btn-chip */
 .btn-chip-ghost {
@@ -1103,25 +1070,6 @@
     color: #fff;
   }
 }
-[data-ui='classic'] .btn-chip-ghost,
-[data-ui='classic'] .icon-chip-ghost {
-  background: var(--macos-background) !important;
-  color: var(--macos-text-secondary) !important;
-  border: 1px solid var(--macos-separator) !important;
-  box-shadow: none !important;
-  text-shadow: none !important;
-}
-[data-ui='classic'] .btn-chip-ghost:hover,
-[data-ui='classic'] .icon-chip-ghost:hover {
-  background: color-mix(in oklab, var(--macos-blue) 12%, transparent) !important;
-  border-color: var(--macos-blue) !important;
-  color: var(--macos-text-primary) !important;
-}
-[data-ui='classic'] .btn-chip-ghost.btn-primary {
-  background: var(--macos-blue) !important;
-  border-color: var(--macos-blue) !important;
-  color: #fff !important;
-}
 
 /* Segmented (quiet chip variant): drop-in by adding .chip on container */
 .segmented.chip {
@@ -1150,13 +1098,6 @@
   .segmented.chip .seg-item:hover { background: color-mix(in oklab, var(--macos-blue) 12%, transparent); }
   .segmented.chip .seg-item.active, .segmented.chip .seg-item.active:hover { background: color-mix(in oklab, var(--macos-blue) 42%, white 2%); color: #fff; }
 }
-[data-ui='classic'] .segmented.chip {
-  background: var(--macos-background) !important;
-  border: 1px solid var(--macos-separator) !important;
-}
-[data-ui='classic'] .segmented.chip .seg-item:hover { background: color-mix(in oklab, var(--macos-blue) 12%, transparent) !important; }
-[data-ui='classic'] .segmented.chip .seg-item.active,
-[data-ui='classic'] .segmented.chip .seg-item.active:hover { background: var(--macos-blue) !important; color: #fff !important; }
 
 /* Global simple color utilities */
 .text-primary { color: var(--macos-text-primary); }
@@ -1191,8 +1132,7 @@
   transition: background-color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .15s ease;
 }
 .chip-frosted .chip-icon { width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; margin-right: 4px; color: inherit; }
-[data-ui='frosted'] .chip-frosted .chip-icon { width: 14px; height: 14px; }
-[data-ui='classic'] .chip-frosted .chip-icon { width: 12px; height: 12px; }
+.chip-frosted .chip-icon { width: 14px; height: 14px; }
 .chip-frosted:hover { background: rgba(30,30,30,0.50); border-color: rgba(255,255,255,0.32); transform: translateZ(0) scale(1.02); }
 .chip-frosted:active { transform: translateZ(0) scale(0.98); }
 @supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
@@ -1229,7 +1169,7 @@
 .chip-frosted[data-tooltip][data-tip-align='right']::after { left: auto; right: 0; transform: translateX(0); }
 .chip-frosted[data-tooltip][data-tip-align='right']:hover::after { transform: translateY(2px); }
 .chip-frosted[data-tooltip][data-tip-align='right'][data-tip-pos='top']:hover::after { transform: translateY(-2px); }
-/* optional inline action inside chips, e.g. edit/reselect; ensure readable in both UI styles */
+/* optional inline action inside chips, e.g. edit/reselect */
 .chip-frosted .chip-action {
   display:inline-flex;
   align-items:center;
@@ -1250,8 +1190,6 @@
   .chip-frosted .chip-action { color: var(--macos-text-secondary); }
   .chip-frosted .chip-action:hover { background: var(--macos-blue); color: #fff; }
 }
-[data-ui='classic'] .chip-frosted .chip-action { color: var(--macos-text-secondary) !important; }
-[data-ui='classic'] .chip-frosted .chip-action:hover { background: var(--macos-blue) !important; color: #fff !important; }
 /* sizes */
 .chip-sm { height: 20px; padding: 0 8px; font-size: var(--fs-micro); }
 .chip-md { height: 22px; padding: 0 10px; font-size: var(--fs-micro); }
@@ -1310,61 +1248,6 @@
     inset 0 -1px 0 rgba(255,255,255,0.10);
 }
 
-/* Global UI style overrides: Classic mode */
-[data-ui='classic'] .card-frosted,
-[data-ui='classic'] .macos-card.card-frosted {
-  background: var(--macos-background) !important;
-  border: 1px solid var(--macos-separator) !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-  box-shadow: var(--macos-shadow-1) !important;
-}
-[data-ui='classic'] .card-frosted.card-translucent {
-  background: var(--macos-background) !important;
-}
-[data-ui='classic'] .chip-frosted {
-  background: var(--macos-background) !important;
-  border: 1px solid var(--macos-separator) !important;
-  color: var(--macos-text-secondary) !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-  box-shadow: none !important;
-}
-[data-ui='classic'] .chip-frosted.chip-translucent {
-  /* Keep translucent chips unobtrusive in Classic: transparent at rest */
-  background: transparent !important;
-  border-color: var(--macos-separator) !important;
-  color: var(--macos-text-secondary) !important;
-  box-shadow: none !important;
-}
-[data-ui='classic'] .chip-frosted.chip-translucent:hover {
-  /* Accent-tinted hover in Classic as well */
-  background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important;
-  border-color: var(--macos-blue) !important;
-  color: var(--macos-text-primary) !important;
-}
-[data-ui='classic'] .chip-frosted.chip-translucent-primary {
-  /* Quiet at rest in Classic, like chip-translucent */
-  background: transparent !important;
-  border-color: var(--macos-separator) !important;
-  color: var(--macos-text-secondary) !important;
-  box-shadow: none !important;
-}
-[data-ui='classic'] .chip-frosted.chip-translucent-primary:hover {
-  background: color-mix(in oklab, var(--macos-blue) 16%, transparent) !important;
-  border-color: var(--macos-blue) !important;
-  color: var(--macos-text-primary) !important;
-}
-[data-ui='classic'] .badge,
-[data-ui='classic'] .macos-page .badge {
-  border: 1px solid var(--macos-separator) !important;
-  background: var(--macos-background) !important;
-  color: var(--macos-text-secondary) !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-  box-shadow: none !important;
-}
-
 /* Variant: more translucent cards at rest, denser on hover */
 .card-frosted.card-translucent {
   /* lighter than previous 88% baseline to enhance translucency */
@@ -1409,21 +1292,8 @@
   border-color: rgba(255,255,255,0.28);
 }
 
-/* Ensure toasts stay frosted even in Classic UI (match modal behavior expectation) */
-[data-ui='classic'] .macos-toast .toast-card.card-frosted {
-  -webkit-backdrop-filter: saturate(180%) blur(22px) !important;
-  backdrop-filter: saturate(180%) blur(22px) !important;
-  background: color-mix(in oklab, var(--macos-surface) var(--toast-surface-mix, 64%), transparent) !important;
-  border-color: rgba(255,255,255,0.28) !important;
-  box-shadow: var(--macos-shadow-2), 0 12px 30px rgba(0,0,0,0.24) !important;
-}
-[data-ui='classic'] .macos-toast .toast-card.card-frosted.card-translucent:hover {
-  background: color-mix(in oklab, var(--macos-surface) var(--toast-surface-mix, 64%), transparent) !important;
-  border-color: rgba(255,255,255,0.28) !important;
-}
-
 /* Segmented control: use surface in frosted mode */
-[data-ui='frosted'] .segmented {
+.segmented {
   background: var(--macos-surface);
   border: 1px solid rgba(255,255,255,0.22);
   -webkit-backdrop-filter: var(--macos-surface-blur);
@@ -1461,10 +1331,10 @@
 .chip-frosted.chip-translucent-warning:hover { background: color-mix(in oklab, var(--macos-warning-text) 32%, rgba(30,30,30,0.50)); border-color: color-mix(in oklab, var(--macos-warning-text) 42%, rgba(255,255,255,0.28)); }
 
 /* Alias: primary action chip used in toolbar (keep for compatibility) */
-[data-ui='frosted'] .chip-frosted.chip-primary-action { background: color-mix(in oklab, var(--macos-blue) 82%, transparent); border-color: color-mix(in oklab, var(--macos-blue) 68%, white 22%); color: #fff; font-weight: 600; }
-[data-ui='frosted'] .chip-frosted.chip-primary-action:hover { background: color-mix(in oklab, var(--macos-blue) 90%, white 8%); border-color: color-mix(in oklab, var(--macos-blue) 76%, white 18%); }
-[data-ui='frosted'] .chip-frosted.chip-primary-action .chip-label { font-weight: 600; }
-[data-ui='frosted'] .chip-frosted.chip-primary-action .chip-icon { width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; margin-right: 4px; color: inherit; }
+.chip-frosted.chip-primary-action { background: color-mix(in oklab, var(--macos-blue) 82%, transparent); border-color: color-mix(in oklab, var(--macos-blue) 68%, white 22%); color: #fff; font-weight: 600; }
+.chip-frosted.chip-primary-action:hover { background: color-mix(in oklab, var(--macos-blue) 90%, white 8%); border-color: color-mix(in oklab, var(--macos-blue) 76%, white 18%); }
+.chip-frosted.chip-primary-action .chip-label { font-weight: 600; }
+.chip-frosted.chip-primary-action .chip-icon { width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; margin-right: 4px; color: inherit; }
 
 @supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
   .chip-frosted.chip-translucent { background: rgba(255,255,255,0.12); color: #111; border-color: rgba(0,0,0,0.15); }
@@ -1501,32 +1371,23 @@ body.modal-open .floating-filter {
   transition: opacity .15s ease;
 }
 }
-[data-ui='frosted'] .macos-modal .btn-chip,
-[data-ui='classic'] .macos-modal .btn-chip,
-[data-ui='frosted'] .macos-modal .btn-chip-icon,
-[data-ui='classic'] .macos-modal .btn-chip-icon { transform: none !important; }
-[data-ui='frosted'] .macos-modal .btn-chip:hover,
-[data-ui='classic'] .macos-modal .btn-chip:hover,
-[data-ui='frosted'] .macos-modal .btn-chip-icon:hover,
-[data-ui='classic'] .macos-modal .btn-chip-icon:hover { transform: none !important; }
-[data-ui='frosted'] .macos-modal .btn-chip:active,
-[data-ui='classic'] .macos-modal .btn-chip:active,
-[data-ui='frosted'] .macos-modal .btn-chip-icon:active,
-[data-ui='classic'] .macos-modal .btn-chip-icon:active { transform: none !important; }
+.macos-modal .btn-chip,
+.macos-modal .btn-chip-icon { transform: none !important; }
+.macos-modal .btn-chip:hover,
+.macos-modal .btn-chip-icon:hover { transform: none !important; }
+.macos-modal .btn-chip:active,
+.macos-modal .btn-chip-icon:active { transform: none !important; }
 
 /* ensure quiet chip variants don't animate in modals as well */
-[data-ui='frosted'] .macos-modal .btn-chip-ghost,
-[data-ui='classic'] .macos-modal .btn-chip-ghost,
-[data-ui='frosted'] .macos-modal .icon-chip-ghost,
-[data-ui='classic'] .macos-modal .icon-chip-ghost { transform: none !important; }
-[data-ui='frosted'] .macos-modal .btn-chip-ghost:hover,
-[data-ui='classic'] .macos-modal .btn-chip-ghost:hover,
-[data-ui='frosted'] .macos-modal .icon-chip-ghost:hover,
-[data-ui='classic'] .macos-modal .icon-chip-ghost:hover { transform: none !important; }
-[data-ui='frosted'] .macos-modal .btn-chip-ghost:active,
-[data-ui='classic'] .macos-modal .btn-chip-ghost:active,
-[data-ui='frosted'] .macos-modal .icon-chip-ghost:active,
-[data-ui='classic'] .macos-modal .icon-chip-ghost:active { transform: none !important; }
+.macos-modal .btn-chip-ghost,
+.macos-modal .icon-chip-ghost,
+.macos-modal .icon-chip-ghost { transform: none !important; }
+.macos-modal .btn-chip-ghost:hover,
+.macos-modal .icon-chip-ghost:hover,
+.macos-modal .icon-chip-ghost:hover { transform: none !important; }
+.macos-modal .btn-chip-ghost:active,
+.macos-modal .icon-chip-ghost:active,
+.macos-modal .icon-chip-ghost:active { transform: none !important; }
 
 /* Generic Chip Panel: reusable wider chip container for grouped controls */
 .chip-panel {

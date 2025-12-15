@@ -62,3 +62,9 @@ coverage/
 
 # cache
 .cache
+
+# wails3 frontend generated
+frontend/bindings
+
+# others
+.task

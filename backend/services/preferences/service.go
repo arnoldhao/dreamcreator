@@ -16,7 +16,7 @@ import (
 	"dreamcreator/backend/storage"
 	"dreamcreator/backend/types"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 	"go.uber.org/zap"
 )
 
@@ -196,12 +196,18 @@ func (p *Service) GetWindowPosition(ctx context.Context) (x, y int) {
 	x, y = data.Behavior.WindowPosX, data.Behavior.WindowPosY
 	width, height := data.Behavior.WindowWidth, data.Behavior.WindowHeight
 	var screenWidth, screenHeight int
-	if screens, err := runtime.ScreenGetAll(ctx); err == nil {
-		for _, screen := range screens {
-			if screen.IsCurrent {
-				screenWidth, screenHeight = screen.Size.Width, screen.Size.Height
-				break
+	// Wails v3 exposes screen information via the global ScreenManager.
+	if app := application.Get(); app != nil {
+		if screens := app.Screen.GetAll(); len(screens) > 0 {
+			// Prefer primary screen if available.
+			screen := screens[0]
+			for _, sc := range screens {
+				if sc.IsPrimary {
+					screen = sc
+					break
+				}
 			}
+			screenWidth, screenHeight = screen.Size.Width, screen.Size.Height
 		}
 	}
 	if screenWidth <= 0 || screenHeight <= 0 {

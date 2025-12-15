@@ -9,12 +9,19 @@
     "sync-icons": "node scripts/sync-open-symbols.mjs"
   },
   "dependencies": {
+    "@wailsio/runtime": "latest",
     "@telemetrydeck/sdk": "^2.0.4",
+    "@vueuse/core": "^13.6.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "dayjs": "^1.11.13",
     "lodash": "^4.17.21",
+    "lucide-vue-next": "^0.542.0",
     "markdown-it": "^14.1.0",
     "mitt": "^3.0.1",
     "pinia": "^2.2.2",
+    "reka-ui": "^2.5.0",
+    "tailwind-merge": "^3.3.1",
     "unplugin-auto-import": "^0.18.2",
     "unplugin-icons": "^0.19.2",
     "unplugin-vue-components": "^0.27.4",
@@ -29,6 +36,8 @@
     "postcss": "^8.4.47",
     "sass": "^1.77.8",
     "tailwindcss": "^3.4.13",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "^5.9.2",
     "vite": ">=6.3.6"
   },
   "overrides": {
