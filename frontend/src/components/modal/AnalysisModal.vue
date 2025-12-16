@@ -103,8 +103,7 @@ import { useDtStore } from '@/stores/downloadTasks'
 import ModalTrafficLights from '@/components/common/ModalTrafficLights.vue'
 import Icon from '@/components/base/Icon.vue'
 import { copyText as copyToClipboard } from '@/utils/clipboard.js'
-import useNavStore from '@/stores/nav.js'
-import useSettingsStore from '@/stores/settings.js'
+import { Events, Window } from '@wailsio/runtime'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -114,8 +113,6 @@ const props = defineProps({
 const emit = defineEmits(['update:show'])
 const { t } = useI18n()
 const dt = useDtStore()
-const navStore = useNavStore()
-const settingsStore = useSettingsStore()
 
 const steps = reactive({
   host: { state: 'pending', meta: '' },
@@ -260,18 +257,22 @@ async function retryTask() {
 }
 
 function goNetworkSettings() {
-  try {
-    navStore.setNav(navStore.navOptions.SETTINGS)
-    settingsStore.setPage(settingsStore.settingsOptions.GENERAL)
-    close()
-  } catch {}
+  openSettingsWindow('general')
+  close()
 }
 
 function goDependencySettings() {
+  openSettingsWindow('dependencies')
+  close()
+}
+
+function openSettingsWindow(section) {
+  try { Events.Emit('settings:navigate', section) } catch {}
   try {
-    navStore.setNav(navStore.navOptions.SETTINGS)
-    settingsStore.setPage(settingsStore.settingsOptions.DEPENDENCY)
-    close()
+    const sw = Window.Get('settings')
+    try { sw.UnMinimise() } catch {}
+    try { sw.Show() } catch {}
+    try { sw.Focus() } catch {}
   } catch {}
 }
 

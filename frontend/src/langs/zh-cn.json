@@ -212,6 +212,7 @@
     "settings": "设置"
   },
   "bottom": {
+    "more": "更多",
     "settings": "设置",
     "theme": "主题"
   },
@@ -232,6 +233,14 @@
   "settings": {
     "model_provider": "模型服务",
     "model_config": "模型配置",
+    "sections": {
+      "appearance": "外观",
+      "storage": "存储",
+      "dependencies": "依赖",
+      "cookies": "Cookies",
+      "providers": "模型服务",
+      "llm_assets": "模型资源"
+    },
     "editor": {
       "name": "编辑器",
       "font": "字体",
@@ -286,8 +295,7 @@
       "download_dir_set_failed": "设置下载目录失败",
       "saved_path": "存储目录",
       "config_path": "配置路径",
-      "data_path": "数据路径",
-      "listend": "已监听"
+      "data_path": "数据路径"
     },
     "about": {
       "title": "关于我们",
@@ -743,6 +751,10 @@
   ,
   "providers": {
     "add": "新增",
+    "available_title": "可用",
+    "available_empty": "暂无可用 Provider",
+    "unconfigured_title": "未配置",
+    "unconfigured_empty": "暂无未配置的 Provider",
     "provider": "Provider",
     "provider_name": "Provider 名称",
     "api_base_url": "API Base URL",

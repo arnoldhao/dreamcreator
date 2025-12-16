@@ -282,6 +282,12 @@ func (s *Service) UpdateProvider(ctx context.Context, id string, in UpdateProvid
 	if err != nil {
 		return nil, err
 	}
+	prevBaseURL := rec.BaseURL
+	prevAPIKey := rec.APIKey
+	prevType := rec.Type
+	prevProjectID := rec.ProjectID
+	prevSAEmail := rec.SAEmail
+	prevSAPrivateKey := rec.SAPrivateKey
 	// 名称可编辑性：仅 custom 允许
 	if in.Name != nil {
 		if strings.ToLower(rec.Policy) == string(types.PolicyCustom) || rec.Policy == "" {
@@ -334,6 +340,17 @@ func (s *Service) UpdateProvider(ctx context.Context, id string, in UpdateProvid
 		rl := *in.RateLimit
 		rec.RateLimit = storage.RateLimitRec{RPM: rl.RPM, RPS: rl.RPS, Burst: rl.Burst, Concurrency: rl.Concurrency}
 	}
+
+	// If connectivity-critical fields change, invalidate cached models until refreshed successfully.
+	if rec.BaseURL != prevBaseURL ||
+		rec.APIKey != prevAPIKey ||
+		rec.Type != prevType ||
+		rec.ProjectID != prevProjectID ||
+		rec.SAEmail != prevSAEmail ||
+		rec.SAPrivateKey != prevSAPrivateKey {
+		rec.Models = nil
+	}
+
 	// If this is a preset_hidden provider and currently disabled, make it enabled when
 	// user starts configuring it (BaseURL/APIKey provided) unless caller explicitly set Enabled.
 	if strings.ToLower(rec.Policy) == string(types.PolicyPresetHidden) && !rec.Enabled && in.Enabled == nil {
@@ -590,7 +607,18 @@ func (s *Service) RefreshModels(ctx context.Context, providerID string) ([]strin
 	var models []string
 	switch types.ProviderType(typ) {
 	case types.ProviderAnthropicCompat:
-		// Anthropic 无稳定 /models 端点，返回常见模型清单
+		// Anthropic 无稳定 /models 端点：先做一次轻量请求验证 key/baseURL，再返回常见模型清单
+		if strings.TrimSpace(rec.APIKey) == "" {
+			return nil, errors.New("api key required")
+		}
+		client := anthropicclient.NewClient(rec.BaseURL, rec.APIKey, httpc)
+		tctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		pingModel := defaultAnthropicModels()[1]
+		if _, e := client.ChatMessages(tctx, pingModel, "", []anthropicclient.Message{{Role: "user", Content: []anthropicclient.ContentBlock{{Type: "text", Text: "ping"}}}}, 0.0, 16); e != nil {
+			logger.Warn("anthropic ping failed", zap.Error(e))
+			return nil, e
+		}
 		models = defaultAnthropicModels()
 	default:
 		// OpenAI 兼容

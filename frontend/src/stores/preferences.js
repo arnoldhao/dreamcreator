@@ -12,7 +12,7 @@ import {
     SetLoggerConfig,
 } from 'bindings/dreamcreator/backend/services/preferences/service'
 import { Info as GetSystemInfo } from 'bindings/dreamcreator/backend/services/systems/service'
-import { Browser } from '@wailsio/runtime'
+import { Browser, Events } from '@wailsio/runtime'
 import { i18nGlobal } from '@/utils/i18n.js'
 import { h, nextTick, ref } from 'vue'
 import { compareVersion } from '@/utils/version.js'
@@ -232,6 +232,8 @@ const usePreferencesStore = defineStore('preferences', {
             const { success, msg } = await SetPreferences(pf)
             if (success) {
                 await this.refreshTelemetryRuntime()
+                // Cross-window: notify other windows to reload preferences and apply theme/locale.
+                try { Events.Emit("app:preferencesChanged", { general: pf.general }) } catch {}
             }
             return success === true
         },

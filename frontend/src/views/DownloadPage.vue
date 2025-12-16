@@ -57,7 +57,6 @@
 
     <!-- modals -->
     <VideoDownloadModal :show="showDownloadModal" @update:show="showDownloadModal = $event" @download-started="onDownloadStarted" />
-    <CookiesManagerModal v-if="showCookies" @close="showCookies = false" />
 
     <!-- floating filter at bottom-right -->
     <div class="floating-filter chip-frosted chip-translucent chip-panel" @click.stop :style="{ right: floatingRight + 'px' }">
@@ -91,7 +90,6 @@ import useNavStore from '@/stores/nav.js'
 import useLayoutStore from '@/stores/layout.js'
 import DownloadTaskCard from '@/components/download/DownloadTaskCard.vue'
 import VideoDownloadModal from '@/components/modal/VideoDownloadModal.vue'
-import CookiesManagerModal from '@/components/modal/CookiesManagerModal.vue'
 import { formatDuration as fmtDuration, formatFileSize as fmtSize } from '@/utils/format.js'
 import { copyText as copyToClipboard } from '@/utils/clipboard.js'
 
@@ -106,7 +104,6 @@ const inspector = useInspectorStore()
 const navStore = useNavStore()
 const layout = useLayoutStore()
 const showDownloadModal = ref(false)
-const showCookies = ref(false)
 const floatingFilterExpanded = ref(false)
 const refreshing = ref(false)
 
@@ -293,7 +290,6 @@ onMounted(() => {
   eventBus.on('download:refresh', refreshTasks)
   eventBus.on('download:new-task', () => { showDownloadModal.value = true })
   // bridge clicks from Inspector header
-  eventBus.on('download:toggle-cookies', onToggleCookies)
   eventBus.on('download:toggle-detail', onToggleDetail)
   // If inspector is closed (e.g., returning to this page), ensure selection is cleared
   if (!inspector.visible) activeTaskId.value = null
@@ -310,7 +306,6 @@ onUnmounted(() => {
   eventBus.off('download:search', () => {})
   eventBus.off('download:refresh', refreshTasks)
   eventBus.off('download:new-task', () => {})
-  eventBus.off('download:toggle-cookies', onToggleCookies)
   eventBus.off('download:toggle-detail', onToggleDetail)
   try {
     document.removeEventListener('visibilitychange', onVisibilityChange)
@@ -330,17 +325,6 @@ function onTaskClick(task) {
   // inspector.visible controlled by store
 }
 
-function onToggleCookies() {
-  if (!inspector.visible) {
-    inspector.open('CookiesPanel', t('cookies.title'))
-    return
-  }
-  if (inspector.panel === 'CookiesPanel') {
-    inspector.close()
-  } else {
-    inspector.open('CookiesPanel', t('cookies.title'))
-  }
-}
 
 function onToggleDetail() {
   if (!inspector.visible) {
@@ -368,7 +352,6 @@ function onVisibilityChange() {
 }
 function onWindowFocus() { refreshTasks() }
 
-const isCookiesActive = computed(() => inspector.visible && inspector.panel === 'CookiesPanel')
 const isDetailActive = computed(() => inspector.visible && inspector.panel === 'DownloadTaskPanel')
 
 // Capture clicks at page root to ensure blank areas reliably close inspector

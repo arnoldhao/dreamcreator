@@ -211,12 +211,11 @@
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
-import { GetContent, Download, QuickDownload, GetFormats } from 'bindings/dreamcreator/backend/api/downtasksapi'
-import { DependenciesReady } from 'bindings/dreamcreator/backend/api/dependenciesapi'
-import { GetBrowserByDomain } from 'bindings/dreamcreator/backend/api/cookiesapi'
-import useNavStore from '@/stores/nav.js'
-import useSettingsStore from '@/stores/settings'
-import { useI18n } from 'vue-i18n'
+	import { GetContent, Download, QuickDownload, GetFormats } from 'bindings/dreamcreator/backend/api/downtasksapi'
+	import { DependenciesReady } from 'bindings/dreamcreator/backend/api/dependenciesapi'
+	import { GetBrowserByDomain } from 'bindings/dreamcreator/backend/api/cookiesapi'
+	import { Events, Window } from '@wailsio/runtime'
+	import { useI18n } from 'vue-i18n'
 import ProxiedImage from '@/components/common/ProxiedImage.vue'
 import { useLoggerStore } from '@/stores/logger'
 import UrlCookiesBar from '@/components/common/UrlCookiesBar.vue'
@@ -230,9 +229,6 @@ import { copyText as copyToClipboard } from '@/utils/clipboard.js'
 // i18n
 const { t } = useI18n()
 const logger = useLoggerStore()
-
-const settingsStore = useSettingsStore()
-const navStore = useNavStore()
 
 const props = defineProps({
   show: Boolean,
@@ -272,10 +268,15 @@ const checkDependencies = async () => {
   }
 }
 
-const gotoDependency = () => {
-  navStore.setNav('settings')
-  settingsStore.setPage('dependency')
-}
+	const gotoDependency = () => {
+	  try { Events.Emit('settings:navigate', 'dependencies') } catch {}
+	  try {
+	    const sw = Window.Get('settings')
+	    try { sw.UnMinimise() } catch {}
+	    try { sw.Show() } catch {}
+	    try { sw.Focus() } catch {}
+	  } catch {}
+	}
 
 // Refs for a11y/focus management
 const dialogEl = ref(null)

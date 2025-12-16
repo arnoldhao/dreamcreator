@@ -211,6 +211,7 @@
     "settings": "Settings"
   },
   "bottom": {
+    "more": "More",
     "settings": "Settings",
     "theme": "Theme"
   },
@@ -231,6 +232,14 @@
   "settings": {
     "model_provider": "Model Provider",
     "model_config": "Model Config",
+    "sections": {
+      "appearance": "Appearance",
+      "storage": "Storage",
+      "dependencies": "Dependencies",
+      "cookies": "Cookies",
+      "providers": "Providers",
+      "llm_assets": "LLM Assets"
+    },
     "editor": {
       "name": "Editor",
       "font": "Font",
@@ -286,8 +295,7 @@
       "download_dir_set_failed": "Failed to set download directory",
       "saved_path": "Saved Path",
       "config_path": "Config Path",
-      "data_path": "Data Path",
-      "listend": "Listened"
+      "data_path": "Data Path"
     },
     "about": {
       "title": "About",
@@ -543,8 +551,8 @@
       "cues": "Cues",
       "format": "Format",
       "original_format": "Original Format",
-      "previous": "Previous",
-      "next": "Next",
+    "previous": "Previous",
+    "next": "Next",
       "confirm": "Confirm",
       "cancel": "Cancel",
       "open": "Open",
@@ -741,6 +749,10 @@
   ,
   "providers": {
     "add": "Add",
+    "available_title": "Available",
+    "available_empty": "No available providers",
+    "unconfigured_title": "Not configured",
+    "unconfigured_empty": "No unconfigured providers",
     "provider": "Provider",
     "provider_name": "Provider Name",
     "api_base_url": "API Base URL",

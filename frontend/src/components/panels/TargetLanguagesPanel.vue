@@ -5,7 +5,7 @@
     </div>
     <div class="macos-box card-frosted card-translucent">
       <div class="gl-sets">
-        <div class="macos-row gl-row" v-for="l in langs" :key="l.code" @click="openEdit(l)">
+        <div class="macos-row gl-row" v-for="l in langs" :key="l.code" @click="openInSettings(l.code)">
           <span class="k k-left" :title="l.name || l.code">
             <span class="name one-line">{{ l.name }}</span>
             <!-- <span class="code chip-frosted chip-lg chip-translucent"><span class="chip-label mono">{{ l.code }}</span></span> -->
@@ -39,22 +39,19 @@
         <span class="stats-pill">{{ langs.length }} {{ t('subtitle.target_languages.title') }}</span>
       </div>
     </div>
-    <TargetLanguageModal :show="showModal" :lang="editing" @close="showModal=false" @saved="onSaved" />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Events, Window } from '@wailsio/runtime'
 import Icon from '@/components/base/Icon.vue'
-import TargetLanguageModal from '@/components/modal/TargetLanguageModal.vue'
 import { useTargetLanguagesStore } from '@/stores/targetLanguages.js'
 
 const { t } = useI18n()
 const tlStore = useTargetLanguagesStore()
 const langs = computed(() => tlStore.list || [])
-const showModal = ref(false)
-const editing = ref(null) // { code, name }
 
 async function loadLangs() {
   try {
@@ -62,21 +59,23 @@ async function loadLangs() {
   } catch {}
 }
 
-function openCreate() { editing.value = null; showModal.value = true }
-function openEdit(l) { editing.value = { ...l }; showModal.value = true }
-async function onSaved({ originalCode, saved }) {
-  if (!saved?.code) return
+function openSettingsRoute(route) {
+  try { Events.Emit('settings:navigate', route) } catch {}
   try {
-    // If code changed, remove the old one explicitly to keep backend tidy
-    if (originalCode && originalCode !== saved.code) {
-      await tlStore.remove(originalCode)
-    }
-    await tlStore.upsert(saved)
-    showModal.value = false
-  } catch (e) {
-    console.error('Save language failed:', e)
-    $message?.error?.(t('common.save_failed'))
-  }
+    const sw = Window.Get('settings')
+    try { sw.UnMinimise() } catch {}
+    try { sw.Show() } catch {}
+    try { sw.Focus() } catch {}
+  } catch {}
+}
+
+function openInSettings(code) {
+  if (!code) return
+  openSettingsRoute({ section: 'llm_assets', llmAssetsKind: 'target_languages', llmAssetsId: String(code) })
+}
+
+function openCreate() {
+  openSettingsRoute({ section: 'llm_assets', llmAssetsKind: 'target_languages', llmAssetsId: 'new' })
 }
 
 async function delLang(l) {

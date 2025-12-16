@@ -6,7 +6,7 @@
     
     <div class="macos-box card-frosted card-translucent">
       <div class="gl-sets">
-        <div class="macos-row gl-row" v-for="s in glSets" :key="s.id" @click="openManageTerms(s)">
+        <div class="macos-row gl-row" v-for="s in glSets" :key="s.id" @click="openInSettings(s.id)">
           <span class="k k-left" :title="s.name">
             <span class="name one-line">{{ s.name }}</span>
             <span class="count chip-frosted chip-lg chip-translucent"><span class="chip-label">{{ glCounts[s.id] || 0 }}</span></span>
@@ -36,16 +36,14 @@
         <span class="stats-pill">{{ glTotalTerms }} {{ t('glossary.terms') }}</span>
       </div>
     </div>
-
-    <GlossaryTermsModal :show="showTermsModal" :mode="termsMode" :set="managingSet" @saved="onSetSaved" @close="closeTermsModal" />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Events, Window } from '@wailsio/runtime'
 import Icon from '@/components/base/Icon.vue'
-import GlossaryTermsModal from '@/components/modal/GlossaryTermsModal.vue'
 import { subtitleService } from '@/services/subtitleService.js'
 
 const glSets = ref([])
@@ -53,9 +51,6 @@ const glCurrentSet = ref('')
 const glCounts = ref({})
 const glTotalTerms = ref(0)
 
-const showTermsModal = ref(false)
-const managingSet = ref(null)
-const termsMode = ref('edit')
 const { t } = useI18n()
 
 async function loadSets() {
@@ -81,23 +76,24 @@ async function loadEntries() {
 }
 function pickSet(id) { glCurrentSet.value = id; loadEntries() }
 
-// legacy set modal removed; combined into Terms modal
-
-function openCreateSet() { termsMode.value = 'create'; managingSet.value = null; showTermsModal.value = true }
-function openManageTerms(set) { termsMode.value = 'edit'; managingSet.value = set; showTermsModal.value = true }
-function closeTermsModal() { showTermsModal.value = false; managingSet.value = null; loadSets() }
-function onSetSaved(saved) {
-  if (!saved?.id) return
-  const idx = glSets.value.findIndex(x => x.id === saved.id)
-  if (idx >= 0) { glSets.value[idx] = saved }
-  else {
-    glSets.value.push(saved)
-    const m = { ...glCounts.value }; m[saved.id] = 0; glCounts.value = m
-  }
-  if (!glCurrentSet.value) glCurrentSet.value = saved.id
+function openSettingsRoute(route) {
+  try { Events.Emit('settings:navigate', route) } catch {}
+  try {
+    const sw = Window.Get('settings')
+    try { sw.UnMinimise() } catch {}
+    try { sw.Show() } catch {}
+    try { sw.Focus() } catch {}
+  } catch {}
 }
 
-// renameSet removed per latest design (no edit button)
+function openInSettings(setId) {
+  if (!setId) return
+  openSettingsRoute({ section: 'llm_assets', llmAssetsKind: 'glossary', llmAssetsId: String(setId) })
+}
+
+function openCreateSet() {
+  openSettingsRoute({ section: 'llm_assets', llmAssetsKind: 'glossary', llmAssetsId: 'new' })
+}
 
 async function delSet(set) {
   if (!set?.id) return

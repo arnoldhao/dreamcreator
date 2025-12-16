@@ -3,7 +3,8 @@
 
 /* Settings standalone window: apply a global glass blur, with actual translucency
    controlled via `.dc-shadcn.settings-window` tokens (see `styles/shadcn.css`). */
-.dc-shadcn.settings-window {
+.dc-shadcn.settings-window,
+.dc-shadcn.main-window {
   /* Paint the "base material" for the whole Settings window (similar to the main ribbon),
      then let inner shadcn surfaces be transparent where appropriate. */
   background: color-mix(in srgb, var(--macos-background) 72%, transparent);
@@ -13,14 +14,16 @@
 
 /* macOS Tahoe (macOS 26): window corner radius depends on window style; for
    hidden-titlebar "unified toolbar" windows, use the larger radius. */
-:root[data-platform='darwin'] .dc-shadcn.settings-window {
+:root[data-platform='darwin'] .dc-shadcn.settings-window,
+:root[data-platform='darwin'] .dc-shadcn.main-window {
   --dc-macos-window-radius: 20px;
   border-radius: var(--dc-macos-window-radius);
   overflow: hidden;
 }
 
 /* Keep the floating sidebar curvature consistent with the outer window rounding. */
-:root[data-platform='darwin'] .dc-shadcn.settings-window [data-sidebar="sidebar"] {
+:root[data-platform='darwin'] .dc-shadcn.settings-window [data-sidebar="sidebar"],
+:root[data-platform='darwin'] .dc-shadcn.main-window [data-sidebar="sidebar"] {
   border-radius: var(--dc-macos-window-radius);
 }
 
@@ -39,10 +42,24 @@
   --wails-draggable: no-drag;
 }
 
+/* Main window (shadcn layout): mark explicit drag regions for hidden-titlebar windows. */
+.dc-shadcn.main-window .dc-main-dragbar {
+  -webkit-app-region: drag;
+  --wails-draggable: drag;
+}
+
+.dc-shadcn.main-window
+  .dc-main-dragbar
+  :is(button, input, textarea, select, a, [role="button"], [data-sidebar], [data-slot]) {
+  -webkit-app-region: no-drag;
+  --wails-draggable: no-drag;
+}
+
 
 .dc-shadcn.settings-window .dc-settings-content {
   /* Allow sizing controls relative to the actual content column width. */
   container-type: inline-size;
+  position: relative;
   /* `p-4` on the content container => 16px * 2 (left+right) */
   --dc-settings-content-padding-x: 32px;
   /* For 2-column grids like `gap-4` => 16px between columns */
@@ -54,6 +71,26 @@
   font-size: 13px;
   font-weight: 400;
 }
+
+/* Settings content: frosted gradient under the fixed title bar. */
+.dc-shadcn.settings-window .dc-settings-content::before {
+  content: '';
+  position: sticky;
+  top: 0;
+  display: block;
+  height: 10px;
+  margin-top: -16px; /* negate `p-4` top padding so the fade starts at the top edge */
+  margin-bottom: 6px; /* keep layout neutral (10 - 16 + 6 = 0) */
+  background: linear-gradient(to bottom, var(--macos-hover-translucent), rgba(0,0,0,0));
+  -webkit-backdrop-filter: var(--macos-surface-blur);
+  backdrop-filter: var(--macos-surface-blur);
+  pointer-events: none;
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.dc-shadcn.settings-window .dc-settings-content.scrolled::before { opacity: 1; }
+
 
 /* Settings window dialogs: match Settings typography scale and buttons. */
 .dc-settings-dialog {

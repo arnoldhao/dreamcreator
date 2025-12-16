@@ -34,9 +34,22 @@
 
   /* DreamCreator Settings window: use a glassy surface like the main ribbon,
      but with lower transparency (more opaque). */
-  .dc-shadcn.settings-window {
+  .dc-shadcn.settings-window,
+  .dc-shadcn.main-window {
+    /* Maia-style roundness (affects Tailwind `rounded-*` mappings via `--radius`). */
+    --radius: 0.75rem;
     /* Let the window root paint the glass material; keep inner "background"
        surfaces transparent so the material is visible everywhere. */
+    --background: 0 0% 100% / 0;
+    --card: 0 0% 100% / 0.74;
+    --popover: 0 0% 100% / 0.76;
+    --sidebar-background: 0 0% 98% / 0.76;
+  }
+
+  /* Portal surfaces (DropdownMenu/Tooltip/Sheet etc.): apply the same "glass"
+     token overrides without inheriting window-level blur/radius rules. */
+  .dc-shadcn.dc-shadcn-portal-glass {
+    --radius: 0.75rem;
     --background: 0 0% 100% / 0;
     --card: 0 0% 100% / 0.74;
     --popover: 0 0% 100% / 0.76;
@@ -76,7 +89,16 @@
   }
 
   .dc-shadcn.settings-window.dark,
-  :root[data-theme='dark'] .dc-shadcn.settings-window {
+  :root[data-theme='dark'] .dc-shadcn.settings-window,
+  .dc-shadcn.main-window.dark,
+  :root[data-theme='dark'] .dc-shadcn.main-window {
+    --background: 240 10% 3.9% / 0;
+    --card: 240 10% 3.9% / 0.70;
+    --popover: 240 10% 3.9% / 0.72;
+    --sidebar-background: 240 5.9% 10% / 0.72;
+  }
+
+  :root[data-theme='dark'] .dc-shadcn.dc-shadcn-portal-glass {
     --background: 240 10% 3.9% / 0;
     --card: 240 10% 3.9% / 0.70;
     --popover: 240 10% 3.9% / 0.72;
@@ -87,6 +109,7 @@
     @apply bg-background text-foreground;
   }
 
+  .dc-shadcn,
   .dc-shadcn * {
     @apply border-border;
   }

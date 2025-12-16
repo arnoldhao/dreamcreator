@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { 
-  listEnabledProviders as listProviders, createProvider, updateProvider, deleteProvider, testProvider, refreshModels
+  listProviders, createProvider, updateProvider, deleteProvider, testProvider, refreshModels
 } from '@/services/llmProviderService.js'
 import { useI18n } from 'vue-i18n'
 

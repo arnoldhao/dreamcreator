@@ -2,7 +2,7 @@
 import type { Component } from "vue"
 import { computed } from "vue"
 import { useI18n } from "vue-i18n"
-import { Boxes, Download, Folder, Handshake, Info, Radio, Settings, Text } from "lucide-vue-next"
+import { Boxes, Cookie, Database, Folder, Handshake, Info, Layers, Palette, Settings } from "lucide-vue-next"
 import type { SettingsSection } from "../types"
 
 import {
@@ -32,12 +32,13 @@ const navItems = computed(() => {
   void locale.value
   return [
     { key: "general", title: t("settings.general.name"), icon: Settings },
-    { key: "download", title: t("settings.general.download"), icon: Download },
-    { key: "logs", title: t("settings.general.log"), icon: Text },
-    { key: "paths", title: t("settings.general.saved_path"), icon: Folder },
-    { key: "listened", title: t("settings.general.listend"), icon: Radio },
-    { key: "ack", title: t("settings.acknowledgments"), icon: Handshake },
-    { key: "dependency", title: t("settings.dependency.title"), icon: Boxes },
+    { key: "appearance", title: t("settings.sections.appearance"), icon: Palette },
+    { key: "storage", title: t("settings.sections.storage"), icon: Folder },
+    { key: "dependencies", title: t("settings.sections.dependencies"), icon: Boxes },
+    { key: "cookies", title: t("settings.sections.cookies"), icon: Cookie },
+    { key: "providers", title: t("settings.sections.providers"), icon: Database },
+    { key: "llm_assets", title: t("settings.sections.llm_assets"), icon: Layers },
+    { key: "acknowledgements", title: t("settings.acknowledgments"), icon: Handshake },
     { key: "about", title: t("settings.about.title"), icon: Info },
   ] satisfies Array<{ key: SettingsSection; title: string; icon: Component }>
 })

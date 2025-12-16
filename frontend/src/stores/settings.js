@@ -3,7 +3,13 @@ import { reactive, computed } from 'vue'
 // settings 页面选项常量
 export const settingsOptions = {
   GENERAL: 'general',
-  DEPENDENCY: 'dependency',
+  APPEARANCE: 'appearance',
+  STORAGE: 'storage',
+  DEPENDENCIES: 'dependencies',
+  COOKIES: 'cookies',
+  PROVIDERS: 'providers',
+  LLM_ASSETS: 'llm_assets',
+  ACKNOWLEDGEMENTS: 'acknowledgements',
   ABOUT: 'about'
 }
 

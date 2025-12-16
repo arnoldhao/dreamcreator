@@ -9,8 +9,10 @@ const isDarkMode = computed(() => !!prefStore?.isDark)
 
 <template>
   <div class="dc-shadcn relative min-h-screen settings-window" :class="{ dark: isDarkMode }">
-    <div class="h-screen w-screen overflow-hidden">
-      <SettingsWindowPage />
+    <div class="h-screen w-screen overflow-hidden flex">
+      <div class="flex-1 min-h-0 min-w-0">
+        <SettingsWindowPage />
+      </div>
     </div>
   </div>
 </template>

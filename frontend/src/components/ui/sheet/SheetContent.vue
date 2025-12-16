@@ -31,13 +31,18 @@ const delegatedProps = reactiveOmit(props, "class", "side")
 
 const forwarded = useForwardPropsEmits(delegatedProps, emits)
 
-const isSettingsWindow = (() => {
+const windowMode = (() => {
   try {
-    return new URLSearchParams(window.location.search).get("window") === "settings"
+    return new URLSearchParams(window.location.search).get("window") || "main"
   } catch {
-    return false
+    return "main"
   }
 })()
+
+const useMaiaTokens = windowMode === "settings" || windowMode === "main"
+const shadcnPortalClass = useMaiaTokens
+  ? "dc-shadcn dc-shadcn-portal-glass"
+  : "dc-shadcn"
 </script>
 
 <template>
@@ -46,7 +51,7 @@ const isSettingsWindow = (() => {
       class="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
     />
     <DialogContent
-      :class="cn(isSettingsWindow ? 'dc-shadcn settings-window' : '', sheetVariants({ side }), props.class)"
+      :class="cn(shadcnPortalClass, sheetVariants({ side }), props.class)"
       v-bind="{ ...forwarded, ...$attrs }"
     >
       <slot />

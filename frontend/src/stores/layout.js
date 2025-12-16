@@ -3,7 +3,7 @@ import { reactive } from 'vue'
 const state = reactive({
   ribbonVisible: true,
   inspectorVisible: true,
-  ribbonWidth: 160,
+  ribbonWidth: 200,
   inspectorWidth: 320,
 })
 

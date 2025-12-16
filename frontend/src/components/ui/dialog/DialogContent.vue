@@ -30,13 +30,15 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
 const rootContext = injectDialogRootContext()
 const isOpen = computed(() => !!rootContext?.open?.value)
 
-const isSettingsWindow = (() => {
+const windowMode = (() => {
   try {
-    return new URLSearchParams(window.location.search).get("window") === "settings"
+    return new URLSearchParams(window.location.search).get("window") || "main"
   } catch {
-    return false
+    return "main"
   }
 })()
+
+const useMaiaTokens = windowMode === "settings" || windowMode === "main"
 </script>
 
 <template>
@@ -51,10 +53,10 @@ const isSettingsWindow = (() => {
         v-bind="{ ...forwarded, ...$attrs }"
         :class="
           cn(
-            // In the Settings window we still need shadcn tokens (portal renders outside the window root),
-            // but we intentionally avoid `.settings-window` to prevent inheriting glass/blur overrides.
-            isSettingsWindow ? 'dc-shadcn' : '',
-            'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-4 shadow-lg',
+            // Portals render outside the window root; apply Maia shadcn tokens without inheriting
+            // window-level blur/radius rules from `.settings-window`/`.main-window`.
+            useMaiaTokens ? 'dc-shadcn dc-shadcn-portal-glass' : 'dc-shadcn',
+            'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-card p-4 shadow-lg',
             'sm:rounded-lg',
             props.class,
           )

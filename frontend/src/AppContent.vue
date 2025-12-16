@@ -1,15 +1,14 @@
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import eventBus from '@/utils/eventBus.js'
-import Ribbon from '@/components/sidebar/Ribbon.vue'
+import MainSidebarMenu from "@/components/sidebar/MainSidebarMenu.vue"
+import MainSidebarSettingsMenu from "@/components/sidebar/MainSidebarSettingsMenu.vue"
 import useNavStore from '@/stores/nav.js'
-import usePreferencesStore from '@/stores/preferences.js'
 import ToolbarControlWidget from '@/components/common/ToolbarControlWidget.vue'
-import ToolbarTrafficLights from '@/components/common/ToolbarTrafficLights.vue'
-// Sidebar toggle uses semantic icons now
 import useLayoutStore from '@/stores/layout.js'
 import Inspector from '@/components/inspector/Inspector.vue'
 import useInspectorStore from '@/stores/inspector.js'
+import { Button } from "@/components/ui/button"
 import { Events, Window } from '@wailsio/runtime'
 import { isMacOS, isWindows } from '@/utils/platform.js'
 import VideoDownloadPage from "@/views/DownloadPage.vue";
@@ -17,16 +16,14 @@ import Subtitle from '@/views/SubtitlePage.vue';
 import { useSubtitleStore } from '@/stores/subtitle.js'
 import { subtitleService } from '@/services/subtitleService.js'
 import { useI18n } from 'vue-i18n'
-import Providers from '@/views/ProvidersPage.vue'
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { PanelLeftClose, PanelLeftOpen } from "lucide-vue-next"
 
 const props = defineProps({
   loading: Boolean,
 })
 
-const data = reactive({})
-
 const navStore = useNavStore()
-const prefStore = usePreferencesStore()
 const layout = useLayoutStore()
 const inspector = useInspectorStore()
 const subtitleStore = useSubtitleStore()
@@ -36,7 +33,6 @@ const downloadNewSearch = ref('')
 const subtitleSearch = ref('')
 const searchFocused = ref(false)
 function emitDownloadNewSearch() { eventBus.emit('download:search', downloadNewSearch.value) }
-function emitDownloadNewRefresh() { eventBus.emit('download:refresh') }
 function onDownloadSearchFocus() {
   searchFocused.value = true
   if (inspector.visible) inspector.close()
@@ -64,24 +60,11 @@ const metricsStandardName = computed(() => {
   const map = { netflix: 'Netflix', bbc: 'BBC', ade: 'ADE' }
   return m ? (map[m] || String(m).toUpperCase()) : ''
 })
-const metricsStandardDesc = computed(() => {
-  const m = metricsStandardKey.value
-  if (!m) return ''
-  const d = {
-    netflix: t('subtitle.list.netflix_standard_desc'),
-    bbc: t('subtitle.list.bbc_standard_desc'),
-    ade: t('subtitle.list.ade_standard_desc'),
-  }
-  return d[m] || ''
-})
 
 // Toolbar CTA buttons (primary emphasis) for key modal actions
 const primaryModalActions = new Set(['download:new-task', 'subtitle:open-file'])
 
 const contentTitle = computed(() => {
-  if (navStore.currentNav === navStore.navOptions.PROVIDERS) {
-    return t('settings.model_provider')
-  }
   return t('ribbon.' + navStore.currentNav)
 })
 
@@ -120,94 +103,6 @@ async function saveEditProjectName() {
   } catch (e) { $message?.error?.(e?.message || String(e)) }
 }
 
-const logoWrapperWidth = computed(() => {
-  const left = layout.ribbonVisible ? layout.ribbonWidth : 0
-  const right = inspector.visible ? layout.inspectorWidth : 0
-  return `${left + right}px`
-})
-
-const leftCapWidth = computed(() => {
-  // When ribbon collapsed, reserve space for traffic lights + ribbon toggle (approx 40px)
-  const safe = logoPaddingLeft.value + 40
-  const w = layout.ribbonVisible ? layout.ribbonWidth : safe
-  return `${w}px`
-})
-
-// UI style is fixed to frosted
-const uiFrosted = computed(() => true)
-const isDarkMode = computed(() => !!prefStore?.isDark)
-
-// ribbon/left-cap 的毛玻璃底色，按明暗主题区分
-const ribbonFrostedBg = computed(() => isDarkMode.value ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.28)')
-
-// Left cap dynamic style: in frosted mode we paint background via a unified toolbar stripe overlay to avoid flicker
-const leftCapStyle = computed(() => {
-  const base = { width: leftCapWidth.value }
-  if (!layout.ribbonVisible) {
-    // Let the parent toolbar background paint this area for a perfect match
-    return {
-      ...base,
-      borderRight: 'none',
-      background: 'transparent',
-      backdropFilter: 'none',
-      WebkitBackdropFilter: 'none'
-    }
-  }
-  // ribbon visible: background is painted by toolbar-left-stripe overlay; keep left cap transparent but with divider
-  return {
-    ...base,
-    borderRight: '1px solid var(--macos-divider-weak)',
-    background: 'transparent',
-    backdropFilter: 'none',
-    WebkitBackdropFilter: 'none',
-    isolation: 'isolate',
-    mixBlendMode: 'normal'
-  }
-})
-
-// Opaque layer to repaint middle+right backgrounds when opening a transparent hole under ribbon
-const opaqueLayerStyle = computed(() => {
-  // Offset equals ribbon width when visible, otherwise 0
-  const left = layout.ribbonVisible ? layout.ribbonWidth : 0
-  return { left: left + 'px' }
-})
-
-// Background for the whole window: make only the left ribbon stripe transparent in frosted mode
-const windowBgVars = computed(() => {
-  if (!layout.ribbonVisible) return {}
-  const w = Math.max(0, Number(layout.ribbonWidth) || 0)
-  const bg = `linear-gradient(to right, transparent 0, transparent ${w}px, var(--macos-background) ${w}px, var(--macos-background) 100%)`
-  return { '--window-bg': bg }
-})
-
-// Toolbar painting: remove toolbar's own frosted background under left cap and repaint middle+right
-const toolbarBgOverride = computed(() => {
-  // frosted + ribbon 可见：清空 toolbar 自身底色，由我们分区绘制（左透右不透）
-  if (layout.ribbonVisible) {
-    return { background: 'transparent', backdropFilter: 'none', WebkitBackdropFilter: 'none' }
-  }
-  // frosted + ribbon 关闭：标题栏整体不透明，颜色与内容保持一致
-  return { background: 'var(--macos-surface-opaque)', backdropFilter: 'none', WebkitBackdropFilter: 'none' }
-})
-
-const toolbarLayerStyle = computed(() => {
-  if (!layout.ribbonVisible) return { display: 'none' }
-  return { left: (layout.ribbonWidth || 0) + 'px' }
-})
-
-// Unified left frosted stripe for toolbar to match ribbon area; animates as one block
-const toolbarLeftStripeStyle = computed(() => {
-  const bg = layout.ribbonVisible ? ribbonFrostedBg.value : 'var(--macos-surface-opaque)'
-  const blur = layout.ribbonVisible ? 'var(--macos-surface-blur)' : 'none'
-  return {
-    width: (layout.ribbonVisible ? (layout.ribbonWidth || 0) + 'px' : '0px'),
-    background: bg,
-    backdropFilter: blur,
-    WebkitBackdropFilter: blur,
-  }
-})
-
-const logoPaddingLeft = ref(10)
 // Top fade under toolbar when content scrolls
 const pageScrollEl = ref(null)
 const hasTopScroll = ref(false)
@@ -215,16 +110,10 @@ let scrollEl = null
 const onScroll = () => { try { hasTopScroll.value = (scrollEl?.scrollTop || 0) > 0 } catch {} }
 const maximised = ref(false)
 const hideRadius = ref(false)
-// 使用系统原生的交通灯外观，不再自绘占位
+// Use system traffic lights on macOS (hidden-titlebar window)
 
 const onToggleFullscreen = (fullscreen) => {
   hideRadius.value = fullscreen
-  if (fullscreen) {
-    logoPaddingLeft.value = 10
-  } else {
-    // Reserve space for traffic lights on both macOS (native) and Windows (custom)
-    logoPaddingLeft.value = (isMacOS() || isWindows()) ? 70 : 10
-  }
 }
 
 const onToggleMaximize = (isMaximised) => {
@@ -240,6 +129,14 @@ const onToggleMaximize = (isMaximised) => {
     }
   }
 }
+
+const contentDragbarStyle = computed(() => {
+  const base = 12
+  // When the sidebar is collapsed on macOS, traffic lights move to the window top-left.
+  // Reserve a safe inset so the sidebar trigger/title don't sit under the controls.
+  const trafficInset = (isMacOS() && !layout.ribbonVisible) ? 70 : 0
+  return { paddingLeft: `${base + trafficInset}px`, paddingRight: `${base}px` }
+})
 
 // Mirror old v2 EventsOn behaviour using the v3 Events API.
 Events.On('window_changed', (ev) => {
@@ -305,26 +202,10 @@ function getPageActions() {
         { key: 'download:new-task', icon: 'plus', titleKey: 'download.new_task' },
       ],
       panels: [
-        { key: 'CookiesPanel', icon: 'leaf', titleKey: 'cookies.title' },
         // Use a steady, semantic icon that represents a right-side detail pane
         { key: 'DownloadTaskPanel', icon: 'panel-right', titleKey: 'download.detail' },
       ],
     }
-  }
-  if (navStore.currentNav === navStore.navOptions.SETTINGS) {
-    // Provide actions for specific settings subpages
-    if (settingsStore.currentPage === settingsStore.settingsOptions.DEPENDENCY) {
-      return {
-        modals: [
-          { key: 'dependency:quick-validate', icon: 'search-check', titleKey: 'settings.dependency.quick_validate' },
-          { key: 'dependency:validate', icon: 'shield-check', titleKey: 'settings.dependency.validate' },
-          { key: 'dependency:check-updates', icon: 'refresh', titleKey: 'settings.dependency.check_updates' },
-          { key: 'dependency:clean', icon: 'trash', titleKey: 'settings.dependency.clean_cache' },
-        ],
-        panels: [],
-      }
-    }
-    return { modals: [], panels: [] }
   }
   if (navStore.currentNav === navStore.navOptions.SUBTITLE) {
     const modals = []
@@ -357,7 +238,6 @@ function onActionClick(act) {
   // toggle/switch behavior
   // DOWNLOAD uses page-level handlers to respect default/selection logic
   if (navStore.currentNav === navStore.navOptions.DOWNLOAD) {
-    if (act.key === 'CookiesPanel') { eventBus.emit('download:toggle-cookies'); return }
     if (act.key === 'DownloadTaskPanel') { eventBus.emit('download:toggle-detail'); return }
   }
   if (inspector.visible && inspector.panel === act.key) {
@@ -367,33 +247,20 @@ function onActionClick(act) {
   inspector.setActions(panelActions.value)
 }
 
-function onInspectorAction(key) {
-  // clicking icon in inspector header switches/close similarly
-  if (key === 'inspector:close') { inspector.close(); return }
-  if (key === 'download:refresh') { eventBus.emit('download_task:refresh'); return }
-  // page-specific handling for DOWNLOAD to route cookies/detail via page logic
-  if (navStore.currentNav === navStore.navOptions.DOWNLOAD) {
-    if (key === 'CookiesPanel') { eventBus.emit('download:toggle-cookies'); return }
-    if (key === 'DownloadTaskPanel') { eventBus.emit('download:toggle-detail'); return }
-  }
-  const act = panelActions.value.find(a => a.key === key)
-  if (!act) return
-  if (inspector.panel === key) {
-    inspector.close()
-  } else {
-    inspector.open(key, t(act.titleKey) || act.titleKey)
-  }
-}
-
 // Active state calculation for DOWNLOAD icons
 function isDownloadNewActive(key) {
   if (!inspector.visible) return false
-  if (key === 'CookiesPanel') return inspector.panel === 'CookiesPanel'
   if (key === 'DownloadTaskPanel') {
     // Active when showing Detail panel OR default (home) with detail title
     return inspector.panel === 'DownloadTaskPanel' || (inspector.panel === 'InspectorHomePanel')
       && (inspector.title === (t('download.detail') || ''))
   }
+  return inspector.panel === key
+}
+
+function isPanelActive(key) {
+  if (!inspector.visible) return false
+  if (navStore.currentNav === navStore.navOptions.DOWNLOAD) return isDownloadNewActive(key)
   return inspector.panel === key
 }
 
@@ -415,88 +282,106 @@ const WindowToggleMaximise = () => {
 </script>
 
 <template>
-  <!-- app content-->
-  <div class="relative min-h-screen macos-window" :class="[{ 'loading': props.loading }]" :style="windowBgVars">
-    <div id="app-content-wrapper" class="flex flex-col h-screen"
-      :class="[ hideRadius ? '' : 'rounded-xl', isWindows() ? '' : 'overflow-hidden' ]">
-      <!-- title bar -->
-      <div id="app-toolbar" class="macos-toolbar w-full" style="--wails-draggable: drag" :style="toolbarBgOverride"
-        @dblclick="WindowToggleMaximise">
-        <!-- Unified left frosted stripe to match ribbon; animates with left cap width -->
-        <div v-if="uiFrosted" class="toolbar-left-stripe" :style="toolbarLeftStripeStyle"></div>
-        <!-- Paint-only layer for toolbar middle+right when frosted: keeps them opaque while left cap stays translucent -->
-        <div v-if="uiFrosted && layout.ribbonVisible" class="toolbar-opaque-layer" :style="toolbarLayerStyle"></div>
-        <!-- left cap to extend sidebar background and host the ribbon toggle -->
-        <div class="macos-toolbar-leftcap"
-             :style="leftCapStyle">
-          <!-- Windows: render mac-style traffic lights at top-left -->
-          <div v-if="isWindows()" class="no-drag" style="position:absolute; left:8px; top:0; bottom:0; display:flex; align-items:center;">
-            <ToolbarTrafficLights />
-          </div>
-          <div class="no-drag h-full flex items-center"
-               :style="{ paddingLeft: (logoPaddingLeft + 6) + 'px' }">
-            <button class="toolbar-chip" @click.stop="layout.toggleRibbon()"
-                    :data-tooltip="layout.ribbonVisible ? t('sidebar.close_sidebar') : t('sidebar.open_sidebar')"
-                    :aria-label="layout.ribbonVisible ? t('sidebar.close_sidebar') : t('sidebar.open_sidebar')">
-              <Icon :name="layout.ribbonVisible ? 'panel-left-close' : 'panel-left-open'" class="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+  <div class="relative min-h-screen" :class="[{ 'loading': props.loading }]">
+    <div
+      class="h-screen w-screen"
+      :class="[ hideRadius ? '' : (isMacOS() ? '' : 'rounded-xl'), isWindows() ? '' : 'overflow-hidden' ]"
+    >
+      <SidebarProvider
+        :force-mobile="false"
+        :open="layout.ribbonVisible"
+        :sidebar-width="`${layout.ribbonWidth || 160}px`"
+        class="h-full w-full"
+        @update:open="(v) => (layout.ribbonVisible = v)"
+      >
+        <Sidebar variant="floating" collapsible="offcanvas">
+          <!-- Sidebar header: macOS traffic-lights safe zone + collapse button -->
+          <SidebarHeader class="dc-main-dragbar h-[38px] p-0" />
 
-        <!-- middle area: content title (left) + actions (right) -->
-        <div id="app-toolbar-center" class="flex-1 flex items-center justify-between px-4 relative min-w-0">
-          <div class="title-strong capitalize flex items-center gap-2 min-w-0 flex-1">
-            <span class="shrink-0">{{ contentTitle }}</span>
-            <!-- Show editable project name on subtitle edit page
-                 Hide when export inspector is open to prevent layout squeeze -->
-            <template
-              v-if="navStore.currentNav === navStore.navOptions.SUBTITLE
-                     && subtitleStore.currentProject
-                     && !(inspector.visible && inspector.panel === 'SubtitleExportPanel')">
-              <span class="text-[var(--macos-text-tertiary)]">—</span>
-              <div class="project-inline min-w-0">
-                <template v-if="!editingProjectName">
-                  <span class="project-name-text" :title="subtitleStore.currentProject?.project_name || '-'">{{ subtitleStore.currentProject?.project_name || '-' }}</span>
-                  <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.edit')" data-tip-pos="bottom" @click="beginEditProjectName">
-                    <Icon name="edit" class="w-3 h-3" />
-                  </button>
-                </template>
-                <template v-else>
-                  <input v-model="tempProjectName" class="inline-edit pill-input" @keydown.enter.stop.prevent="saveEditProjectName" @keydown.esc.stop.prevent="cancelEditProjectName" />
-                  <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.confirm')" data-tip-pos="bottom" @click="saveEditProjectName">
-                    <Icon name="status-success" class="w-3 h-3" />
-                  </button>
-                  <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.cancel')" data-tip-pos="bottom" @click="cancelEditProjectName">
-                    <Icon name="close" class="w-3 h-3" />
-                  </button>
+          <SidebarContent class="p-0 overflow-hidden">
+            <MainSidebarMenu v-model:value="navStore.currentNav" />
+          </SidebarContent>
+
+          <SidebarFooter class="p-2 pt-0">
+            <MainSidebarSettingsMenu />
+          </SidebarFooter>
+        </Sidebar>
+
+        <SidebarInset class="flex flex-col min-h-0">
+          <!-- Content header: title + actions + (Windows) window controls -->
+          <div
+            class="dc-main-dragbar flex h-[38px] shrink-0 items-center gap-2 relative"
+            :style="contentDragbarStyle"
+            @dblclick="WindowToggleMaximise"
+          >
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+              <!-- Sidebar trigger is required when sidebar is collapsed -->
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                class="h-7 w-7"
+                :title="layout.ribbonVisible ? t('sidebar.close_sidebar') : t('sidebar.open_sidebar')"
+                :aria-label="layout.ribbonVisible ? t('sidebar.close_sidebar') : t('sidebar.open_sidebar')"
+                @click.stop="layout.toggleRibbon()"
+              >
+                <PanelLeftClose v-if="layout.ribbonVisible" class="h-4 w-4" aria-hidden="true" />
+                <PanelLeftOpen v-else class="h-4 w-4" aria-hidden="true" />
+              </Button>
+
+              <div class="title-strong capitalize flex items-center gap-2 min-w-0 flex-1">
+                <span class="shrink-0">{{ contentTitle }}</span>
+                <template
+                  v-if="navStore.currentNav === navStore.navOptions.SUBTITLE
+                         && subtitleStore.currentProject
+                         && !(inspector.visible && inspector.panel === 'SubtitleExportPanel')"
+                >
+                  <span class="text-[var(--macos-text-tertiary)]">—</span>
+                  <div class="project-inline min-w-0">
+                    <template v-if="!editingProjectName">
+                      <span class="project-name-text" :title="subtitleStore.currentProject?.project_name || '-'">{{ subtitleStore.currentProject?.project_name || '-' }}</span>
+                      <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.edit')" data-tip-pos="bottom" @click="beginEditProjectName">
+                        <Icon name="edit" class="w-3 h-3" />
+                      </button>
+                    </template>
+                    <template v-else>
+                      <input v-model="tempProjectName" class="inline-edit pill-input" @keydown.enter.stop.prevent="saveEditProjectName" @keydown.esc.stop.prevent="cancelEditProjectName" />
+                      <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.confirm')" data-tip-pos="bottom" @click="saveEditProjectName">
+                        <Icon name="status-success" class="w-3 h-3" />
+                      </button>
+                      <button class="btn-chip-icon btn-xxs" :data-tooltip="$t('common.cancel')" data-tip-pos="bottom" @click="cancelEditProjectName">
+                        <Icon name="close" class="w-3 h-3" />
+                      </button>
+                    </template>
+                  </div>
                 </template>
               </div>
-            </template>
-          </div>
-          <!-- centered search for DOWNLOAD -->
-          <div v-if="navStore.currentNav === navStore.navOptions.DOWNLOAD" class="toolbar-center-search">
-            <div class="btn-chip btn-sm search-chip" :style="{ width: (searchFocused ? 320 : 200) + 'px', transition: 'width 120ms ease' }">
-              <Icon name="search" class="search-icon" />
-              <input v-model="downloadNewSearch" type="text" class="search-input"
-                     :placeholder="$t('sidebar.search_placeholder')"
-                     @focus="onDownloadSearchFocus" @blur="searchFocused = false"
-                     @input="emitDownloadNewSearch" />
             </div>
-          </div>
-          <!-- centered search for SUBTITLE: only on home (no project) -->
-          <div v-else-if="navStore.currentNav === navStore.navOptions.SUBTITLE && !subtitleStore.currentProject" class="toolbar-center-search">
-            <div class="btn-chip btn-sm search-chip" :style="{ width: (searchFocused ? 320 : 200) + 'px', transition: 'width 120ms ease' }">
-              <Icon name="search" class="search-icon" />
-              <input v-model="subtitleSearch" type="text" class="search-input"
-                     :placeholder="$t('sidebar.search_placeholder')"
-                     @focus="onSubtitleSearchFocus" @blur="searchFocused = false"
-                     @input="emitSubtitleSearch" />
+
+            <!-- centered search for DOWNLOAD -->
+            <div v-if="navStore.currentNav === navStore.navOptions.DOWNLOAD" class="toolbar-center-search">
+              <div class="btn-chip btn-sm search-chip" :style="{ width: (searchFocused ? 320 : 200) + 'px', transition: 'width 120ms ease' }">
+                <Icon name="search" class="search-icon" />
+                <input v-model="downloadNewSearch" type="text" class="search-input"
+                       :placeholder="$t('sidebar.search_placeholder')"
+                       @focus="onDownloadSearchFocus" @blur="searchFocused = false"
+                       @input="emitDownloadNewSearch" />
+              </div>
             </div>
-          </div>
-          <div class="flex items-center gap-2 ml-2">
-            <!-- modal actions (always visible) -->
+            <!-- centered search for SUBTITLE: only on home (no project) -->
+            <div v-else-if="navStore.currentNav === navStore.navOptions.SUBTITLE && !subtitleStore.currentProject" class="toolbar-center-search">
+              <div class="btn-chip btn-sm search-chip" :style="{ width: (searchFocused ? 320 : 200) + 'px', transition: 'width 120ms ease' }">
+                <Icon name="search" class="search-icon" />
+                <input v-model="subtitleSearch" type="text" class="search-input"
+                       :placeholder="$t('sidebar.search_placeholder')"
+                       @focus="onSubtitleSearchFocus" @blur="searchFocused = false"
+                       @input="emitSubtitleSearch" />
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 ml-2">
+              <!-- modal actions -->
               <template v-for="act in modalActions" :key="act.key">
-                <!-- Replace subtitle metrics button with current standard chip when in subtitle edit -->
                 <button v-if="act.key === 'subtitle:metrics' && subtitleStore.currentProject"
                         class="chip-frosted chip-sm chip-translucent"
                         :data-tooltip="$t(act.titleKey)" data-tip-pos="bottom"
@@ -543,106 +428,52 @@ const WindowToggleMaximise = () => {
                   <Icon :name="act.icon" class="w-4 h-4" />
                 </button>
               </template>
-            <!-- panel actions (only when sidebar closed) -->
-            <template v-if="!inspector.visible">
+
+              <!-- panel actions (inspector toggles) -->
               <div class="w-px h-4 bg-[var(--macos-divider-weak)] mx-1" v-if="panelActions.length && modalActions.length"></div>
               <button v-for="act in panelActions" :key="act.key" class="toolbar-chip"
-                :data-tooltip="$t(act.titleKey)" :aria-label="$t(act.titleKey)" @click="onActionClick(act)">
+                      :data-tooltip="$t(act.titleKey)" :aria-label="$t(act.titleKey)"
+                      :class="{ active: isPanelActive(act.key) }"
+                      @click="onActionClick(act)">
                 <Icon :name="act.icon" class="w-4 h-4" />
               </button>
-            </template>
-            <!-- DOWNLOAD removed right-side search & moved refresh to floating panel -->
-          </div>
-        </div>
-
-        <!-- right cap aligns with inspector and hosts its title + actions -->
-        <div class="macos-toolbar-rightcap" :style="{ width: (inspector.visible ? layout.inspectorWidth : 0) + 'px' }">
-          <div v-if="inspector.visible" class="no-drag h-full flex items-center justify-between px-3">
-            <!-- Download: title left, icons right; no close button -->
-            <template v-if="navStore.currentNav === navStore.navOptions.DOWNLOAD">
-              <div class="inspector-title text-xs uppercase tracking-wide text-[var(--macos-text-tertiary)]">{{ inspector.title }}</div>
-              <div class="flex items-center gap-2">
-                <button v-for="act in inspector.actions" :key="act.key" class="toolbar-chip"
-                  :data-tooltip="$t(act.titleKey)" data-tip-pos="bottom"
-                  :aria-label="$t(act.titleKey)" :class="{ active: isDownloadNewActive(act.key) }"
-                  @click="onInspectorAction(act.key)">
-                  <Icon :name="act.icon" class="w-4 h-4" />
-                </button>
-              </div>
-            </template>
-            <!-- Subtitle pages: show actions like Download (no close) -->
-            <template v-else-if="navStore.currentNav === navStore.navOptions.SUBTITLE">
-              <div class="inspector-title text-xs uppercase tracking-wide text-[var(--macos-text-tertiary)]">{{ inspector.title }}</div>
-              <div class="flex items-center gap-2">
-                <button v-for="act in inspector.actions" :key="act.key" class="toolbar-chip"
-                  :data-tooltip="$t(act.titleKey)" data-tip-pos="bottom"
-                  :aria-label="$t(act.titleKey)" :class="{ active: inspector.panel === act.key }"
-                  @click="onInspectorAction(act.key)">
-                  <Icon :name="act.icon" class="w-4 h-4" />
-                </button>
-              </div>
-            </template>
-            <!-- Other pages: title left, icons right, with close button -->
-            <template v-else>
-              <div class="inspector-title text-xs uppercase tracking-wide text-[var(--macos-text-tertiary)]">{{ inspector.title }}</div>
-              <div class="flex items-center gap-2">
-                <button v-for="act in inspector.actions" :key="act.key" class="toolbar-chip"
-                  :data-tooltip="$t(act.titleKey)" data-tip-pos="bottom"
-                  :aria-label="$t(act.titleKey)" :class="{ active: inspector.panel === act.key }"
-                  @click="onInspectorAction(act.key)">
-                  <Icon :name="act.icon" class="w-4 h-4" />
-                </button>
-                <button class="toolbar-chip" :data-tooltip="$t('common.close')" data-tip-pos="bottom" @click="inspector.close()">
-                  <Icon name="close" class="w-4 h-4" />
-                </button>
-              </div>
-            </template>
-          </div>
-        </div>
-
-        <!-- hide default Windows right-side controls; using mac-style traffic lights instead -->
-        <div class="no-drag flex items-center gap-2 pr-2" v-if="false">
-          <toolbar-control-widget :maximised="maximised" :size="38" />
-        </div>
-      </div>
-
-      <!-- content -->
-      <div id="app-content" class="flex flex-1 min-h-0 overflow-hidden macos-content" style="--wails-draggable: none" :style="uiFrosted ? { '--window-bg': 'transparent', '--content-bg': 'transparent' } : {}">
-        <!-- Paint-only layer for middle+right when frosted: keeps them opaque while ribbon stays translucent -->
-        <div v-if="uiFrosted" class="content-opaque-layer" :style="opaqueLayerStyle"></div>
-        <!-- left ribbon (collapsible) -->
-        <div class="collapsible-left" :style="{ width: (layout.ribbonVisible ? layout.ribbonWidth : 0) + 'px' }">
-          <ribbon v-model:value="navStore.currentNav" :width="layout.ribbonWidth" />
-        </div>
-
-        <!-- content column: includes local header when ribbon is visible -->
-        <div class="flex flex-col flex-1 min-h-0 min-w-0">
-          <div ref="pageScrollEl" class="page-scroll flex-1 min-h-0 overflow-auto"
-               :class="[{ 'with-top-divider': (navStore.currentNav === navStore.navOptions.PROVIDERS) }, { 'scrolled': hasTopScroll }, { 'pad-bottom-for-fab': needsBottomPad }]">
-            <!-- download page (macOS style) -->
-            <div v-show="navStore.currentNav === navStore.navOptions.DOWNLOAD" class="content-container min-w-0">
-              <video-download-page />
+              <button v-if="inspector.visible" class="toolbar-chip" :data-tooltip="$t('common.close')" data-tip-pos="bottom" @click="inspector.close()">
+                <Icon name="close" class="w-4 h-4" />
+              </button>
             </div>
 
-            <!-- subtitle page -->
-            <div v-if="navStore.currentNav === navStore.navOptions.SUBTITLE" class="content-container min-w-0">
-              <subtitle />
-            </div>
-
-            <!-- providers page (1:1 复刻 Settings 的承载容器) -->
-            <div v-if="navStore.currentNav === navStore.navOptions.PROVIDERS" class="content-container min-w-0 flex flex-1 min-h-0 relative">
-              <div class="settings-host with-split" :style="{ '--settings-left': layout.ribbonWidth + 'px' }">
-                <Providers />
-              </div>
+            <!-- Windows window controls live in content header -->
+            <div v-if="isWindows()" class="ml-2 flex items-center">
+              <ToolbarControlWidget :maximised="maximised" :size="34" />
             </div>
           </div>
-        </div>
 
-        <!-- right inspector (collapsible) -->
-        <div class="collapsible-right" :style="{ width: (inspector.visible ? layout.inspectorWidth : 0) + 'px' }">
-          <Inspector />
-        </div>
-      </div>
+          <!-- Content + Inspector -->
+          <div id="app-content" class="flex flex-1 min-h-0 overflow-hidden">
+	            <div
+	              ref="pageScrollEl"
+	              class="page-scroll flex-1 min-h-0 overflow-auto"
+	              :class="[
+	                { 'scrolled': hasTopScroll },
+	                { 'pad-bottom-for-fab': needsBottomPad },
+	              ]"
+	            >
+              <div v-show="navStore.currentNav === navStore.navOptions.DOWNLOAD" class="content-container min-w-0">
+                <VideoDownloadPage />
+              </div>
+
+              <div v-if="navStore.currentNav === navStore.navOptions.SUBTITLE" class="content-container min-w-0">
+                <Subtitle />
+              </div>
+
+	            </div>
+
+            <div class="dc-inspector-shell" :style="{ width: (inspector.visible ? layout.inspectorWidth : 0) + 'px' }">
+              <Inspector />
+            </div>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
     </div>
   </div>
 </template>
@@ -652,59 +483,17 @@ const WindowToggleMaximise = () => {
   @apply animate-pulse;
 }
 
-/* Repaint layer for middle+right when frosted UI is active */
-.content-opaque-layer {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  left: 0; /* will be overridden by inline style to ribbon width */
-  background: var(--macos-background);
-  z-index: -1;
-  pointer-events: none; /* do not intercept input */
-  transition: left 180ms ease;
-}
-
-/* Toolbar repaint layer for middle+right in frosted mode */
-.toolbar-opaque-layer {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  left: 0; /* overridden by inline style to leftCapWidth */
-  background: var(--macos-surface);
-  -webkit-backdrop-filter: var(--macos-surface-blur);
-  backdrop-filter: var(--macos-surface-blur);
-  z-index: -1;
-  pointer-events: none;
-  transition: left 180ms ease;
-}
-
-/* Left frosted stripe for toolbar to visually unify with ribbon */
-.toolbar-left-stripe {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 0;
-  background: transparent;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  z-index: -1;
-  pointer-events: none;
-  transition: width 180ms ease, background 180ms ease, backdrop-filter 180ms ease;
-}
-
-/* Anchor the opaque layer to content bounds */
-#app-content { position: relative; }
-
 .content-container {
   border-top-left-radius: 0;
   min-height: 100%;
 }
 
-.with-left-divider {
-  border-left: 1px solid var(--macos-divider-weak);
+/* Keep the inspector panel width transition smooth */
+.dc-inspector-shell {
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: hidden;
+  transition: width 180ms ease;
 }
 
 /* add subtle divider between toolbar title and content */
@@ -714,9 +503,6 @@ const WindowToggleMaximise = () => {
 #app-content .settings-host { position: absolute; inset: 0; }
 #app-content .with-split.settings-host::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--settings-left, 160px); background: var(--sidebar-bg); }
 #app-content .with-split.settings-host::after { content: ''; position: absolute; top: 0; bottom: 0; left: var(--settings-left, 160px); width: 1px; background: var(--macos-divider-weak); }
-
-/* Prevent inspector title wrapping (keep single line with ellipsis) */
-.inspector-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* centered search overlay */
 .toolbar-center-search { position: absolute; left: 0; right: 0; text-align: center; pointer-events: none; }
 .toolbar-center-search input { pointer-events: auto; }
@@ -786,7 +572,4 @@ const WindowToggleMaximise = () => {
 #app-content .page-scroll.scrolled::before { opacity: 1; }
 /* Ensure content can scroll past floating controls on subtitle edit page */
 #app-content .page-scroll.pad-bottom-for-fab { padding-bottom: 48px !important; }
-
-/* Light theme: make left-cap ribbon toggle icon use primary text color for clarity */
-[data-theme="light"] .macos-toolbar-leftcap .toolbar-chip { color: var(--macos-text-primary); }
 </style>

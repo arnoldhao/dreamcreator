@@ -11,7 +11,6 @@
 import { computed } from 'vue'
 import useInspectorStore from '@/stores/inspector.js'
 import SubtitleExportPanel from '@/components/panels/SubtitleExportPanel.vue'
-import CookiesPanel from '@/components/panels/CookiesPanel.vue'
 import InspectorHomePanel from '@/components/panels/InspectorHomePanel.vue'
 import DownloadTaskPanel from '@/components/panels/DownloadTaskPanel.vue'
 import SubtitleTasksPanel from '@/components/panels/SubtitleTasksPanel.vue'
@@ -23,7 +22,6 @@ const inspector = useInspectorStore()
 
 const map = {
   SubtitleExportPanel,
-  CookiesPanel,
   InspectorHomePanel,
   DownloadTaskPanel,
   SubtitleTasksPanel,

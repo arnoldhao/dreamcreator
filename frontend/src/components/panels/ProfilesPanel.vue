@@ -7,7 +7,7 @@
           v-for="p in profiles"
           :key="p.id"
           class="macos-row pf-row"
-          @click="openEdit(p)"
+          @click="openInSettings(p.id)"
         >
           <span class="k k-left" :title="p.name || ('Profile ' + p.id.slice(0,6))">
             <span class="name one-line">{{ p.name || ('Profile ' + p.id.slice(0,6)) }}</span>
@@ -42,52 +42,40 @@
         <span class="stats-pill">{{ profiles.length }} {{ $t('profiles.inspector_title') }}</span>
       </div>
     </div>
-    <ProfilesModal :show="showModal" :mode="modalMode" :profile="editing" @saved="onSaved" @close="closeModal" />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
+import { Events, Window } from '@wailsio/runtime'
 import Icon from '@/components/base/Icon.vue'
-import ProfilesModal from '@/components/modal/ProfilesModal.vue'
 import { listGlobalProfiles, deleteGlobalProfile } from '@/services/llmProviderService.js'
 
 const profiles = ref([])
-const selectedId = ref('')
-const showModal = ref(false)
-const modalMode = ref('create')
-const editing = reactive({ id:'', name:'', temperature:0.2, top_p:1, json_mode:true, max_tokens:2048, sys_prompt_tpl:'' })
-
-function defaultEditing(){
-  editing.id=''
-  editing.name=''
-  editing.temperature=0.2
-  editing.top_p=1
-  editing.json_mode=true
-  editing.max_tokens=2048
-  editing.sys_prompt_tpl=''
-}
 
 async function load(){
   try { profiles.value = await listGlobalProfiles() } catch { profiles.value = [] }
 }
 
-function selectRow(id){ selectedId.value = id }
-function newProfile(){ defaultEditing(); selectedId.value=''; modalMode.value='create'; showModal.value=true }
-function openEdit(p){
-  editing.id = p.id
-  editing.name = p.name || ''
-  editing.temperature = Number(p.temperature ?? 0.2)
-  editing.top_p = Number(p.top_p ?? 1)
-  editing.json_mode = !!p.json_mode
-  editing.max_tokens = Number(p.max_tokens ?? 2048)
-  editing.sys_prompt_tpl = p.sys_prompt_tpl || ''
-  selectedId.value = p.id
-  modalMode.value='edit'
-  showModal.value=true
+function openSettingsRoute(route){
+  try { Events.Emit('settings:navigate', route) } catch {}
+  try {
+    const sw = Window.Get('settings')
+    try { sw.UnMinimise() } catch {}
+    try { sw.Show() } catch {}
+    try { sw.Focus() } catch {}
+  } catch {}
 }
-function closeModal(){ showModal.value=false }
-async function onSaved(){ showModal.value=false; await load() }
+
+function openInSettings(id){
+  if (!id) return
+  openSettingsRoute({ section: 'llm_assets', llmAssetsKind: 'profiles', llmAssetsId: String(id) })
+}
+
+function newProfile(){
+  openSettingsRoute({ section: 'llm_assets', llmAssetsKind: 'profiles', llmAssetsId: 'new' })
+}
+
 async function onDelete(p){
   if (!p?.id) return
   const baseName = p.name || ('Profile ' + p.id.slice(0,6))
@@ -107,12 +95,11 @@ async function onDelete(p){
   try {
     await deleteGlobalProfile(p.id)
     await load()
-    if (selectedId.value===p.id) { selectedId.value='' }
     window.$message?.success?.(window.$t ? window.$t('common.deleted') : 'Deleted')
   } catch(e){ window.$message?.error?.(e?.message || 'Delete failed') }
 }
 
-onMounted(() => { load(); defaultEditing() })
+onMounted(() => { load() })
 </script>
 
 <style scoped>

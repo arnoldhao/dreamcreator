@@ -4,8 +4,6 @@ import { reactive } from 'vue'
 const navOptions = {
   DOWNLOAD: 'download',
   SUBTITLE: 'subtitle',
-  SETTINGS: 'settings',
-  PROVIDERS: 'providers',
 }
 
 // 创建响应式状态
@@ -28,13 +26,7 @@ const state = reactive({
   ],
   
   // 底部菜单选项（移除主题切换）
-  bottomMenuOptions: [
-    {
-      label: 'bottom.settings',
-      key: navOptions.SETTINGS,
-      icon: 'settings',
-    },
-  ]
+  bottomMenuOptions: []
 })
 
 // 导航相关方法

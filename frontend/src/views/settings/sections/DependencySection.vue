@@ -9,7 +9,7 @@ import { isWindows } from "@/utils/platform.js"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -139,9 +139,7 @@ async function performWithMirror() {
 
 <template>
   <Card class="border-0 bg-transparent shadow-none">
-    <CardHeader class="dc-settings-dragbar p-0 pb-4 flex flex-row items-center justify-between gap-3">
-      <CardTitle class="text-[15px] font-normal">{{ t("settings.dependency.title") }}</CardTitle>
-
+    <CardHeader class="p-0 pb-4 flex flex-row items-center justify-end gap-3">
       <div class="flex items-center gap-2 whitespace-nowrap">
         <Tooltip>
           <TooltipTrigger as-child>
