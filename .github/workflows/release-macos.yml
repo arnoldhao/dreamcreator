@@ -143,20 +143,24 @@ jobs:
           shasum -a 256 dist/dreamcreator-macos-${{ matrix.artifact_suffix }}-${VERSION}.zip \
             > dist/dreamcreator-macos-${{ matrix.artifact_suffix }}-${VERSION}.zip.sha256
 
+      - name: List dist artifacts
+        shell: bash
+        run: ls -la dist
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-artifacts-${{ matrix.artifact_suffix }}
           path: |
-            dist/dreamcreator-macos-${{ matrix.artifact_suffix }}-${VERSION}.zip
-            dist/dreamcreator-macos-${{ matrix.artifact_suffix }}-${VERSION}.zip.sha256
+            dist/dreamcreator-macos-${{ matrix.artifact_suffix }}-${{ steps.release_info.outputs.version }}.zip
+            dist/dreamcreator-macos-${{ matrix.artifact_suffix }}-${{ steps.release_info.outputs.version }}.zip.sha256
 
       - name: Release upload
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_info.outputs.tag_name }}
           files: |
-            dist/dreamcreator-macos-${{ matrix.artifact_suffix }}-${VERSION}.zip
-            dist/dreamcreator-macos-${{ matrix.artifact_suffix }}-${VERSION}.zip.sha256
+            dist/dreamcreator-macos-${{ matrix.artifact_suffix }}-${{ steps.release_info.outputs.version }}.zip
+            dist/dreamcreator-macos-${{ matrix.artifact_suffix }}-${{ steps.release_info.outputs.version }}.zip.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

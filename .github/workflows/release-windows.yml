@@ -161,24 +161,28 @@ jobs:
             "$hash  $($_.Name)" | Out-File -FilePath "$($_.FullName).sha256" -Encoding ascii -NoNewline
           }
 
+      - name: List dist artifacts
+        shell: pwsh
+        run: Get-ChildItem dist | Format-Table Name,Length,LastWriteTime
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-artifacts
           path: |
-            dist/dreamcreator-windows-x64-${VERSION}.zip
-            dist/dreamcreator-windows-x64-${VERSION}.zip.sha256
-            dist/dreamcreator-windows-x64-${VERSION}-installer.exe
-            dist/dreamcreator-windows-x64-${VERSION}-installer.exe.sha256
+            dist/dreamcreator-windows-x64-${{ steps.release_info.outputs.version }}.zip
+            dist/dreamcreator-windows-x64-${{ steps.release_info.outputs.version }}.zip.sha256
+            dist/dreamcreator-windows-x64-${{ steps.release_info.outputs.version }}-installer.exe
+            dist/dreamcreator-windows-x64-${{ steps.release_info.outputs.version }}-installer.exe.sha256
 
       - name: Release upload
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_info.outputs.tag_name }}
           files: |
-            dist/dreamcreator-windows-x64-${VERSION}.zip
-            dist/dreamcreator-windows-x64-${VERSION}.zip.sha256
-            dist/dreamcreator-windows-x64-${VERSION}-installer.exe
-            dist/dreamcreator-windows-x64-${VERSION}-installer.exe.sha256
+            dist/dreamcreator-windows-x64-${{ steps.release_info.outputs.version }}.zip
+            dist/dreamcreator-windows-x64-${{ steps.release_info.outputs.version }}.zip.sha256
+            dist/dreamcreator-windows-x64-${{ steps.release_info.outputs.version }}-installer.exe
+            dist/dreamcreator-windows-x64-${{ steps.release_info.outputs.version }}-installer.exe.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
