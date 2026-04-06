@@ -1,9 +1,9 @@
 name: Release macOS
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_run:
+    workflows: ["Publish Release"]
+    types: [completed]
 
 env:
   GO_VERSION: "1.25.5"
@@ -13,6 +13,7 @@ env:
 
 jobs:
   release-macos:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: write
     strategy:
@@ -25,8 +26,42 @@ jobs:
             artifact_suffix: x64
     runs-on: ${{ matrix.runner }}
     steps:
+      - name: Resolve release metadata
+        id: release_info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            if (!run) {
+              throw new Error('workflow_run payload is missing');
+            }
+
+            const headSha = run.head_sha;
+            const { owner, repo } = context.repo;
+            const tags = await github.paginate(
+              github.rest.repos.listTags,
+              { owner, repo, per_page: 100 },
+            );
+            const matchedTag = tags.find(tag => tag.commit && tag.commit.sha === headSha);
+
+            if (!matchedTag) {
+              throw new Error(`No tag found for commit ${headSha}`);
+            }
+
+            const release = await github.rest.repos.getReleaseByTag({
+              owner,
+              repo,
+              tag: matchedTag.name,
+            });
+
+            core.info(`Resolved release tag ${release.data.tag_name} for commit ${headSha}`);
+            core.setOutput('tag_name', release.data.tag_name);
+            core.setOutput('version', release.data.tag_name.replace(/^v/, ''));
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release_info.outputs.tag_name }}
 
       - name: Validate TelemetryDeck config
         shell: bash
@@ -36,7 +71,7 @@ jobs:
       - name: Resolve version from tag
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${{ steps.release_info.outputs.version }}"
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo "APP_VERSION=$version" >> "$GITHUB_ENV"
 
@@ -101,7 +136,7 @@ jobs:
       - name: Release upload
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ steps.release_info.outputs.tag_name }}
           files: |
             dist/dreamcreator-macos-${{ matrix.artifact_suffix }}-${VERSION}.zip
             dist/dreamcreator-macos-${{ matrix.artifact_suffix }}-${VERSION}.zip.sha256
