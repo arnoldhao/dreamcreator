@@ -1,107 +1,75 @@
 <div align="center">
-  <a href="https://github.com/arnoldhao/dreamcreator/"><img src="frontend/src/assets/images/icon.png" width="140" alt="dreamcreator 图标" /></a>
+  <img src="./frontend/public/appicon.png" width="112" alt="追创作 / Dream Creator 图标" />
+  <h1>追创作 / Dream Creator</h1>
+  <p>一款面向创作者的人工智能桌面助手</p>
+  <p>
+    <strong>简体中文</strong> ·
+    <a href="./README_en.md">English</a>
+  </p>
+  <p>
+    <img src="https://img.shields.io/github/v/tag/arnoldhao/dreamcreator?label=version" alt="最新版本" />
+    <img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="许可证" />
+    <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey" alt="支持平台" />
+    <img src="https://img.shields.io/badge/stack-Go%20%E2%80%A2%20Wails%20%E2%80%A2%20React-green" alt="技术栈" />
+  </p>
 </div>
-
-<h1 align="center">追创作（DreamCreator）</h1>
-
-<p align="center">
-  <strong>简体中文</strong> |
-  <a href="./README_en.md"><strong>English</strong></a>
-</p>
-
-<div align="center">
-  <img src="https://img.shields.io/github/v/tag/arnoldhao/dreamcreator?label=version" alt="最新版本" />
-  <img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="许可证" />
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey" alt="支持平台" />
-  <img src="https://img.shields.io/badge/stack-Go%20%E2%80%A2%20Wails%20%E2%80%A2%20Vue3-green" alt="技术栈" />
-</div>
-
-> 追创作是一款面向视频创作者的开源桌面工作站，聚焦「素材获取 → 字幕编辑与 AI 翻译 → 全球发行」的完整创作链路。
-
----
-
-## 目录
-- [项目简介](#项目简介)
-- [核心能力](#核心能力)
-- [首次使用指南](#首次使用指南)
-- [从源码构建](#从源码构建)
-- [文档与支持](#文档与支持)
-- [贡献指南](#贡献指南)
-- [致谢](#致谢)
-- [许可证](#许可证)
 
 ## 项目简介
-追创作（DreamCreator）依托 Go + Wails 后端与 Vue 3 前端，为创作者提供材料采集、字幕润色与跨语言交付的一站式体验。我们坚持界面极简、稳定可依赖，并在代理、Cookies 管理、依赖校验等基础能力上做了大量增强，力求成为视频创作者的趁手工具。
+
+追创作是一款同时支持 macOS 与 Windows 的跨平台桌面应用，面向创作者提供视频下载、字幕翻译、转码处理与 AI 助手能力。
+> 当前项目基于 Wails 3。由于 Wails 3 仍处于 Alpha 阶段，后续版本可能出现破坏性变更。
+>
+> 当前版本仍在持续优化中，部分对话与工具调用会产生较高词元消耗，建议优先使用成本较低的模型进行日常试用。
 
 ## 界面预览
-![DreamCreator 简体中文界面](images/download_page.png)
+
+![追创作中文界面预览](./images/ui_chs.png)
+
+## 适用场景
+
+- 素材收集：用于下载、整理和转码创作所需的视频素材。
+- 字幕处理：用于字幕校对、翻译与导出，适配不同发布流程。
+- 资料获取：通过 AI 对话结合内置工具与技能，辅助完成创作前的检索、整理与参考。
 
 ## 核心能力
-- **素材获取 Download**：集成 yt-dlp，在千余个[视频网站](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)上进行分轨下载，支持浏览器同步与自定义集合的 Cookies 管理、HTTP/SOCKS/PAC 代理，以及可视化的任务进度；内置 Deno JS 运行时，跟进 yt-dlp 的 EJS/JS 解密链路，提升对新版站点防护的兼容性。详细指南请查看[《素材获取》](https://dreamapp.cc/zh-CN/docs/dreamcreator/download)。
-- **字幕编辑 Subtitle**：支持 SRT、VTT、ASS/SSA、ITT、FCPXML 等格式，内置 Netflix/BBC/ADE 指导标准与交通灯反馈，结合繁化姬提供多地区中文转换。使用说明见[《字幕编辑》](https://dreamapp.cc/zh-CN/docs/dreamcreator/subtitles)。
-- **AI 翻译 Translate**：提供 LLM 驱动的多语言字幕翻译，兼容 OpenAI/Anthropic/自建的兼容 Provider，可套用全局写作风格（Global Profile）、术语表与严格模式，支持失败重试并保留翻译会话。
-- **全球发行 Transcode（开发中）**：当前通过 yt-dlp 调用 FFmpeg 实现基础转码，未来将扩展 GPU 转码与多套发行预设。规划详情可在[《全球发行》](https://dreamapp.cc/zh-CN/docs/dreamcreator/transcode)了解。
 
-## 首次使用指南
+- `聊天与助手`：支持多会话管理，并可按任务配置不同 Assistant，明确区分不同工作目标与上下文。
+- `素材库`：统一管理下载内容、导入资源、任务历史与处理结果，减少素材分散和状态失真。
+- `任务处理`：围绕素材执行转码、字幕导入、字幕翻译等后续动作，并保留过程记录。
+- `定时任务`：按计划触发提醒、检查或助手运行，为可重复流程提供稳定入口。
+- `模型与服务商配置`：支持接入不同 Provider，为不同任务选择合适的模型与调用方式。
+- `连接与接入`：为浏览器站点、Webhook、频道等接入能力提供统一入口，便于纳入既有流程。
+- `外部工具管理`：集中管理 `yt-dlp`、`FFmpeg`、`bun`、`playwright` 等依赖的安装、检查与更新。
 
-### 下载安装
+## 如何使用
+
+### 一、下载安装
+
 1. **获取安装包**：前往 [GitHub Releases](https://github.com/arnoldhao/dreamcreator/releases) 选择对应的安装包。macOS 用户使用 `.dmg`（Apple silicon 请选择 `arm64` 版本，Intel 请选择 `intel` 版本），Windows 用户根据需求选择 `.exe` 安装包或 `.zip` 便携版。
 2. **通过系统安全提示**：
    - macOS：右键应用选择“打开”，或执行 `sudo xattr -rd com.apple.quarantine /Applications/DreamCreator.app` 移除隔离。
    - Windows：首次运行若出现 SmartScreen 提示，点击“更多信息 → 仍要运行”。
 
-### 功能速览
-1. **创建首个下载任务**：点击“新建任务”解析视频链接，先确认已选 Cookies，再在自定义或快速模式中选择需要的音视频轨与字幕。下载过程会分阶段展示“探测 → 获取 → 合并 → 收尾”。
-2. **润色字幕**：若在下载时选择了字幕，可在任务详情中点击“编辑”进入字幕工作台，按需选择 Netflix/BBC/ADE 指导标准，或通过“添加语言”调用繁化姬完成地区化转换。操作细节请参阅[《字幕编辑》](https://dreamapp.cc/zh-CN/docs/dreamcreator/subtitles)。
-3. **AI 翻译字幕**：在字幕工作台点击“添加语言”选择 AI 翻译标签，指定源/目标语言、Provider 与模型，可套用全局 Profile、术语表及严格模式；若有失败片段，可在此一键重试。
+> 说明：当前 macOS 安装包可能尚未完成开发者签名与公证，首次运行时需要用户手动放行。
 
-### 进阶能力
-1. **首次启动与代理**：初次运行会自动释放 yt-dlp 与 FFmpeg 并完成健康检查，若需代理可在 **设置 → 通用设置 → 网络** 配置 HTTP/SOCKS/PAC。
-2. **浏览器 Cookies**：在 **下载 → 浏览器 Cookies** 中，同步 Chrome/Edge/Firefox/Brave/Vivaldi 的 Cookies，或在“自定义集合”导入 Netscape/JSON/Header 数据，方便处理会员视频与地区限制。
-3. **自定义全局设置**：在 **设置 → 通用设置** 指定下载目录、数据目录、日志策略及自动更新偏好，获取更契合自身流程的体验。更多配置说明见[《软件配置》](https://dreamapp.cc/zh-CN/docs/dreamcreator/settings)。
-4. **配置 LLM Provider**：在 Providers 页面新增或启用 OpenAI/Anthropic 兼容或远程代理，自定义 API Base URL 与模型列表，必要时一键重置预设缓存，确保 AI 翻译稳定运行。
 
-### 依赖管理
-1. **维护 yt-dlp、FFmpeg 与 Deno**：前往 **设置 → 依赖** 执行“快速校验/验证/检查更新”，必要时使用“修复”或“更新”保持依赖为最新，后台会自动校验 SHA 并替换旧版本。应用内置 Deno 运行时，用于支持 yt-dlp 的 EJS/JS 解密链路。
-2. **清理过时依赖文件**：在 **设置 → 依赖** 页面使用「清理旧版本依赖」操作，可自动移除不再使用的旧版本依赖目录，仅保留当前版本，并统计本次释放的空间，帮助减少依赖缓存占用。
+### 二、供应商 / Provider
 
-#### yt-dlp EJS 支持说明
-- 从 **yt-dlp 2025.11.22** 版本开始，官方引入了 EJS/JS 解密链路。追创作会在依赖检查时读取当前 yt-dlp 版本，仅当版本 **大于等于 2025.11.22** 时，才会自动启用内置 Deno JS 运行时并执行 EJS/JS 解密逻辑。
-- 如果你的 yt-dlp 版本低于 2025.11.22，下载功能仍然可用，但会退回传统解析路径，无法利用最新的 EJS 解密逻辑，部分新站点可能因此下载失败或表现不稳定。建议在「设置 → 依赖」中更新至最新稳定版本。
+- 项目运行在本地，需由用户自行配置 Provider API Key。应用内置若干常见 Provider，也支持自定义添加。
 
-## 从源码构建
-运行环境：Go 1.25.4, Node.js 24.11.0, Wails CLI。
+### 三、依赖外部工具
 
-```bash
-# 安装后端依赖
-go mod tidy
+- 首次启动后，应用会引导安装所需的外部工具。相关依赖未随安装包内置，以便控制安装包体积并简化后续更新。
 
-# 安装前端依赖
-cd frontend
-npm install
+## 项目状态
 
-# 回到项目根目录构建桌面应用
-wails build
-```
-开发过程中可执行 `wails dev` 获得热更新体验。
+- 这是一个`个人学习项目`，`暂不接受 Pull Request`
+- 如果你只是想反馈问题或交流想法，可以提 Issue 或直接发邮件。
+- 当前仓库使用 `Apache-2.0` 许可证，具体见根目录 [LICENSE](./LICENSE)。
 
-## 文档与支持
-- 产品概览：https://dreamapp.cc/zh-CN/products/dreamcreator
-- 中文文档导航：https://dreamapp.cc/zh-CN/docs/dreamcreator
-- 英文文档导航：https://dreamapp.cc/docs/dreamcreator
-- 反馈与支持：xunruhao@gmail.com
 
-## 贡献指南
-欢迎通过 Issue 报告问题或提交改进建议。修复与新特性请先在 Issue 中沟通，再提交 Pull Request，以便团队评估需求、保持迭代节奏。如需参与路线图讨论，可关注 GitHub Projects 与 Issues。
 
-## 致谢
-追创作的发展离不开以下优秀开源项目与服务：
-- [Go](https://go.dev/) 与 [Wails](https://wails.io/) 提供跨平台桌面应用基础设施
-- [Vue 3](https://vuejs.org/) 与相关生态构建现代化前端界面
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) 提供强大的在线视频解析与下载能力
-- [FFmpeg](https://ffmpeg.org/) 支撑音视频转码处理
-- [繁化姬](https://zhconvert.org/) 提供专业的中文地区化转换
-- 社区贡献者与使用者提出的宝贵反馈
+## 联系方式
 
-## 许可证
-本项目基于 [Apache License 2.0](LICENSE) 开源。
+- 官网：<https://dreamcreator.dreamapp.cc>
+- 邮箱：<xunruhao@gmail.com>

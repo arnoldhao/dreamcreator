@@ -1,0 +1,136 @@
+package settings
+
+import "testing"
+
+func TestDefaultGatewaySettingsHeartbeatDefaults(t *testing.T) {
+	t.Parallel()
+
+	defaults := DefaultGatewaySettings()
+	if !defaults.Heartbeat.Periodic.Enabled {
+		t.Fatalf("expected periodic.enabled default true")
+	}
+	if defaults.Heartbeat.ActiveHours.Start == "" {
+		t.Fatalf("expected active start default to be set")
+	}
+	if defaults.Heartbeat.ActiveHours.End == "" {
+		t.Fatalf("expected active end default to be set")
+	}
+	if defaults.Heartbeat.ActiveHours.Timezone == "" {
+		t.Fatalf("expected active timezone default to be set")
+	}
+}
+
+func TestResolveGatewaySettingsHeartbeatExtendedFields(t *testing.T) {
+	t.Parallel()
+
+	params := GatewaySettingsParams{
+		Heartbeat: &GatewayHeartbeatSettingsParams{
+			RunSession:   stringPtr(" hb-session "),
+			PromptAppend: stringPtr(" append prompt "),
+			Periodic: &GatewayHeartbeatPeriodicSettingsParams{
+				Enabled: boolPtr(true),
+				Every:   stringPtr(" 15m "),
+			},
+			Delivery: &GatewayHeartbeatDeliverySettingsParams{
+				Periodic: &GatewayHeartbeatSurfacePolicyParams{
+					Center:           boolPtr(false),
+					PopupMinSeverity: stringPtr(" warning "),
+					ToastMinSeverity: stringPtr(" error "),
+					OSMinSeverity:    stringPtr(" critical "),
+				},
+				EventDriven: &GatewayHeartbeatSurfacePolicyParams{
+					Center:           boolPtr(false),
+					PopupMinSeverity: stringPtr(" info "),
+					ToastMinSeverity: stringPtr(" warning "),
+					OSMinSeverity:    stringPtr(" error "),
+				},
+				ThreadReplyMode: stringPtr(" inline "),
+			},
+			Events: &GatewayHeartbeatEventSettingsParams{
+				CronWakeMode:     stringPtr(" now "),
+				ExecWakeMode:     stringPtr(" next-heartbeat "),
+				SubagentWakeMode: stringPtr(" now "),
+			},
+		},
+	}
+
+	resolved := ResolveGatewaySettings(params)
+
+	if resolved.Heartbeat.RunSession != "hb-session" {
+		t.Fatalf("expected runSession to be persisted, got %q", resolved.Heartbeat.RunSession)
+	}
+	if resolved.Heartbeat.PromptAppend != "append prompt" {
+		t.Fatalf("expected promptAppend to be persisted, got %q", resolved.Heartbeat.PromptAppend)
+	}
+	if !resolved.Heartbeat.Periodic.Enabled {
+		t.Fatalf("expected periodic.enabled=true")
+	}
+	if resolved.Heartbeat.Periodic.Every != "15m" {
+		t.Fatalf("expected periodic.every=15m, got %q", resolved.Heartbeat.Periodic.Every)
+	}
+	if resolved.Heartbeat.Delivery.Periodic.Center {
+		t.Fatalf("expected periodic delivery center=false")
+	}
+	if resolved.Heartbeat.Delivery.Periodic.PopupMinSeverity != "warning" {
+		t.Fatalf(
+			"expected periodic delivery popupMinSeverity=warning, got %q",
+			resolved.Heartbeat.Delivery.Periodic.PopupMinSeverity,
+		)
+	}
+	if resolved.Heartbeat.Delivery.Periodic.ToastMinSeverity != "error" {
+		t.Fatalf(
+			"expected periodic delivery toastMinSeverity=error, got %q",
+			resolved.Heartbeat.Delivery.Periodic.ToastMinSeverity,
+		)
+	}
+	if resolved.Heartbeat.Delivery.Periodic.OSMinSeverity != "critical" {
+		t.Fatalf(
+			"expected periodic delivery osMinSeverity=critical, got %q",
+			resolved.Heartbeat.Delivery.Periodic.OSMinSeverity,
+		)
+	}
+	if resolved.Heartbeat.Delivery.EventDriven.Center {
+		t.Fatalf("expected eventDriven delivery center=false")
+	}
+	if resolved.Heartbeat.Delivery.EventDriven.PopupMinSeverity != "info" {
+		t.Fatalf(
+			"expected eventDriven delivery popupMinSeverity=info, got %q",
+			resolved.Heartbeat.Delivery.EventDriven.PopupMinSeverity,
+		)
+	}
+	if resolved.Heartbeat.Delivery.EventDriven.ToastMinSeverity != "warning" {
+		t.Fatalf(
+			"expected eventDriven delivery toastMinSeverity=warning, got %q",
+			resolved.Heartbeat.Delivery.EventDriven.ToastMinSeverity,
+		)
+	}
+	if resolved.Heartbeat.Delivery.EventDriven.OSMinSeverity != "error" {
+		t.Fatalf(
+			"expected eventDriven delivery osMinSeverity=error, got %q",
+			resolved.Heartbeat.Delivery.EventDriven.OSMinSeverity,
+		)
+	}
+	if resolved.Heartbeat.Delivery.ThreadReplyMode != "inline" {
+		t.Fatalf(
+			"expected threadReplyMode=inline, got %q",
+			resolved.Heartbeat.Delivery.ThreadReplyMode,
+		)
+	}
+	if resolved.Heartbeat.Events.CronWakeMode != "now" {
+		t.Fatalf("expected cronWakeMode=now, got %q", resolved.Heartbeat.Events.CronWakeMode)
+	}
+	if resolved.Heartbeat.Events.ExecWakeMode != "next-heartbeat" {
+		t.Fatalf("expected execWakeMode=next-heartbeat, got %q", resolved.Heartbeat.Events.ExecWakeMode)
+	}
+	if resolved.Heartbeat.Events.SubagentWakeMode != "now" {
+		t.Fatalf("expected subagentWakeMode=now, got %q", resolved.Heartbeat.Events.SubagentWakeMode)
+	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
+}
+
+func stringPtr(value string) *string {
+	return &value
+}

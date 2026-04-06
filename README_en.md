@@ -1,107 +1,73 @@
 <div align="center">
-  <a href="https://github.com/arnoldhao/dreamcreator/"><img src="frontend/src/assets/images/icon.png" width="140" alt="dreamcreator icon" /></a>
+  <img src="./frontend/public/appicon.png" width="112" alt="Dream Creator icon" />
+  <h1>Dream Creator</h1>
+  <p>An AI desktop assistant built for creators.</p>
+  <p>
+    <a href="./README.md">简体中文</a> ·
+    <strong>English</strong>
+  </p>
+  <p>
+    <img src="https://img.shields.io/github/v/tag/arnoldhao/dreamcreator?label=version" alt="Latest version" />
+    <img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License" />
+    <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey" alt="Supported platforms" />
+    <img src="https://img.shields.io/badge/stack-Go%20%E2%80%A2%20Wails%20%E2%80%A2%20React-green" alt="Tech stack" />
+  </p>
 </div>
 
-<h1 align="center">DreamCreator</h1>
+## Overview
 
-<p align="center">
-  <a href="./README.md"><strong>简体中文</strong></a> |
-  <strong>English</strong>
-</p>
+Dream Creator is a cross-platform desktop application for macOS and Windows. It is built for creators who need video download, subtitle translation, transcoding, and AI assistant capabilities in the same workspace.
 
-<div align="center">
-  <img src="https://img.shields.io/github/v/tag/arnoldhao/dreamcreator?label=version" alt="Latest tag" />
-  <img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License" />
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey" alt="Supported platforms" />
-  <img src="https://img.shields.io/badge/stack-Go%20%E2%80%A2%20Wails%20%E2%80%A2%20Vue3-green" alt="Tech stack" />
-</div>
+> The current project is based on Wails 3. Since Wails 3 is still in Alpha, future versions may introduce breaking changes.
+>
+> The current build is still under active optimization. Some conversations and tool calls can consume a large number of tokens, so lower-cost models are recommended for day-to-day use.
 
-> DreamCreator is an open-source desktop workstation for video creators, covering the full journey from **capturing source material** to **subtitle polish & AI translation** and **global delivery prep**.
+## Screenshot
 
----
+![Dream Creator English UI preview](./images/ui_en.png)
 
-## Table of Contents
-- [Project Overview](#project-overview)
-- [Core Capabilities](#core-capabilities)
-- [First-Time Setup](#first-time-setup)
-- [Build from Source](#build-from-source)
-- [Docs & Support](#docs--support)
-- [Contributing](#contributing)
-- [Acknowledgements](#acknowledgements)
-- [License](#license)
+## Use Cases
 
-## Project Overview
-DreamCreator combines a Go + Wails backend with a Vue 3 frontend to offer creators an integrated experience for gathering footage, refining subtitles, and preparing multilingual releases. The interface stays minimal while we invest heavily in proxy routing, cookie management, dependency checks, and other reliability features that matter in real production workflows.
-
-## UI Preview
-![DreamCreator English UI](images/download_page.png)
+- Media collection: download, organize, and transcode video assets needed for creative work.
+- Subtitle handling: review, translate, and export subtitles for different publishing workflows.
+- Research support: use AI conversations together with built-in tools and skills to assist with search, organization, and reference gathering before production.
 
 ## Core Capabilities
-- **Download**: Built on yt-dlp to access thousands of [video sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md), with browser cookie sync, custom collections, HTTP/SOCKS/PAC proxy support, and clear task visualisation. A bundled Deno JS runtime enables yt-dlp's EJS/JS challenge support to keep up with site changes. Explore details in the [Download guide](https://dreamapp.cc/docs/dreamcreator/download).
-- **Subtitles**: Import SRT, VTT, ASS/SSA, ITT, FCPXML and more. Netflix / BBC / ADE presets surface duration, CPS, WPM, and CPL via traffic-light indicators, while Fanhuaji enables accurate Mainland/Hong Kong/Taiwan conversions. See the [Subtitle guide](https://dreamapp.cc/docs/dreamcreator/subtitles).
-- **AI Translation**: LLM-powered subtitle translation with OpenAI/Anthropic-compatible or remote providers, global style profiles, glossary with strict mode, saved translation conversations, and one-click retries for failed segments.
-- **Transcode (in development)**: Currently leverages yt-dlp’s FFmpeg integration for baseline mux/remux. Planned upgrades include GPU acceleration and publishing presets—follow along in the [Transcode overview](https://dreamapp.cc/docs/dreamcreator/transcode).
 
-## First-Time Setup
+- `Chat and assistants`: manage multiple conversations and configure different assistants for different goals and contexts.
+- `Library`: keep downloads, imported assets, task history, and outputs in one place to reduce fragmentation.
+- `Task processing`: continue from media assets into transcode, subtitle import, subtitle translation, and related follow-up actions with recorded history.
+- `Cron jobs`: trigger reminders, checks, or assistant runs on a schedule and provide a stable entry point for repeatable workflows.
+- `Provider configuration`: connect different providers and choose models that fit different tasks.
+- `Connections and integrations`: provide a unified entry point for browser sites, webhooks, channels, and related integrations.
+- `External tool management`: centrally manage installation, verification, and updates for dependencies such as `yt-dlp`, `FFmpeg`, `bun`, and `playwright`.
 
-### Install and Launch
-1. **Download a release** from [GitHub Releases](https://github.com/arnoldhao/dreamcreator/releases). macOS users should pick the `.dmg` for their architecture (Apple silicon `arm64`, Intel `intel`); Windows users can choose the `.exe` installer or `.zip` portable build.
-2. **Clear trust prompts**:
-   - macOS: Control-click the app and choose “Open”, or run `sudo xattr -rd com.apple.quarantine /Applications/DreamCreator.app` to remove quarantine.
-   - Windows: If SmartScreen warns you, click “More info → Run anyway”.
+## How to Use
 
-### Quick tour
-1. **Create your first download task**: Click “New Task”, paste a URL, confirm the right cookies, then pick tracks and subtitles via Custom or Quick mode. Progress is tracked across probe → fetch → merge → finalize.
-2. **Polish subtitles**: When subtitles are available, open the task, hit “Edit”, and use Netflix/BBC/ADE presets or “Add Language” for Fanhuaji conversions. See the [Subtitle guide](https://dreamapp.cc/docs/dreamcreator/subtitles) for every option.
-3. **AI-translate subtitles**: In the subtitle workspace, click Add Language → AI Translation, pick source/target plus provider/model, optionally apply a global profile, glossary, and strict mode; retry failed segments from the same panel.
+### 1. Download and install
 
-### Advanced capabilities
-1. **Proxy-ready first launch**: The initial run unpacks yt-dlp and FFmpeg and performs a health check; configure HTTP/SOCKS/PAC proxies in **Settings → General → Network** if needed.
-2. **Browser cookie integration**: Visit **Downloads → Browser Cookies** to sync Chrome/Edge/Firefox/Brave/Vivaldi or paste Netscape/JSON/header strings into a custom collection for members-only content.
-3. **Tailored global settings**: Under **Settings → General**, adjust download/data directories, logging, language, theme, and auto-updates for a workflow-aligned experience. More details live in the [Settings guide](https://dreamapp.cc/docs/dreamcreator/settings).
-4. **LLM providers & profiles**: Use the Providers page to add OpenAI/Anthropic-compatible or remote endpoints, set API base URL and keys, refresh model lists, and reset presets/cache when needed to keep AI translation running smoothly.
+1. **Get the package**: go to [GitHub Releases](https://github.com/arnoldhao/dreamcreator/releases) and choose the package for your platform. On macOS, use the `.dmg` package (`arm64` for Apple silicon, `intel` for Intel Macs). On Windows, choose either the `.exe` installer or the portable `.zip` package.
+2. **Handle system security prompts**:
+   - macOS: right-click the app and choose `Open`, or run `sudo xattr -rd com.apple.quarantine /Applications/DreamCreator.app`.
+   - Windows: if SmartScreen appears on first launch, choose `More info` and then `Run anyway`.
 
-### Dependency health
-1. **Keep yt-dlp, FFmpeg & Deno fresh**: Navigate to **Settings → Dependencies** to run Quick Check / Verify / Check Updates, and use Repair or Update to stay current; SHA verification ensures safe swaps. DreamCreator ships with an embedded Deno runtime used as yt-dlp's JS engine for EJS/JS challenges.
-2. **Auto-prune old dependency versions**: From the same page, use the `Clean Old Versions` action to remove unused historical versions and keep only the active ones; DreamCreator reports how much disk space was freed.
+> Note: the current macOS package may not yet be fully signed and notarized, so manual approval may be required on first launch.
 
-#### yt-dlp EJS support
-- Official EJS/JS challenge handling in yt-dlp is available starting from **yt-dlp 2025.11.22**. DreamCreator reads your installed yt-dlp version and only enables the embedded Deno JS runtime when the version is **2025.11.22 or newer**.
-- With older yt-dlp builds, downloads still work via the legacy extraction path, but you won't benefit from the latest EJS logic, which may cause failures or instability on some newly protected sites. For best compatibility, update yt-dlp to a recent version from **Settings → Dependencies**.
+### 2. Providers
 
-## Build from Source
-Prerequisites: Go 1.25.4, Node.js 24.11.0, Wails CLI.
+- The application runs locally, so users need to configure their own Provider API keys. Several common providers are built in, and custom providers can also be added.
 
-```bash
-# Install backend dependencies
-go mod tidy
+### 3. External tools
 
-# Install frontend dependencies
-cd frontend
-npm install
+- On first launch, the app guides users through installing the required external tools. These dependencies are not bundled into the installation package in order to keep package size under control and simplify future updates.
 
-# Build the desktop app from the project root
-wails build
-```
-Use `wails dev` during development for hot reload.
+## Project Status
 
-## Docs & Support
-- Product overview: https://dreamapp.cc/products/dreamcreator
-- Chinese docs hub: https://dreamapp.cc/zh-CN/docs/dreamcreator
-- English docs hub: https://dreamapp.cc/docs/dreamcreator
-- Email: xunruhao@gmail.com
+- This is a `personal learning project`, and `pull requests are not being accepted`.
+- If you want to share ideas or report issues, use GitHub Issues or email.
+- This repository is licensed under `Apache-2.0`. See [LICENSE](./LICENSE).
 
-## Contributing
-Issues, bug fixes, and feature ideas are all welcome. Please open an Issue to discuss major changes before submitting a Pull Request so we can align on scope and review bandwidth. Roadmap items and community discussions live on GitHub Projects and Issues.
+## Contact
 
-## Acknowledgements
-DreamCreator would not exist without these outstanding projects and services:
-- [Go](https://go.dev/) & [Wails](https://wails.io/) for cross-platform desktop infrastructure
-- [Vue 3](https://vuejs.org/) and its ecosystem for a modern frontend
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) for robust online video extraction
-- [FFmpeg](https://ffmpeg.org/) powering audio/video processing
-- [Fanhuaji](https://zhconvert.org/) for region-aware Chinese conversion
-- Community contributors and early adopters for priceless feedback
-
-## License
-Distributed under the [Apache License 2.0](LICENSE).
+- Website: <https://dreamcreator.dreamapp.cc>
+- Email: <xunruhao@gmail.com>

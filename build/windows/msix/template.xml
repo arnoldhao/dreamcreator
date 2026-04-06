@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MsixPackagingToolTemplate
+    xmlns="http://schemas.microsoft.com/msix/packaging/msixpackagingtool/template/2022">
+    <Settings
+        AllowTelemetry="false"
+        ApplyACLsToPackageFiles="true"
+        GenerateCommandLineFile="true"
+        AllowPromptForPassword="false">
+    </Settings>
+    <Installer
+        Path="dreamcreator"
+        Arguments=""
+        InstallLocation="C:\Program Files\DreamApp\Dream Creator">
+    </Installer>
+    <PackageInformation
+        PackageName="DreamCreator"
+        PackageDisplayName="Dream Creator"
+        PublisherName="CN=DreamApp"
+        PublisherDisplayName="DreamApp"
+        Version="2.0.0.0"
+        PackageDescription="An AI agent for content creators.">
+        <Capabilities>
+            <Capability Name="runFullTrust" />
+            
+        </Capabilities>
+        <Applications>
+            <Application
+                Id="com.example.dreamcreator"
+                Description="An AI agent for content creators."
+                DisplayName="Dream Creator"
+                ExecutableName="dreamcreator"
+                EntryPoint="Windows.FullTrustApplication">
+                
+            </Application>
+        </Applications>
+        <Resources>
+            <Resource Language="en-us" />
+        </Resources>
+        <Dependencies>
+            <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
+        </Dependencies>
+        <Properties>
+            <Framework>false</Framework>
+            <DisplayName>Dream Creator</DisplayName>
+            <PublisherDisplayName>DreamApp</PublisherDisplayName>
+            <Description>An AI agent for content creators.</Description>
+            <Logo>Assets\AppIcon.png</Logo>
+        </Properties>
+    </PackageInformation>
+    <SaveLocation PackagePath="dreamcreator.msix" />
+    <PackageIntegrity>
+        <CertificatePath></CertificatePath>
+    </PackageIntegrity>
+</MsixPackagingToolTemplate>

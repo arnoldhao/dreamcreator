@@ -1,64 +1,19 @@
-# wails file
-build/bin
-build/*.zip
-build/windows/*.json
-build/windows/*.manifest
-build/windows/installer
-
-# binaries
-backend/embedded/binaries/*
-
-node_modules
+.task
+.task-cache
+bin
+frontend/bindings
 frontend/dist
-frontend/wailsjs
 frontend/node_modules
-frontend/open-symbols
-node_modules
-.DS_Store
-.idea
-.gocache
+build/linux/appimage/build
+build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 
-*.code-workspace
+# AI
+AGENTS.md
+CLAUDE.md
+DESIGN.md
 
-# log file
-*.log
-
-# temporary file
-*.tmp
-*.temp
-
-# compiled file
-*.exe
-*.dll
-*.so
-*.dylib
-
-# operating system generated file
-Thumbs.db
+# macOS
 .DS_Store
 
-# IDE and editor generated files
-.vscode/
-*.sublime-project
-*.sublime-workspace
-*.swp
-*~
-
-# environment configuration file
-.env
-.env.local
-.env.*.local
-
-# dependency management tool generated files
-yarn-error.log
-npm-debug.log*
-
-# test coverage report
-coverage/
-
-# bash script
-*.sh
-!/scripts/*.sh
-
-# cache
-.cache
+# temp
+.tmp

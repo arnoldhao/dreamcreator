@@ -1,6 +1,7 @@
 name: Publish Release
+
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 jobs:
   publish:
@@ -10,7 +11,8 @@ jobs:
       issues: read
     runs-on: ubuntu-latest
     steps:
-      - uses: release-drafter/release-drafter@v6
+      - name: Release Drafter
+        uses: release-drafter/release-drafter@v6
         with:
           publish: true
           commitish: ${{ github.sha }}

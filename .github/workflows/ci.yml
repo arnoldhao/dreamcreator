@@ -1,239 +1,248 @@
 name: CI
+
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+env:
+  GO_VERSION: "1.25.5"
+  BUN_VERSION: "1.3.5"
+  WAILS_VERSION: "v3.0.0-alpha.74"
 
 jobs:
   ci:
-    name: Lint/Test/Build (fast)
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # Go backend
-      - uses: actions/setup-go@v5
-        with: { go-version: '1.25.4' }   # 与 README 要求一致
-      - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
-      - name: Prepare embedded binaries
-        shell: bash
-        run: ./scripts/fetch-embedded-binaries.sh --platform linux/amd64
-      - name: Ensure frontend dist placeholder
-        run: |
-          mkdir -p frontend/dist
-          touch frontend/dist/.placeholder
-      - name: Generate Wails bindings
-        run: wails generate module
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
 
-      # Frontend
-      - uses: actions/setup-node@v4
-        with: { node-version: '24.11.0' }
-      - name: Frontend install & lint & build
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install Wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
+
+      - name: Install frontend deps
+        run: bun install --frozen-lockfile
         working-directory: frontend
-        run: |
-          npm ci
-          npm run lint --if-present
-          npm run typecheck --if-present
-          npm run build --if-present
+
+      - name: Generate frontend bindings
+        run: wails3 task common:generate:bindings
+
+      - name: Frontend governance audits
+        run: bun run audit:all
+        working-directory: frontend
+
+      - name: Frontend build
+        run: bun run build:dev
+        working-directory: frontend
+
+      - name: Frontend telemetry tests
+        run: bun run test:telemetry
+        working-directory: frontend
+
       - name: Go vet & test
         run: |
           go vet ./...
-          go test ./... -v
+          go test ./...
+
+  windows-build-smoke:
+    if: github.event_name != 'schedule'
+    needs: ci
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install Wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
+
+      - name: Install frontend deps
+        run: bun install --frozen-lockfile
+        working-directory: frontend
+
+      - name: Windows build smoke
+        run: wails3 task windows:build
 
   package-preview:
-    # 给 PR 打上 label: preview-binaries 才跑“真实打包”，并把包放到 Artifacts 里供你下载体验
-    if: contains(toJson(github.event.pull_request.labels), 'preview-binaries')
-    needs: ci
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && contains(toJson(github.event.pull_request.labels), 'preview-binaries')
+    needs: [ci, windows-build-smoke]
     strategy:
-      matrix: { os: [macos-latest, windows-latest] }
-    runs-on: ${{ matrix.os }}
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: macos
+            artifact_name: preview-macos-arm64
+            artifact_suffix: macos-arm64
+          - runner: macos-15-intel
+            platform: macos
+            artifact_name: preview-macos-x64
+            artifact_suffix: macos-x64
+          - runner: windows-latest
+            platform: windows
+            artifact_name: preview-windows-x64
+            artifact_suffix: windows-x64
+    runs-on: ${{ matrix.runner }}
     env:
       TELEMETRYDECK_APP_ID: ${{ secrets.TELEMETRYDECK_APP_ID }}
-      TELEMETRYDECK_ENDPOINT: ${{ secrets.TELEMETRYDECK_ENDPOINT }}
-      WINDOWS_APP_ID: DreamCreator
-      WINDOWS_APP_NAME: Dream Creator
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
-        with: { go-version: '1.25.4' }
-      - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
-      - uses: actions/setup-node@v4
-        with: { node-version: '24.11.0' }
-
-      - name: Determine build metadata
-        id: meta
+      - name: Validate TelemetryDeck config
         shell: bash
         run: |
-          version=dev
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          test -n "${TELEMETRYDECK_APP_ID:-}" || { echo "TELEMETRYDECK_APP_ID is required"; exit 1; }
 
-          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            platform="darwin/amd64"
-            platform_tag="mac_intel"
-            platform_name="${platform#*/}"
-            echo "platform=$platform" >> "$GITHUB_OUTPUT"
-            echo "platform_tag=$platform_tag" >> "$GITHUB_OUTPUT"
-            echo "platform_name=$platform_name" >> "$GITHUB_OUTPUT"
-            echo "artifact=build/bin/DreamCreator_${version}_${platform_tag}.dmg" >> "$GITHUB_OUTPUT"
-            echo "artifact_name=DreamCreator-preview-macos" >> "$GITHUB_OUTPUT"
-          else
-            platform="windows/amd64"
-            platform_tag="windows_x64"
-            platform_name="${platform#*/}"
-            echo "platform=$platform" >> "$GITHUB_OUTPUT"
-            echo "platform_tag=$platform_tag" >> "$GITHUB_OUTPUT"
-            echo "platform_name=$platform_name" >> "$GITHUB_OUTPUT"
-            echo "artifact=build/bin/${WINDOWS_APP_NAME} Setup_${version}_${platform_tag}.exe" >> "$GITHUB_OUTPUT"
-            echo "artifact_name=DreamCreator-preview-windows" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Resolve preview metadata
+        shell: bash
+        run: |
+          head_sha="${{ github.event.pull_request.head.sha }}"
+          echo "PREVIEW_ID=pr${{ github.event.pull_request.number }}-${head_sha::7}" >> "$GITHUB_ENV"
+          echo "APP_VERSION=dev" >> "$GITHUB_ENV"
 
-      - name: Install Chocolatey packages (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install Wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
+
+      - name: Refresh build assets
+        run: wails3 task common:update:build-assets
+
+      - name: Install frontend deps
+        run: bun install --frozen-lockfile
+        working-directory: frontend
+
+      - name: Install NSIS
+        if: matrix.platform == 'windows'
         uses: crazy-max/ghaction-chocolatey@v2
         with:
-          args: install nsis jq
+          args: install nsis
 
-      - name: Ensure NSIS available (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Ensure NSIS available
+        if: matrix.platform == 'windows'
         shell: pwsh
         run: |
           $nsisPath = "${env:ProgramFiles(x86)}\NSIS\Bin"
-          if (-not (Test-Path (Join-Path $nsisPath 'makensis.exe'))) {
-            Write-Error "makensis.exe not found in $nsisPath"
+          if (-not (Test-Path (Join-Path $nsisPath "makensis.exe"))) {
+            throw "makensis.exe not found in $nsisPath"
           }
           $nsisPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: Prepare embedded binaries
-        shell: bash
-        run: ./scripts/fetch-embedded-binaries.sh --platform "${{ steps.meta.outputs.platform }}"
+      - name: Build preview app (macOS)
+        if: matrix.platform == 'macos'
+        run: wails3 task darwin:package
 
-      - name: Ensure frontend dist placeholder
+      - name: Build preview app (Windows)
+        if: matrix.platform == 'windows'
+        run: wails3 task windows:package
+
+      - name: Prepare macOS preview artifact
+        if: matrix.platform == 'macos'
         run: |
-          mkdir -p frontend/dist
-          touch frontend/dist/.placeholder
+          mkdir -p dist
+          ditto -c -k --sequesterRsrc --keepParent \
+            bin/dreamcreator.app \
+            dist/dreamcreator-preview-${{ matrix.artifact_suffix }}-${PREVIEW_ID}.zip
 
-      - name: Generate Wails bindings
-        run: wails generate module
-
-      - name: Ensure npm version (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        run: npm install -g npm@9
-
-      - name: Update metadata for Windows build
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="${{ steps.meta.outputs.version }}"
-          jq --arg name "$WINDOWS_APP_NAME" \
-             --arg out "$WINDOWS_APP_NAME" \
-             '.name = $name | .outputfilename = $out | .info.productVersion = "0.0.0"' wails.json > tmp.json
-          mv tmp.json wails.json
-          cd frontend
-          jq --arg version "$VERSION" '.version = $version' package.json > tmp.json
-          mv tmp.json package.json
-
-      - name: Build frontend
-        shell: bash
-        working-directory: frontend
-        run: |
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            npm install
-          else
-            npm ci
-          fi
-          npm run build
-
-      - name: Build macOS app bundle
-        if: matrix.os == 'macos-latest'
-        shell: bash
-        run: |
-          CGO_ENABLED=1 wails build -clean -platform "${{ steps.meta.outputs.platform }}" \
-            -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.meta.outputs.version }} -X dreamcreator/backend/consts.TelemetryAppID=${TELEMETRYDECK_APP_ID} -X dreamcreator/backend/consts.TelemetryEndpoint=${TELEMETRYDECK_ENDPOINT}"
-
-      - name: Normalise macOS app name
-        if: matrix.os == 'macos-latest'
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_bundle=$(find build/bin -maxdepth 1 -type d -iname 'dreamcreator.app' | head -n1)
-          if [[ -z "$app_bundle" ]]; then
-            echo "DreamCreator.app not found in build/bin" >&2
-            exit 1
-          fi
-          if [[ "$app_bundle" != "build/bin/DreamCreator.app" ]]; then
-            mv "$app_bundle" build/bin/DreamCreator.app
-          fi
-
-      - name: Checkout create-dmg
-        if: matrix.os == 'macos-latest'
-        uses: actions/checkout@v4
-        with:
-          repository: create-dmg/create-dmg
-          path: ./build/create-dmg
-          ref: master
-
-      - name: Build macOS preview DMG
-        if: matrix.os == 'macos-latest'
-        shell: bash
-        working-directory: ./build
-        run: |
-          set -euo pipefail
-          dmg_name="DreamCreator_${{ steps.meta.outputs.version }}_${{ steps.meta.outputs.platform_tag }}.dmg"
-          rm -f "bin/$dmg_name"
-          ./create-dmg/create-dmg \
-            --skip-jenkins \
-            --no-internet-enable \
-            --volname "DreamCreator" \
-            --volicon "bin/DreamCreator.app/Contents/Resources/iconfile.icns" \
-            --text-size 12 \
-            --window-pos 400 400 \
-            --window-size 660 450 \
-            --icon-size 80 \
-            --icon "DreamCreator.app" 180 180 \
-            --hide-extension "DreamCreator.app" \
-            --app-drop-link 480 180 \
-            "bin/$dmg_name" \
-            "bin"
-
-      - name: Build Windows NSIS installer
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        run: |
-          CGO_ENABLED=1 wails build -clean -platform "${{ steps.meta.outputs.platform }}" \
-            -nsis -webview2 embed \
-            -ldflags "-X dreamcreator/backend/consts.APP_VERSION=${{ steps.meta.outputs.version }} -X dreamcreator/backend/consts.TelemetryAppID=${TELEMETRYDECK_APP_ID} -X dreamcreator/backend/consts.TelemetryEndpoint=${TELEMETRYDECK_ENDPOINT}"
-
-      - name: Rename Windows installer
-        if: matrix.os == 'windows-latest'
+      - name: Prepare Windows preview artifacts
+        if: matrix.platform == 'windows'
         shell: pwsh
-        working-directory: ./build/bin
         run: |
-          $defaultInstaller = "${env:WINDOWS_APP_ID}-${{ steps.meta.outputs.platform_name }}-installer.exe"
-          $altInstaller = "${env:WINDOWS_APP_NAME}-${{ steps.meta.outputs.platform_name }}-installer.exe"
-          $targetInstaller = "${env:WINDOWS_APP_NAME} Setup_${{ steps.meta.outputs.version }}_${{ steps.meta.outputs.platform_tag }}.exe"
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
 
-          if (Test-Path $targetInstaller) {
-            Write-Host "Installer already renamed: $targetInstaller"
-            return
+          $portableName = "dreamcreator-preview-${env:PREVIEW_ID}-${{ matrix.artifact_suffix }}.zip"
+          Compress-Archive -Path "bin/dreamcreator.exe" -DestinationPath "dist/$portableName" -Force
+
+          $installer = Get-ChildItem -Path bin -Filter "*installer.exe" | Select-Object -First 1
+          if (-not $installer) {
+            throw "Windows installer not found in ./bin"
           }
 
-          if (Test-Path $defaultInstaller) {
-            Rename-Item -Path $defaultInstaller -NewName $targetInstaller
-          } elseif (Test-Path $altInstaller) {
-            Rename-Item -Path $altInstaller -NewName $targetInstaller
-          } else {
-            throw "Installer not found. Expected '$defaultInstaller' or '$altInstaller' in $(Get-Location)."
-          }
+          $installerName = "dreamcreator-preview-${env:PREVIEW_ID}-${{ matrix.artifact_suffix }}-installer.exe"
+          Copy-Item $installer.FullName "dist/$installerName"
 
-      - name: Upload preview artifact
+      - name: Upload preview artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.meta.outputs.artifact_name }}
-          path: ${{ steps.meta.outputs.artifact }}
+          name: ${{ matrix.artifact_name }}
+          path: dist/*
           if-no-files-found: error
+
+  weekly-regression:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install Wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
+
+      - name: Install frontend deps
+        run: bun install --frozen-lockfile
+        working-directory: frontend
+
+      - name: Generate frontend bindings
+        run: wails3 task common:generate:bindings
+
+      - name: Frontend governance audits
+        run: bun run audit:all
+        working-directory: frontend
+
+      - name: Frontend build
+        run: bun run build:dev
+        working-directory: frontend
+
+      - name: Frontend stream parser tests
+        run: bun run test:stream-parser
+        working-directory: frontend
+
+      - name: Frontend telemetry tests
+        run: bun run test:telemetry
+        working-directory: frontend
+
+      - name: Go test
+        run: go test ./...

@@ -1,0 +1,831 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Call } from "@wailsio/runtime";
+import { Activity, BarChart3, Brain, FileText, Plug2, RefreshCw, ScrollText, Wrench } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
+
+import { Button } from "@/shared/ui/button";
+import { Select } from "@/shared/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/shared/ui/tabs";
+import { useI18n } from "@/shared/i18n";
+import { useThreadRunEvents, useThreads, type ThreadRunEvent } from "@/shared/query/threads";
+import { useGatewayHealth, useGatewayLogsTail, useGatewayStatus } from "@/shared/query/diagnostics";
+import { useChannelsDebug } from "@/shared/query/channels";
+import {
+  DEFAULT_DEBUG_TOPICS,
+  REALTIME_TOPICS,
+  registerTopic,
+  subscribeGatewayEvents,
+  type GatewayEvent,
+  useRealtimeStore,
+} from "@/shared/realtime";
+import { messageBus } from "@/shared/message";
+import { ChannelsTab } from "./tabs/ChannelsTab";
+import { EventsTab } from "./tabs/EventsTab";
+import { FrameworkTab } from "./tabs/FrameworkTab";
+import { OverviewTab } from "./tabs/OverviewTab";
+import { PromptTab } from "./tabs/PromptTab";
+import { RunTraceTab } from "./tabs/RunTraceTab";
+import type {
+  GatewayDebugEvent,
+  ParsedRunEvent,
+  PromptReportShape,
+  PromptRunSnapshot,
+  RunSummary,
+} from "./types";
+
+const MAX_GATEWAY_EVENTS = 600;
+const RUN_EVENT_LIMIT = 1200;
+const DEBUG_TAB_VALUES = ["overview", "context", "channels", "framework"] as const;
+type DebugTabValue = (typeof DEBUG_TAB_VALUES)[number];
+const CONTEXT_TAB_VALUES = ["events", "trace", "prompt"] as const;
+type ContextTabValue = (typeof CONTEXT_TAB_VALUES)[number];
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function firstString(record: Record<string, unknown> | null, ...keys: string[]): string {
+  if (!record) {
+    return "";
+  }
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+  }
+  return "";
+}
+
+function firstStringInRecords(records: Array<Record<string, unknown> | null>, ...keys: string[]): string {
+  for (const record of records) {
+    const value = firstString(record, ...keys);
+    if (value) {
+      return value;
+    }
+  }
+  return "";
+}
+
+function resolveGatewayCandidateRecords(event: GatewayEvent): Array<Record<string, unknown> | null> {
+  const eventRecord = asRecord(event as unknown);
+  const payloadRecord = asRecord(event.payload);
+  const payloadData = asRecord(payloadRecord?.data);
+  const payloadMeta = asRecord(payloadRecord?.meta);
+  const payloadContext = asRecord(payloadRecord?.context);
+  const payloadPayload = asRecord(payloadRecord?.payload);
+  const nestedPayloadData = asRecord(payloadPayload?.data);
+  const nestedPayloadMeta = asRecord(payloadPayload?.meta);
+  const nestedPayloadContext = asRecord(payloadPayload?.context);
+  return [
+    eventRecord,
+    payloadRecord,
+    payloadData,
+    payloadMeta,
+    payloadContext,
+    payloadPayload,
+    nestedPayloadData,
+    nestedPayloadMeta,
+    nestedPayloadContext,
+  ];
+}
+
+function resolveGatewayRunId(event: GatewayEvent): string {
+  return firstStringInRecords(
+    resolveGatewayCandidateRecords(event),
+    "runId",
+    "run_id",
+    "runID",
+    "RunID",
+    "parentRunId",
+    "parent_run_id"
+  );
+}
+
+function resolveGatewaySessionId(event: GatewayEvent): string {
+  return firstStringInRecords(
+    resolveGatewayCandidateRecords(event),
+    "sessionId",
+    "session_id",
+    "sessionID",
+    "SessionID",
+    "threadId",
+    "thread_id",
+    "threadID",
+    "ThreadID",
+    "childSessionId",
+    "child_session_id"
+  );
+}
+
+function resolveGatewaySessionDisplay(event: GatewayEvent, sessionId: string): string {
+  if (sessionId) {
+    return sessionId;
+  }
+  const sessionKey = (event.sessionKey ?? "").trim();
+  if (sessionKey) {
+    return sessionKey;
+  }
+  return firstStringInRecords(resolveGatewayCandidateRecords(event), "sessionKey", "session_key", "SessionKey");
+}
+
+function parseJSON(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function formatDateTime(value?: string | number): string {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      return "-";
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return "-";
+    }
+    return date.toLocaleString();
+  }
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString();
+}
+
+function formatRuntimeTime(value?: string | number): string {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      return "-";
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return "-";
+    }
+    return date.toLocaleTimeString();
+  }
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleTimeString();
+}
+
+function parseRunEvent(row: ThreadRunEvent): ParsedRunEvent {
+  const payload = parseJSON(row.payloadJson);
+  const record = asRecord(payload);
+  const chatEventType = firstString(record, "type");
+  const eventDataRecord = asRecord(record?.data);
+  const toolName =
+    firstString(eventDataRecord, "toolName", "tool_name", "name") || firstString(record, "toolName", "tool_name");
+  const toolCallId =
+    firstString(eventDataRecord, "toolCallId", "tool_call_id") || firstString(record, "toolCallId", "tool_call_id");
+
+  let runId = row.runId.trim();
+  let agentEventName = "";
+  let promptReport: PromptReportShape | null = null;
+
+  if (chatEventType === "data-agent-event" && eventDataRecord) {
+    agentEventName = firstString(eventDataRecord, "event");
+    if (!runId) {
+      runId = firstString(eventDataRecord, "runId");
+    }
+  }
+  if (chatEventType === "prompt.report" && eventDataRecord) {
+    promptReport = eventDataRecord as PromptReportShape;
+    if (!runId) {
+      runId = String(promptReport.runId ?? "").trim();
+    }
+  }
+
+  const summary = agentEventName || chatEventType || row.eventType || "unknown";
+  const parsedTime = Date.parse(row.createdAt);
+
+  return {
+    row,
+    runId,
+    chatEventType,
+    agentEventName,
+    summary,
+    toolName,
+    toolCallId,
+    promptReport,
+    rawRecord: record,
+    createdAtMs: Number.isFinite(parsedTime) ? parsedTime : 0,
+  };
+}
+
+function resolveRunStatus(events: ParsedRunEvent[]): RunSummary["status"] {
+  let status: RunSummary["status"] = "unknown";
+  for (const item of events) {
+    const event = item.agentEventName;
+    if (!event) {
+      continue;
+    }
+    if (event === "run_error") {
+      status = "error";
+    } else if (event === "run_abort") {
+      status = "aborted";
+    } else if (event === "run_end") {
+      status = "completed";
+    } else if (event === "run_start" && status === "unknown") {
+      status = "running";
+    }
+  }
+  return status;
+}
+
+function statusLabelClass(status: RunSummary["status"]) {
+  switch (status) {
+    case "completed":
+      return "bg-emerald-100 text-emerald-800";
+    case "running":
+      return "bg-sky-100 text-sky-800";
+    case "error":
+      return "bg-destructive/15 text-destructive";
+    case "aborted":
+      return "bg-amber-100 text-amber-800";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+}
+
+export function DebugSection() {
+  const { t } = useI18n();
+  const { status, url, topics, messages, metrics, clearMessages } = useRealtimeStore(
+    useShallow((state) => ({
+      status: state.status,
+      url: state.url,
+      topics: state.topics,
+      messages: state.messages,
+      metrics: state.metrics,
+      clearMessages: state.clearMessages,
+    }))
+  );
+  const [selectedTopic, setSelectedTopic] = useState<string>(DEFAULT_DEBUG_TOPICS[0]);
+  const [selectedThreadId, setSelectedThreadId] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<DebugTabValue>("overview");
+  const [activeContextTab, setActiveContextTab] = useState<ContextTabValue>("events");
+  const [selectedRunId, setSelectedRunId] = useState<string>("all");
+  const [logLevel, setLogLevel] = useState<string>("info");
+  const [selectedGatewayEvent, setSelectedGatewayEvent] = useState<string>("all");
+  const [gatewayEvents, setGatewayEvents] = useState<GatewayDebugEvent[]>([]);
+  const subscriptionsRef = useRef<Map<string, () => void>>(new Map());
+
+  const { data: threads = [] } = useThreads(false);
+  const runEventsQuery = useThreadRunEvents(selectedThreadId || null, { limit: RUN_EVENT_LIMIT });
+  const healthQuery = useGatewayHealth();
+  const gatewayStatusQuery = useGatewayStatus();
+  const logsQuery = useGatewayLogsTail(
+    { level: logLevel, limit: 200 },
+    {
+      realtime: activeTab === "framework",
+      intervalMs: 2000,
+    }
+  );
+  const channelDebugQuery = useChannelsDebug();
+
+  const sortedThreads = useMemo(
+    () => [...threads].sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
+    [threads]
+  );
+
+  useEffect(() => {
+    if (selectedThreadId || sortedThreads.length === 0) {
+      return;
+    }
+    const latest = sortedThreads[0];
+    if (latest?.id) {
+      setSelectedThreadId(latest.id);
+    }
+  }, [selectedThreadId, sortedThreads]);
+
+  useEffect(() => {
+    const defaults = [
+      ...DEFAULT_DEBUG_TOPICS,
+      REALTIME_TOPICS.chat.threadUpdated,
+      REALTIME_TOPICS.library.operation,
+      REALTIME_TOPICS.library.file,
+      REALTIME_TOPICS.library.history,
+      REALTIME_TOPICS.library.workspace,
+      "update.status",
+    ];
+    const cleanup = defaults.map((topic) => {
+      const unsubscribe = registerTopic(topic);
+      subscriptionsRef.current.set(topic, unsubscribe);
+      return unsubscribe;
+    });
+    return () => {
+      cleanup.forEach((unsubscribe) => unsubscribe());
+      subscriptionsRef.current.forEach((unsubscribe) => unsubscribe());
+      subscriptionsRef.current.clear();
+    };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeGatewayEvents((event) => {
+      const runId = resolveGatewayRunId(event);
+      const resolvedSessionId = resolveGatewaySessionId(event);
+      const normalizedSessionId = (event.sessionId ?? "").trim() || resolvedSessionId;
+      const sessionDisplayId = resolveGatewaySessionDisplay(event, normalizedSessionId);
+      const key = `${event.timestamp}-${event.event}-${runId}-${normalizedSessionId}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+      setGatewayEvents((prev) =>
+        [...prev, { ...event, runId, sessionId: normalizedSessionId, sessionDisplayId, __key: key }].slice(
+          -MAX_GATEWAY_EVENTS
+        )
+      );
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (selectedTopic === "all") {
+      return;
+    }
+    if (topics.length > 0 && !topics.includes(selectedTopic)) {
+      setSelectedTopic(topics[0]);
+    }
+  }, [selectedTopic, topics]);
+
+  const refreshOverview = useCallback(() => {
+    void healthQuery.refetch();
+    void gatewayStatusQuery.refetch();
+    void logsQuery.refetch();
+    void runEventsQuery.refetch();
+  }, [gatewayStatusQuery, healthQuery, logsQuery, runEventsQuery]);
+
+  const sendOsNotification = async () => {
+    try {
+      const authorized = await Call.ByName(
+        "dreamcreator/internal/presentation/wails.RealtimeHandler.RequestSystemNotificationAuthorization"
+      );
+      if (!authorized) {
+        messageBus.publishToast({
+          intent: "warning",
+          title: t("settings.debug.message.realtime.notifyDenied"),
+        });
+        return;
+      }
+      await Call.ByName("dreamcreator/internal/presentation/wails.RealtimeHandler.SendSystemNotification", {
+        title: t("settings.debug.message.realtime.notifyTitle"),
+        body: t("settings.debug.message.realtime.notifyBody"),
+        subtitle: "DreamCreator",
+        data: { source: "debug", ts: new Date().toISOString() },
+      });
+    } catch (error) {
+      messageBus.publishToast({
+        intent: "warning",
+        title: t("settings.debug.message.realtime.notifyError"),
+        description: String(error),
+      });
+    }
+  };
+
+  const publishBackendDebug = async () => {
+    try {
+      const targetTopic =
+        !selectedTopic || selectedTopic === "all" || selectedTopic === REALTIME_TOPICS.system.hello
+          ? REALTIME_TOPICS.debug.echo
+          : selectedTopic;
+      await Call.ByName(
+        "dreamcreator/internal/presentation/wails.RealtimeHandler.PublishDebugEvent",
+        targetTopic,
+        {
+          message: "Hello from frontend",
+          ts: new Date().toISOString(),
+          source: "settings.debug",
+        }
+      );
+      messageBus.publishToast({
+        intent: "success",
+        title: t("settings.debug.message.realtime.publishSuccess"),
+        description: `${t("settings.debug.message.realtime.topicLabel")}: ${targetTopic}`,
+      });
+    } catch (error) {
+      messageBus.publishToast({
+        intent: "warning",
+        title: t("settings.debug.message.realtime.publishFailed"),
+        description: String(error),
+      });
+    }
+  };
+
+  const showToastPreview = useCallback(() => {
+    messageBus.publishToast({
+      intent: "warning",
+      title: t("settings.debug.message.frontend.toastTitle"),
+      description: t("settings.debug.message.frontend.toastDesc"),
+    });
+  }, [t]);
+
+  const showNotificationPreview = useCallback(() => {
+    const actionLabel = t("settings.debug.message.frontend.action");
+    let notificationId = "";
+    notificationId = messageBus.publishNotification({
+      intent: "success",
+      title: t("settings.debug.message.frontend.notificationTitle"),
+      description: t("settings.debug.message.frontend.notificationDesc"),
+      actions: [
+        {
+          label: actionLabel,
+          onClick: () => messageBus.dismiss(notificationId),
+        },
+      ],
+    });
+  }, [t]);
+
+  const showDialogPreview = useCallback(() => {
+    messageBus.publishDialog({
+      intent: "danger",
+      title: t("settings.debug.message.frontend.dialogTitle"),
+      description: t("settings.debug.message.frontend.dialogDesc"),
+      confirmLabel: t("settings.debug.message.frontend.dialogConfirm"),
+    });
+  }, [t]);
+
+  const statusLabel = useMemo(() => {
+    if (status === "connected") {
+      return t("settings.debug.message.realtime.status.connected");
+    }
+    if (status === "connecting") {
+      return t("settings.debug.message.realtime.status.connecting");
+    }
+    return t("settings.debug.message.realtime.status.disconnected");
+  }, [status, t]);
+
+  const formatRunStatus = useCallback(
+    (statusValue: RunSummary["status"]) => {
+      switch (statusValue) {
+        case "completed":
+          return t("settings.debug.trace.status.completed");
+        case "running":
+          return t("settings.debug.trace.status.running");
+        case "error":
+          return t("settings.debug.trace.status.error");
+        case "aborted":
+          return t("settings.debug.trace.status.aborted");
+        default:
+          return t("settings.debug.trace.status.unknown");
+      }
+    },
+    [t]
+  );
+
+  const topicOptions = useMemo(() => Array.from(new Set([...(topics ?? []), "all"])), [topics]);
+
+  const visibleMessages = useMemo(() => {
+    if (selectedTopic === "all") {
+      return Object.values(messages)
+        .flat()
+        .sort((a, b) => b.ts - a.ts);
+    }
+    return [...(messages[selectedTopic] ?? [])].sort((a, b) => b.ts - a.ts);
+  }, [messages, selectedTopic]);
+
+  const parsedRunEvents = useMemo(() => {
+    const rawEvents = runEventsQuery.data ?? [];
+    return rawEvents
+      .map(parseRunEvent)
+      .sort((a, b) => b.createdAtMs - a.createdAtMs || b.row.id - a.row.id);
+  }, [runEventsQuery.data]);
+
+  const runSummaries = useMemo(() => {
+    const grouped = new Map<string, ParsedRunEvent[]>();
+    for (const item of parsedRunEvents) {
+      const runId = item.runId.trim();
+      if (!runId) {
+        continue;
+      }
+      const list = grouped.get(runId) ?? [];
+      list.push(item);
+      grouped.set(runId, list);
+    }
+    const summaries: RunSummary[] = [];
+    for (const [runId, list] of grouped.entries()) {
+      const sorted = [...list].sort((a, b) => a.createdAtMs - b.createdAtMs || a.row.id - b.row.id);
+      const first = sorted[0];
+      const last = sorted[sorted.length - 1];
+      summaries.push({
+        runId,
+        firstAt: first?.row.createdAt ?? "",
+        lastAt: last?.row.createdAt ?? "",
+        eventCount: sorted.length,
+        status: resolveRunStatus(sorted),
+        lastEvent: last?.summary ?? "",
+      });
+    }
+    return summaries.sort((a, b) => {
+      const left = Date.parse(a.lastAt);
+      const right = Date.parse(b.lastAt);
+      return right - left;
+    });
+  }, [parsedRunEvents]);
+
+  useEffect(() => {
+    if (selectedRunId === "all") {
+      return;
+    }
+    const exists = runSummaries.some((item) => item.runId === selectedRunId);
+    if (!exists) {
+      setSelectedRunId("all");
+    }
+  }, [selectedRunId, runSummaries]);
+
+  useEffect(() => {
+    if (activeContextTab !== "trace" && activeContextTab !== "prompt") {
+      return;
+    }
+    if (selectedRunId !== "all") {
+      return;
+    }
+    const firstRunId = runSummaries[0]?.runId;
+    if (firstRunId) {
+      setSelectedRunId(firstRunId);
+    }
+  }, [activeContextTab, selectedRunId, runSummaries]);
+
+  const filteredRunEvents = useMemo(() => {
+    if (selectedRunId === "all") {
+      return parsedRunEvents;
+    }
+    return parsedRunEvents.filter((item) => item.runId === selectedRunId);
+  }, [parsedRunEvents, selectedRunId]);
+
+  const promptRuns = useMemo(() => {
+    const latest = new Map<string, PromptRunSnapshot>();
+    for (const item of parsedRunEvents) {
+      if (!item.promptReport) {
+        continue;
+      }
+      const runId = item.runId.trim() || String(item.promptReport.runId ?? "").trim();
+      if (!runId) {
+        continue;
+      }
+      const current = latest.get(runId);
+      if (!current || Date.parse(item.row.createdAt) > Date.parse(current.createdAt)) {
+        latest.set(runId, {
+          runId,
+          createdAt: item.row.createdAt,
+          payload: item.promptReport,
+        });
+      }
+    }
+    return Array.from(latest.values()).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  }, [parsedRunEvents]);
+
+  const selectedPromptRun = useMemo(() => {
+    if (selectedRunId === "all") {
+      return promptRuns[0] ?? null;
+    }
+    return promptRuns.find((item) => item.runId === selectedRunId) ?? null;
+  }, [promptRuns, selectedRunId]);
+
+  const gatewayEventsForThread = useMemo(() => {
+    if (!selectedThreadId) {
+      return gatewayEvents;
+    }
+    return gatewayEvents.filter((event) => {
+      const sessionId = (event.sessionId ?? "").trim();
+      return !sessionId || sessionId === selectedThreadId;
+    });
+  }, [gatewayEvents, selectedThreadId]);
+
+  const gatewayEventOptions = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of gatewayEventsForThread) {
+      const key = item.event.trim() || t("settings.debug.gateway.eventUnknown");
+      map.set(key, (map.get(key) ?? 0) + 1);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+  }, [gatewayEventsForThread, t]);
+
+  useEffect(() => {
+    if (selectedGatewayEvent === "all") {
+      return;
+    }
+    const exists = gatewayEventOptions.some(([eventName]) => eventName === selectedGatewayEvent);
+    if (!exists) {
+      setSelectedGatewayEvent("all");
+    }
+  }, [selectedGatewayEvent, gatewayEventOptions]);
+
+  const gatewayFilteredEvents = useMemo(() => {
+    if (selectedGatewayEvent === "all") {
+      return gatewayEventsForThread;
+    }
+    return gatewayEventsForThread.filter((item) => {
+      const name = item.event.trim() || t("settings.debug.gateway.eventUnknown");
+      return name === selectedGatewayEvent;
+    });
+  }, [gatewayEventsForThread, selectedGatewayEvent, t]);
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col space-y-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          if ((DEBUG_TAB_VALUES as readonly string[]).includes(value)) {
+            setActiveTab(value as DebugTabValue);
+          }
+        }}
+        className="flex min-h-0 flex-1 flex-col space-y-4"
+      >
+        <div className="flex justify-center">
+          <TabsList className="w-fit max-w-full justify-center overflow-x-auto overflow-y-hidden">
+            <TabsTrigger value="overview" className="min-w-0">
+              <BarChart3 className="h-4 w-4" />
+              <span className="truncate">{t("settings.debug.tabs.overview")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="context" className="min-w-0">
+              <Brain className="h-4 w-4" />
+              <span className="truncate">{t("settings.debug.tabs.context")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="channels" className="min-w-0">
+              <Plug2 className="h-4 w-4" />
+              <span className="truncate">{t("settings.debug.tabs.channels")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="framework" className="min-w-0">
+              <Wrench className="h-4 w-4" />
+              <span className="truncate">{t("settings.debug.tabs.framework")}</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        {activeTab === "overview" ? (
+          <OverviewTab
+            t={t}
+            refreshOverview={refreshOverview}
+            gatewayStatus={gatewayStatusQuery.data}
+            health={healthQuery.data}
+            url={url}
+            statusLabel={statusLabel}
+            status={status}
+            metrics={metrics}
+            selectedTopic={selectedTopic}
+            setSelectedTopic={setSelectedTopic}
+            topicOptions={topicOptions}
+            visibleMessages={visibleMessages}
+            messages={messages}
+            clearMessages={() => clearMessages()}
+          />
+        ) : null}
+
+        {activeTab === "context" ? (
+          <div className="space-y-3">
+            <Tabs
+              value={activeContextTab}
+              onValueChange={(value) => {
+                if ((CONTEXT_TAB_VALUES as readonly string[]).includes(value)) {
+                  setActiveContextTab(value as ContextTabValue);
+                }
+              }}
+              className="flex min-h-0 flex-1 flex-col space-y-3"
+            >
+              <div className="flex items-center gap-3">
+                <TabsList className="h-auto shrink-0 rounded-none bg-transparent p-0">
+                  <TabsTrigger
+                    value="events"
+                    className="-mb-px rounded-none border-b-2 border-transparent px-2 py-2 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  >
+                    <Activity className="h-4 w-4" />
+                    <span className="truncate">{t("settings.debug.tabs.events")}</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="trace"
+                    className="-mb-px rounded-none border-b-2 border-transparent px-2 py-2 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  >
+                    <ScrollText className="h-4 w-4" />
+                    <span className="truncate">{t("settings.debug.tabs.trace")}</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="prompt"
+                    className="-mb-px rounded-none border-b-2 border-transparent px-2 py-2 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  >
+                    <FileText className="h-4 w-4" />
+                    <span className="truncate">{t("settings.debug.tabs.prompt")}</span>
+                  </TabsTrigger>
+                </TabsList>
+
+                <div className="ml-auto flex min-w-0 items-center gap-2">
+                  <Select
+                    value={selectedThreadId}
+                    onChange={(event) => setSelectedThreadId(event.target.value)}
+                    className="w-[280px] min-w-0 shrink"
+                  >
+                    {sortedThreads.length === 0 ? (
+                      <option value="">{t("settings.debug.thread.empty")}</option>
+                    ) : (
+                      sortedThreads.map((thread) => (
+                        <option key={thread.id} value={thread.id}>
+                          {thread.title || thread.id}
+                        </option>
+                      ))
+                    )}
+                  </Select>
+                  <Button
+                    size="compactIcon"
+                    variant="outline"
+                    className="shrink-0"
+                    aria-label={t("common.refresh")}
+                    title={t("common.refresh")}
+                    onClick={() => {
+                      void runEventsQuery.refetch();
+                    }}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <EventsTab
+                t={t}
+                gatewayEventsForThread={gatewayEventsForThread}
+                gatewayFilteredEvents={gatewayFilteredEvents}
+                selectedGatewayEvent={selectedGatewayEvent}
+                setSelectedGatewayEvent={setSelectedGatewayEvent}
+                gatewayEventOptions={gatewayEventOptions}
+                formatRuntimeTime={formatRuntimeTime}
+              />
+
+              <RunTraceTab
+                t={t}
+                selectedRunId={selectedRunId}
+                setSelectedRunId={setSelectedRunId}
+                runSummaries={runSummaries}
+                filteredRunEvents={filteredRunEvents}
+                runEventsLoading={runEventsQuery.isLoading}
+                runEventsError={Boolean(runEventsQuery.error)}
+                formatDateTime={formatDateTime}
+                statusLabelClass={statusLabelClass}
+                formatRunStatus={formatRunStatus}
+              />
+
+              <PromptTab
+                t={t}
+                selectedRunId={selectedRunId}
+                setSelectedRunId={setSelectedRunId}
+                runSummaries={runSummaries}
+                runEventsLoading={runEventsQuery.isLoading}
+                runEventsError={Boolean(runEventsQuery.error)}
+                selectedPromptRun={selectedPromptRun}
+                formatDateTime={formatDateTime}
+                statusLabelClass={statusLabelClass}
+                formatRunStatus={formatRunStatus}
+              />
+            </Tabs>
+          </div>
+        ) : null}
+
+        {activeTab === "channels" ? (
+          <ChannelsTab
+            t={t}
+            isLoading={channelDebugQuery.isLoading}
+            hasError={Boolean(channelDebugQuery.error)}
+            isFetching={channelDebugQuery.isFetching}
+            data={channelDebugQuery.data}
+            refetch={() => {
+              void channelDebugQuery.refetch();
+            }}
+            formatDateTime={formatDateTime}
+          />
+        ) : null}
+
+        {activeTab === "framework" ? (
+          <FrameworkTab
+            t={t}
+            logLevel={logLevel}
+            setLogLevel={setLogLevel}
+            logsLoading={logsQuery.isLoading}
+            logsError={Boolean(logsQuery.error)}
+            logRecords={logsQuery.data?.records ?? []}
+            formatRuntimeTime={formatRuntimeTime}
+            showToastPreview={showToastPreview}
+            showNotificationPreview={showNotificationPreview}
+            showDialogPreview={showDialogPreview}
+            sendOsNotification={() => {
+              void sendOsNotification();
+            }}
+            publishBackendDebug={() => {
+              void publishBackendDebug();
+            }}
+          />
+        ) : null}
+      </Tabs>
+    </div>
+  );
+}

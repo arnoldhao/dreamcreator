@@ -1,0 +1,15 @@
+{
+	"fixed": {
+		"file_version": "2.0.0"
+	},
+	"info": {
+		"0000": {
+			"ProductVersion": "2.0.0",
+			"CompanyName": "DreamApp",
+			"FileDescription": "Dream Creator",
+			"LegalCopyright": "© 2026, Arnold HAO",
+			"ProductName": "Dream Creator",
+			"Comments": "An AI agent for content creators."
+		}
+	}
+}
