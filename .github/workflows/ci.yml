@@ -71,11 +71,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-15
+          - runner: macos-26
             platform: macos
             artifact_name: preview-macos-arm64
             artifact_suffix: macos-arm64
-          - runner: macos-15-intel
+          - runner: macos-26-intel
             platform: macos
             artifact_name: preview-macos-x64
             artifact_suffix: macos-x64
@@ -141,6 +141,18 @@ jobs:
       - name: Build preview app (macOS)
         if: matrix.platform == 'macos'
         run: wails3 task darwin:package
+
+      - name: Inspect preview macOS build metadata
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcrun --show-sdk-version --sdk macosx
+          echo "Binary build metadata:"
+          otool -l bin/dreamcreator | grep -A3 -B1 LC_BUILD_VERSION
+          echo "Bundle minimum OS version:"
+          plutil -p bin/dreamcreator.app/Contents/Info.plist | grep LSMinimumSystemVersion
 
       - name: Build preview app (Windows)
         if: matrix.platform == 'windows'
