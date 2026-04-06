@@ -31,6 +31,7 @@ import {
   SelectTrigger as AuiSelectTrigger,
 } from "@/components/assistant-ui/select";
 import { cn } from "@/lib/utils";
+import { resolvePersistedThreadId } from "@/shared/assistant/thread-identities";
 import { useI18n } from "@/shared/i18n";
 import { messageBus } from "@/shared/message";
 import { useAssistants, useUpdateAssistant } from "@/shared/query/assistant";
@@ -330,7 +331,7 @@ export function useRuntimeSelections() {
 export function useComposerRunConfig() {
   const api = useAssistantApi();
   const threadId = useAssistantState(({ threadListItem }) =>
-    (threadListItem.remoteId ?? threadListItem.id).trim()
+    resolvePersistedThreadId(threadListItem.remoteId, threadListItem.id)
   );
 
   React.useEffect(() => {
@@ -654,7 +655,9 @@ export function ComposerBar({
   const isDisabled = useAssistantState(
     ({ thread, composer }) => thread.isDisabled || (composer.dictation?.inputDisabled ?? false)
   );
-  const activeThreadId = useAssistantState(({ threadListItem }) => threadListItem.remoteId ?? threadListItem.id);
+  const activeThreadId = useAssistantState(({ threadListItem }) =>
+    resolvePersistedThreadId(threadListItem.remoteId, threadListItem.id)
+  );
   const hasActiveThread = (activeThreadId ?? "").trim().length > 0;
   const setContextTokens = useChatRuntimeStore((state) => state.setContextTokens);
   const contextSnapshot = useChatRuntimeStore((state) => state.contextTokens[activeThreadId]);

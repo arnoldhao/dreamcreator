@@ -251,6 +251,9 @@ func (service *ProvidersService) UpdateProviderModel(ctx context.Context, reques
 	if request.ProviderID != "" && model.ProviderID != request.ProviderID {
 		return dto.ProviderModel{}, providers.ErrModelNotFound
 	}
+	if _, err := service.ensureProviderExists(ctx, model.ProviderID); err != nil {
+		return dto.ProviderModel{}, fmt.Errorf("ensure provider for model %q: %w", model.ID, err)
+	}
 
 	now := service.now()
 	updated, err := providers.NewModel(providers.ModelParams{
@@ -276,7 +279,7 @@ func (service *ProvidersService) UpdateProviderModel(ctx context.Context, reques
 	}
 
 	if err := service.models.Save(ctx, updated); err != nil {
-		return dto.ProviderModel{}, err
+		return dto.ProviderModel{}, fmt.Errorf("save provider model %q for provider %q: %w", updated.ID, updated.ProviderID, err)
 	}
 
 	return dto.ProviderModel{
@@ -306,7 +309,7 @@ func (service *ProvidersService) SyncProviderModels(ctx context.Context, provide
 		return nil, providers.ErrProviderNotFound
 	}
 
-	provider, err := service.providers.Get(ctx, trimmed)
+	provider, err := service.ensureProviderExists(ctx, trimmed)
 	if err != nil {
 		return nil, err
 	}
@@ -442,7 +445,7 @@ func (service *ProvidersService) SyncProviderModels(ctx context.Context, provide
 	}
 
 	if err := service.models.ReplaceByProvider(ctx, provider.ID, nextModels); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("replace models for provider %q: %w", provider.ID, err)
 	}
 
 	updatedModels, err := service.models.ListByProvider(ctx, provider.ID)
@@ -504,7 +507,7 @@ func (service *ProvidersService) UpsertProviderSecret(ctx context.Context, reque
 	if trimmed == "" {
 		return providers.ErrProviderNotFound
 	}
-	if _, err := service.providers.Get(ctx, trimmed); err != nil {
+	if _, err := service.ensureProviderExists(ctx, trimmed); err != nil {
 		return err
 	}
 
@@ -560,6 +563,16 @@ func defaultProviderRequests() []dto.UpsertProviderRequest {
 	}
 }
 
+func defaultProviderRequestByID(id string) (dto.UpsertProviderRequest, bool) {
+	trimmed := strings.TrimSpace(id)
+	for _, item := range defaultProviderRequests() {
+		if item.ID == trimmed {
+			return item, true
+		}
+	}
+	return dto.UpsertProviderRequest{}, false
+}
+
 var defaultProviderIDs = func() map[string]struct{} {
 	ids := make(map[string]struct{}, 11)
 	for _, item := range defaultProviderRequests() {
@@ -577,6 +590,9 @@ func (service *ProvidersService) ReplaceProviderModels(ctx context.Context, requ
 	providerID := strings.TrimSpace(request.ProviderID)
 	if providerID == "" {
 		return providers.ErrProviderNotFound
+	}
+	if _, err := service.ensureProviderExists(ctx, providerID); err != nil {
+		return fmt.Errorf("ensure provider for replace models %q: %w", providerID, err)
 	}
 
 	displayNameByModelID := map[string]string{}
@@ -644,9 +660,46 @@ func (service *ProvidersService) ReplaceProviderModels(ctx context.Context, requ
 	}
 
 	if err := service.models.ReplaceByProvider(ctx, providerID, models); err != nil {
-		return err
+		return fmt.Errorf("replace models for provider %q: %w", providerID, err)
 	}
 	return nil
+}
+
+func (service *ProvidersService) ensureProviderExists(ctx context.Context, providerID string) (providers.Provider, error) {
+	trimmed := strings.TrimSpace(providerID)
+	if trimmed == "" {
+		return providers.Provider{}, providers.ErrProviderNotFound
+	}
+	provider, err := service.providers.Get(ctx, trimmed)
+	if err == nil {
+		return provider, nil
+	}
+	if err != providers.ErrProviderNotFound {
+		return providers.Provider{}, err
+	}
+	defaultRequest, ok := defaultProviderRequestByID(trimmed)
+	if !ok {
+		return providers.Provider{}, providers.ErrProviderNotFound
+	}
+	created, err := service.UpsertProvider(ctx, defaultRequest)
+	if err != nil {
+		return providers.Provider{}, err
+	}
+	now := service.now()
+	rebuilt, rebuildErr := providers.NewProvider(providers.ProviderParams{
+		ID:        created.ID,
+		Name:      created.Name,
+		Type:      created.Type,
+		Endpoint:  created.Endpoint,
+		Enabled:   created.Enabled,
+		Builtin:   created.Builtin,
+		CreatedAt: &now,
+		UpdatedAt: &now,
+	})
+	if rebuildErr != nil {
+		return providers.Provider{}, rebuildErr
+	}
+	return rebuilt, nil
 }
 
 func sanitizeProviderType(value string) (providers.ProviderType, error) {

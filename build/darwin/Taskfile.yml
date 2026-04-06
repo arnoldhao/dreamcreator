@@ -45,6 +45,8 @@ tasks:
         sh: 'printf %s "${APP_VERSION:-}"'
       TELEMETRYDECK_APP_ID:
         sh: 'printf %s "${TELEMETRYDECK_APP_ID:-}"'
+      DEPLOYMENT_TARGET:
+        sh: 'if [ "{{.ARCH | default ARCH}}" = "arm64" ]; then printf "11.0"; else printf "10.15"; fi'
       TELEMETRY_LDFLAGS: '{{if .APP_VERSION}} -X dreamcreator/internal/app.AppVersion={{.APP_VERSION}}{{end}}{{if .TELEMETRYDECK_APP_ID}} -X dreamcreator/internal/app.TelemetryDeckAppID={{.TELEMETRYDECK_APP_ID}}{{end}}'
       BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{if or .APP_VERSION .TELEMETRYDECK_APP_ID}} -ldflags="{{.TELEMETRY_LDFLAGS}}"{{end}}{{else}}-tags production -trimpath -buildvcs=false -ldflags="-w -s{{.TELEMETRY_LDFLAGS}}"{{end}}'
       DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
@@ -53,9 +55,23 @@ tasks:
       GOOS: darwin
       CGO_ENABLED: 1
       GOARCH: '{{.ARCH | default ARCH}}'
-      CGO_CFLAGS: "-mmacosx-version-min=10.15"
-      CGO_LDFLAGS: "-mmacosx-version-min=10.15"
-      MACOSX_DEPLOYMENT_TARGET: "10.15"
+      CGO_CFLAGS: "-mmacosx-version-min={{.DEPLOYMENT_TARGET}}"
+      CGO_LDFLAGS: "-mmacosx-version-min={{.DEPLOYMENT_TARGET}}"
+      MACOSX_DEPLOYMENT_TARGET: "{{.DEPLOYMENT_TARGET}}"
+
+  test:
+    summary: Runs Go tests with a consistent macOS deployment target
+    internal: true
+    cmds:
+      - go test ./...
+    vars:
+      DEPLOYMENT_TARGET:
+        sh: 'if [ "$(go env GOARCH)" = "arm64" ]; then printf "11.0"; else printf "10.15"; fi'
+    env:
+      CGO_ENABLED: 1
+      CGO_CFLAGS: "-mmacosx-version-min={{.DEPLOYMENT_TARGET}}"
+      CGO_LDFLAGS: "-mmacosx-version-min={{.DEPLOYMENT_TARGET}}"
+      MACOSX_DEPLOYMENT_TARGET: "{{.DEPLOYMENT_TARGET}}"
 
   build:docker:
     summary: Cross-compiles for macOS using Docker (for Linux/Windows hosts)

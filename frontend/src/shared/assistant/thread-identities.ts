@@ -1,6 +1,9 @@
 const threadIdAliases = new Map<string, string>();
 const threadStreamCursors = new Map<string, number>();
 
+const normalizeThreadId = (value: string | null | undefined) =>
+  typeof value === "string" ? value.trim() : "";
+
 export const registerThreadAlias = (localId: string, remoteId: string) => {
   if (!localId || !remoteId || localId === remoteId) {
     return;
@@ -27,6 +30,21 @@ export const resolveRemoteThreadId = (threadId: string) => {
   return threadIdAliases.get(threadId) ?? threadId;
 };
 
+export const resolvePersistedThreadId = (
+  remoteId: string | null | undefined,
+  localId: string | null | undefined
+) => {
+  const normalizedRemoteId = normalizeThreadId(remoteId);
+  if (normalizedRemoteId) {
+    return resolveRemoteThreadId(normalizedRemoteId);
+  }
+  const normalizedLocalId = normalizeThreadId(localId);
+  if (!normalizedLocalId) {
+    return "";
+  }
+  return resolveRemoteThreadId(normalizedLocalId);
+};
+
 export const getThreadStreamCursor = (threadId: string) => {
   const resolved = resolveRemoteThreadId(threadId);
   return threadStreamCursors.get(resolved) ?? 0;
@@ -47,5 +65,9 @@ export const clearThreadStreamCursor = (threadId: string) => {
   if (!threadId) {
     return;
   }
-  threadStreamCursors.delete(threadId);
+  const resolved = resolveRemoteThreadId(threadId);
+  threadStreamCursors.delete(resolved);
+  if (resolved != threadId) {
+    threadStreamCursors.delete(threadId);
+  }
 };
