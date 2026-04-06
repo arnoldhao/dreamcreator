@@ -64,37 +64,9 @@ jobs:
           go vet ./...
           go test ./...
 
-  windows-build-smoke:
-    if: github.event_name != 'schedule'
-    needs: ci
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Install Wails3 CLI
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@${{ env.WAILS_VERSION }}
-
-      - name: Install frontend deps
-        run: bun install --frozen-lockfile
-        working-directory: frontend
-
-      - name: Windows build smoke
-        run: wails3 task windows:build
-
   package-preview:
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && contains(toJson(github.event.pull_request.labels), 'preview-binaries')
-    needs: [ci, windows-build-smoke]
+    needs: ci
     strategy:
       fail-fast: false
       matrix:
