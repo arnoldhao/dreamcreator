@@ -1,0 +1,4061 @@
+{
+  "app": {
+    "name": "追创作",
+    "description": "一款为创作者打造的 AI 助手",
+    "settings": {
+      "title": {
+        "gateway": "网关",
+        "aiagent": "AI 助手",
+        "general": "通用",
+        "workspace": "工作区",
+        "prompts": "提示词",
+        "appearance": "外观",
+        "calls": "调用",
+        "tools": "工具",
+        "subagents": "子代理",
+        "memory": "记忆",
+        "skills": "技能",
+        "channels": "频道",
+        "connectors": "连接",
+        "external-tools": "外部工具",
+        "integration": "集成",
+        "usage": "用量",
+        "chat": "聊天",
+        "provider": "供应商",
+        "debug": "调试",
+        "about": "关于"
+      },
+      "loading": "正在加载设置..."
+    }
+  },
+  "settings": {
+    "gateway": {
+      "loading": "正在加载助手...",
+      "empty": {
+        "title": "暂无助手",
+        "description": "创建一个助手以配置模型、工具和策略。"
+      },
+      "status": "状态",
+      "tools": {
+        "loading": "正在加载工具...",
+        "empty": "暂无可用工具。",
+        "untitled": "未命名工具",
+        "disabled": "已禁用"
+      },
+      "details": {
+        "label": "详情",
+        "cron": {
+          "item": "定时任务",
+          "content": ""
+        }
+      },
+      "detailsPanel": {
+        "loading": "加载中...",
+        "unavailable": "无法获取网关设置",
+        "sections": {
+          "gateway": "网关",
+          "agentLoop": "智能体循环",
+          "context": "上下文",
+          "queue": "队列",
+          "heartbeat": "心跳",
+          "subagents": "子代理",
+          "http": "HTTP",
+          "talk": "对话模式",
+          "voiceWake": "唤醒词"
+        },
+        "contextTabs": {
+          "guard": "阈值",
+          "compaction": "压缩",
+          "memory": "记忆刷新"
+        },
+        "httpTabs": {
+          "endpoints": "端点",
+          "files": "文件",
+          "images": "图片"
+        },
+        "talkTabs": {
+          "talk": "对话",
+          "tts": "TTS"
+        },
+        "heartbeatTabs": {
+          "general": "通用",
+          "runtime": "高级",
+          "checklist": "清单"
+        },
+        "gateway": {
+          "controlPlane": "控制平面",
+          "controlPlaneHelp": "启用控制平面功能（启用后不可关闭）。",
+          "permission": "权限",
+          "permissionHelp": "设置工具执行权限等级。",
+          "sandbox": "沙盒",
+          "sandboxHelp": "对需要沙盒的工具启用隔离要求。"
+        },
+        "runtime": {
+          "maxSteps": "最大步数",
+          "maxStepsHelp": "单次运行的最大智能体步数。",
+          "toolLoop": {
+            "enabled": "工具循环检测",
+            "enabledHelp": "检测重复工具调用与无进展循环。",
+            "warn": "工具循环警告阈值",
+            "warnHelp": "达到该次数时触发警告。",
+            "critical": "工具循环严重阈值",
+            "criticalHelp": "达到该次数时触发严重处理。",
+            "global": "工具循环全局阈值",
+            "globalHelp": "跨运行的全局熔断阈值。",
+            "history": "工具循环历史大小",
+            "historyHelp": "用于检测循环的工具调用历史长度。",
+            "detectorGeneric": "检测通用重复",
+            "detectorGenericHelp": "检测重复的工具调用模式。",
+            "detectorPoll": "检测无进展轮询",
+            "detectorPollHelp": "检测无进展的轮询行为。",
+            "detectorPingPong": "检测乒乓循环",
+            "detectorPingPongHelp": "检测交替往返的工具调用。"
+          },
+          "contextWarn": "上下文警戒词元",
+          "contextWarnHelp": "当估算的上下文词元达到该值时提示。",
+          "contextHard": "上下文硬阈值词元",
+          "contextHardHelp": "模型上下文窗口低于该值时阻止运行。",
+          "compactionMode": "压缩模式",
+          "compactionModeHelp": "控制是否启用压缩以及压缩策略。",
+          "compactionModeOptions": {
+            "default": "默认",
+            "safeguard": "护栏"
+          },
+          "compactionReserveTokens": "压缩预留词元",
+          "compactionReserveTokensHelp": "预留这部分词元，避免触达硬上限。",
+          "compactionKeepRecent": "压缩保留近期词元",
+          "compactionKeepRecentHelp": "保留最近消息的词元预算。",
+          "compactionReserveFloor": "压缩预留下限（词元）",
+          "compactionReserveFloorHelp": "即使预留更低，也会强制保留的最小词元。",
+          "compactionMaxHistoryShare": "历史占比上限",
+          "compactionMaxHistoryShareHelp": "历史消息在上下文窗口中可占用的最大比例。",
+          "compactionMemoryFlushEnabled": "记忆刷新启用",
+          "compactionMemoryFlushEnabledHelp": "接近上限时在压缩前执行记忆刷新回合。",
+          "compactionMemoryFlushSoft": "记忆刷新软阈值（词元）",
+          "compactionMemoryFlushSoftHelp": "当词元超过“上下文-预留-该值”时触发记忆刷新。",
+          "compactionMemoryFlushPrompt": "记忆刷新提示词",
+          "compactionMemoryFlushPromptHelp": "记忆刷新回合使用的用户提示词。",
+          "compactionMemoryFlushSystem": "记忆刷新系统提示",
+          "compactionMemoryFlushSystemHelp": "记忆刷新回合使用的系统提示词。"
+        },
+        "queue": {
+          "globalConcurrency": "全局并发",
+          "sessionConcurrency": "会话并发",
+          "laneMain": "主通道并发",
+          "laneSubagent": "子代理并发",
+          "laneCron": "定时任务并发"
+        },
+        "cron": {
+          "enabled": "启用",
+          "maxConcurrentRuns": "最大并发运行数",
+          "sessionRetention": "会话保留时长",
+          "sessionRetentionOptions": {
+            "1h": "1 小时",
+            "6h": "6 小时",
+            "12h": "12 小时",
+            "24h": "24 小时",
+            "72h": "3 天",
+            "168h": "7 天"
+          },
+          "runLogMaxBytes": "运行日志最大大小（MB）",
+          "runLogKeepLines": "运行日志保留行数"
+        },
+        "heartbeat": {
+          "enabled": "启用心跳",
+          "enabledHelp": "周期巡检与事件驱动心跳处理的总开关。",
+          "periodicEnabled": "周期巡检",
+          "periodicEnabledHelp": "按固定间隔执行后台巡检并把结果发送到通知中心。",
+          "every": "间隔",
+          "everyHelp": "仅在启用周期巡检时生效。",
+          "runSession": "触发对话",
+          "runSessionHelp": "选择用于执行心跳巡检的对话。未选择时，手动触发会被跳过。",
+          "runSessionSelectPlaceholder": "请选择触发对话",
+          "notificationCenter": "通知中心",
+          "notificationCenterHelp": "心跳结果通过通知中心展示，不写入对话。",
+          "openNotifications": "打开通知中心",
+          "triggerLabel": "手动触发巡检",
+          "lastStatus": {
+            "label": "最近一次巡检状态",
+            "ok": "运行正常",
+            "alert": "已发送告警",
+            "failed": "执行失败",
+            "skipped": "已跳过",
+            "idle": "暂无最近巡检"
+          },
+          "lastNotice": {
+            "label": "最近一条巡检通知",
+            "empty": "暂无巡检通知"
+          },
+          "promptAppend": "附加提示",
+          "promptAppendHelp": "在严格的 HEARTBEAT_OK / JSON 协议后附加的额外指令。",
+          "includeReasoning": "包含推理",
+          "suppressToolErrorWarnings": "抑制工具错误警告",
+          "activeStart": "活跃开始时间",
+          "activeEnd": "活跃结束时间",
+          "activeTimezone": "活跃时区",
+          "activeTimezonePlaceholder": "选择时区",
+          "timeMeridiemAm": "上午",
+          "timeMeridiemPm": "下午",
+          "trigger": "立即触发",
+          "triggerFailed": "触发心跳失败",
+          "triggered": "已触发心跳",
+          "triggerRejected": "心跳触发未被接受",
+          "triggerSkipped": "已跳过心跳触发",
+          "triggerQueued": "心跳已加入队列",
+          "triggerReason": {
+            "runSessionUnset": "未选择触发对话",
+            "targetUnavailable": "触发对话不可用",
+            "outsideActiveHours": "当前不在活跃时间段",
+            "busy": "系统繁忙，请稍后重试",
+            "notDue": "未到巡检间隔时间",
+            "disabled": "心跳功能未启用",
+            "failed": "执行失败",
+            "skipped": "本次触发被跳过",
+            "runtimeError": "请求执行失败，请稍后重试"
+          },
+          "spec": {
+            "items": "清单条目",
+            "item": "条目",
+            "addItem": "新增",
+            "done": "完成",
+            "priority": "优先级",
+            "notes": "备注",
+            "save": "保存",
+            "clear": "清空",
+            "itemsEmpty": "暂无清单条目。",
+            "version": "版本",
+            "updatedAt": "更新时间",
+            "saveFailed": "保存心跳清单失败",
+            "saved": "心跳清单已保存",
+            "clearFailed": "清空心跳清单失败",
+            "cleared": "心跳清单已清空"
+          }
+        },
+        "subagents": {
+          "maxDepth": "最大深度",
+          "maxChildren": "最大子代理数",
+          "maxConcurrent": "最大并发",
+          "model": "模型覆盖",
+          "modelAuto": "自动（与调用方/助手模型一致）",
+          "modelCustom": "自定义",
+          "thinkingAuto": "自动",
+          "thinkingCustom": "自定义",
+          "thinking": "思考等级"
+        },
+        "http": {
+          "chatCompletions": "聊天补全",
+          "chatCompletionsHelp": "启用聊天补全端点。",
+          "responses": "响应",
+          "responsesHelp": "启用响应端点。",
+          "maxBodyBytes": "最大请求体字节数",
+          "maxBodyBytesHelp": "响应请求体最大字节数。",
+          "maxUrlParts": "最大 URL 片段数",
+          "maxUrlPartsHelp": "URL 路径片段数量上限。",
+          "files": {
+            "allowUrl": "允许 URL",
+            "allowUrlHelp": "允许通过 URL 拉取文件。",
+            "urlAllowlist": "URL 白名单",
+            "urlAllowlistHelp": "URL 白名单（逗号分隔）。",
+            "allowedMimes": "允许的 MIME",
+            "allowedMimesHelp": "允许的文件 MIME 类型。",
+            "maxBytes": "最大字节数",
+            "maxBytesHelp": "文件大小上限（字节）。",
+            "maxChars": "最大字符数",
+            "maxCharsHelp": "提取文本最大字符数。",
+            "maxRedirects": "最大重定向",
+            "maxRedirectsHelp": "允许的最大重定向次数。",
+            "timeoutMs": "超时 (ms)",
+            "timeoutMsHelp": "请求超时（毫秒）。",
+            "pdfMaxPages": "PDF 最大页数",
+            "pdfMaxPagesHelp": "PDF 解析最大页数。",
+            "pdfMaxPixels": "PDF 最大像素",
+            "pdfMaxPixelsHelp": "PDF 光栅化像素总数上限。",
+            "pdfMinTextChars": "PDF 最小文本字符数",
+            "pdfMinTextCharsHelp": "判定为文本所需的最小提取字符数。"
+          },
+          "images": {
+            "allowUrl": "允许 URL",
+            "allowUrlHelp": "允许通过 URL 拉取图片。",
+            "urlAllowlist": "URL 白名单",
+            "urlAllowlistHelp": "URL 白名单（逗号分隔）。",
+            "allowedMimes": "允许的 MIME",
+            "allowedMimesHelp": "允许的图片 MIME 类型。",
+            "maxBytes": "最大字节数",
+            "maxBytesHelp": "图片大小上限（字节）。",
+            "maxRedirects": "最大重定向",
+            "maxRedirectsHelp": "允许的最大重定向次数。",
+            "timeoutMs": "超时 (ms)",
+            "timeoutMsHelp": "请求超时（毫秒）。"
+          }
+        },
+        "channelHealth": {
+          "minutes": "健康检查间隔（分钟）",
+          "minutesHelp": "通道健康检查间隔（分钟）。"
+        },
+        "voice": {
+          "enabled": "启用语音"
+        },
+        "voiceWake": {
+          "enabled": "启用语音唤醒"
+        },
+        "talk": {
+          "voiceId": "声音 ID",
+          "voiceAliases": "语音别名",
+          "voiceAliasesDescription": "别名列表：name=voiceId（逗号或换行分隔）。",
+          "modelId": "模型 ID",
+          "outputFormat": "输出格式",
+          "outputFormatDescription": "ElevenLabs 输出格式（例如 mp3_44100_128）。",
+          "apiKey": "API 密钥",
+          "apiKeyDescription": "用于语音对话模式，覆盖 ELEVENLABS_API_KEY。",
+          "interruptOnSpeech": "说话时打断",
+          "interruptOnSpeechDescription": "用户开始说话时停止播报。",
+          "updateFailed": "更新对话设置失败"
+        },
+        "tts": {
+          "status": "TTS 状态",
+          "enabled": "已启用",
+          "disabled": "未启用",
+          "provider": "TTS 供应商",
+          "providerDescription": "选择 TTS 工具使用的供应商。",
+          "providerAuto": "自动",
+          "voiceId": "TTS 声音 ID",
+          "modelId": "TTS 模型 ID",
+          "format": "TTS 格式",
+          "formatAuto": "自动",
+          "updateFailed": "更新 TTS 设置失败"
+        },
+        "voiceWakeTriggers": {
+          "label": "唤醒词",
+          "description": "配置唤醒词（逗号分隔）。",
+          "updateFailed": "更新唤醒词失败"
+        }
+      },
+      "character": "形象",
+      "assistant": "助手",
+      "assistantTab": {
+        "assistant": "助手",
+        "parameters": "参数"
+      },
+      "characterTab": {
+        "avatar": "形象",
+        "motion": "动作"
+      },
+      "parameterTab": {
+        "models": "模型",
+        "identity": "身份",
+        "soul": "灵魂",
+        "user": "用户",
+        "tools": "工具",
+        "skills": "技能",
+        "memory": "记忆",
+        "workspace": "工作区"
+      },
+      "workspace": {
+        "path": "工作区路径",
+        "loading": "加载中...",
+        "empty": "首次对话后生成工作区。",
+        "open": "打开文件夹",
+        "openError": "打开文件夹失败"
+      },
+      "selected": "已选择",
+      "action": {
+        "switch": "切换助手"
+      },
+      "updateError": "更新失败",
+      "emptyDescription": "暂无描述",
+      "change3davatar": {
+        "pickTitle": "选择形象",
+        "filter3d": "形象",
+        "filterAll": "所有文件",
+        "add": "添加",
+        "delete": "删除",
+        "empty": "暂无形象资源。",
+        "importError": "导入失败",
+        "deleteError": "删除失败",
+        "resetMissing": "未找到默认形象",
+        "resetMissingHint": "请先导入 3D 形象。",
+        "invalidType": "不支持的形象",
+        "invalidHint": "请使用 GLB 或 VRM 文件。",
+        "displayNamePlaceholder": "给它起个名字",
+        "edit": "修改",
+        "reset": "恢复默认"
+      },
+      "change3dmotion": {
+        "pickTitle": "选择 VRMA 动作",
+        "filterMotion": "VRMA 动作",
+        "filterAll": "所有文件",
+        "add": "添加",
+        "delete": "删除",
+        "empty": "暂无动作资源。",
+        "importError": "导入失败",
+        "deleteError": "删除失败",
+        "resetMissing": "未找到默认动作",
+        "resetMissingHint": "请先导入动作文件。",
+        "invalidType": "不支持的动作",
+        "invalidHint": "请使用 VRMA 文件。",
+        "reset": "恢复默认"
+      },
+      "changeEmoji": {
+        "open": "更换表情",
+        "error": "更新失败"
+      },
+      "changeName": {
+        "title": "修改助手",
+        "cancel": "取消",
+        "save": "保存"
+      },
+      "readiness": {
+        "missing": "缺少配置",
+        "readyTitle": "助手状态",
+        "incompleteTitle": "助手未就绪",
+        "providers": "未配置可用模型",
+        "providersReady": "供应商已就绪",
+        "openProviders": "前往模型提供商",
+        "agentModel": "未配置智能体模型",
+        "agentModelReady": "智能体模型已就绪",
+        "openModels": "配置模型"
+      },
+      "soul": {
+        "coreTruths": "核心信条",
+        "coreTruthsAdd": "添加",
+        "coreTruthsEmpty": "暂无核心信条",
+        "boundaries": "边界",
+        "boundariesAdd": "添加",
+        "boundariesEmpty": "暂无边界",
+        "rules": "规则",
+        "rulesAdd": "添加",
+        "rulesEmpty": "暂无规则",
+        "vibe": "氛围",
+        "continuity": "连续性",
+        "continuityPlaceholder": "描述连续性要求",
+        "column": {
+          "content": "内容",
+          "actions": "操作"
+        },
+        "remove": "移除"
+      },
+      "model": {
+        "primary": "主模型",
+        "selectPrimary": "选择主模型",
+        "fallbacks": "备用模型",
+        "fallbackAdd": "添加",
+        "fallbackModel": "模型",
+        "fallbackActions": "操作",
+        "fallbackEmpty": "暂无备用模型配置。",
+        "fallbackRemove": "移除",
+        "agentTitle": "智能体模型",
+        "embeddingTitle": "嵌入模型",
+        "imageTitle": "图像模型",
+        "inheritAgent": "继承智能体模型",
+        "inheritAgentHint": "当前能力使用智能体模型。",
+        "stream": "流式输出",
+        "temperature": "温度",
+        "maxTokens": "最大词元"
+      },
+      "statusCard": {
+        "agentModel": "智能体模型",
+        "tools": "启用工具",
+        "skills": "启用技能",
+        "memories": "记忆条数"
+      },
+      "identity": {
+        "name": "助手名称",
+        "emoji": "表情",
+        "role": "角色",
+        "creature": "助手定位"
+      },
+      "user": {
+        "name": "名字",
+        "preferredAddress": "称呼",
+        "pronouns": "代词",
+        "notes": "备注",
+        "notesPlaceholder": "填写用户备注",
+        "language": "语言",
+        "timezone": "时区",
+        "location": "位置",
+        "languageFollowApp": "跟随应用",
+        "localeAuto": "自动",
+        "localeManual": "手动",
+        "autoValue": "当前",
+        "autoValueUnknown": "未知",
+        "manualValue": "手动值",
+        "timezonePlaceholder": "选择时区",
+        "locationPlaceholder": "选择位置",
+        "extra": "扩展字段",
+        "extraAdd": "添加",
+        "extraColumnKey": "键",
+        "extraColumnValue": "值",
+        "extraColumnActions": "操作",
+        "extraEmpty": "暂无扩展字段",
+        "extraKey": "键",
+        "extraValue": "值",
+        "extraRemove": "移除"
+      },
+      "memory": {
+        "enabled": "启用记忆",
+        "summary": "记忆摘要",
+        "loading": "正在加载摘要...",
+        "openSettings": "打开记忆设置"
+      },
+      "skills": {
+        "injectionEnabled": "注入技能",
+        "maxSkillsInPrompt": "提示词技能数量上限",
+        "maxPromptChars": "提示词字符上限"
+      },
+      "manager": {
+        "new": "新建",
+        "newName": "新建助手",
+        "empty": "请选择一个助手进行编辑。",
+        "name": "名称",
+        "description": "描述",
+        "currentSelection": "当前选择",
+        "setDefault": "设为默认",
+        "changeAvatar3d": "更换形象",
+        "edit": "修改",
+        "delete": "删除",
+        "updateError": "更新失败",
+        "createError": "创建助手失败",
+        "deleteError": "删除失败",
+        "defaultError": "设置默认失败"
+      }
+    },
+    "memory": {
+      "tabs": {
+        "summary": "概览",
+        "entries": "记忆浏览",
+        "config": "配置"
+      },
+      "summary": {
+        "title": "记忆概览",
+        "enabled": "启用长期记忆",
+        "total": "记忆总数",
+        "assistants": "助手数量",
+        "threads": "会话数量",
+        "users": "用户数量",
+        "groups": "群组数量",
+        "channels": "渠道数量",
+        "accounts": "账号数量",
+        "scopes": "作用域数量",
+        "updatedAt": "最近更新",
+        "categories": "分类分布",
+        "noData": "暂无数据",
+        "storageTotal": "存储总量",
+        "storageCollections": "记忆条目",
+        "storageChunks": "文档分块",
+        "storageSummaryFiles": "摘要文件",
+        "storageAvatarCache": "头像缓存",
+        "fileStorage": "文件存储"
+      },
+      "entries": {
+        "count": "条目",
+        "assistant": "助手",
+        "assistantEmpty": "暂无助手",
+        "assistantRequired": "请先选择一个助手再查看记忆。",
+        "category": "分类",
+        "categoryAll": "全部",
+        "scope": "作用域",
+        "scopeAll": "全部",
+        "channel": "渠道",
+        "accountId": "渠道账号",
+        "filter": {
+          "channelAll": "全部渠道",
+          "accountAll": "全部账号"
+        },
+        "view": {
+          "global": "全局",
+          "user": "用户",
+          "group": "群组"
+        },
+        "sidebar": {
+          "users": "用户列表",
+          "groups": "群组列表",
+          "empty": "当前筛选条件下暂无主体。"
+        },
+        "summary": {
+          "selectHint": "请先从左侧选择一个用户或群组。",
+          "loading": "正在加载概览...",
+          "total": "记忆总数",
+          "updatedAt": "最近更新",
+          "refreshProfile": "刷新资料",
+          "refreshSuccess": "资料已刷新",
+          "refreshNoChange": "当前资料已是最新",
+          "refreshNoAvatar": "渠道未返回该主体头像",
+          "refreshError": "刷新资料失败",
+          "refreshUpdatedRows": "更新会话数",
+          "categories": "分类分布",
+          "recent": "最近记忆",
+          "empty": "当前主体暂无记忆。"
+        },
+        "limit": "数量上限",
+        "queryPlaceholder": "关键词搜索",
+        "search": "搜索",
+        "clear": "清空",
+        "loading": "正在加载记忆...",
+        "error": "加载记忆失败",
+        "empty": "当前筛选条件下暂无记忆。",
+        "confidenceLabel": "置信度",
+        "categoryOption": {
+          "preference": "偏好",
+          "fact": "事实",
+          "decision": "决策",
+          "entity": "实体",
+          "reflection": "反思",
+          "other": "其他"
+        },
+        "table": {
+          "updatedAt": "更新时间",
+          "category": "分类",
+          "content": "内容"
+        },
+        "detail": {
+          "id": "ID",
+          "thread": "会话",
+          "source": "来源"
+        }
+      },
+      "config": {
+        "model": {
+          "extract": "抽取",
+          "embedding": "嵌入",
+          "openAssistant": "打开助手模型设置",
+          "inherited": "继承",
+          "unconfigured": "未配置"
+        }
+      },
+      "retrieval": {
+        "autoRecall": "自动召回",
+        "recallTopK": "召回数量（Top K）",
+        "minScore": "最小得分阈值",
+        "vectorWeight": "向量权重",
+        "textWeight": "文本权重",
+        "recencyWeight": "时间衰减权重",
+        "recencyHalfLifeDays": "时间半衰期（天）"
+      },
+      "lifecycle": {
+        "autoCapture": "对话结束自动抽取",
+        "sessionLifecycle": "会话归档/删除总结写入",
+        "captureMaxEntries": "每轮最多写入条目数"
+      }
+    },
+    "usage": {
+      "range": {
+        "option": {
+          "1h": "最近 1 小时",
+          "24h": "最近 24 小时",
+          "7d": "最近 7 天",
+          "30d": "最近 30 天",
+          "all": "全部"
+        }
+      },
+      "source": {
+        "option": {
+          "all": "全部来源",
+          "dialogue": "对话",
+          "relay": "中转",
+          "oneShot": "单次调用"
+        }
+      },
+      "actions": {
+        "refresh": "刷新用量"
+      },
+      "overview": {
+        "title": "用量概览",
+        "description": "查看请求量、词元消耗和成本。"
+      },
+      "summary": {
+        "requests": "请求次数",
+        "units": "词元消耗",
+        "promptTokens": "输入词元",
+        "completionTokens": "输出词元",
+        "cost": "费用（USD）"
+      },
+      "tabs": {
+        "models": "模型",
+        "cost": "费用"
+      },
+      "loading": "正在加载用量数据...",
+      "error": "加载用量数据失败。",
+      "breakdown": {
+        "empty": "暂无用量数据"
+      },
+      "labels": {
+        "providerModel": "供应商 / 模型",
+        "category": "分类",
+        "unknown": "未知"
+      }
+    },
+    "language": {
+      "label": "语言",
+      "option": {
+        "en": "英语",
+        "zh-CN": "简体中文"
+      }
+    },
+    "general": {
+      "startup": {
+        "autoStart": "开机自启动",
+        "minimizeToTray": "仅开机自启动时隐藏到托盘"
+      },
+      "download": {
+        "directory": "下载目录",
+        "change": "更改",
+        "dialogTitle": "选择下载目录",
+        "selectError": "选择下载目录失败"
+      },
+      "proxy": {
+        "title": "代理",
+        "option": {
+          "none": "不使用",
+          "system": "系统代理",
+          "manual": "手动"
+        },
+        "scheme": "协议",
+        "schemeOption": {
+          "http": "HTTP",
+          "https": "HTTPS",
+          "socks5": "SOCKS5"
+        },
+        "host": "代理服务器",
+        "port": "端口",
+        "username": "用户名（可选）",
+        "usernamePlaceholder": "留空则不校验",
+        "password": "密码（可选）",
+        "passwordPlaceholder": "留空则不校验",
+        "timeout": "超时时间（秒）",
+        "testHint": "修改后请先测试，成功后再保存。",
+        "test": "测试",
+        "check": "检测",
+        "testing": "测试中...",
+        "saving": "保存中...",
+        "saved": "已保存",
+        "checkFailed": "代理检测失败",
+        "testedAtLabel": "测试时间",
+        "status": "状态",
+        "statusLoading": "检测中...",
+        "statusUnavailable": "不可用",
+        "statusNotConfigured": "未配置",
+        "availability": {
+          "check": "检测中",
+          "available": "可用",
+          "unavailable": "不可用"
+        },
+        "source": {
+          "system": "系统代理",
+          "vpn": "VPN"
+        },
+        "change": "变更",
+        "clear": "清空配置",
+        "clearConfirm": {
+          "title": "确认清空代理配置？",
+          "description": "此操作会关闭代理并清除手动配置。",
+          "cancel": "取消",
+          "confirm": "清空"
+        },
+        "dialogTitle": "代理设置",
+        "close": "关闭"
+      },
+      "advanced": {
+        "logLevel": {
+          "label": "日志",
+          "option": {
+            "debug": "调试",
+            "info": "信息",
+            "warn": "警告",
+            "error": "错误"
+          },
+          "openDirectory": "打开日志目录"
+        },
+        "menuBarVisibility": {
+          "label": "菜单栏显示",
+          "option": {
+            "always": "总是显示",
+            "whenRunning": "运行时显示",
+            "never": "不显示"
+          }
+        },
+        "trayVisibility": {
+          "label": "托盘图标显示"
+        }
+      }
+    },
+    "calls": {
+      "skillsSearchPlaceholder": "搜索技能",
+      "skillsRemoteMinLength": "至少输入 2 个字符后按回车。",
+      "skillsSearchLoading": "正在搜索技能...",
+      "skillsSearchError": "搜索失败。",
+      "skillsSearchLocalEmpty": "本地无匹配技能。",
+      "skillsSearchRemoteEmpty": "远程无匹配技能。",
+      "skillsUnavailableHint": "请先在 外部工具 中安装或修复 ClawHub。",
+      "openExternalTools": "打开外部工具",
+      "skillsInstall": "安装",
+      "skillsInstalled": "已安装",
+      "skillsUninstall": "卸载",
+      "skillsUpdate": "更新",
+      "skillsInstallError": "安装失败。",
+      "skillsUpdateError": "更新失败。",
+      "skillsRemoveError": "移除失败。",
+      "skillsRateLimitedHint": "请求过于频繁，请稍后重试。",
+      "skillsForceInstallTitle": "安装可疑技能？",
+      "skillsForceInstallDescription": "该技能被标记为可疑，请先审查技能代码后再继续。",
+      "skillsForceInstall": "强制安装",
+      "skillsForceUpdate": "强制更新",
+      "skillsDetailPartial": "完整详情加载失败，当前展示基础搜索信息。",
+      "skillsDetailOwner": "作者",
+      "skillsNotInstalled": "未安装",
+      "skillsDetailAction": "操作",
+      "skillsDetailUpdated": "更新时间",
+      "skillsDetailVersions": "版本信息",
+      "skillsDetailRuntime": "运行时依赖",
+      "skillsDetailRuntimeHintLabel": "运行时提示",
+      "skillsDetailRuntimeHint": "从 SKILL.md 的 metadata.clawdbot / metadata.clawdis 字段解析。",
+      "skillsDetailRuntimeEmpty": "未声明运行时依赖。",
+      "skillsRuntimePrimaryEnv": "主环境变量",
+      "skillsRuntimeOS": "系统",
+      "skillsRuntimeBins": "必需命令",
+      "skillsRuntimeAnyBins": "任选命令",
+      "skillsRuntimeEnv": "环境变量",
+      "skillsRuntimeConfig": "配置",
+      "skillsRuntimeInstall": "安装提示",
+      "skillsRuntimeNix": "Nix",
+      "skillsDetailMarkdown": "SKILL.md",
+      "skillsDetailMarkdownEmpty": "未获取到 SKILL.md 内容。",
+      "skillsDetailFileList": "文件列表",
+      "skillsDetailFileListEmpty": "暂无文件列表。",
+      "skillsSelectTitle": "请选择技能",
+      "skillsSelectDescription": "从左侧选择一个技能查看详情。",
+      "action": {
+        "remove": "移除",
+        "removeTitle": "确认移除？",
+        "removeDescription": "将移除 {name}。"
+      },
+      "skills": {
+        "tab": {
+          "catalog": "目录",
+          "sources": "来源",
+          "security": "安全",
+          "audit": "审计"
+        },
+        "sources": {
+          "saveFailed": "保存来源失败",
+          "selectDirectory": "选择技能来源目录",
+          "selectFailed": "选择目录失败",
+          "loadFailed": "加载技能来源设置失败。",
+          "blocked": "技能安全策略已阻止来源管理（source_write=deny）。",
+          "pathPlaceholder": "/absolute/path/to/skills",
+          "pickDirectory": "浏览",
+          "add": "新增",
+          "emptyTitle": "暂无本地来源",
+          "emptyDescription": "添加本地技能目录后，它们会被纳入全局技能汇总。",
+          "trust": {
+            "local": "本地",
+            "trusted": "可信",
+            "community": "社区"
+          },
+          "builtin": "内置",
+          "tabs": {
+            "local": "本地",
+            "remote": "在线"
+          },
+          "fields": {
+            "name": "名称",
+            "path": "路径",
+            "trust": "信任级别"
+          },
+          "pathHint": {
+            "workspace": "<dreamcreator>/skills",
+            "managed": "<workspace>/.managed/skills",
+            "bundled": "<workspace>/.bundled/skills"
+          },
+          "remote": {
+            "provider": "提供方",
+            "searchEnabled": "允许搜索",
+            "installEnabled": "允许安装/更新"
+          }
+        },
+        "security": {
+          "saveFailed": "保存安全策略失败",
+          "loadFailed": "加载技能安全设置失败。",
+          "actionGroup": "动作组",
+          "coverage": "覆盖范围",
+          "modeLabel": "模式",
+          "scannerMode": "扫描模式",
+          "allowedBins": "允许的命令",
+          "allowedBinsPlaceholder": "FFmpeg, bun, ClawHub",
+          "allowForceInstall": "允许强制安装",
+          "requireApproval": "需要审批",
+          "allowExternalToolsOnly": "仅允许通过外部工具安装器",
+          "allowGenericInstaller": "允许通用安装器",
+          "groups": {
+            "read": {
+              "label": "读取",
+              "description": "skills.status/skills.bins/skill_manage.search/skill_manage.list"
+            },
+            "package_write": {
+              "label": "包管理写入",
+              "description": "skill_manage.install/update/remove/sync"
+            },
+            "deps_write": {
+              "label": "依赖写入",
+              "description": "skills.install"
+            },
+            "config_write": {
+              "label": "配置写入",
+              "description": "skills.update"
+            },
+            "source_write": {
+              "label": "来源写入",
+              "description": "settings source management actions"
+            }
+          },
+          "mode": {
+            "allow": "允许",
+            "ask": "询问",
+            "deny": "拒绝"
+          },
+          "scanner": {
+            "off": "关闭",
+            "warn": "警告",
+            "block": "阻止"
+          }
+        },
+        "audit": {
+          "view": {
+            "data": "数据",
+            "config": "配置"
+          },
+          "loadFailed": "加载技能审计日志失败。",
+          "actionAll": "全部动作",
+          "skillAll": "全部技能",
+          "result": {
+            "all": "全部结果",
+            "ok": "仅成功",
+            "error": "仅失败"
+          },
+          "emptyDescription": "执行一次技能操作后会生成审计记录。",
+          "emptyFiltered": "当前筛选条件下没有匹配记录。",
+          "time": "时间",
+          "tool": "工具",
+          "action": "动作",
+          "group": "分组",
+          "skill": "技能",
+          "source": "来源",
+          "assistantId": "助手 ID",
+          "providerId": "提供方 ID",
+          "resultLabel": "结果",
+          "error": "错误",
+          "totalRecords": "共 {count} 条记录",
+          "filteredRecords": "筛选后 {count} 条",
+          "rowsPerPage": "{count} / 页",
+          "pageOf": "第 {page} / {total} 页",
+          "firstPage": "第一页",
+          "prevPage": "上一页",
+          "nextPage": "下一页",
+          "lastPage": "最后一页",
+          "config": {
+            "hideUiOperationRecords": "隐藏界面操作记录",
+            "retentionDays": "审计日志存储时长",
+            "days": "{count} 天",
+            "clearLogs": "审计日志清理",
+            "clearNow": "立即清理",
+            "clearDialogTitle": "确认立即清理审计日志？",
+            "clearDialogDescription": "此操作会清空当前所有审计日志，且不可撤销。",
+            "clearDone": "审计日志已清理",
+            "clearFailed": "清理审计日志失败",
+            "saveFailed": "保存审计配置失败"
+          },
+          "outcome": {
+            "ok": "成功",
+            "error": "失败",
+            "unknown": "未知"
+          }
+        }
+      },
+      "skillsRemoteDisabledHint": "请先在 技能 > 来源 中启用远程搜索。",
+      "skillsRemoteInstallDisabled": "远程安装已禁用",
+      "skillsRemoteInstallDisabledHint": "请先在 技能 > 来源 中启用安装能力。"
+    },
+    "tools": {
+      "category": {
+        "general": "通用",
+        "fs": "文件系统",
+        "runtime": "运行时",
+        "web": "网络",
+        "ui": "界面",
+        "media": "媒体",
+        "messaging": "消息",
+        "automation": "自动化",
+        "sessions": "会话",
+        "external_tools": "外部工具",
+        "skills": "技能",
+        "nodes": "节点",
+        "voice": "语音",
+        "memory": "记忆",
+        "library": "素材库",
+        "other": "其他"
+      },
+      "list": {
+        "empty": "暂无工具。"
+      },
+      "status": {
+        "allowed": "允许",
+        "blocked": "阻止",
+        "updateFailed": "更新工具状态失败"
+      },
+      "reason": {
+        "unavailable": "缺少运行时依赖，当前不可用。"
+      },
+      "builtin": {
+        "read": {
+          "name": "读取",
+          "description": "读取工作区文件内容。"
+        },
+        "write": {
+          "name": "写入",
+          "description": "写入工作区文件内容。"
+        },
+        "edit": {
+          "name": "编辑",
+          "description": "替换工作区文件中的指定文本。"
+        },
+        "apply_patch": {
+          "name": "补丁应用",
+          "description": "通过统一 diff 将补丁应用到工作区文件。"
+        },
+        "exec": {
+          "name": "命令执行",
+          "description": "在主机环境执行命令。"
+        },
+        "process": {
+          "name": "后台进程",
+          "description": "启动后台进程。"
+        },
+        "web_fetch": {
+          "name": "网页抓取",
+          "description": "抓取网页内容。"
+        },
+        "web_search": {
+          "name": "网络搜索",
+          "description": "通过已配置的搜索提供方进行网络搜索。"
+        },
+        "browser": {
+          "name": "浏览器控制",
+          "description": "通过 Playwright 控制页面加载。"
+        },
+        "canvas": {
+          "name": "画布渲染",
+          "description": "控制节点画布能力（present/hide/navigate/eval/snapshot/a2ui）。"
+        },
+        "image": {
+          "name": "图像处理",
+          "description": "使用已配置的图像模型分析一张或多张图片。"
+        },
+        "message": {
+          "name": "消息发送",
+          "description": "发送频道消息（当前未实现）。"
+        },
+        "gateway": {
+          "name": "Gateway 控制",
+          "description": "调用 Gateway 控制平面能力。"
+        },
+        "cron": {
+          "name": "定时任务",
+          "description": "管理 Gateway 定时任务与唤醒事件。"
+        },
+        "agents_list": {
+          "name": "代理列表",
+          "description": "列出代理。"
+        },
+        "sessions_list": {
+          "name": "会话列表",
+          "description": "列出会话。"
+        },
+        "sessions_history": {
+          "name": "会话历史",
+          "description": "获取会话历史。"
+        },
+        "sessions_send": {
+          "name": "会话发送",
+          "description": "向会话发送消息。"
+        },
+        "sessions_spawn": {
+          "name": "新建会话",
+          "description": "创建新的会话。"
+        },
+        "session_status": {
+          "name": "会话状态",
+          "description": "获取会话状态。"
+        },
+        "external_tools_query": {
+          "name": "外部工具查询",
+          "description": "查询外部工具状态、安装进度与更新信息。"
+        },
+        "external_tools_manage": {
+          "name": "外部工具管理",
+          "description": "管理外部工具生命周期操作。"
+        },
+        "skills": {
+          "name": "技能",
+          "description": "技能运行工具（状态/命令依赖/依赖安装/配置更新）。"
+        },
+        "skill_manage": {
+          "name": "技能管理",
+          "description": "管理技能包（列表/搜索/安装/更新/移除/同步）。"
+        },
+        "skills_query": {
+          "name": "技能查询",
+          "description": "查询技能状态、目录与搜索结果。"
+        },
+        "skills_manage": {
+          "name": "技能管理",
+          "description": "管理技能生命周期操作。"
+        },
+        "skills_policy": {
+          "name": "技能策略",
+          "description": "读取或设置助手技能策略。"
+        },
+        "subagents": {
+          "name": "子代理管理",
+          "description": "管理子代理运行（列表/详情/日志/终止/转向/启动）。"
+        },
+        "nodes": {
+          "name": "节点调用",
+          "description": "调用节点能力。"
+        },
+        "tts": {
+          "name": "文本转语音",
+          "description": "将文本转换为语音。"
+        },
+        "render_chart": {
+          "name": "图表渲染",
+          "description": "根据结构化数据渲染图表。"
+        },
+        "library_adapter": {
+          "name": "资源库适配器",
+          "description": "将工具调用适配为资源库任务。"
+        },
+        "tool_ui_registry": {
+          "name": "工具 UI 注册器",
+          "description": "前端工具 UI 注册器。"
+        },
+        "grep": {
+          "name": "Grep",
+          "description": "在工作区文件中搜索匹配内容。"
+        },
+        "find": {
+          "name": "Find",
+          "description": "按通配模式在工作区中查找文件。"
+        },
+        "ls": {
+          "name": "Ls",
+          "description": "列出工作区目录内容。"
+        },
+        "bash": {
+          "name": "命令行",
+          "description": "在工作区沙箱中执行命令。"
+        },
+        "memory_recall": {
+          "name": "记忆召回",
+          "description": "使用混合检索召回长期记忆。"
+        },
+        "memory_store": {
+          "name": "记忆写入",
+          "description": "将信息写入长期记忆。"
+        },
+        "memory_forget": {
+          "name": "记忆遗忘",
+          "description": "删除指定或匹配到的记忆条目。"
+        },
+        "memory_update": {
+          "name": "记忆更新",
+          "description": "更新已有记忆条目内容或分类。"
+        },
+        "memory_stats": {
+          "name": "记忆统计",
+          "description": "查看长期记忆使用统计。"
+        },
+        "memory_list": {
+          "name": "记忆列表",
+          "description": "按条件列出近期记忆条目。"
+        },
+        "subagent_run": {
+          "name": "子代理运行",
+          "description": "在隔离工作区运行子代理任务。"
+        },
+        "subtitle": {
+          "name": "字幕处理",
+          "description": "执行字幕解析/转换/校验/修正/翻译。"
+        },
+        "library": {
+          "name": "资源库查询",
+          "description": "只读查询资源库列表、完整详情（文件与记录）、任务列表、历史记录以及单个任务状态。"
+        },
+        "library_manage": {
+          "name": "资源库任务",
+          "description": "创建和管理异步资源库任务，包括下载、转码与字幕处理。建任务后立即返回 operationId，后续再查询进度。"
+        }
+      },
+      "webSearch": {
+        "type": "搜索模式",
+        "typeDesc": "在 API 搜索和 外部工具 搜索之间切换。",
+        "typeValue": {
+          "api": "API",
+          "externalTools": "外部工具"
+        },
+        "provider": "提供方",
+        "apiBase": "API",
+        "openRouterBase": "OpenRouter",
+        "apiKey": "API Key",
+        "apiKeyHint": "留空则使用环境变量。",
+        "maxResults": "最大结果数",
+        "country": "国家",
+        "searchLang": "搜索语言",
+        "uiLang": "界面语言",
+        "freshness": "时效",
+        "timeoutSeconds": "超时（秒）",
+        "cacheTtlMinutes": "缓存 TTL（分钟）",
+        "externalToolsHint": "外部工具模式仍为预留能力，暂时没有可配置项。"
+      },
+      "webFetch": {
+        "type": "模式",
+        "typeDesc": "在 Playwright 无头浏览器与内置 HTTP 抓取之间切换。",
+        "typeValue": {
+          "playwright": "Playwright",
+          "builtin": "内置"
+        },
+        "playwrightMarkdown": "转换为 Markdown",
+        "playwrightMarkdownDesc": "开启后会将渲染后的 HTML 内容转换为 Markdown。",
+        "playwrightHint": "Playwright 模式会以无头浏览器访问页面，并只读取 Connectors 中已有 Cookies，不会写回或新增 Cookies。",
+        "acceptMarkdown": "优先 Markdown",
+        "acceptMarkdownDesc": "开启后会优先请求 text/markdown，并在服务端回退到 HTML。",
+        "enableUserAgent": "发送 User-Agent",
+        "enableUserAgentDesc": "关闭后将不主动发送 User-Agent。",
+        "userAgent": "User-Agent",
+        "acceptLanguage": "Accept-Language",
+        "timeoutSeconds": "超时（秒）",
+        "maxChars": "最大字符数",
+        "maxRedirects": "最大重定向次数",
+        "maxRedirectsDesc": "0 表示不跟随重定向。",
+        "retryMax": "最大重试次数",
+        "retryMaxDesc": "仅对可安全重试的方法生效（如 GET/HEAD/OPTIONS）。",
+        "headers": "附加 Headers（JSON）",
+        "headersDesc": "填写 JSON 对象，例如 {\"X-Test\":\"1\"}。会与工具调用参数 headers 合并。",
+        "headersInvalid": "Headers 格式不正确",
+        "headersInvalidDesc": "请填写 JSON 对象，例如 {\"Accept-Language\":\"en-US\"}。"
+      },
+      "browserControl": {
+        "enabled": "启用",
+        "evaluateEnabled": "允许 Evaluate",
+        "evaluateEnabledDesc": "关闭后禁用 browser evaluate 动作。",
+        "ssrfSection": "SSRF 安全",
+        "ssrfSectionDesc": "私有网络与主机名白名单配置。",
+        "executablePath": "Playwright Chromium 路径",
+        "executablePathDesc": "由 Playwright 管理，只读不可修改。",
+        "executablePathPending": "等待 Playwright 运行时检查后显示路径。",
+        "headless": "无头模式",
+        "headlessDesc": "以无头模式启动浏览器。",
+        "noSandbox": "关闭沙箱",
+        "noSandboxDesc": "启动 Chrome 时添加 --no-sandbox。",
+        "snapshotDefaultMode": "快照默认模式",
+        "snapshotDefaultModeAuto": "自动",
+        "ssrfDangerouslyAllowPrivateNetwork": "允许私有网络",
+        "ssrfDangerouslyAllowPrivateNetworkDesc": "允许浏览器访问私有/内网地址。",
+        "ssrfAllowedHostnames": "允许的主机名（JSON）",
+        "ssrfHostnameAllowlist": "主机名白名单（JSON）",
+        "extraArgs": "额外参数（JSON）",
+        "arrayInvalid": "数组格式不正确",
+        "arrayInvalidDesc": "请填写 JSON 字符串数组，例如 [\"localhost\",\"metadata.internal\"]。"
+      },
+      "detail": {
+        "descriptionLabel": "说明",
+        "enabled": "启用",
+        "permissions": {
+          "label": "权限",
+          "badges": {
+            "none": "无",
+            "approval": "审批",
+            "sandbox": "沙盒"
+          }
+        },
+        "tabs": {
+          "config": "配置",
+          "io": "输入输出"
+        },
+        "config": {
+          "title": "配置",
+          "noneTitle": "配置",
+          "noneDescription": "当前工具无需配置。"
+        },
+        "io": {
+          "method": "方法",
+          "methodDesc": "选择可用方法。",
+          "empty": "暂无方法元数据。",
+          "input": "输入",
+          "output": "输出"
+        }
+      }
+    },
+    "skills": {
+      "loading": "加载技能...",
+      "error": "无法加载技能。",
+      "blocked": "已阻止",
+      "listTitle": "技能列表",
+      "listDescription": "运行时可用的技能。",
+      "listEmpty": "暂无技能。"
+    },
+    "connectors": {
+      "empty": "连接设置会显示在这里。",
+      "searchPlaceholder": "搜索连接",
+      "searchEmpty": "没有匹配的连接。",
+      "group.searchEngine": "搜索引擎",
+      "group.video": "视频",
+      "group.other": "其他",
+      "item.google": "Google",
+      "item.xiaohongshu": "小红书",
+      "item.bilibili": "Bilibili",
+      "connect": "连接",
+      "reconnect": "重新连接",
+      "clear": "清除",
+      "noCookies": "未配置 cookies",
+      "loginHint": "将打开浏览器窗口。完成登录后关闭窗口即可保存 cookies。",
+      "loginTitle": "浏览器登录",
+      "loginDescription": "请在浏览器窗口完成登录，然后关闭窗口。",
+      "installDescription": "需要安装 Playwright 才能打开浏览器。",
+      "loginTarget": "连接",
+      "loginRunning": "等待浏览器关闭中...",
+      "loginDone": "登录完成。",
+      "loginError": "登录失败",
+      "playwrightMissing": "未安装 Playwright，无法打开浏览器。",
+      "openExternalTools": "打开外部工具",
+      "installRequiredStatus": "需要安装 Playwright 才能继续。",
+      "status.connected": "已连接",
+      "status.expired": "已过期",
+      "status.disconnected": "未连接",
+      "detail.status": "状态",
+      "detail.data": "数据",
+      "detail.actions": "操作",
+      "viewCookies": "查看",
+      "openSite": "打开站点",
+      "openSiteError": "打开站点失败。",
+      "cookiesTitle": "Cookies",
+      "cookiesEmpty": "暂无 cookies 数据。"
+    },
+    "integration": {
+      "channels": {
+        "loading": "正在加载频道...",
+        "searchPlaceholder": "搜索频道",
+        "searchEmpty": "没有匹配的频道。",
+        "empty": "频道设置会显示在这里。",
+        "probeSuccess": "探测成功。",
+        "probeError": "探测失败",
+        "logoutSuccess": "注销成功。",
+        "logoutError": "注销失败",
+        "actions": {
+          "probe": "探测",
+          "logout": "注销",
+          "reload": "重新加载",
+          "disabledHint": "请先配置必需的凭据后再启用操作。"
+        },
+        "status": {
+          "online": "在线",
+          "offline": "离线",
+          "degraded": "降级",
+          "reconnecting": "重连中",
+          "disabled": "已禁用",
+          "unknown": "未知",
+          "notConfigured": "未配置",
+          "notConfiguredHint": "请先补全必需的凭据以建立连接。",
+          "missing": "缺少"
+        },
+        "detail": {
+          "status": "状态",
+          "lastError": "最近错误",
+          "updatedAt": "更新时间"
+        },
+        "config": {
+          "loading": "正在加载配置...",
+          "loadError": "频道配置加载失败。",
+          "empty": "暂无可配置字段。",
+          "autoSaveError": "自动保存失败",
+          "autoSave": {
+            "pending": "等待保存...",
+            "saving": "保存中...",
+            "error": "自动保存失败"
+          },
+          "actions": {
+            "addRow": "添加一行",
+            "removeRow": "移除"
+          },
+          "fields": {
+            "enabled": "启用",
+            "token": "访问令牌",
+            "botToken": "机器人令牌",
+            "bearerToken": "Bearer 令牌",
+            "groupPolicy": "群组策略",
+            "dmPolicy": "私聊策略",
+            "streamMode": "流式模式",
+            "allowFrom": "允许来源",
+            "groupAllowList": "允许的群组",
+            "groupAllowFrom": "群组允许来源"
+          },
+          "options": {
+            "default": "默认",
+            "groupPolicy": {
+              "open": "开放",
+              "disabled": "禁用",
+              "allowlist": "白名单"
+            },
+            "dmPolicy": {
+              "pairing": "配对",
+              "allowlist": "白名单",
+              "open": "开放",
+              "disabled": "禁用"
+            },
+            "streamMode": {
+              "off": "关闭",
+              "partial": "部分",
+              "block": "块状",
+              "replace": "替换",
+              "status_final": "最终状态",
+              "append": "追加"
+            }
+          },
+          "placeholders": {
+            "token": "请输入令牌",
+            "allowFrom": "每行一个",
+            "groupId": "群组 ID 或 *"
+          },
+          "hints": {
+            "allowFrom": "填写 Telegram 数字用户 ID，每行一个。",
+            "groups": "填写 Telegram 群聊 ID，* 表示全部群组。",
+            "groupAllowFrom": "该列表内用户可绕过群组策略。"
+          },
+          "allowFrom": {
+            "columns": {
+              "userId": "用户 ID",
+              "actions": "操作"
+            },
+            "empty": "暂无白名单条目。"
+          },
+          "groups": {
+            "columns": {
+              "groupId": "群组 ID",
+              "requireMention": "需 @ 提及",
+              "actions": "操作"
+            },
+            "values": {
+              "requireMention": "需 @ 提及",
+              "noMention": "无需提及"
+            },
+            "empty": "暂无群组条目。"
+          },
+          "groupAllowFrom": {
+            "columns": {
+              "userId": "用户 ID",
+              "actions": "操作"
+            },
+            "empty": "暂无白名单条目。"
+          },
+          "pairing": {
+            "title": "配对",
+            "description": "配对请求与审批将显示在这里。",
+            "loading": "正在加载配对请求...",
+            "loadError": "加载配对请求失败。",
+            "columns": {
+              "code": "配对码",
+              "userId": "用户 ID",
+              "meta": "信息",
+              "requested": "请求时间",
+              "actions": "操作"
+            },
+            "actions": {
+              "approve": "批准",
+              "reject": "拒绝"
+            },
+            "approveSuccess": "配对已批准。",
+            "approveError": "配对批准失败",
+            "rejectSuccess": "配对已拒绝。",
+            "rejectError": "配对拒绝失败",
+            "meta": {
+              "account": "账号"
+            },
+            "empty": "正在接收配对请求"
+          }
+        },
+        "reset": {
+          "title": "确认重置频道配置？",
+          "description": "该操作会移除该频道所有已保存的配置。",
+          "confirm": "重置",
+          "cancel": "取消",
+          "button": "重置配置"
+        },
+        "menu": {
+          "sync": "同步菜单",
+          "syncSuccess": "已同步 {{count}} 条菜单命令。",
+          "syncError": "菜单同步失败",
+          "empty": "暂无自定义命令。",
+          "actions": {
+            "add": "添加"
+          },
+          "fields": {
+            "native": "内置命令",
+            "nativeSkills": "技能命令",
+            "customCommands": "自定义命令"
+          },
+          "columns": {
+            "command": "命令",
+            "description": "描述",
+            "actions": "操作"
+          },
+          "validation": {
+            "commandPrefix": "无法保存：命令需以 / 开头。",
+            "commandInvalid": "无法保存：命令无效（只能使用 a-z、0-9、下划线，最长 32 个字符）。",
+            "descriptionRequired": "无法保存：描述不能为空。"
+          },
+          "commands": {
+            "on": "开启",
+            "off": "关闭"
+          },
+          "placeholders": {
+            "command": "/command",
+            "description": "命令描述"
+          }
+        }
+      }
+    },
+    "externalTools": {
+      "searchPlaceholder": "搜索工具",
+      "searchEmpty": "没有匹配的工具。",
+      "group": {
+        "runtime": "运行时",
+        "bin": "可执行工具"
+      },
+      "detail": {
+        "currentVersion": "当前版本",
+        "latestVersion": "最新版本",
+        "releaseNotes": "更新日志",
+        "path": "路径",
+        "openPath": "打开文件夹",
+        "actions": "操作",
+        "noReleaseNotes": "无更新日志",
+        "viewReleaseNotes": "查看",
+        "notInstalled": "未安装",
+        "unknown": "未知"
+      },
+      "actions": {
+        "install": "安装",
+        "installBunFirst": "请先安装 Bun",
+        "upgrade": "升级",
+        "repair": "修复",
+        "verify": "校验",
+        "remove": "移除"
+      },
+      "installDialog": {
+        "titlePrefix": "升级",
+        "description": "查看所选外部工具的当前版本、目标版本与安装进度。",
+        "targetVersion": "目标版本",
+        "progress": "安装进度",
+        "success": "安装完成",
+        "error": "安装失败",
+        "retry": "重试",
+        "close": "关闭",
+        "stageLabel": "当前任务",
+        "stage": {
+          "downloading": "下载",
+          "extracting": "解压",
+          "verifying": "验证",
+          "done": "完成",
+          "error": "失败",
+          "idle": "等待"
+        }
+      },
+      "releaseNotesTitle": "更新日志",
+      "releaseNotesDescription": "来自工具作者的最新更新说明。",
+      "releaseNotesClose": "关闭",
+      "status.latest": "最新",
+      "status.update": "有更新",
+      "status.install": "安装",
+      "status.repair": "修复"
+    },
+    "provider": {
+      "updateError": "更新失败",
+      "updateErrorFallback": "无法更新供应商。",
+      "footer": {
+        "reset": "重置为默认供应商",
+        "add": "新增自定义供应商",
+        "remove": "删除自定义供应商"
+      },
+      "credentials": {
+        "enable": "启用",
+        "apiKey": "访问密钥",
+        "apiKeyPlaceholder": "输入访问密钥",
+        "paste": "粘贴访问密钥",
+        "show": "显示访问密钥",
+        "hide": "隐藏访问密钥",
+        "fetch": "拉取模型"
+      },
+      "searchPlaceholder": "搜索供应商",
+      "models": {
+        "searchPlaceholder": "搜索模型",
+        "loading": "加载模型中...",
+        "empty": "暂无可用模型。",
+        "syncErrorTitle": "获取模型失败",
+        "syncErrorFallback": "无法获取模型列表。",
+        "context": "上下文",
+        "toggleEnabled": "启用模型",
+        "manage": {
+          "open": "管理模型",
+          "title": "管理模型",
+          "description": "可手动新增或编辑模型；当供应商端点不支持列出模型时可使用此功能。",
+          "columnModelId": "模型 ID",
+          "columnEnabled": "启用",
+          "columnVisible": "在列表中显示",
+          "columnActions": "操作",
+          "idPlaceholder": "模型 ID",
+          "remove": "移除模型",
+          "visible": "在列表中显示",
+          "add": "新增模型",
+          "close": "关闭",
+          "invalidTitle": "模型配置无效",
+          "invalidDuplicate": "模型 ID 必须唯一。",
+          "empty": "暂无模型。"
+        },
+        "capability": {
+          "tools": "工具调用",
+          "reasoning": "推理",
+          "image": "图像",
+          "audio": "音频",
+          "video": "视频"
+        }
+      },
+      "custom": {
+        "title": "新增自定义供应商",
+        "description": "请填写自定义供应商的名称、类型与访问地址。",
+        "updateInvalid": "自定义供应商的名称和访问地址不能为空。",
+        "fields": {
+          "name": "名称",
+          "namePlaceholder": "自定义供应商",
+          "type": "类型",
+          "endpoint": "访问地址",
+          "endpointPlaceholder": "https://api.example.com"
+        },
+        "actions": {
+          "create": "创建供应商",
+          "creating": "创建中..."
+        }
+      },
+      "delete": {
+        "title": "删除供应商",
+        "description": "删除该供应商？此操作无法撤销。",
+        "descriptionWithName": "删除 {name}？此操作无法撤销。",
+        "actions": {
+          "delete": "删除",
+          "deleting": "删除中..."
+        }
+      }
+    },
+    "about": {
+      "iconTap": "追创作应用图标",
+      "advanced": {
+        "title": "高级",
+        "debug": "调试等级",
+        "debugHint": "关闭：关闭调试；开启：开启调试；加强：开启调试并记录提示词。",
+        "unlockedTitle": "已解锁高级选项",
+        "unlockedHint": "离开关于页面前，调试控制会保持可见。",
+        "options": {
+          "off": "关闭",
+          "basic": "开启",
+          "full": "加强"
+        }
+      },
+      "version": "当前版本",
+      "update": {
+        "latest": "最新版本",
+        "latestOk": "已是最新",
+        "latestAvailable": "有新版本",
+        "latestFailed": "检查失败",
+        "current": "当前版本",
+        "changelog": "更新日志",
+        "check": "检查更新",
+        "install": "安装更新",
+        "restart": "重启生效",
+        "command": "更新操作",
+        "viewReleaseNotes": "查看",
+        "noReleaseNotes": "无更新日志",
+        "releaseNotesClose": "关闭"
+      },
+      "meta": {
+        "craftedBy": "开发",
+        "contact": "联系",
+        "feedback": "反馈",
+        "sendFeedback": "打开 GitHub Issues",
+        "tooltip": {
+          "email": "邮件",
+          "twitter": "推特",
+          "website": "官网",
+          "github": "GitHub"
+        }
+      },
+      "credits": {
+        "title": "鸣谢",
+        "tools": "引用工具"
+      }
+    },
+    "debug": {
+      "message": {
+        "frontend": {
+          "toastTitle": "警告提示"
+        }
+      },
+      "channels": {
+        "notes": {
+          "missingBotToken": "缺少 Bot Token"
+        }
+      }
+    }
+  },
+  "cron": {
+    "tabs": {
+      "overview": "概览",
+      "list": "任务列表",
+      "records": "执行记录"
+    },
+    "view": {
+      "table": "表格",
+      "cards": "卡片"
+    },
+    "tooltip": {
+      "tableView": "表格视图",
+      "cardsView": "卡片视图"
+    },
+    "action": {
+      "refresh": "刷新",
+      "newJob": "新建任务",
+      "run": "立即运行",
+      "delete": "删除",
+      "selectJobs": "选择",
+      "selectedJobCount": "已选 {count} 项",
+      "cancelSelection": "取消选择",
+      "customizeColumns": "自定义列",
+      "visibleColumns": "可见列",
+      "noConfigurableColumns": "暂无可配置列"
+    },
+    "status": {
+      "enabled": "启用",
+      "disabled": "已停用",
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "失败",
+      "ok": "成功",
+      "error": "错误",
+      "skipped": "跳过"
+    },
+    "table": {
+      "id": "ID",
+      "name": "名称",
+      "description": "描述",
+      "schedule": "调度",
+      "nextRun": "下次执行",
+      "runningAt": "运行中起始时间",
+      "payload": "载荷",
+      "assistantId": "助手",
+      "sessionTarget": "会话",
+      "wakeMode": "唤醒模式",
+      "delivery": "结果投递",
+      "sourceChannel": "来源频道",
+      "enabled": "启用",
+      "deleteAfterRun": "运行后删除",
+      "lastRun": "最近运行",
+      "status": "状态",
+      "lastDuration": "最近耗时",
+      "consecutiveErrors": "连续错误",
+      "scheduleErrors": "调度错误数",
+      "lastDeliveryStatus": "最近投递状态",
+      "lastDeliveryError": "最近投递错误",
+      "lastError": "最近错误",
+      "createdAt": "创建时间",
+      "updatedAt": "更新时间",
+      "ops": "操作"
+    },
+    "scheduleValue": {
+      "every": "每 {interval}",
+      "at": "在 {value}",
+      "interval": "{count}{unit}",
+      "unit": {
+        "days": "天",
+        "hours": "小时",
+        "minutes": "分钟",
+        "seconds": "秒",
+        "milliseconds": "毫秒"
+      }
+    },
+    "filter": {
+      "allJobs": "全部任务",
+      "allStatus": "全部状态",
+      "searchAndFilterJobs": "搜索与筛选任务",
+      "searchJobsPlaceholder": "搜索任务名称、描述或载荷",
+      "searchAndFilterRuns": "搜索与筛选记录",
+      "searchRunsPlaceholder": "搜索记录摘要、错误或模型",
+      "job": "任务",
+      "runStatus": "运行状态",
+      "enableState": "启用状态",
+      "allEnableStates": "全部启用状态",
+      "enabledOnly": "仅启用",
+      "disabledOnly": "仅停用",
+      "lastRunStatus": "最近运行状态",
+      "clearJobFilters": "清除任务筛选",
+      "clearRunFilters": "清除记录筛选"
+    },
+    "runs": {
+      "time": "开始时间",
+      "job": "任务",
+      "status": "状态",
+      "stage": "阶段",
+      "duration": "耗时",
+      "durationSeconds": "{count}秒",
+      "ended": "结束时间",
+      "deliveryStatus": "投递状态",
+      "deliveryError": "投递错误",
+      "model": "模型",
+      "provider": "供应商",
+      "sessionKey": "会话键",
+      "usage": "用量",
+      "summary": "摘要",
+      "error": "错误",
+      "detailTitle": "运行详情",
+      "runId": "运行 ID",
+      "overview": "概览",
+      "lifecycle": "生命周期",
+      "detailLive": "实时推送中",
+      "detailRefreshing": "刷新中...",
+      "detailStable": "已稳定",
+      "lifecycleStep": {
+        "trigger": "触发",
+        "waiting": "等待结果",
+        "delivery": "投递",
+        "terminal": "终态"
+      },
+      "lifecycleWaitingPush": "等待后端推送...",
+      "lifecycleStepNoEvents": "该节点暂无事件",
+      "channel": "频道",
+      "source": "来源",
+      "statusValue": {
+        "running": "运行中",
+        "completed": "已完成",
+        "failed": "失败",
+        "ok": "成功",
+        "error": "错误",
+        "skipped": "跳过",
+        "pending": "等待中",
+        "delivered": "已投递",
+        "sent": "已发送",
+        "accepted": "已接收"
+      },
+      "stageValue": {
+        "started": "已启动",
+        "action_accepted": "动作已接收",
+        "action_failed": "动作失败",
+        "delivery_pending": "投递等待中",
+        "delivery_attempted": "投递已尝试",
+        "delivery_failed": "投递失败",
+        "delivery_delivered": "投递成功",
+        "heartbeat_received": "已收到心跳",
+        "heartbeat_timeout": "心跳超时",
+        "running": "运行中",
+        "completed": "已完成",
+        "failed": "失败"
+      },
+      "deliveryStatusValue": {
+        "pending": "等待中",
+        "delivered": "已投递",
+        "failed": "失败",
+        "ok": "成功",
+        "unknown": "未知",
+        "not_delivered": "未投递",
+        "not_requested": "未请求"
+      }
+    },
+    "pagination": {
+      "totalJobs": "总计 {count} 个任务",
+      "totalRuns": "总计 {count} 条运行记录",
+      "rowsPerPage": "每页 {count} 条",
+      "pageOf": "第 {page} / {total} 页",
+      "firstPage": "首页",
+      "prevPage": "上一页",
+      "nextPage": "下一页",
+      "lastPage": "尾页"
+    },
+    "empty": {
+      "jobs": "暂无定时任务",
+      "runs": "暂无运行记录"
+    },
+    "dialog": {
+      "deleteTitle": "删除定时任务",
+      "deleteDescription": "此操作无法撤销。",
+      "bulkDeleteTitle": "批量删除定时任务",
+      "bulkDeleteDescription": "将删除已选的 {count} 项任务，此操作无法撤销。",
+      "bulkDeleteConfirm": "删除 {count} 项",
+      "editTitle": "编辑任务",
+      "viewTitle": "查看任务",
+      "newTitle": "新建任务"
+    },
+    "form": {
+      "section": {
+        "basic": "基础信息",
+        "schedule": "调度配置",
+        "payload": "载荷配置",
+        "delivery": "投递"
+      },
+      "name": "名称",
+      "nameRequired": "名称不能为空",
+      "description": "描述",
+      "scheduleTypeOptions": {
+        "every": "间隔执行",
+        "cron": "Cron 表达式",
+        "at": "指定时间"
+      },
+      "cronExpr": "Cron 调度表达式",
+      "cronExprPlaceholder": "例如：*/5 * * * *",
+      "scheduleExact": "精确时间",
+      "staggerAmount": "抖动窗口",
+      "staggerAmountPlaceholder": "例如：30",
+      "staggerUnit": "抖动单位",
+      "staggerUnitOptions": {
+        "seconds": "秒",
+        "minutes": "分钟"
+      },
+      "staggerInvalid": "抖动值必须大于 0",
+      "every": "执行间隔",
+      "everyUnit": "间隔单位",
+      "everyUnitOptions": {
+        "minutes": "分钟",
+        "hours": "小时",
+        "days": "天"
+      },
+      "at": "执行时间",
+      "timezone": "时区",
+      "timezonePlaceholder": "选择时区",
+      "sessionTarget": "会话",
+      "sessionTargetOptions": {
+        "main": "主会话",
+        "isolated": "隔离会话"
+      },
+      "wakeMode": "唤醒模式",
+      "wakeModeOptions": {
+        "now": "立即",
+        "nextHeartbeat": "下次心跳"
+      },
+      "payloadKindOptions": {
+        "systemEvent": "系统事件",
+        "agentTurn": "代理运行"
+      },
+      "payloadText": "系统事件文本",
+      "payloadMessage": "代理消息",
+      "payloadTextRequired": "系统事件文本不能为空",
+      "payloadMessageRequired": "代理消息不能为空",
+      "model": "模型",
+      "modelAuto": "自动",
+      "modelCustom": "自定义",
+      "thinking": "思考等级",
+      "thinkingAuto": "自动",
+      "thinkingCustom": "自定义",
+      "thinkingOption": {
+        "off": "关闭",
+        "minimal": "极少",
+        "low": "低",
+        "medium": "中",
+        "high": "高",
+        "xhigh": "极高"
+      },
+      "timeoutSeconds": "超时",
+      "timeoutSecondsPlaceholder": "单位：秒",
+      "timeoutInvalid": "超时必须大于 0",
+      "deliveryModeOptions": {
+        "none": "不投递",
+        "announce": "摘要播报",
+        "webhook": "Webhook POST"
+      },
+      "deliveryChannel": "频道",
+      "deliveryChannelDefault": "默认来源",
+      "deliveryChannelApp": "应用内",
+      "deliveryChannelCustom": "自定义",
+      "deliveryTo": "目标",
+      "deliveryToWebhook": "Webhook URL",
+      "deliveryToRequired": "Webhook URL 不能为空",
+      "deliveryToInvalid": "Webhook URL 必须以 http:// 或 https:// 开头",
+      "deliveryBestEffort": "尽力投递",
+      "deliveryFailureMode": "失败投递目标",
+      "deliveryFailureModeOptions": {
+        "none": "无",
+        "announce": "播报",
+        "webhook": "Webhook"
+      },
+      "deliveryFailureChannel": "失败频道",
+      "deliveryFailureToWebhook": "失败 Webhook URL",
+      "deliveryFailureAccountId": "失败账号 ID",
+      "deliveryFailureChannelInvalid": "失败投递频道必须是 default、app、telegram 之一",
+      "deliveryFailureToRequired": "失败投递 Webhook URL 不能为空",
+      "deliveryFailureToInvalid": "失败投递 Webhook URL 必须以 http:// 或 https:// 开头",
+      "deleteAfterRun": "运行后删除",
+      "enabled": "启用",
+      "invalid": "任务配置无效",
+      "mainTargetRequiresSystemEvent": "主会话仅支持系统事件载荷",
+      "isolatedTargetRequiresAgentTurn": "隔离会话仅支持代理运行载荷",
+      "cronExprRequired": "Cron 表达式不能为空",
+      "everyRequired": "执行间隔不能为空",
+      "atRequired": "执行时间不能为空",
+      "atInvalid": "执行时间格式无效"
+    },
+    "payload": {
+      "systemEvent": "系统事件",
+      "agentTurn": "代理运行"
+    },
+    "columns": {
+      "id": "ID",
+      "name": "名称",
+      "description": "描述",
+      "schedule": "调度",
+      "nextRun": "下次执行",
+      "runningAt": "运行中起始时间",
+      "payload": "载荷",
+      "assistantId": "助手",
+      "sessionTarget": "会话",
+      "wakeMode": "唤醒模式",
+      "delivery": "结果投递",
+      "sourceChannel": "来源频道",
+      "enabled": "启用",
+      "deleteAfterRun": "运行后删除",
+      "lastRun": "最近运行",
+      "status": "状态",
+      "lastDuration": "最近耗时",
+      "consecutiveErrors": "连续错误",
+      "scheduleErrors": "调度错误数",
+      "lastDeliveryStatus": "最近投递状态",
+      "lastDeliveryError": "最近投递错误",
+      "lastError": "最近错误",
+      "createdAt": "创建时间",
+      "updatedAt": "更新时间",
+      "runId": "运行 ID",
+      "started": "开始时间",
+      "job": "任务",
+      "duration": "耗时",
+      "stage": "阶段",
+      "ended": "结束时间",
+      "deliveryStatus": "投递状态",
+      "deliveryError": "投递错误",
+      "usage": "用量",
+      "model": "模型",
+      "provider": "供应商",
+      "sessionKey": "会话键",
+      "summary": "摘要",
+      "error": "错误"
+    },
+    "overview": {
+      "cards": {
+        "totalCrons": "任务总数",
+        "totalExecutions": "执行总数",
+        "avgDuration": "平均耗时",
+        "nextWake": "下次唤醒"
+      },
+      "chart": {
+        "title": "执行趋势",
+        "series": {
+          "success": "成功",
+          "failed": "失败"
+        }
+      },
+      "granularity": {
+        "minute": "每 1 分钟",
+        "quarterHour": "每 15 分钟",
+        "hour": "每 1 小时",
+        "day": "每天"
+      },
+      "recent": "最近执行"
+    },
+    "toast": {
+      "created": "任务已创建",
+      "createFailed": "创建任务失败",
+      "updated": "任务已更新",
+      "updateFailed": "更新任务失败",
+      "deleted": "任务已删除",
+      "deleteFailed": "删除任务失败",
+      "bulkDeleteSuccess": "已删除 {count} 项任务",
+      "bulkDeletePartial": "已删除 {success} 项，失败 {failed} 项",
+      "bulkDeleteFailed": "批量删除失败",
+      "runQueued": "任务已开始运行",
+      "runFailed": "运行任务失败"
+    }
+  },
+  "settings.debug": {
+    "tabs": {
+      "overview": "概览",
+      "context": "上下文",
+      "channels": "频道",
+      "framework": "框架",
+      "events": "事件",
+      "trace": "运行追踪",
+      "prompt": "提示词"
+    },
+    "status": {
+      "title": "网关状态",
+      "activeSessions": "活跃会话",
+      "activeRuns": "活跃运行",
+      "queueDepth": "队列深度",
+      "connectedNodes": "连接节点",
+      "uptime": "运行时长"
+    },
+    "diagnostics": {
+      "health": "健康",
+      "logs": "实时日志",
+      "logsCount": "日志数",
+      "logsError": "加载日志失败",
+      "logsEmpty": "暂无日志。",
+      "logsTable": {
+        "time": "时间",
+        "level": "级别",
+        "source": "来源",
+        "message": "内容",
+        "viewPayload": "查看 JSON"
+      }
+    },
+    "realtime": {
+      "metrics": {
+        "reconnects": "重连次数",
+        "replay": "回放事件",
+        "resync": "需要重同步",
+        "duplicateDrop": "重复丢弃"
+      },
+      "messagesCount": "消息数",
+      "noPayload": "(无载荷)",
+      "table": {
+        "time": "时间",
+        "topic": "主题",
+        "type": "类型",
+        "seq": "序号",
+        "replay": "回放",
+        "viewPayload": "查看载荷"
+      }
+    },
+    "gateway": {
+      "events": "网关事件",
+      "eventsCount": "事件数",
+      "filterAll": "全部事件",
+      "eventsEmpty": "暂无网关事件。",
+      "eventUnknown": "(未知)",
+      "noPayload": "(无载荷)",
+      "table": {
+        "time": "时间",
+        "event": "事件",
+        "run": "运行",
+        "session": "会话",
+        "viewPayload": "查看载荷"
+      }
+    },
+    "trace": {
+      "error": "加载运行事件失败",
+      "empty": "暂无运行事件",
+      "table": {
+        "current": "当前",
+        "runId": "运行 ID",
+        "status": "状态",
+        "events": "事件数",
+        "lastEvent": "最后事件",
+        "lastAt": "最后时间",
+        "time": "时间",
+        "id": "ID",
+        "event": "事件",
+        "tool": "工具",
+        "viewPayload": "查看载荷"
+      },
+      "status": {
+        "completed": "已完成",
+        "running": "运行中",
+        "error": "错误",
+        "aborted": "已中止",
+        "unknown": "未知"
+      }
+    },
+    "prompt": {
+      "empty": "暂无 prompt.report 事件",
+      "emptyForRun": "当前运行暂无 prompt.report 事件",
+      "view": {
+        "system": "系统",
+        "history": "历史",
+        "user": "用户",
+        "assistant": "助手",
+        "tool": "工具"
+      },
+      "messages": {
+        "unavailable": "暂无消息快照。请切换到加强模式后重新运行。",
+        "empty": "暂无消息",
+        "toolCallId": "toolCallId",
+        "reasoning": "推理"
+      },
+      "meta": {
+        "runId": "运行 ID",
+        "mode": "模式",
+        "generatedAt": "生成时间",
+        "promptChars": "提示词字符数"
+      },
+      "tools": "工具",
+      "skills": "技能",
+      "expandList": "展开列表",
+      "collapseList": "收起列表",
+      "listEmpty": "(无)",
+      "system": "系统提示词",
+      "systemEmpty": "(空)"
+    },
+    "framework": {
+      "rows": {
+        "message": "消息",
+        "dialog": "对话框",
+        "event": "事件"
+      },
+      "actions": {
+        "toast": "提示",
+        "notification": "通知",
+        "sendOS": "系统消息",
+        "dialog": "对话框",
+        "publish": "调试事件"
+      }
+    },
+    "channels": {
+      "title": "频道诊断",
+      "loading": "正在加载频道诊断...",
+      "error": "加载频道诊断失败",
+      "empty": "暂无频道诊断信息",
+      "updatedAt": "更新时间",
+      "kind": "类型",
+      "enabled": "已启用",
+      "disabled": "未启用",
+      "stateUnknown": "未知",
+      "lastError": "最近错误",
+      "notes": {
+        "debugNotSupported": "暂不支持调试信息",
+        "missingBotToken": "缺少 Bot Token",
+        "notRunning": "未运行",
+        "pairingRequired": "需要配对",
+        "groupAllowlistEmpty": "群组白名单为空"
+      },
+      "account": {
+        "empty": "暂无账号详情",
+        "unknown": "未知账号",
+        "running": "运行中",
+        "stopped": "已停止"
+      }
+    },
+    "message": {
+      "frontend": {
+        "toastTitle": "警告提示",
+        "toastDesc": "用于预览样式的示例提示。",
+        "notificationTitle": "成功通知",
+        "notificationDesc": "带快速操作的通知示例。",
+        "action": "知道了",
+        "dialogTitle": "危险弹窗",
+        "dialogDesc": "用于确认样式的弹窗示例。",
+        "dialogConfirm": "确认"
+      },
+      "realtime": {
+        "websocket": "WebSocket",
+        "urlEmpty": "暂无地址",
+        "clearAll": "清空全部主题",
+        "topics": "主题 列表",
+        "logEmpty": "暂无消息。",
+        "status": {
+          "connected": "已连接",
+          "disconnected": "未连接",
+          "connecting": "连接中..."
+        },
+        "notifyDenied": "系统通知未授权",
+        "notifyTitle": "调试通知",
+        "notifyBody": "这是一条测试系统通知。",
+        "notifyError": "系统通知错误",
+        "publishSuccess": "已发布调试事件",
+        "publishFailed": "发布失败",
+        "topicLabel": "主题"
+      }
+    },
+    "thread": {
+      "empty": "暂无对话"
+    }
+  },
+  "appearance": {
+    "section": {
+      "appearance": "外观",
+      "scheme": "配色方案",
+      "color": "颜色",
+      "font": "字体",
+      "size": "字号"
+    },
+    "option": {
+      "light": "亮色",
+      "dark": "暗色",
+      "auto": "跟随系统"
+    },
+    "font": {
+      "systemDefault": "系统默认",
+      "current": "（当前）"
+    },
+    "color": {
+      "custom": "自定义颜色",
+      "option": {
+        "system": "跟随系统",
+        "blue": "蓝色",
+        "purple": "紫色",
+        "pink": "粉色",
+        "red": "红色",
+        "orange": "橙色",
+        "yellow": "黄色",
+        "green": "绿色",
+        "graphite": "石墨灰"
+      }
+    },
+    "scheme": {
+      "option": {
+        "default": {
+          "label": "默认",
+          "description": "像晨雾里的白墙 安静而克制"
+        },
+        "contrast": {
+          "label": "高对比",
+          "description": "把层次拉开 让每块区域都站稳轮廓"
+        },
+        "slate": {
+          "label": "冷灰",
+          "description": "冷灰里带一点海风 清醒也沉着"
+        },
+        "warm": {
+          "label": "暖砂",
+          "description": "像落在纸面的晚光 柔和但不发灰"
+        }
+      }
+    }
+  },
+  "chat": {
+    "header": {
+      "untitled": "新对话",
+      "openWorkspace": "打开作业区",
+      "messageCount": "{count} 条{suffix}",
+      "messageSuffix": "消息",
+      "menu": "对话菜单"
+    },
+    "composer": {
+      "placeholder": "输入消息...",
+      "attach": "附件",
+      "attachDialogTitle": "选择文件",
+      "attachError": "添加附件失败",
+      "attachNoValidFile": "未选择有效文件",
+      "selectAssistant": "选择助手",
+      "assistantEmpty": "暂无助手",
+      "untitledAssistant": "未命名助手",
+      "selectModel": "选择模型",
+      "contextCurrent": "当前",
+      "contextTotal": "总大小",
+      "contextTotalUnknown": "不适用",
+      "contextUsage": "上下文用量",
+      "contextUsageShort": "用量",
+      "permission": {
+        "label": "权限",
+        "standard": "默认权限",
+        "allAccess": "完全访问",
+        "updateError": "权限更新失败"
+      },
+      "stop": "停止",
+      "send": "发送"
+    },
+    "welcome": {
+      "entry": {
+        "checkingTitle": "正在检查聊天环境",
+        "checkingDescription": "Gateway、模型配置、Bun 与 ClawHub 状态会自动刷新。",
+        "blockedTitle": "聊天未就绪",
+        "blockedDescription": "请先完成以上项目的初始化。",
+        "assistantPill": {
+          "title": "还没有选中助手",
+          "description": "选择或创建一个助手后，就可以直接开始输入。",
+          "action": "配置助手"
+        }
+      }
+    },
+    "message": {
+      "reasoning": "思考过程",
+      "sources": "来源",
+      "error": "消息出错",
+      "systemNotice": {
+        "cron": "计划任务",
+        "exec": "后台任务",
+        "subagent": "子代理",
+        "system": "系统通知"
+      }
+    },
+    "tools": {
+      "state": {
+        "calling": "调用中",
+        "actionRequired": "需要操作",
+        "completed": "已完成",
+        "failed": "失败"
+      },
+      "fallback": {
+        "used": "使用工具",
+        "cancelled": "已取消工具"
+      },
+      "unknown": "未知工具",
+      "approvalTool": {
+        "title": "需要审批",
+        "tool": "工具",
+        "approveAction": "批准",
+        "denyAction": "拒绝",
+        "error": "审批请求失败",
+        "resolveError": "审批失败"
+      },
+      "renderChart": {
+        "loading": "正在生成图表...",
+        "error": "图表工具出错。",
+        "invalid": "图表参数无效。",
+        "empty": "暂无可视化数据。"
+      }
+    },
+    "actions": {
+      "copy": "复制",
+      "copied": "已复制",
+      "edit": "编辑",
+      "closeEdit": "取消编辑",
+      "retry": "重试",
+      "previousResponse": "上一个回答",
+      "nextResponse": "下一个回答"
+    }
+  },
+  "library": {
+    "tools": {
+      "optionalTitle": "可选标题",
+      "import": "导入",
+      "dependencyOpenSettings": "打开外部工具",
+      "dependencyClose": "关闭"
+    },
+    "tabs": {
+      "overview": "概览",
+      "tasks": "任务列表",
+      "resources": "资源库",
+      "all": "所有",
+      "video": "视频",
+      "subtitle": "字幕",
+      "thumbnail": "封面",
+      "workspace": "工作台",
+      "config": "配置"
+    },
+    "actions": {
+      "customizeColumns": "自定义列",
+      "visibleColumns": "可见列",
+      "resetVisibleColumns": "恢复默认显示",
+      "noConfigurableColumns": "暂无可配置列",
+      "selectTasks": "选择",
+      "selectFiles": "选择",
+      "cancelSelection": "取消",
+      "selectedTaskCount": "已选 {count} 项",
+      "newDownload": "新建下载",
+      "newTranscode": "新建转码",
+      "newSubtitleTranslate": "翻译字幕",
+      "importVideo": "导入视频",
+      "importSubtitle": "导入字幕",
+      "refresh": "刷新"
+    },
+    "filter": {
+      "search": "按关键词搜索",
+      "searchAndFilterTasks": "搜索和筛选任务",
+      "searchTasksPlaceholder": "搜索任务",
+      "searchAndFilterFiles": "搜索和筛选文件",
+      "searchFilesPlaceholder": "搜索文件",
+      "taskStatus": "任务状态",
+      "taskType": "任务类型",
+      "noTaskTypes": "暂无任务类型",
+      "clearAllTaskFilters": "清空筛选",
+      "fileTypeLabel": "文件类型",
+      "fileStatusLabel": "文件状态",
+      "activeFilesOption": "正常文件",
+      "recycleBinOption": "回收站",
+      "allFilesOption": "全部文件",
+      "clearAllFileFilters": "清空筛选"
+    },
+    "resources": {
+      "viewFile": "文件视图",
+      "viewLibrary": "资源库视图",
+      "loadMore": "加载更多",
+      "libraryEmpty": "暂无资源库",
+      "updatedAt": "更新时间",
+      "filteredEmpty": "没有匹配的资源库",
+      "filteredEmptyDescription": "请尝试其他关键词，或清空当前搜索。",
+      "libraryInfoTitle": "资源库基础信息",
+      "fileInfoTitle": "资源库文件信息",
+      "fileInfoEmpty": "当前还没有可在工作台中打开的文件。",
+      "fileInfoTooltip": "在工作台中编辑",
+      "recordInfoTitle": "资源库记录",
+      "recordInfoTooltip": "查看记录",
+      "currentRecordsTitle": "当前全部记录",
+      "deletedFileCount": "回收站 · {count}",
+      "deleteLibraryTitle": "删除资源库",
+      "deleteLibrarySuccess": "资源库、任务、文件和记录已删除。",
+      "deleteLibraryConfirmTitle": "确认删除当前资源库？",
+      "deleteLibraryConfirmDescription": "这会永久删除当前资源库、其下任务、文件、记录与工作台状态，并删除本地磁盘文件，此操作无法撤销。",
+      "deleteLibraryConfirmAction": "确认删除",
+      "deleteLibraryFiles": "文件",
+      "deleteLibraryTasks": "任务",
+      "deleteLibraryRecords": "记录"
+    },
+    "download": {
+      "title": "新建下载",
+      "created": "下载任务已创建。",
+      "reachabilityWarning": "检查连通性",
+      "dependencyDescription": "缺少必要的外部工具，请先在外部工具中完成安装或修复。",
+      "inputTitle": "请输入下载链接",
+      "inputPlaceholder": "https://",
+      "request": "请求下载",
+      "connectorHint": "使用连接器 Cookies 进行解析与下载",
+      "connectorUnsupportedHint": "当前站点暂无可用连接器。",
+      "modifyLink": "修改链接",
+      "tabs.quick": "快速下载",
+      "tabs.custom": "自定义下载",
+      "quality": "品质",
+      "quality.best": "最佳品质",
+      "quality.audio": "仅音频",
+      "quality.select": "选择格式",
+      "quality.groupAv": "音视频",
+      "quality.groupAudio": "仅音频",
+      "subtitle": "字幕",
+      "subtitle.none": "不下载",
+      "subtitle.auto": "自动",
+      "transcode": "转码",
+      "transcode.deleteSourceAfterTranscode": "不保留源文件",
+      "transcode.none": "不转码",
+      "start": "开始",
+      "parse": "解析"
+    },
+    "task": {
+      "title": "任务",
+      "loading": "正在加载任务详情...",
+      "download": "下载",
+      "delete": "删除任务",
+      "deleteTitle": "删除任务？",
+      "deleteDescription": "这会移除 {name} 的任务记录，资源库会保留。",
+      "deleteDialogDescription": "这会移除 {name} 的任务记录，资源库中的文件不会受影响。",
+      "deleteImpactDescription": "该任务当前产出 {count} 个文件。仅当你也想把这些输出从资源库移除时，再开启文件删除。",
+      "deleteKeepFilesDescription": "该任务没有可移除的输出文件。删除后只会移除任务记录。",
+      "deleteFilesLabel": "同时删除该任务产出文件",
+      "deleteFilesTitle": "任务产出文件",
+      "deleteConfirm": "删除任务",
+      "deleteSuccessTitle": "删除任务",
+      "deleteSuccess": "任务记录已删除。",
+      "deleteSuccessWithFiles": "任务已删除，其产出文件已标记为删除。",
+      "deleteFailedTitle": "删除任务",
+      "bulkDeleteTitle": "删除已选任务？",
+      "bulkDeleteDescription": "这会移除已选的 {count} 条任务记录，资源库中的文件不会受影响。",
+      "bulkDeleteConfirm": "删除 {count} 条任务",
+      "bulkDeleteSuccessTitle": "批量删除任务",
+      "bulkDeleteSuccess": "已删除 {count} 条任务记录。",
+      "bulkDeleteFailedTitle": "批量删除任务",
+      "selectAllPage": "全选当前页",
+      "selectRow": "选择任务 {name}",
+      "error": "错误",
+      "failedUnknown": "未知错误",
+      "failedCheck": "检查并重试",
+      "failedCheckTitle": "失败检查",
+      "failedChecking": "检查中...",
+      "failedCheckOk": "正常",
+      "failedCheckFailed": "失败",
+      "failedCheckOpenTools": "打开外部工具",
+      "failedCheckOpenProxy": "打开代理设置",
+      "failedRetry": "重试",
+      "errorCode": "错误代码",
+      "errorMessage": "错误信息",
+      "tabStatus": "状态",
+      "tabOutputs": "输出",
+      "tabLibrary": "资源库",
+      "tabLibraryEmpty": "暂无资源库文件",
+      "tabInfo": "信息",
+      "openSourceWebpage": "打开源网页",
+      "summary": "摘要",
+      "overview": "概览",
+      "correlation": "关联",
+      "requestUrl": "源地址",
+      "requestId": "请求 ID",
+      "runId": "运行 ID",
+      "parentOperation": "父任务",
+      "copySourceUrl": "复制源地址",
+      "copySourceUrlSuccess": "源地址已复制。",
+      "copySourceUrlFailed": "复制源地址失败。",
+      "copyError": "复制错误信息",
+      "copyErrorSuccess": "错误信息已复制。",
+      "copyErrorFailed": "复制错误信息失败。",
+      "checks": {
+        "connectivity": "网络连通性",
+        "ytdlp": "yt-dlp",
+        "ffmpeg": "ffmpeg",
+        "bun": "bun",
+        "version": "yt-dlp 版本",
+        "versionLatest": "{version}（最新）"
+      },
+      "actions": "操作",
+      "cancel": "取消",
+      "cancelFailed": "取消失败",
+      "cancelSuccess": "任务已取消",
+      "cancelSuccessDescription": "字幕任务已停止，并保留了检查点进度。",
+      "checkpoint": "检查点",
+      "constraints": "约束",
+      "dialogDescription": "查看任务状态、输出结果、关联资源库文件以及详细元数据。",
+      "failedCheckDescription": "在重试失败任务前，先检查依赖和运行环境状态。",
+      "failedChunks": "失败分块",
+      "glossaryProfiles": "术语表",
+      "inlinePrompt": "内联提示词",
+      "promptProfiles": "提示词配置",
+      "referenceTracks": "参考轨道",
+      "resume": "继续",
+      "resumed": "已继续",
+      "resumeFailed": "继续失败",
+      "resumeSuccess": "任务已继续",
+      "resumeSuccessDescription": "字幕任务会在可用时从已保存的检查点继续执行。",
+      "subtitleChunks": "分块"
+    },
+    "file": {
+      "deleteTitle": "删除文件？",
+      "deleteDescription": "这会把 {name} 从资源库中移除，关联任务记录仍会保留，并显示该文件已删除。",
+      "deleteImpactDescription": "关联任务：{task}。删除该文件不会删除任务，也不会删除资源库。",
+      "deleteKeepTaskDescription": "删除该文件只影响文件本身，资源库会保留。",
+      "deleteFilesLabel": "同时删除本地文件",
+      "deleteFilesTitle": "将删除的本地文件",
+      "deleteConfirm": "删除文件",
+      "deleteSuccessTitle": "删除文件",
+      "deleteSuccess": "文件已从资源库移除。",
+      "deleteSuccessWithLocal": "文件已从资源库移除，并已删除本地文件。",
+      "deleteFailedTitle": "删除文件",
+      "bulkDeleteTitle": "删除已选文件？",
+      "bulkDeleteDescription": "这会将已选的 {count} 条文件记录从资源库中移除，本地文件不会受影响。",
+      "bulkDeleteConfirm": "删除 {count} 个文件",
+      "bulkDeleteSuccessTitle": "批量删除文件",
+      "bulkDeleteSuccess": "已删除 {count} 条文件记录。",
+      "bulkDeleteFailedTitle": "批量删除文件",
+      "selectAllPage": "全选当前页",
+      "selectRow": "选择文件 {name}"
+    },
+    "columns": {
+      "taskName": "名称",
+      "library": "资源库",
+      "type": "类型",
+      "source": "来源",
+      "domain": "域名",
+      "platform": "平台",
+      "uploader": "作者",
+      "status": "状态",
+      "progress": "进度",
+      "outputCount": "输出文件",
+      "outputSize": "输出大小",
+      "duration": "耗时",
+      "publishTime": "发布时间",
+      "startedAt": "开始时间",
+      "createTime": "创建时间",
+      "file": "文件",
+      "size": "大小",
+      "task": "任务",
+      "fileFormat": "文件格式",
+      "id": "ID"
+    },
+    "jobType": {
+      "ytdlp": "YT-DLP",
+      "subtitleTranslate": "字幕翻译",
+      "transcode": "转码",
+      "subtitleProofread": "字幕校对",
+      "subtitleQaReview": "字幕 QA 审阅"
+    },
+    "tooltips": {
+      "previewImage": "预览图片",
+      "openTaskDialog": "查看任务",
+      "outputCount": "文件数：{count}",
+      "outputSize": "总大小：{size}",
+      "openFolder": "打开文件夹"
+    },
+    "table": {
+      "noResults": "暂无数据。",
+      "totalTasks": "总计 {count} 个任务",
+      "totalFiles": "总计 {count} 个文件",
+      "pageOf": "第 {page} / {total} 页",
+      "rowsPerPage": "每页 {count} 条",
+      "prevPage": "上一页",
+      "nextPage": "下一页",
+      "noOutputs": "暂无输出"
+    },
+    "rowMenu": {
+      "actions": "行操作",
+      "openFolder": "打开文件夹",
+      "editName": "编辑名称",
+      "delete": "删除",
+      "deleteFilesLabel": "同时删除文件",
+      "deleteFilesTitle": "将被删除的文件",
+      "deleteFilesEmpty": "未选择删除文件",
+      "renameTitle": "编辑名称",
+      "renameDescription": "更新 {name} 的名称。",
+      "renamePlaceholder": "输入新名称",
+      "renameCancel": "取消",
+      "renameConfirm": "保存",
+      "renameFallback": "该项",
+      "deleteTitle": "确认删除？",
+      "deleteDescription": "将从资源库移除 {name}，此操作不可撤销。",
+      "deleteCancel": "取消",
+      "deleteConfirm": "删除"
+    },
+    "outputs": {
+      "zeroSize": "0 MB"
+    },
+    "status": {
+      "existence": "可用",
+      "nonExistence": "缺失",
+      "deleted": "已删除",
+      "queued": "排队中",
+      "running": "进行中",
+      "succeeded": "已完成",
+      "failed": "失败",
+      "ready": "就绪",
+      "canceled": "已取消",
+      "unknown": "未知"
+    },
+    "type": {
+      "video": "视频",
+      "audio": "音频",
+      "subtitle": "字幕",
+      "thumbnail": "封面",
+      "transcode": "转码",
+      "import": "导入",
+      "manual": "手动",
+      "other": "其他"
+    },
+    "source": {
+      "unknown": "未知来源"
+    },
+    "overview": {
+      "card": {
+        "files": "文件",
+        "filesDetail": "{count} 个资源库",
+        "operations": "任务",
+        "operationsDetail": "{count} 个运行中/排队中",
+        "success": "成功率",
+        "successDetail": "{count} 个已完成",
+        "storage": "存储",
+        "storageDetail": "近 7 天 {count} 个任务"
+      },
+      "chart": {
+        "title": "任务趋势",
+        "success": "成功",
+        "failed": "失败"
+      },
+      "recent": "最近记录",
+      "recentEmpty": "暂无最近记录",
+      "granularity": {
+        "1d": "1 天",
+        "7d": "7 天",
+        "30d": "30 天"
+      }
+    },
+    "preview": {
+      "imageTitle": "图片预览",
+      "imageUnavailable": "无法加载图片预览。"
+    },
+    "import": {
+      "completed": "导入已完成。",
+      "videoPickerTitle": "选择视频文件",
+      "subtitlePickerTitle": "选择字幕文件",
+      "videoFilter": "视频文件",
+      "subtitleFilter": "字幕文件",
+      "openPickerFailed": "无法打开文件选择器",
+      "unsupportedTitle": "文件格式不支持",
+      "videoUnsupportedHint": "请选择项目支持的视频格式文件。",
+      "subtitleUnsupportedHint": "请选择项目支持的字幕格式（srt/vtt/ass/ssa/itt/ttml/fcpxml）。",
+      "videoDialogDescription": "请确认所选视频文件并设置导入名称。",
+      "subtitleDialogDescription": "请确认所选字幕文件并设置导入名称。",
+      "fileName": "文件名",
+      "fileFormat": "格式",
+      "filePath": "路径",
+      "reselect": "重新选择文件",
+      "targetMode": "导入目标",
+      "targetNew": "创建新资源库",
+      "selectFile": "选择文件",
+      "targetCurrent": "导入到当前资源库",
+      "targetCurrentLabel": "当前资源库",
+      "targetCurrentEmpty": "当前未选择资源库",
+      "dialog": {
+        "ready": "就绪",
+        "selected": "已选择",
+        "customTitle": "自定义",
+        "autoTitle": "自动",
+        "targetTitle": "导入目标",
+        "targetDescription": "选择导入后是创建新的资源库，还是写入当前工作台对应的资源库。",
+        "targetHint": "这里只允许复用当前工作台资源库，否则会创建新的资源库条目。",
+        "fileDescription": "在确认导入前，先检查当前选中文件的信息。",
+        "namingTitle": "命名",
+        "namingDescription": "保留建议名称，或者在导入前覆盖它。",
+        "namingHint": "留空时，会默认使用所选文件名去掉扩展名后的结果。",
+        "metrics": {
+          "file": "文件",
+          "target": "目标",
+          "title": "标题",
+          "naming": "命名"
+        }
+      }
+    },
+    "empty": {
+      "description": "创建下载或导入媒体后开始构建资源库。"
+    },
+    "errors": {
+      "unknown": "未知错误"
+    },
+    "loading": {
+      "data": "正在加载资源库数据..."
+    },
+    "time": {
+      "justNow": "刚刚"
+    },
+    "records": {
+      "title": "记录",
+      "empty": "暂无记录",
+      "emptyDescription": "操作记录与导入记录会显示在这里。",
+      "fileCount": "{count} 个文件",
+      "category": {
+        "operation": "操作",
+        "import": "导入"
+      }
+    },
+    "config": {
+      "saving": "正在保存配置",
+      "saveFailedTitle": "保存失败",
+      "workspace": {
+        "title": "工作台",
+        "fastReadLatestState": "快速读取最新状态",
+        "fastReadLatestStateDescription": "打开工作台时，优先加载该资源库最近一次保存的工作台状态。"
+      },
+      "translateLanguages": {
+        "description": "管理全局字幕语言枚举，用于字幕语言识别与翻译目标列表。",
+        "empty": "暂无语言配置。",
+        "searchPlaceholder": "搜索语言",
+        "searchEmpty": "没有匹配当前搜索的语言。",
+        "untitled": "未命名语言",
+        "code": "代码",
+        "aliases": "别名",
+        "aliasesDescription": "使用逗号分割多个别名。",
+        "add": "新增自定义语言",
+        "builtinBadge": "内置",
+        "customBadge": "自定义"
+      },
+      "pages": {
+        "overview": "概览",
+        "overviewDescription": "将工作台默认值和字幕样式就绪度汇总到一个页面。",
+        "overviewWorkspaceDescription": "适用于所有资源库条目的工作台级默认行为。",
+        "taskRuntime": "任务运行参数",
+        "taskRuntimeDescription": "字幕翻译与校对任务的运行参数。",
+        "languages": "语言",
+        "languagesDescription": "字幕任务使用的内置语言与自定义语言。",
+        "glossary": "术语表",
+        "glossaryDescription": "可复用的术语约束与翻译规则。",
+        "prompts": "提示词",
+        "promptsDescription": "翻译与校对流程可复用的提示词预设。",
+        "subtitleStyles": "字幕样式",
+        "subtitleStylesDescription": "用于预览和字幕导出的单语 / 双语字幕样式预设。",
+        "fontManagement": "字体管理",
+        "fontManagementDescription": "跟踪所需字体并修复缺失字体。",
+        "subtitleExportPresets": "字幕导出预设",
+        "subtitleExportPresetsDescription": "统一管理资源库中的字幕导出预设。",
+        "videoExportPresets": "视频导出预设",
+        "videoExportPresetsDescription": "统一管理视频与音频导出预设及字幕路由。",
+        "remoteSources": "远程源",
+        "remoteSourcesDescription": "远程样式清单与字体源同步状态。"
+      },
+      "languageAssets": {
+        "anyLanguage": "任意",
+        "addGlossary": "新增术语表",
+        "glossaryEmpty": "暂无术语表配置。",
+        "glossaryEmptyDescription": "新增一个术语表配置，把术语映射和措辞约束沉淀成可复用资产。",
+        "glossarySearchPlaceholder": "搜索术语表",
+        "glossarySearchEmpty": "没有匹配当前搜索的术语表。",
+        "untitledGlossary": "未命名术语表",
+        "glossaryDescriptionLabel": "描述",
+        "sourceLanguage": "源语言",
+        "targetLanguage": "目标语言",
+        "terms": "术语",
+        "addTerm": "新增术语",
+        "termSource": "源文",
+        "termTarget": "译文",
+        "termNote": "备注 / 使用提示",
+        "removeTerm": "删除术语",
+        "addPrompt": "新增提示词",
+        "promptEmpty": "暂无提示词。",
+        "promptEmptyDescription": "新增一个提示词配置，把语气、风格和额外指令沉淀成可复用预设。",
+        "promptSearchPlaceholder": "搜索提示词",
+        "promptSearchEmpty": "没有匹配当前搜索的提示词。",
+        "untitledPrompt": "未命名提示词",
+        "promptCategory": "类别",
+        "promptDescriptionLabel": "描述",
+        "promptAll": "全部",
+        "promptTranslate": "翻译",
+        "promptProofread": "校对",
+        "promptGlossary": "术语表",
+        "promptBodyLabel": "提示词内容",
+        "promptBody": "例如：统一翻译品牌名，保持字幕措辞紧凑，避免过度直译。"
+      },
+      "subtitleStyles": {
+        "sourceBuiltin": "内置",
+        "sourceRemote": "远程",
+        "sourceLibrary": "资源库",
+        "builtinBadge": "内置",
+        "customBadge": "自定义",
+        "copySuffix": "副本",
+        "customDocument": "自定义字幕样式",
+        "githubSource": "GitHub 样式源",
+        "fontFamily": "字体",
+        "fontSize": "字号",
+        "outlineWidth": "描边",
+        "outlineColor": "描边",
+        "bold": "加粗",
+        "italic": "斜体",
+        "alignment": "对齐方式",
+        "alignmentBottomLeft": "底部左对齐",
+        "alignmentBottomCenter": "底部居中",
+        "alignmentBottomRight": "底部右对齐",
+        "alignmentMiddleLeft": "中部左对齐",
+        "alignmentMiddleCenter": "中部居中",
+        "alignmentMiddleRight": "中部右对齐",
+        "alignmentTopLeft": "顶部左对齐",
+        "alignmentTopCenter": "顶部居中",
+        "alignmentTopRight": "顶部右对齐",
+        "typeMono": "单语",
+        "typeBilingual": "双语",
+        "nameLabel": "名称",
+        "typeLabel": "类型",
+        "aspectRatioLabel": "宽高比",
+        "styleFlagsLabel": "字形",
+        "styleFlagsNormal": "常规",
+        "newPreset": "新建字幕样式",
+        "createPreset": "新建字幕样式",
+        "importPreset": "导入字幕样式",
+        "exportPreset": "导出字幕样式",
+        "allStylesTitle": "全部字幕样式",
+        "presetName": "样式名称",
+        "switchStyle": "切换样式",
+        "saveAs": "另存为",
+        "saveAsStyle": "另存为字幕样式",
+        "monoStyleNamePlaceholder": "单语样式名称",
+        "bilingualStyleNamePlaceholder": "双语样式名称",
+        "applyTemplateConfirm": "应用后会覆盖当前样式，且不可撤销。是否继续？",
+        "newMonoStyle": "新建单语样式",
+        "newBilingualStyle": "新建双语样式",
+        "createFormTitle": "新建样式",
+        "copyStyleLabel": "复制样式",
+        "emptyStyleTemplate": "空白样式",
+        "monoSection": "单语",
+        "bilingualSection": "双语",
+        "emptyMono": "暂无单语样式",
+        "emptyBilingual": "暂无双语样式",
+        "emptyStateTitle": "暂无字幕样式",
+        "emptyStateDescription": "从右上角新建或导入字幕样式后，这里会按单语与双语分组显示。",
+        "emptyDetailTitle": "暂无字幕样式",
+        "emptyDetailDescription": "从右上角新建或导入字幕样式，保存后即可在这里编辑参数并查看实时预览。",
+        "unsavedTitle": "存在未保存更改",
+        "unsavedDescription": "请先保存或撤销当前更改，再切换样式。",
+        "importFailedTitle": "导入字幕样式失败",
+        "importGuideTitle": "导入字幕样式",
+        "importGuideText": "选择 ASS/SSA/DCSSP 文件后，在此页面确认并直接创建样式。",
+        "importStylePrefix": "样式",
+        "importDetailFormatLabel": "格式",
+        "importDetailTypeLabel": "类型",
+        "importDetailNameLabel": "名称",
+        "importDetailAuthorLabel": "作者",
+        "exportSucceededTitle": "导出字幕样式成功",
+        "exportFailedTitle": "导出字幕样式失败",
+        "selectExportFolder": "选择字幕样式导出目录",
+        "previewInfoTitle": "实时预览信息",
+        "resolutionLabel": "分辨率",
+        "currentResolutionLabel": "当前分辨率",
+        "monoStyleSectionTitle": "字体样式",
+        "bilingualMetaSectionTitle": "双语布局与来源",
+        "bilingualRequiresMonoTitle": "无法创建双语样式",
+        "bilingualRequiresMonoDescription": "请先至少保存一个单语样式，再创建双语样式。",
+        "gapLabel": "间距",
+        "blockAnchorLabel": "块锚点",
+        "primarySourceTitle": "主字幕来源",
+        "secondarySourceTitle": "副字幕来源",
+        "selectSourceMonoStyle": "选择单语样式",
+        "primaryTabLabel": "主字幕",
+        "secondaryTabLabel": "副字幕",
+        "primaryStyleTitle": "字体样式",
+        "secondaryStyleTitle": "字体样式",
+        "sectionColors": "颜色与透明度",
+        "sectionRendering": "渲染与排版",
+        "sectionSpacing": "边距与编码",
+        "primaryColorLabel": "主颜色",
+        "secondaryColorLabel": "副颜色",
+        "backColorLabel": "背景颜色",
+        "underline": "下划线",
+        "strikeOut": "删除线",
+        "scaleXLabel": "横向缩放",
+        "scaleYLabel": "纵向缩放",
+        "spacingLabel": "字间距",
+        "angleLabel": "旋转角度",
+        "borderStyleLabel": "边框样式",
+        "borderStyleOutline": "描边",
+        "borderStyleBox": "盒状背景",
+        "shadowLabel": "阴影",
+        "marginLLabel": "左边距",
+        "marginRLabel": "右边距",
+        "marginVLabel": "垂直边距",
+        "encodingLabel": "编码",
+        "overviewTitle": "字幕样式看板",
+        "overviewDescription": "概览聚焦单语 / 双语字幕样式预设的就绪度、默认路由与远程覆盖情况。",
+        "defaultsTitle": "默认路由",
+        "defaultsDescription": "这里展示当前默认使用的单语 / 双语字幕样式。",
+        "defaultMono": "默认单语样式",
+        "defaultBilingual": "默认双语样式",
+        "monoStyles": "单语样式",
+        "bilingualStyles": "双语样式",
+        "addExportProfile": "新增字幕导出预设",
+        "exportProfileFallback": "字幕导出预设",
+        "subtitleExportPresetFallback": "字幕导出预设",
+        "exportProfileDefaultName": "新字幕导出预设",
+        "subtitleExportPresetDefaultName": "新字幕导出预设",
+        "exportProfileStyleDocument": "字幕样式",
+        "exportProfileMediaStrategy": "媒体匹配策略",
+        "mediaStrategyAuto": "自动",
+        "mediaStrategyFixed": "固定",
+        "defaultExportProfile": "默认字幕导出预设",
+        "setDefaultExportProfile": "设为默认字幕导出预设",
+        "defaultBadge": "默认",
+        "totalStyles": "样式总数",
+        "subtitleExportPresets": "字幕导出预设",
+        "vttKindSubtitles": "字幕",
+        "vttKindCaptions": "隐藏式字幕",
+        "vttKindDescriptions": "音频描述",
+        "emptySubtitleExportPresets": "暂无字幕导出预设。",
+        "emptyDocuments": "暂无字幕样式。",
+        "untitledDocument": "未命名字幕样式",
+        "documentName": "文档名称",
+        "detectedFormat": "识别格式",
+        "scriptType": "ScriptType",
+        "playRes": "脚本分辨率",
+        "playResX": "脚本宽度",
+        "playResY": "脚本高度",
+        "stylesCount": "样式数",
+        "dialogueCount": "对白数",
+        "commentCount": "注释数",
+        "styleNames": "样式名称",
+        "styleSources": "样式源",
+        "fontSources": "字体源",
+        "requiredFonts": "字体",
+        "resolvedFonts": "已解析字体",
+        "managedFonts": "已管理字体",
+        "missingFonts": "缺失字体",
+        "fontCoverage": "字体覆盖",
+        "fontCoverageComplete": "所需字体均已就绪",
+        "deliveryReadinessTitle": "交付就绪度",
+        "deliveryReadinessDescription": "快速查看预览与导出所需的字体和远程源是否已经就绪。",
+        "fontManagementTitle": "字体管理",
+        "fontManagementDescription": "缺失字体会先从已启用的远程字体源搜索。安装行为改为遵循 FontGet 的当前用户字体安装方式，让操作系统直接可用。",
+        "referencedFontsTitle": "引用字体",
+        "referencedFontsDescription": "这里列出字幕样式引用的所有字体。若本机缺失，可直接从已启用的远程字体源修复。",
+        "fontStatusMissing": "缺失",
+        "fontStatusInstalled": "已安装",
+        "usedByStyles": "使用样式",
+        "systemFontFamily": "系统字体族",
+        "systemFontCatalog": "系统字体目录",
+        "noFontsReferenced": "未声明显式字体要求",
+        "featureFlags": "特性标记",
+        "validationIssues": "校验问题",
+        "featureOverrideTags": "Override 标签",
+        "featureFontOverride": "字体覆盖",
+        "featurePositioning": "定位",
+        "featureTransform": "变换",
+        "featureKaraoke": "卡拉 OK",
+        "featureVectorDrawing": "矢量绘图",
+        "featureClipping": "裁剪",
+        "featureFade": "淡入淡出",
+        "assContent": "ASS 内容",
+        "raw": "原文",
+        "duplicate": "复制",
+        "enabled": "启用",
+        "disabled": "已禁用",
+        "defaultDocumentReady": "就绪",
+        "setDefault": "设置默认",
+        "styleSourcesTitle": "远程样式源",
+        "styleSourcesDescription": "配置远程字幕样式源，可浏览列表并将选中的样式导入到本项目的字幕样式。",
+        "addRemoteSource": "新增远程源",
+        "addStyleSource": "新增样式源",
+        "addFontSource": "新增字体源",
+        "emptyStyleSources": "暂无远程样式源。",
+        "browseSource": "浏览",
+        "browseSourceFailedTitle": "浏览源失败",
+        "sourceKindStyle": "样式源",
+        "fontSourcesTitle": "远程字体源",
+        "fontSourcesDescription": "内置 FontGet 字体源默认始终启用。在这里查看同步状态，并在需要时主动刷新元信息。",
+        "fontSourcesAlreadyAvailable": "当前内置字体源已在列表中，无需重复新增。",
+        "emptyFontSources": "暂无远程字体源。",
+        "sourceName": "来源名称",
+        "provider": "提供方",
+        "sourceEnabled": "启用",
+        "owner": "所有者",
+        "repo": "仓库",
+        "ref": "分支 / 标签",
+        "manifestPath": "manifest.json",
+        "syncStatus": "同步状态",
+        "lastError": "最近错误",
+        "syncIdle": "空闲",
+        "syncReady": "就绪",
+        "syncSyncing": "同步中",
+        "syncError": "错误",
+        "repairingFont": "安装字体中",
+        "syncFontSource": "同步",
+        "syncingFontSource": "同步中",
+        "syncingFontSourceDescription": "正在刷新远程字体元信息...",
+        "syncFontSourceSuccessTitle": "字体源已同步",
+        "syncFontSourceSuccessDescription": "远程字体源元信息已刷新。",
+        "syncFontSourceFailedTitle": "字体源同步失败",
+        "syncFontSourceFailedFallback": "无法同步当前字体源。",
+        "syncFontSourceFailedShort": "同步失败",
+        "fontSourceFontsUnit": "个字体",
+        "fontSourceUpdated": "源更新时间",
+        "fontSourceLastSynced": "最近同步",
+        "fontSourceNeverSynced": "尚未同步",
+        "installToUserFont": "安装到当前用户字体",
+        "installUserFontSuccessTitle": "当前用户字体已安装",
+        "installUserFontSuccessDescription": "字体已安装到当前用户字体目录，字体列表将自动刷新。",
+        "installUserFontFailedTitle": "当前用户字体安装失败",
+        "installMachineFontSuccessTitle": "系统字体已安装",
+        "installMachineFontSuccessDescription": "字体已安装到系统字体目录，字体列表将自动刷新。",
+        "installMachineFontFailedTitle": "系统字体安装失败",
+        "noFontSourceEnabled": "请先启用至少一个远程字体源，再修复缺失字体。",
+        "searchingRemoteFonts": "正在搜索远程字体...",
+        "remoteMatches": "远程匹配",
+        "remoteUnavailableMatches": "不可安装匹配",
+        "remoteMatchUnavailable": "已在远程字体源中找到条目，但当前无法安装。",
+        "remoteFontUnavailableNoDownload": "远程源中有这个字体条目，但没有提供可下载的字体文件。",
+        "remoteFontUnavailableUnsupported": "远程源中有这个字体条目，但当前下载格式暂不支持安装。",
+        "remoteFontUnavailableGeneric": "远程源中有这个字体条目，但当前无法安装。",
+        "noRemoteFontMatch": "未找到可用的远程字体匹配。",
+        "remoteStatus": "远程状态",
+        "version": "版本",
+        "imported": "已导入",
+        "importToLibrary": "导入到本项目",
+        "updateImport": "更新导入",
+        "emptyRemoteStyleItems": "该清单中暂无可导入的远程样式。",
+        "importSourceItemSuccessTitle": "样式已导入",
+        "importSourceItemCreated": "远程字幕样式已添加到字幕样式中。",
+        "importSourceItemUpdated": "当前资源库中的远程字幕样式已刷新。",
+        "importSourceItemFailedTitle": "导入失败"
+      },
+      "taskRuntime": {
+        "translateTitle": "翻译运行参数",
+        "proofreadTitle": "校对运行参数",
+        "searchPlaceholder": "搜索运行参数",
+        "searchEmpty": "没有匹配当前搜索的运行参数。",
+        "structuredOutput": "结构化输出",
+        "structuredOutputDescription": "自动模式会优先尝试 JSON Schema；若提供方拒绝 response_format，则回退为仅通过提示词生成 JSON。",
+        "structuredOutputAuto": "自动回退",
+        "structuredOutputSchema": "仅 JSON Schema",
+        "structuredOutputPrompt": "仅提示词 JSON",
+        "thinkingMode": "思考模式",
+        "thinkingModeDescription": "对结构化字幕任务而言，关闭思考模式通常更稳定。",
+        "thinkingOff": "关闭",
+        "thinkingMinimal": "极低",
+        "thinkingLow": "低",
+        "thinkingMedium": "中",
+        "thinkingHigh": "高",
+        "thinkingExtraHigh": "极高",
+        "maxTokensFloor": "最小词元预算",
+        "maxTokensFloorDescription": "为单个分块保留的最小输出词元预算。",
+        "maxTokensCeiling": "最大词元上限",
+        "maxTokensCeilingDescription": "估算分块大小后采用的输出词元上限。",
+        "retryTokenStep": "重试词元步长",
+        "retryTokenStepDescription": "分块响应无效时，重试额外增加的输出词元数。"
+      },
+      "videoExportPresets": {
+        "videoDefaultName": "新视频导出预设",
+        "audioDefaultName": "新音频导出预设",
+        "copySuffix": "副本",
+        "videoUntitled": "未命名视频导出预设",
+        "audioUntitled": "未命名音频导出预设",
+        "savedTitle": "视频导出预设已保存",
+        "savedDescription": "自定义视频导出预设已更新。",
+        "saveFailedTitle": "保存视频导出预设失败",
+        "deletedTitle": "视频导出预设已删除",
+        "deletedDescription": "自定义导出预设已移除。",
+        "deleteFailedTitle": "删除视频导出预设失败",
+        "addVideo": "新增视频导出预设",
+        "addVideoOption": "视频预设",
+        "addAudioOption": "音频预设",
+        "empty": "暂无视频导出预设。",
+        "name": "预设名称",
+        "outputType": "输出类型",
+        "container": "封装格式",
+        "videoCodec": "视频编码",
+        "audioCodec": "音频编码",
+        "audioBitrate": "音频码率",
+        "audioBitrateDescription": "目标音频码率，单位 kbps。",
+        "qualityMode": "画质模式",
+        "videoBitrate": "视频码率",
+        "crf": "CRF",
+        "videoBitrateDescription": "目标视频码率，单位 kbps。",
+        "crfDescription": "CRF 越低，输出画质越高。",
+        "scale": "分辨率",
+        "customWidthDescription": "输出宽度，单位像素。",
+        "customHeightDescription": "输出高度，单位像素。",
+        "ffmpegPreset": "FFmpeg 速度预设",
+        "allowUpscale": "允许放大",
+        "allowUpscaleDescription": "当源视频分辨率较小时，仍允许输出到目标分辨率。",
+        "lossless": "无损",
+        "searchPlaceholder": "搜索预设",
+        "searchEmpty": "当前搜索没有匹配的预设。",
+        "emptyDetailTitle": "选择一个视频导出预设",
+        "emptyDetailDescription": "从左侧选择一个预设，或新建一个视频 / 音频导出预设。"
+      },
+      "taskDefaults": {
+        "none": "无"
+      }
+    },
+    "select": {
+      "description": "选择一个资源库以查看任务、文件和记录。"
+    },
+    "subtitle": {
+      "documentMissing": "字幕文档缺失。",
+      "translateCreated": "字幕翻译任务已创建。"
+    },
+    "transcode": {
+      "created": "转码任务已创建。",
+      "missingPreset": "没有可匹配的视频导出预设。"
+    },
+    "progress": {
+      "preparing": "准备中",
+      "starting": "开始中",
+      "fetchingMetadata": "获取元信息中",
+      "translating": "翻译中",
+      "proofreading": "校对中",
+      "qaReviewing": "QA 审核中",
+      "transcoding": "转码中",
+      "downloading": "下载中",
+      "downloadingVideo": "下载视频中",
+      "downloadingAudio": "下载音频中",
+      "downloadingSubtitles": "下载字幕中",
+      "downloadingThumbnail": "下载封面中",
+      "muxing": "合并中",
+      "cleaningUp": "清理中",
+      "postProcessing": "后处理"
+    },
+    "progressDetail": {
+      "preparingDownload": "准备下载",
+      "preparingSubtitleTranslation": "准备字幕翻译",
+      "preparingSubtitleProofread": "准备字幕校对",
+      "preparingSubtitleQaReview": "准备字幕 QA 审核",
+      "preparingFfmpegTranscode": "准备 FFmpeg 转码",
+      "ffmpegRenderingOutput": "FFmpeg 正在渲染输出",
+      "ffmpegTranscodeQueued": "FFmpeg 转码已排队",
+      "ffmpegTranscodeCompleted": "FFmpeg 转码已完成",
+      "subtitleTranslationQueued": "字幕翻译已排队",
+      "subtitleTranslationCompleted": "字幕翻译已完成",
+      "subtitleProofreadQueued": "字幕校对已排队",
+      "subtitleProofreadCompleted": "字幕校对已完成",
+      "subtitleQaReviewQueued": "字幕 QA 审核已排队",
+      "subtitleQaReviewCompleted": "字幕 QA 审核已完成",
+      "resumeRequested": "已请求继续执行",
+      "canceledByUser": "已由用户取消",
+      "downloadCanceled": "下载已取消",
+      "transcodeCanceled": "转码已取消",
+      "subtitleTranslationCanceled": "字幕翻译已取消",
+      "subtitleProofreadCanceled": "字幕校对已取消",
+      "subtitleQaReviewCanceled": "字幕 QA 审核已取消",
+      "operationCanceled": "任务已取消",
+      "downloadFailed": "下载失败",
+      "transcodeFailed": "转码失败",
+      "subtitleTranslationFailed": "字幕翻译失败",
+      "subtitleProofreadFailed": "字幕校对失败",
+      "subtitleQaReviewFailed": "字幕 QA 审核失败",
+      "operationFailed": "任务失败",
+      "translatedChunk": "已翻译分块 {current} / {total}",
+      "proofreadChunk": "已校对分块 {current} / {total}"
+    },
+    "workspace": {
+      "exportVideo": "导出视频",
+      "exportSubtitle": "导出字幕",
+      "libraryMeta": "{videos} 个视频 · {subtitles} 个字幕 · {thumbnails} 个封面",
+      "emptyTitle": "请先打开资源库",
+      "emptyDescription": "工作台只展示当前资源库中的视频和字幕资源。未打开资源库时，此视图会保持为空。",
+      "actions": {
+        "transcode": "转码",
+        "translate": "翻译",
+        "export": "导出",
+        "proofread": "校对"
+      },
+      "fields": {
+        "width": "宽度",
+        "height": "高度",
+        "exportFormat": "导出格式"
+      },
+      "header": {
+        "videoEditing": "视频编辑",
+        "subtitleEditing": "字幕编辑",
+        "displaySingle": "单语",
+        "displayDual": "双语",
+        "video": "视频",
+        "track": "轨道",
+        "secondary": "副轨道",
+        "style": "样式",
+        "guideline": "规范",
+        "proofread": "校对",
+        "qa": "校验",
+        "restore": "恢复",
+        "noVideoVersion": "暂无视频版本",
+        "noSubtitleTrack": "暂无字幕轨道",
+        "trackNumber": "轨道 {count}",
+        "videoNumber": "视频 {count}",
+        "noPairedTrack": "不配对轨道",
+        "noPairedTrackHint": "仅使用单字幕轨道。",
+        "noReferenceTrack": "不使用参考轨道",
+        "noReferenceTrackHint": "仅基于当前源字幕轨道进行翻译。",
+        "translateRunningCount": "翻译中 · {count}",
+        "translateRunning": "翻译中",
+        "proofreadRunning": "校对中",
+        "existingSubtitleLane": "现有字幕轨道"
+      },
+      "track": {
+        "translation": "译文",
+        "reference": "参考"
+      },
+      "toolbar": {
+        "searchPlaceholder": "搜索字幕文本",
+        "replacePlaceholder": "替换为",
+        "apply": "应用",
+        "autoFollow": "自动跟随",
+        "filterAll": "全部条目",
+        "filterNeedsReview": "待复查",
+        "filterEdited": "已编辑",
+        "filterCurrentWindow": "当前窗口",
+        "qaAll": "校验：全部",
+        "qaIssues": "校验：有问题",
+        "qaWarnings": "校验：警告",
+        "qaErrors": "校验：错误",
+        "qaClean": "校验：通过",
+        "densityComfortable": "舒适",
+        "densityCompact": "紧凑"
+      },
+      "table": {
+        "timelineTitle": "字幕时间线",
+        "editorTitle": "字幕编辑器",
+        "visibleCount": "可见 {count} 条",
+        "needReviewCount": "待复查 {count} 条",
+        "pendingReview": "待审阅",
+        "current": "当前",
+        "editing": "编辑中",
+        "draftStatus": "草稿",
+        "draftSaved": "已同步",
+        "draftSaving": "保存中...",
+        "draftDirty": "待保存",
+        "draftEditing": "编辑中",
+        "draftSaveFailed": "保存失败",
+        "track": "轨道",
+        "primaryTrack": "主轨",
+        "secondaryTrack": "副轨",
+        "notSelected": "未选择",
+        "modeSingle": "单语",
+        "modeDual": "双语",
+        "columnTime": "时间",
+        "columnStart": "开始",
+        "columnEnd": "结束",
+        "columnDuration": "时长",
+        "columnText": "文本",
+        "columnSuggestion": "建议",
+        "columnDecision": "处理",
+        "emptyFiltered": "当前筛选条件下没有匹配的字幕条目。",
+        "loading": "正在加载字幕条目..."
+      },
+      "dialogs": {
+        "required": "必填",
+        "exportVideo": {
+          "inputSection": "输入",
+          "outputSection": "输出",
+          "currentVideoFallback": "当前视频",
+          "primaryTrack": "主字幕",
+          "secondaryTrack": "副字幕",
+          "trackEmpty": "未选择",
+          "presetEmpty": "未选择预设",
+          "cueCount": "{count} 条",
+          "resolution": "分辨率",
+          "outputHint": "视频导出预设统一在资源库配置中管理，并与其他导出流程保持一致。",
+          "subtitleHandlingTitle": "字幕处理",
+          "subtitleHandlingDescription": "决定视频导出时是否不带字幕、内嵌可切换字幕轨，或直接烧录到画面中。",
+          "trackMappingTitle": "轨道映射",
+          "embedStyleUnsupported": "当前容器的内嵌字幕仅支持文本格式（{route}），导出时会自动回退到该路由；ASS 样式仅在烧录或支持 ASS 内嵌时生效。",
+          "displayMode": "显示模式",
+          "queueing": "加入队列中...",
+          "submit": "加入导出队列",
+          "metrics": {
+            "cueScope": "字幕条目",
+            "subtitleMode": "字幕模式",
+            "subtitleDraft": "字幕草稿"
+          },
+          "handling": {
+            "none": "不含字幕",
+            "noneDescription": "仅导出视频本身，不内嵌字幕，也不烧录字幕。",
+            "embed": "内嵌字幕轨",
+            "embedDescription": "将软字幕轨直接 mux 到导出视频中，播放器可按需开关。",
+            "burnin": "烧录 ASS",
+            "burninDescription": "使用当前工作台字幕视图和所选字幕样式，将字幕直接烧录进导出视频。"
+          }
+        },
+        "exportSubtitle": {
+          "inputSection": "输入",
+          "outputSection": "输出",
+          "fileFallback": "当前字幕",
+          "profileManual": "手动配置（不使用预设）",
+          "track": "轨道",
+          "trackEmpty": "未选择",
+          "trackRequired": "请先选择一个字幕轨道，再导出当前草稿。",
+          "currentFormat": "当前格式",
+          "encoding": "编码",
+          "kind": "类型",
+          "language": "语言",
+          "playRes": "脚本分辨率",
+          "title": "标题",
+          "resolution": "分辨率",
+          "projectName": "项目名称",
+          "libraryName": "资源库名称",
+          "eventName": "事件名称",
+          "frameRate": "帧率",
+          "frameRateMultiplier": "帧率倍率",
+          "frameDuration": "帧时长",
+          "vttKindSubtitles": "字幕",
+          "vttKindCaptions": "隐藏式字幕",
+          "vttKindDescriptions": "音频描述",
+          "width": "宽度",
+          "height": "高度",
+          "colorSpace": "色彩空间",
+          "version": "版本",
+          "defaultLane": "默认轨道",
+          "startTimecodeSeconds": "起始时间码（秒）",
+          "draftDirty": "有未保存修改",
+          "draftSaved": "已同步",
+          "outputTitle": "输出",
+          "saveDescription": "确认后会打开系统保存对话框，用于选择导出路径。",
+          "exporting": "导出中...",
+          "metrics": {
+            "cueScope": "字幕条目",
+            "draftStatus": "草稿状态"
+          },
+          "fileType": "字幕文件"
+        },
+        "shared": {
+          "cueCount": "{count} 条",
+          "cueScope": "字幕条目"
+        },
+        "importSubtitle": {
+          "title": "导入字幕",
+          "description": "在工作台导入流程接管前，先配置确定性的文本清理步骤。",
+          "currentGuideline": "当前规范",
+          "workspaceCues": "工作台字幕条目",
+          "currentProfile": "当前配置：{name}",
+          "guidelineSource": "规范来源",
+          "guidelineSourceCurrent": "使用当前工作台配置",
+          "guidelineSourceOverride": "导入时覆盖",
+          "guidelineShortCurrent": "当前",
+          "guidelineShortOverride": "覆盖",
+          "subtitleOnly": "仅字幕",
+          "metrics": {
+            "normalization": "规范化",
+            "cueScope": "字幕条目",
+            "guideline": "规范",
+            "nextStep": "下一步"
+          },
+          "pickFile": "选择文件",
+          "normalizationTitle": "导入规范化",
+          "normalizationDescription": "这里只放安全的清理步骤；结构化 QA 和语言校对仍然保持独立。",
+          "normalizeLineBreaks": "统一换行",
+          "normalizeLineBreaksDescription": "将混用的换行风格统一为工作台安全格式。",
+          "trimWhitespace": "裁剪空白",
+          "trimWhitespaceDescription": "移除每行字幕首尾多余空格。",
+          "removeBlankLines": "移除空行",
+          "removeBlankLinesDescription": "合并会让字幕看起来断裂的空行。",
+          "repairEncoding": "修复编码 / BOM",
+          "repairEncodingDescription": "在解析字幕源之前，先应用基础兼容性修复。",
+          "guidelineInheritanceTitle": "规范继承",
+          "guidelineInheritanceDescription": "导入字幕默认继承当前配置，但你也可以在本次导入中覆盖它。",
+          "useCurrentGuideline": "使用当前工作台规范",
+          "overrideProfile": "覆盖配置",
+          "continueImport": "继续导入"
+        },
+        "languageTask": {
+          "title": "工作台任务",
+          "description": "为当前工作台草稿配置翻译、校对或结构化 QA。",
+          "filterShow": "显示",
+          "filterOptional": "可选",
+          "filterAll": "全部",
+          "notSelected": "未选择",
+          "modelTitle": "模型",
+          "openSettings": "打开设置",
+          "targetTitle": "目标",
+          "targetLanguage": "目标语言",
+          "targetLanguageDescription": "选择新派生字幕轨要输出的语言。",
+          "noLanguageProfile": "暂无语言配置",
+          "sourceLane": "源字幕轨",
+          "translateSourceLaneDescription": "选择当前工作台中作为翻译输入的字幕轨。",
+          "profilesTitle": "配置",
+          "glossaryProfiles": "术语表配置",
+          "glossaryProfilesDescription": "可复用的术语锁定与固定措辞约束。",
+          "noGlossaryProfiles": "资源库配置中还没有术语表配置。",
+          "referenceTrackDescription": "可选的额外字幕轨，用于提供术语或风格参考。",
+          "promptProfilesDescription": "可复用的风格和语气指导。",
+          "noPromptProfiles": "资源库配置中还没有提示词配置。",
+          "inlinePromptDescription": "本次任务的一次性补充指令。",
+          "translateInlinePromptPlaceholder": "例如：保持语气简洁现代，品牌名遵循术语表，并避免过度直译。",
+          "optionalProfileName": "可选的配置名称",
+          "saveAsPromptProfile": "保存为提示词配置",
+          "scopeTitle": "范围",
+          "proofreadSourceLaneDescription": "选择当前工作台中作为校对输入的字幕轨。",
+          "proofreadChecks": {
+            "spelling": "拼写与错别字",
+            "spellingDescription": "修正明显的措辞错误。",
+            "punctuation": "标点一致性",
+            "punctuationDescription": "统一标点风格。",
+            "terminology": "术语一致性",
+            "terminologyDescription": "保持命名和术语前后一致。"
+          },
+          "proofreadPromptProfilesDescription": "可复用的校对指导。",
+          "noProofreadPromptProfiles": "资源库配置中还没有校对提示词配置。",
+          "proofreadInlinePromptPlaceholder": "例如：保持说话人口吻自然，保留刻意停顿，并尽量使用简洁的标点。",
+          "proofreadPromptFallback": "校对提示词",
+          "metrics": {
+            "profiles": "配置数",
+            "prompt": "提示词",
+            "total": "总计",
+            "checks": "检查项",
+            "draft": "草稿",
+            "action": "操作"
+          },
+          "currentLane": "当前字幕轨",
+          "qaGuideline": "QA 规范",
+          "qaGuidelineDescription": "控制当前实时 QA 使用的规范，用于时间轴、CPS、CPL、文本与排版检查。",
+          "qaGuidelineDescriptionLong": "切换当前字幕校验所使用的规范，用于时间轴、CPS、CPL、文本与排版检查。",
+          "qaRealtimeTitle": "实时校验",
+          "qaRealtimeDescription": "开启后会立即影响行内提示、建议内容和指标列显示；关闭后对应项不再参与 QA。",
+          "qaChecks": {
+            "text": "文本",
+            "textDescription": "标记当前草稿中的空文本条目。",
+            "timing": "时间轴",
+            "timingDescription": "标记时长过短和间隔过紧的字幕。",
+            "layout": "换行排版",
+            "layoutDescription": "标记超出当前规范最大行数的字幕排版。",
+            "cps": "CPS",
+            "cpsDescription": "显示 CPS 列，并标记超过当前规范的字幕。",
+            "cpl": "CPL",
+            "cplDescription": "显示 CPL 列，并标记超过当前规范的字幕。"
+          },
+          "issueBreakdownTitle": "问题分布",
+          "warningTitle": "警告",
+          "destructive": "高风险",
+          "restoreWarningDescription": "恢复操作会用该字幕轨的原始字幕源替换当前工作台草稿。",
+          "restoreOriginalTitle": "恢复原始字幕",
+          "danger": "危险",
+          "resetCurrentDraft": "重置当前草稿",
+          "resetCurrentDraftDescription": "丢弃当前工作台修改，并为选中的字幕轨重新载入原始字幕源。",
+          "restoreOriginalAction": "恢复原文",
+          "restoreOriginalWarning": "此操作会移除所选字幕轨的当前草稿修改，并重新加载原始字幕源。",
+          "restoreAction": "重置",
+          "selectedCount": "已选 {count} 项",
+          "queueTranslation": "加入翻译队列",
+          "queueProofread": "加入校对队列",
+          "translatePromptFallback": "翻译提示词"
+        }
+      },
+      "languages": {
+        "english": "英语 (EN)",
+        "chinese": "中文 (ZH)",
+        "japanese": "日语 (JA)"
+      },
+      "languageAssets": {
+        "termSingular": "1 个术语",
+        "termPlural": "{count} 个术语"
+      },
+      "guideline": {
+        "netflix": {
+          "label": "Netflix",
+          "hint": "偏均衡的流媒体默认规范"
+        },
+        "bbc": {
+          "label": "BBC",
+          "hint": "面向广播场景的易读性规范"
+        },
+        "ade": {
+          "label": "ADE",
+          "hint": "更保守的无障碍规范"
+        },
+        "custom": {
+          "label": "自定义",
+          "hint": "应用内较宽松的工作规范"
+        }
+      },
+      "scale": {
+        "original": "原始尺寸",
+        "custom": "自定义"
+      },
+      "preview": {
+        "cueLabel": "条目 {count}",
+        "placeholderTitle": "视频预览占位区",
+        "placeholderDescription": "Vidstack 与 LibASS 预览已就绪。接入媒体资源后，即可检查字幕渲染、播放同步和烧录一致性。"
+      },
+      "meta": {
+        "language": "语言",
+        "format": "格式",
+        "cues": "条目数",
+        "duration": "时长",
+        "resolution": "分辨率",
+        "frameRate": "帧率"
+      },
+      "subtitle": {
+        "noSelection": "未选择字幕文件。",
+        "sourceUnavailable": "字幕源不可用。",
+        "replace": "替换",
+        "validateHint": "校验当前字幕草稿的时间轴与文本问题。",
+        "parseFailed": "字幕文件解析失败。",
+        "exported": "字幕草稿已导出。"
+      },
+      "task": {
+        "running": "进行中"
+      },
+      "waveform": {
+        "title": "波形时间线",
+        "cueCount": "{count} 条字幕",
+        "segmentMarkers": "片段标记预留位",
+        "disabled": "波形已关闭",
+        "disabledLargeMedia": "为保证工作台稳定，像 {size} 这样的大文件会关闭波形解码，但视频预览仍可正常播放。",
+        "disabledLongMedia": "为保证工作台稳定，像 {duration} 这样较长的媒体会关闭波形解码，但视频预览仍可正常播放。",
+        "liveCue": "当前 {count}",
+        "idle": "空闲"
+      },
+      "transcode": {
+        "selectPreset": "选择视频导出预设",
+        "tabVideo": "视频",
+        "tabAudio": "音频",
+        "outputVideo": "视频",
+        "outputAudio": "音频",
+        "bitrate": "码率 (kbps)",
+        "summary": {
+          "original": "原始尺寸",
+          "kbps": "{value} kbps",
+          "crf": "CRF {value}",
+          "copy": "复制"
+        }
+      },
+      "readiness": {
+        "checkingTitle": "正在检查 Gateway 模型",
+        "checkingDescription": "正在检查默认 Assistant、提供方模型和 API Key，确认后再启动翻译。",
+        "noAssistantTitle": "没有可用的 Assistant",
+        "noAssistantDescription": "请先在 Gateway 设置中创建或启用默认 Assistant，再启动字幕翻译。",
+        "assistantDisabledTitle": "Assistant 已禁用",
+        "assistantDisabledDescription": "请先在 Gateway 设置中启用默认 Assistant，再启动字幕翻译。",
+        "assistantModelMissingTitle": "Assistant 模型尚未配置",
+        "assistantModelMissingDescription": "请先为默认 Assistant 选择主 Agent 模型，再启动字幕翻译。",
+        "noProviderModelTitle": "没有可用的提供方模型",
+        "noProviderModelDescription": "请先启用提供方，并同步至少一个聊天模型，再启动字幕翻译。",
+        "modelReferenceInvalidTitle": "Assistant 模型引用不完整",
+        "modelReferenceInvalidDescription": "默认 Assistant 的模型配置必须同时包含 provider 和 model name。",
+        "providerUnavailableTitle": "提供方不可用",
+        "providerUnavailableDescription": "默认 Assistant 配置的提供方已被禁用，或不在当前启用的提供方列表中。",
+        "modelUnavailableTitle": "所配模型不可用",
+        "modelUnavailableDescription": "请同步提供方模型，或为默认 Assistant 改选其他模型后再翻译字幕。",
+        "apiKeyMissingTitle": "缺少提供方 API Key",
+        "apiKeyMissingDescription": "请先在 Provider 设置中补充 API Key，再启动字幕翻译。",
+        "readyTitle": "Gateway 模型已就绪",
+        "readyDescription": "当前使用 {assistant}，运行在 {provider} / {model}。"
+      },
+      "review": {
+        "pendingButton": "需要审阅",
+        "pendingButtonWithMeta": "需要审阅 · {kind} · {count}",
+        "pendingQaShort": "QA",
+        "pendingProofreadShort": "校对",
+        "pendingDescription": "还有 {count} 处建议未处理。可逐条确认或放弃，也可在此批量操作；全部处理后即可完成审阅。",
+        "lockedTitle": "审阅待处理",
+        "lockedTooltip": "请先处理当前审阅结果，并点击“完成审阅”后，再使用此功能。",
+        "accept": "确认建议",
+        "reject": "放弃建议",
+        "accepted": "已确认建议",
+        "rejected": "已放弃",
+        "undo": "撤销",
+        "bulkAccept": "全部确认",
+        "bulkReject": "全部放弃",
+        "complete": "完成审阅",
+        "completeBlockedTitle": "仍有建议待处理",
+        "completeBlockedDescription": "请先逐条确认或放弃当前建议，或使用批量操作处理完全部建议后，再完成审阅。",
+        "sourceQa": "校验",
+        "sourceProofread": "校对",
+        "detailQa": "文本建议",
+        "detailProofread": "语言建议",
+        "defaultQaReason": "根据当前 QA 规则生成的文本修正建议。",
+        "defaultProofreadReason": "根据当前校对配置生成的语言修正建议。",
+        "categorySpelling": "拼写",
+        "categoryPunctuation": "标点",
+        "categoryTerminology": "术语",
+        "categoryFluency": "流畅度",
+        "categorySpacing": "空白",
+        "categoryCps": "CPS",
+        "categoryCpl": "CPL",
+        "categoryTiming": "时序",
+        "categoryLayout": "布局",
+        "categoryText": "文本",
+        "applySuccessTitle": "审阅已合并",
+        "applySuccessDescription": "已将 {count} 处字幕修改合并到当前轨道。",
+        "applyFailedTitle": "合并失败",
+        "discardSuccessTitle": "已放弃审阅",
+        "discardSuccessDescription": "已放弃当前审阅建议，当前轨道已解锁。",
+        "discardFailedTitle": "放弃失败",
+        "proofreadRunningDescription": "当前轨道已有正在进行中的校对任务，请等待完成后再发起新的任务。"
+      },
+      "notifications": {
+        "translationReadyTitle": "翻译结果已就绪",
+        "translationReadyDescription": "已将 {name} 作为配对字幕轨附加到工作台。",
+        "proofreadReadyTitle": "校对建议已就绪",
+        "proofreadReadyDescription": "{count} 处校对建议待审阅。",
+        "qaReviewReadyTitle": "校验建议已就绪",
+        "qaReviewReadyDescription": "{count} 处校验建议待审阅。",
+        "subtitleSavedTitle": "已保存",
+        "subtitleSavedDescription": "字幕草稿已成功保存。",
+        "saveFailedTitle": "保存失败",
+        "noSubtitleTrackTitle": "未选择字幕轨道",
+        "restoreTrackRequiredDescription": "恢复原文前请先选择一个字幕轨道。",
+        "originalRestoredTitle": "已恢复原文",
+        "originalRestoredDescription": "工作台草稿已重新载入原始字幕源。",
+        "restoreFailedTitle": "恢复失败",
+        "noFileSelectedTitle": "未选择文件",
+        "noFileSelectedDescription": "请先打开一个媒体或字幕资源，再跳转到其所在位置。",
+        "openFileFailedTitle": "打开文件位置失败",
+        "noVideoSelectedTitle": "未选择视频",
+        "exportVideoTrackRequiredDescription": "加入导出队列前请先选择一个视频资源。",
+        "noPresetSelectedTitle": "未选择预设",
+        "exportVideoPresetRequiredDescription": "加入导出队列前请先选择一个视频导出预设。",
+        "emptySubtitleOutputTitle": "字幕输出为空",
+        "emptySubtitleOutputDescription": "当前字幕视图没有可渲染的 ASS 内容。请先切换字幕视图模式，或选择一个字幕轨道。",
+        "exportQueuedTitle": "导出已入队",
+        "exportQueuedDescription": "视频导出 {name} 已在后台开始运行。",
+        "exportFailedTitle": "导出失败",
+        "inlinePromptEmptyTitle": "内联提示词为空",
+        "moduleConfigUnavailableTitle": "模块配置不可用",
+        "moduleConfigUnavailableDescription": "请先重新加载资源库模块配置，再从工作台保存提示词配置。",
+        "promptProfileSavedTitle": "提示词配置已保存",
+        "translatePromptProfileSavedDescription": "{name} 已加入翻译提示词配置列表。",
+        "proofreadPromptProfileSavedDescription": "{name} 已加入校对提示词配置列表。",
+        "savePromptProfileFailedTitle": "保存提示词配置失败",
+        "translatePromptRequiredDescription": "保存为可复用配置前，请先输入翻译提示词。",
+        "proofreadPromptRequiredDescription": "保存为可复用配置前，请先输入校对提示词。",
+        "translateTrackRequiredDescription": "启动翻译前请先选择一个字幕轨道。",
+        "translationQueuedTitle": "翻译已入队",
+        "translationQueuedDescription": "已为 {language} 启动后台翻译。",
+        "translationQueuedWithConstraintsDescription": "已为 {language} 启动后台翻译，并应用 {count} 个约束槽位。",
+        "translationFailedTitle": "翻译失败",
+        "proofreadTrackRequiredDescription": "启动校对前请先选择一个字幕轨道。",
+        "proofreadQueuedTitle": "校对已入队",
+        "proofreadQueuedDescription": "已启动后台校对，启用检查项：{checks}{prompts}。",
+        "proofreadQueuedPromptSuffix": "，并附带 {count} 个提示词约束",
+        "proofreadQueuedDefaultDescription": "已按保守的语言质量策略启动后台校对。",
+        "proofreadFailedTitle": "校对失败",
+        "importProfileReadyTitle": "字幕导入配置已就绪",
+        "importProfileReadyDescription": "导入前将应用 {guideline} 规范，并执行 {count} 项规范化处理。"
+      },
+      "page": {
+        "workspaceName": "工作台",
+        "currentSubtitleTrack": "当前字幕轨",
+        "resourceType": "资源",
+        "actionInProgress": "工作台操作进行中"
+      },
+      "qaIssues": {
+        "emptyText": "字幕文本为空",
+        "shortDuration": "时长过短",
+        "tooManyLines": "超过两行",
+        "cpsError": "CPS {value} 超过 {guideline} 限制",
+        "cpsWarning": "CPS {value} 高于 {guideline} 目标值",
+        "cplError": "CPL {value} 超过 {guideline} 行长限制",
+        "cplWarning": "CPL {value} 高于 {guideline} 目标值",
+        "tightGap": "与上一条字幕间隔过小"
+      }
+    }
+  },
+  "common": {
+    "cancel": "取消",
+    "save": "保存",
+    "undo": "撤销",
+    "done": "完成",
+    "close": "关闭",
+    "edit": "编辑",
+    "create": "创建",
+    "import": "导入",
+    "loading": "处理中...",
+    "exporting": "导出中...",
+    "delete": "删除",
+    "enabled": "启用",
+    "disabled": "停用",
+    "saving": "保存中...",
+    "refresh": "刷新",
+    "reset": "重置",
+    "retry": "重试",
+    "collapse": "收起",
+    "expand": "展开",
+    "notAvailable": "不可用",
+    "justNow": "刚刚"
+  },
+  "gateway": {
+    "page": {
+      "subtitle": "控制平面概览与诊断信息"
+    },
+    "health": {
+      "overall": "健康状态",
+      "components": "健康检查项",
+      "componentHint": "最近一次检查结果",
+      "empty": "暂无检查数据"
+    },
+    "status": {
+      "uptime": "运行时长",
+      "activeRuns": "运行中的任务",
+      "sessions": "会话数",
+      "queueDepth": "队列深度",
+      "nodes": "节点数"
+    },
+    "logs": {
+      "title": "日志尾部",
+      "subtitle": "最新网关日志",
+      "empty": "暂无日志"
+    }
+  },
+  "sidebar": {
+    "search": {
+      "placeholder": "搜索"
+    },
+    "open": "打开侧边栏",
+    "close": "关闭侧边栏",
+    "nav": {
+      "chat": "聊天",
+      "workflow": "流程",
+      "library": "资源库",
+      "cron": "定时任务"
+    },
+    "thread": {
+      "new": "新建对话",
+      "empty": "暂无对话",
+      "untitled": "未命名对话",
+      "rename": "重命名",
+      "archive": "归档",
+      "archiveError": "归档失败",
+      "unarchive": "取消归档",
+      "unarchiveError": "取消归档失败",
+      "delete": "删除",
+      "deleteError": "删除失败"
+    },
+    "footer": {
+      "menu": {
+        "productMode": "产品形态",
+        "notifications": "通知中心",
+        "appUpdate": "应用升级",
+        "externalToolsUpdate": "工具升级",
+        "settings": "设置",
+        "open": "打开个人菜单"
+      }
+    }
+  },
+  "productMode": {
+    "eyebrow": "产品形态",
+    "title": "选择追创作在这台设备上的形态",
+    "description": "在专注下载的工作台和完整创作舱之间切换，聊天、记忆、网关和 AI 控制能力都会随之调整。",
+    "profileHint": "当前桌面账户",
+    "current": "当前形态",
+    "firstRunHint": "只需选择一次，之后也可以随时从主窗口侧边栏底部修改。",
+    "changeHint": "你可以随时切换形态，主窗口和设置导航会立即同步变化。",
+    "close": "关闭",
+    "options": {
+      "full": {
+        "title": "全形态",
+        "subtitle": "完整的 AI 创作工作站。",
+        "description": "保留聊天、助手工作台、记忆、网关控制和更完整的 AI 创作能力面板。",
+        "badge": "创作驾驶舱",
+        "action": "切换到全形态"
+      },
+      "download": {
+        "title": "下载形态",
+        "subtitle": "干净、快速、专注下载。",
+        "description": "隐藏偏 AI 的重型入口，让应用保持在资源库、下载与媒体处理工作流上。",
+        "badge": "专注工作流",
+        "action": "切换到下载形态"
+      }
+    }
+  },
+  "setupCenter": {
+    "welcomeTitle": "欢迎使用追创作",
+    "actions": {
+      "skip": "跳过",
+      "installing": "安装中",
+      "repairing": "修复中"
+    },
+    "status": {
+      "missing": "未完成"
+    },
+    "steps": {
+      "general": {
+        "title": "常规",
+        "description": "确认界面语言，并在需要时验证代理配置。"
+      },
+      "ai": {
+        "title": "AI",
+        "description": "连接供应商、同步模型，并激活默认智能体模型。"
+      },
+      "dependencies": {
+        "title": "依赖",
+        "description": "选择产品形态，并安装该形态所需的外部工具。"
+      }
+    },
+    "general": {
+      "language": "语言",
+      "proxy": "代理"
+    },
+    "ai": {
+      "provider": "供应商",
+      "providerLabel": "供应商",
+      "apiKey": "访问密钥",
+      "gatewayAssistantNav": "智能体模型",
+      "syncModels": "刷新",
+      "noAssistant": "当前没有可用智能体。",
+      "noProvider": "当前还没有配置任何 Provider。",
+      "modelsEmpty": "当前供应商还没有可用模型，刷新后会在这里显示精简列表。",
+      "refreshHint": "输入访问密钥后点击刷新，下面会显示可启用的模型列表。",
+      "noModelAvailable": "暂无可选模型"
+    },
+    "dependencies": {
+      "modeTitle": "产品形态",
+      "toolsTitle": "所需工具",
+      "clawhubWaitForBun": "请先安装 Bun",
+      "installed": "已安装",
+      "missing": "缺失"
+    },
+    "issues": {
+      "language": {
+        "title": "语言仍需确认",
+        "description": "完成初始化前请先确认界面语言。"
+      },
+      "gateway": {
+        "title": "Gateway 尚未启用",
+        "description": "启用 Gateway 后，智能体能力才可以运行。"
+      },
+      "providers": {
+        "title": "还没有可用 Provider",
+        "description": "请连接一个 Provider，并至少同步出一个可用模型。"
+      },
+      "model": {
+        "title": "Gateway 模型未配置",
+        "description": "请为默认智能体指定模型，Gateway 才能正常响应。"
+      },
+      "productMode": {
+        "title": "请选择产品形态",
+        "description": "先确定 Full Mode 或 Download Mode，才能计算正确的依赖集合。"
+      },
+      "downloadTools": {
+        "title": "下载依赖未就绪"
+      },
+      "fullTools": {
+        "title": "全形态依赖未就绪"
+      },
+      "tools": {
+        "description": "还有 {count} 个依赖需要安装或修复。"
+      },
+      "aiSkippedDescription": "AI 已被延后配置；在完成这一步之前，对话与字幕翻译仍不可用。",
+      "dependenciesSkippedDescription": "依赖已被延后配置；在完成这一步之前，部分产品能力仍不可用。"
+    },
+    "footer": {
+      "action": "初始化",
+      "incompleteTitle": "初始化未完成",
+      "noticeLabel": "消息",
+      "readyTitle": "系统已就绪",
+      "readyDescription": "当前没有初始化阻塞项。",
+      "notificationsDescription": "{count} 条未读通知",
+      "close": "关闭"
+    }
+  },
+  "notifications": {
+    "center": {
+      "title": "通知中心",
+      "codes": {
+        "heartbeatPeriodic": {
+          "title": "Heartbeat 巡检需要关注",
+          "summary": "一次周期 heartbeat 巡检发现了需要注意的事项。",
+          "body": "{detail}"
+        },
+        "heartbeatEvent": {
+          "title": "Heartbeat 事件需要关注",
+          "summary": "一次事件驱动 heartbeat 跟进需要你的注意。",
+          "body": "{detail}"
+        },
+        "heartbeatCron": {
+          "title": "定时任务提醒",
+          "summary": "一条 cron / reminder 跟进已经就绪。",
+          "body": "{detail}"
+        },
+        "heartbeatExec": {
+          "title": "后台命令更新",
+          "summary": "一条异步 exec 结果需要关注。",
+          "body": "{detail}"
+        },
+        "heartbeatSubagent": {
+          "title": "子代理更新",
+          "summary": "一条 subagent 跟进需要关注。",
+          "body": "{detail}"
+        },
+        "heartbeatRuntimeFailed": {
+          "title": "Heartbeat 执行失败",
+          "summary": "Heartbeat 在生成结果前执行失败。",
+          "body": "{detail}"
+        }
+      }
+    },
+    "footer": {
+      "codes": {
+        "appUpdate": {
+          "title": "应用有新版本",
+          "summary": "有新的应用版本可安装。",
+          "body": "版本 {version} 已可用。"
+        },
+        "externalToolsUpdate": {
+          "title": "外部工具可更新",
+          "summary": "已安装的外部工具存在可用更新。",
+          "body": "共有 {count} 个已安装工具可更新。"
+        }
+      }
+    },
+    "page": {
+      "title": "通知中心"
+    },
+    "tabs": {
+      "active": "进行中",
+      "unread": "未读",
+      "archived": "已归档"
+    },
+    "empty": {
+      "title": "当前没有待处理通知",
+      "description": "需要你关注的后台动态会在这里出现。"
+    },
+    "categories": {
+      "heartbeat": "心跳",
+      "cron": "Cron",
+      "subagent": "Subagent",
+      "exec": "Exec",
+      "gateway": "网关",
+      "update": "更新"
+    },
+    "status": {
+      "unread": "未读"
+    },
+    "actions": {
+      "markRead": "标记已读",
+      "markAllRead": "全部标记已读",
+      "loadMore": "加载更多",
+      "archive": "归档",
+      "viewAll": "查看全部",
+      "openThread": "打开对话",
+      "openCron": "打开定时任务",
+      "openNotifications": "打开通知中心",
+      "openAppUpdates": "打开应用更新",
+      "openExternalTools": "打开外部工具"
+    },
+    "list": {
+      "loadedCount": "已显示 {count} 条"
+    }
+  }
+}

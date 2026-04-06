@@ -1,0 +1,1 @@
+export { GatewayPage } from "./GatewayPage";

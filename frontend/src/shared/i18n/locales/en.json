@@ -1,0 +1,4049 @@
+{
+  "app": {
+    "name": "Dream Creator",
+    "description": "An AI agent for content creators",
+    "settings": {
+      "title": {
+        "gateway": "Gateway",
+        "aiagent": "AI Agent",
+        "general": "General",
+        "workspace": "Workspace",
+        "prompts": "Prompts",
+        "appearance": "Appearance",
+        "calls": "Calls",
+        "tools": "Tools",
+        "subagents": "Subagents",
+        "memory": "Memory",
+        "skills": "Skills",
+        "channels": "Channels",
+        "connectors": "Connectors",
+        "external-tools": "External Tools",
+        "integration": "Integration",
+        "usage": "Usage",
+        "chat": "Chat",
+        "provider": "Providers",
+        "debug": "Debug",
+        "about": "About"
+      },
+      "loading": "Loading settings..."
+    }
+  },
+  "settings": {
+    "gateway": {
+      "loading": "Loading assistants...",
+      "empty": {
+        "title": "No Assistants",
+        "description": "Create an assistant to configure models, tools, and policies."
+      },
+      "status": "Status",
+      "tools": {
+        "loading": "Loading tools...",
+        "empty": "No tools available.",
+        "untitled": "Untitled tool",
+        "disabled": "Disabled"
+      },
+      "details": {
+        "label": "Details",
+        "cron": {
+          "item": "Cron",
+          "content": ""
+        }
+      },
+      "detailsPanel": {
+        "loading": "Loading...",
+        "unavailable": "Gateway settings unavailable",
+        "sections": {
+          "gateway": "Gateway",
+          "agentLoop": "Agent Loop",
+          "context": "Context",
+          "queue": "Queue",
+          "heartbeat": "Heartbeat",
+          "subagents": "Subagents",
+          "http": "HTTP",
+          "talk": "Talk Mode",
+          "voiceWake": "Wake Words"
+        },
+        "contextTabs": {
+          "guard": "Thresholds",
+          "compaction": "Compaction",
+          "memory": "Memory Flush"
+        },
+        "httpTabs": {
+          "endpoints": "Endpoints",
+          "files": "Files",
+          "images": "Images"
+        },
+        "talkTabs": {
+          "talk": "Talk",
+          "tts": "TTS"
+        },
+        "heartbeatTabs": {
+          "general": "General",
+          "runtime": "Advanced",
+          "checklist": "Checklist"
+        },
+        "gateway": {
+          "controlPlane": "Control Plane",
+          "controlPlaneHelp": "Enable control plane features (cannot be disabled once enabled).",
+          "permission": "Permission",
+          "permissionHelp": "Set the tool execution permission level.",
+          "sandbox": "Sandbox",
+          "sandboxHelp": "Require a sandbox for tools that need it."
+        },
+        "runtime": {
+          "maxSteps": "Max Steps",
+          "maxStepsHelp": "Maximum agent steps per run.",
+          "toolLoop": {
+            "enabled": "Tool Loop Detection",
+            "enabledHelp": "Detect repeated tool calls and no-progress loops.",
+            "warn": "Tool Loop Warn Threshold",
+            "warnHelp": "Warn when the loop count reaches this threshold.",
+            "critical": "Tool Loop Critical Threshold",
+            "criticalHelp": "Trigger critical handling when the loop count reaches this threshold.",
+            "global": "Tool Loop Global Threshold",
+            "globalHelp": "Global circuit breaker threshold across runs.",
+            "history": "Tool Loop History Size",
+            "historyHelp": "Number of recent tool calls inspected for loops.",
+            "detectorGeneric": "Detect Generic Repeats",
+            "detectorGenericHelp": "Detect repeated tool patterns.",
+            "detectorPoll": "Detect Polling Without Progress",
+            "detectorPollHelp": "Detect polling that makes no progress.",
+            "detectorPingPong": "Detect Ping-Pong Loops",
+            "detectorPingPongHelp": "Detect alternating tool-call patterns."
+          },
+          "contextWarn": "Context Warn Tokens",
+          "contextWarnHelp": "Warn when estimated context tokens reach this value.",
+          "contextHard": "Context Hard Tokens",
+          "contextHardHelp": "Block runs when the model context window drops below this value.",
+          "compactionMode": "Compaction Mode",
+          "compactionModeHelp": "Control whether and how context compaction runs.",
+          "compactionModeOptions": {
+            "default": "Default",
+            "safeguard": "Safeguard"
+          },
+          "compactionReserveTokens": "Compaction Reserve Tokens",
+          "compactionReserveTokensHelp": "Keep this token budget free to avoid hitting the hard limit.",
+          "compactionKeepRecent": "Compaction Keep Recent Tokens",
+          "compactionKeepRecentHelp": "Preserve this budget for the most recent messages.",
+          "compactionReserveFloor": "Compaction Reserve Floor",
+          "compactionReserveFloorHelp": "Minimum reserve tokens enforced even if reserve is lower.",
+          "compactionMaxHistoryShare": "Compaction Max History Share",
+          "compactionMaxHistoryShareHelp": "Upper bound for history share of the context window.",
+          "compactionMemoryFlushEnabled": "Memory Flush Enabled",
+          "compactionMemoryFlushEnabledHelp": "Run a memory flush turn before compaction when near limits.",
+          "compactionMemoryFlushSoft": "Memory Flush Soft Threshold",
+          "compactionMemoryFlushSoftHelp": "Trigger memory flush when tokens exceed context minus reserve minus this value.",
+          "compactionMemoryFlushPrompt": "Memory Flush Prompt",
+          "compactionMemoryFlushPromptHelp": "User-facing prompt used during memory flush.",
+          "compactionMemoryFlushSystem": "Memory Flush System Prompt",
+          "compactionMemoryFlushSystemHelp": "System prompt used during memory flush."
+        },
+        "queue": {
+          "globalConcurrency": "Global Concurrency",
+          "sessionConcurrency": "Session Concurrency",
+          "laneMain": "Lane Main Concurrency",
+          "laneSubagent": "Lane Subagent Concurrency",
+          "laneCron": "Lane Cron Concurrency"
+        },
+        "cron": {
+          "enabled": "Cron Enabled",
+          "maxConcurrentRuns": "Max Concurrent Runs",
+          "sessionRetention": "Session Retention",
+          "sessionRetentionOptions": {
+            "1h": "1 Hour",
+            "6h": "6 Hours",
+            "12h": "12 Hours",
+            "24h": "24 Hours",
+            "72h": "3 Days",
+            "168h": "7 Days"
+          },
+          "runLogMaxBytes": "Run Log Max Size (MB)",
+          "runLogKeepLines": "Run Log Keep Lines"
+        },
+        "heartbeat": {
+          "enabled": "Heartbeat Enabled",
+          "enabledHelp": "Master switch for periodic and event-driven heartbeat processing.",
+          "periodicEnabled": "Periodic Review",
+          "periodicEnabledHelp": "Run background review on schedule and deliver results to notifications.",
+          "every": "Every",
+          "everyHelp": "Only applies when periodic review is enabled.",
+          "runSession": "Trigger Conversation",
+          "runSessionHelp": "Choose the conversation used for heartbeat checks. Manual trigger is skipped when not selected.",
+          "runSessionSelectPlaceholder": "Select conversation",
+          "notificationCenter": "Notification Center",
+          "notificationCenterHelp": "Heartbeat output is shown in notifications instead of conversations.",
+          "openNotifications": "Open Notifications",
+          "triggerLabel": "Manual Review Trigger",
+          "lastStatus": {
+            "label": "Latest Review Status",
+            "ok": "Healthy",
+            "alert": "Alert sent",
+            "failed": "Run failed",
+            "skipped": "Skipped",
+            "idle": "No recent review"
+          },
+          "lastNotice": {
+            "label": "Latest Review Notice",
+            "empty": "No review notices yet"
+          },
+          "promptAppend": "Prompt Append",
+          "promptAppendHelp": "Optional extra instructions appended after the strict HEARTBEAT_OK / JSON contract.",
+          "includeReasoning": "Include Reasoning",
+          "suppressToolErrorWarnings": "Suppress Tool Error Warnings",
+          "activeStart": "Active Start",
+          "activeEnd": "Active End",
+          "activeTimezone": "Active Timezone",
+          "activeTimezonePlaceholder": "Select timezone",
+          "timeMeridiemAm": "AM",
+          "timeMeridiemPm": "PM",
+          "trigger": "Trigger Now",
+          "triggerFailed": "Failed to trigger heartbeat",
+          "triggered": "Heartbeat triggered",
+          "triggerRejected": "Heartbeat trigger was not accepted",
+          "triggerSkipped": "Heartbeat skipped",
+          "triggerQueued": "Heartbeat queued",
+          "triggerReason": {
+            "runSessionUnset": "Trigger conversation is not selected",
+            "targetUnavailable": "Trigger conversation is unavailable",
+            "outsideActiveHours": "Outside active hours",
+            "busy": "System is busy, try again soon",
+            "notDue": "Heartbeat interval is not due yet",
+            "disabled": "Heartbeat is disabled",
+            "failed": "Execution failed",
+            "skipped": "This trigger was skipped",
+            "runtimeError": "Request failed, please try again"
+          },
+          "spec": {
+            "items": "Checklist Items",
+            "item": "Item",
+            "addItem": "Add",
+            "done": "Done",
+            "priority": "Priority",
+            "notes": "Notes",
+            "save": "Save",
+            "clear": "Clear",
+            "itemsEmpty": "No checklist items.",
+            "version": "Version",
+            "updatedAt": "Updated At",
+            "saveFailed": "Failed to save heartbeat checklist",
+            "saved": "Heartbeat checklist saved",
+            "clearFailed": "Failed to clear heartbeat checklist",
+            "cleared": "Heartbeat checklist cleared"
+          }
+        },
+        "subagents": {
+          "maxDepth": "Max Depth",
+          "maxChildren": "Max Children",
+          "maxConcurrent": "Max Concurrent",
+          "model": "Model Override",
+          "modelAuto": "Auto (same as caller/assistant model)",
+          "modelCustom": "Custom",
+          "thinkingAuto": "Auto",
+          "thinkingCustom": "Custom",
+          "thinking": "Thinking"
+        },
+        "http": {
+          "chatCompletions": "Chat Completions",
+          "chatCompletionsHelp": "Enable the Chat Completions endpoint.",
+          "responses": "Responses",
+          "responsesHelp": "Enable the responses endpoint.",
+          "maxBodyBytes": "Max Body Bytes",
+          "maxBodyBytesHelp": "Maximum request body size (bytes) for responses.",
+          "maxUrlParts": "Max URL Parts",
+          "maxUrlPartsHelp": "Maximum number of URL path segments allowed.",
+          "files": {
+            "allowUrl": "Allow URL",
+            "allowUrlHelp": "Allow file fetching by URL.",
+            "urlAllowlist": "URL Allowlist",
+            "urlAllowlistHelp": "Comma-separated URL allowlist.",
+            "allowedMimes": "Allowed MIME Types",
+            "allowedMimesHelp": "Allowed MIME types for file fetches.",
+            "maxBytes": "Max Bytes",
+            "maxBytesHelp": "Maximum file size (bytes).",
+            "maxChars": "Max Characters",
+            "maxCharsHelp": "Maximum extracted text length (characters).",
+            "maxRedirects": "Max Redirects",
+            "maxRedirectsHelp": "Maximum number of redirects allowed.",
+            "timeoutMs": "Timeout (ms)",
+            "timeoutMsHelp": "Request timeout in milliseconds.",
+            "pdfMaxPages": "PDF Max Pages",
+            "pdfMaxPagesHelp": "Maximum pages to parse from a PDF.",
+            "pdfMaxPixels": "PDF Max Pixels",
+            "pdfMaxPixelsHelp": "Maximum total pixels when rasterizing PDF pages.",
+            "pdfMinTextChars": "PDF Min Text Characters",
+            "pdfMinTextCharsHelp": "Minimum extracted text chars before treating PDF as text."
+          },
+          "images": {
+            "allowUrl": "Allow URL",
+            "allowUrlHelp": "Allow image fetching by URL.",
+            "urlAllowlist": "URL Allowlist",
+            "urlAllowlistHelp": "Comma-separated URL allowlist.",
+            "allowedMimes": "Allowed MIME Types",
+            "allowedMimesHelp": "Allowed MIME types for image fetches.",
+            "maxBytes": "Max Bytes",
+            "maxBytesHelp": "Maximum image size (bytes).",
+            "maxRedirects": "Max Redirects",
+            "maxRedirectsHelp": "Maximum number of redirects allowed.",
+            "timeoutMs": "Timeout (ms)",
+            "timeoutMsHelp": "Request timeout in milliseconds."
+          }
+        },
+        "channelHealth": {
+          "minutes": "Health Check Minutes",
+          "minutesHelp": "Interval for channel health checks (minutes)."
+        },
+        "voice": {
+          "enabled": "Voice Enabled"
+        },
+        "voiceWake": {
+          "enabled": "Voice Wake Enabled"
+        },
+        "talk": {
+          "voiceId": "Voice ID",
+          "voiceAliases": "Voice Aliases",
+          "voiceAliasesDescription": "Alias list: name=voiceId (comma or newline separated).",
+          "modelId": "Model ID",
+          "outputFormat": "Output Format",
+          "outputFormatDescription": "ElevenLabs output format (E.G. MP3_44100_128).",
+          "apiKey": "API Key",
+          "apiKeyDescription": "Overrides ELEVENLABS_API_KEY for talk mode.",
+          "interruptOnSpeech": "Interrupt on Speech",
+          "interruptOnSpeechDescription": "Stop speaking when you start talking.",
+          "updateFailed": "Failed to update talk settings"
+        },
+        "tts": {
+          "status": "TTS Status",
+          "enabled": "Enabled",
+          "disabled": "Disabled",
+          "provider": "TTS Provider",
+          "providerDescription": "Select provider used by the TTS tool.",
+          "providerAuto": "Auto",
+          "voiceId": "TTS Voice ID",
+          "modelId": "TTS Model ID",
+          "format": "TTS Format",
+          "formatAuto": "Auto",
+          "updateFailed": "Failed to update TTS settings"
+        },
+        "voiceWakeTriggers": {
+          "label": "Wake Words",
+          "description": "Configure wake words (comma-separated).",
+          "updateFailed": "Failed to update voice wake"
+        }
+      },
+      "character": "Character",
+      "assistant": "Assistant",
+      "assistantTab": {
+        "assistant": "Assistant",
+        "parameters": "Parameters"
+      },
+      "characterTab": {
+        "avatar": "Avatar",
+        "motion": "Motion"
+      },
+      "parameterTab": {
+        "models": "Models",
+        "identity": "Identity",
+        "soul": "Soul",
+        "user": "User",
+        "tools": "Tools",
+        "skills": "Skills",
+        "memory": "Memory",
+        "workspace": "Workspace"
+      },
+      "workspace": {
+        "path": "Workspace path",
+        "loading": "Loading...",
+        "empty": "Workspace will be created after the first chat.",
+        "open": "Open folder",
+        "openError": "Open folder failed"
+      },
+      "selected": "Selected",
+      "action": {
+        "switch": "Switch assistant"
+      },
+      "updateError": "Update failed",
+      "emptyDescription": "No description",
+      "change3davatar": {
+        "pickTitle": "Select Avatar",
+        "filter3d": "Avatars",
+        "filterAll": "All files",
+        "add": "Add",
+        "delete": "Delete",
+        "empty": "No avatars yet.",
+        "importError": "Import failed",
+        "deleteError": "Delete failed",
+        "resetMissing": "Default avatar not found",
+        "resetMissingHint": "Import a 3D avatar first.",
+        "invalidType": "Unsupported avatar",
+        "invalidHint": "Use GLB or VRM files.",
+        "displayNamePlaceholder": "Give it a name",
+        "edit": "Edit",
+        "reset": "Reset to default"
+      },
+      "change3dmotion": {
+        "pickTitle": "Select VRMA Motion",
+        "filterMotion": "VRMA motions",
+        "filterAll": "All files",
+        "add": "Add",
+        "delete": "Delete",
+        "empty": "No motions yet.",
+        "importError": "Import failed",
+        "deleteError": "Delete failed",
+        "resetMissing": "Default motion not found",
+        "resetMissingHint": "Import a motion file first.",
+        "invalidType": "Unsupported motion",
+        "invalidHint": "Use VRMA files.",
+        "reset": "Reset to default"
+      },
+      "changeEmoji": {
+        "open": "Change emoji",
+        "error": "Update failed"
+      },
+      "changeName": {
+        "title": "Edit Assistant",
+        "cancel": "Cancel",
+        "save": "Save"
+      },
+      "readiness": {
+        "missing": "Missing settings",
+        "readyTitle": "Assistant Status",
+        "incompleteTitle": "Assistant Incomplete",
+        "providers": "Provider models missing",
+        "providersReady": "Providers ready",
+        "openProviders": "Open providers",
+        "agentModel": "Agent model not configured",
+        "agentModelReady": "Agent model ready",
+        "openModels": "Configure models"
+      },
+      "soul": {
+        "coreTruths": "Core truths",
+        "coreTruthsAdd": "Add",
+        "coreTruthsEmpty": "No core truths",
+        "boundaries": "Boundaries",
+        "boundariesAdd": "Add",
+        "boundariesEmpty": "No boundaries",
+        "rules": "Rules",
+        "rulesAdd": "Add",
+        "rulesEmpty": "No rules",
+        "vibe": "Vibe",
+        "continuity": "Continuity",
+        "continuityPlaceholder": "Describe continuity expectations",
+        "column": {
+          "content": "Content",
+          "actions": "Actions"
+        },
+        "remove": "Remove"
+      },
+      "model": {
+        "primary": "Primary model",
+        "selectPrimary": "Select primary model",
+        "fallbacks": "Fallbacks",
+        "fallbackAdd": "Add",
+        "fallbackModel": "Model",
+        "fallbackActions": "Actions",
+        "fallbackEmpty": "No fallback models configured.",
+        "fallbackRemove": "Remove",
+        "agentTitle": "Agent Model",
+        "embeddingTitle": "Embedding Model",
+        "imageTitle": "Image Model",
+        "inheritAgent": "Inherit agent model",
+        "inheritAgentHint": "Using agent model for this capability.",
+        "stream": "Stream",
+        "temperature": "Temperature",
+        "maxTokens": "Max tokens"
+      },
+      "statusCard": {
+        "agentModel": "Agent model",
+        "tools": "Tools enabled",
+        "skills": "Skills enabled",
+        "memories": "Memories"
+      },
+      "memory": {
+        "enabled": "Memory enabled",
+        "summary": "Memory summary",
+        "loading": "Loading summary...",
+        "openSettings": "Open memory settings"
+      },
+      "identity": {
+        "name": "Name",
+        "emoji": "Emoji",
+        "role": "Role",
+        "creature": "Creature"
+      },
+      "user": {
+        "name": "Name",
+        "preferredAddress": "Preferred address",
+        "pronouns": "Pronouns",
+        "notes": "Notes",
+        "notesPlaceholder": "Add notes about the user",
+        "language": "Language",
+        "timezone": "Timezone",
+        "location": "Location",
+        "languageFollowApp": "Follow app",
+        "localeAuto": "Auto",
+        "localeManual": "Manual",
+        "autoValue": "Current",
+        "autoValueUnknown": "Unknown",
+        "manualValue": "Manual value",
+        "timezonePlaceholder": "Select timezone",
+        "locationPlaceholder": "Select location",
+        "extra": "Extra fields",
+        "extraAdd": "Add",
+        "extraColumnKey": "Key",
+        "extraColumnValue": "Value",
+        "extraColumnActions": "Actions",
+        "extraEmpty": "No extra fields",
+        "extraKey": "Key",
+        "extraValue": "Value",
+        "extraRemove": "Remove"
+      },
+      "skills": {
+        "injectionEnabled": "Inject skills",
+        "maxSkillsInPrompt": "Max skills in prompt",
+        "maxPromptChars": "Max prompt chars"
+      },
+      "manager": {
+        "new": "New",
+        "newName": "New assistant",
+        "empty": "Select an assistant to edit.",
+        "name": "Name",
+        "description": "Description",
+        "currentSelection": "Current selection",
+        "setDefault": "Set default",
+        "changeAvatar3d": "Change avatar",
+        "edit": "Edit",
+        "delete": "Delete",
+        "updateError": "Update failed",
+        "createError": "Create assistant failed",
+        "deleteError": "Delete failed",
+        "defaultError": "Set default failed"
+      }
+    },
+    "memory": {
+      "tabs": {
+        "summary": "Summary",
+        "entries": "Entries",
+        "config": "Configuration"
+      },
+      "summary": {
+        "title": "Memory Summary",
+        "enabled": "Enable long-term memory",
+        "total": "Total memories",
+        "assistants": "Assistants",
+        "threads": "Threads",
+        "users": "Users",
+        "groups": "Groups",
+        "channels": "Channels",
+        "accounts": "Accounts",
+        "scopes": "Scopes",
+        "updatedAt": "Last updated",
+        "categories": "Category distribution",
+        "noData": "No data",
+        "storageTotal": "Total storage",
+        "storageCollections": "Memory entries",
+        "storageChunks": "Document chunks",
+        "storageSummaryFiles": "Summary files",
+        "storageAvatarCache": "Avatar cache",
+        "fileStorage": "File storage"
+      },
+      "entries": {
+        "count": "Entries",
+        "assistant": "Assistant",
+        "assistantEmpty": "No assistants",
+        "assistantRequired": "Select an assistant to browse memories.",
+        "category": "Category",
+        "categoryAll": "All",
+        "scope": "Scope",
+        "scopeAll": "All",
+        "channel": "Channel",
+        "accountId": "Channel account",
+        "filter": {
+          "channelAll": "All channels",
+          "accountAll": "All accounts"
+        },
+        "view": {
+          "global": "Global",
+          "user": "User",
+          "group": "Group"
+        },
+        "sidebar": {
+          "users": "Users",
+          "groups": "Groups",
+          "empty": "No principals found with current filters."
+        },
+        "summary": {
+          "selectHint": "Select a user or group from the left list.",
+          "loading": "Loading summary...",
+          "total": "Total memories",
+          "updatedAt": "Last updated",
+          "refreshProfile": "Refresh profile",
+          "refreshSuccess": "Profile refreshed",
+          "refreshNoChange": "Profile is already up to date",
+          "refreshNoAvatar": "No avatar returned by channel",
+          "refreshError": "Failed to refresh profile",
+          "refreshUpdatedRows": "Updated sessions",
+          "categories": "Category distribution",
+          "recent": "Recent memories",
+          "empty": "No memories found for the selected principal."
+        },
+        "limit": "Limit",
+        "queryPlaceholder": "Keyword search",
+        "search": "Search",
+        "clear": "Clear",
+        "loading": "Loading memories...",
+        "error": "Failed to load memories",
+        "empty": "No memories found with current filters.",
+        "confidenceLabel": "Confidence",
+        "categoryOption": {
+          "preference": "Preference",
+          "fact": "Fact",
+          "decision": "Decision",
+          "entity": "Entity",
+          "reflection": "Reflection",
+          "other": "Other"
+        },
+        "table": {
+          "updatedAt": "Updated at",
+          "category": "Category",
+          "content": "Content"
+        },
+        "detail": {
+          "id": "ID",
+          "thread": "Thread",
+          "source": "Source"
+        }
+      },
+      "config": {
+        "model": {
+          "extract": "Extraction",
+          "embedding": "Embedding",
+          "openAssistant": "Open assistant model settings",
+          "inherited": "Inherited",
+          "unconfigured": "Not configured"
+        }
+      },
+      "retrieval": {
+        "autoRecall": "Auto recall",
+        "recallTopK": "Recall top K",
+        "minScore": "Minimum score threshold",
+        "vectorWeight": "Vector weight",
+        "textWeight": "Text weight",
+        "recencyWeight": "Recency decay weight",
+        "recencyHalfLifeDays": "Recency half-life (days)"
+      },
+      "lifecycle": {
+        "autoCapture": "Auto capture after conversation",
+        "sessionLifecycle": "Session archive/delete summary",
+        "captureMaxEntries": "Max entries per run"
+      }
+    },
+    "usage": {
+      "range": {
+        "option": {
+          "1h": "Last hour",
+          "24h": "Last 24 hours",
+          "7d": "Last 7 days",
+          "30d": "Last 30 days",
+          "all": "All time"
+        }
+      },
+      "source": {
+        "option": {
+          "all": "All sources",
+          "dialogue": "Dialogue",
+          "relay": "Relay",
+          "oneShot": "One-shot"
+        }
+      },
+      "actions": {
+        "refresh": "Refresh usage"
+      },
+      "overview": {
+        "title": "Usage Overview",
+        "description": "Track request volume, token usage, and cost."
+      },
+      "summary": {
+        "requests": "Requests",
+        "units": "Tokens",
+        "promptTokens": "Input tokens",
+        "completionTokens": "Output tokens",
+        "cost": "Cost (USD)"
+      },
+      "tabs": {
+        "models": "Models",
+        "cost": "Cost"
+      },
+      "loading": "Loading usage data...",
+      "error": "Failed to load usage data.",
+      "breakdown": {
+        "empty": "No usage data yet"
+      },
+      "labels": {
+        "providerModel": "Provider / model",
+        "category": "Category",
+        "unknown": "Unknown"
+      }
+    },
+    "language": {
+      "label": "Language",
+      "option": {
+        "en": "English",
+        "zh-CN": "简体中文"
+      }
+    },
+    "general": {
+      "startup": {
+        "autoStart": "Auto start",
+        "minimizeToTray": "Minimize to tray on auto start"
+      },
+      "download": {
+        "directory": "Download folder",
+        "change": "Change",
+        "dialogTitle": "Select Download Folder",
+        "selectError": "Select download folder failed"
+      },
+      "proxy": {
+        "title": "Proxy",
+        "option": {
+          "none": "None",
+          "system": "System",
+          "manual": "Manual"
+        },
+        "scheme": "Protocol",
+        "schemeOption": {
+          "http": "HTTP",
+          "https": "HTTPS",
+          "socks5": "SOCKS5"
+        },
+        "host": "Proxy server",
+        "port": "Port",
+        "username": "Username (optional)",
+        "usernamePlaceholder": "Leave empty if not needed",
+        "password": "Password (optional)",
+        "passwordPlaceholder": "Leave empty if not needed",
+        "timeout": "Timeout (seconds)",
+        "testHint": "Test first, then save after success.",
+        "test": "Test",
+        "check": "Check",
+        "testing": "Testing...",
+        "saving": "Saving...",
+        "saved": "Saved",
+        "checkFailed": "Proxy check failed",
+        "testedAtLabel": "Tested at",
+        "status": "Status",
+        "statusLoading": "Checking...",
+        "statusUnavailable": "Unavailable",
+        "statusNotConfigured": "Not configured",
+        "availability": {
+          "check": "Checking",
+          "available": "Available",
+          "unavailable": "Not available"
+        },
+        "source": {
+          "system": "System",
+          "vpn": "VPN"
+        },
+        "change": "Change",
+        "clear": "Clear",
+        "clearConfirm": {
+          "title": "Clear proxy settings?",
+          "description": "This will disable the proxy and remove the manual configuration.",
+          "cancel": "Cancel",
+          "confirm": "Clear"
+        },
+        "dialogTitle": "Proxy Settings",
+        "close": "Close"
+      },
+      "advanced": {
+        "logLevel": {
+          "label": "Logging",
+          "option": {
+            "debug": "Debug",
+            "info": "Info",
+            "warn": "Warning",
+            "error": "Error"
+          },
+          "openDirectory": "Open log folder"
+        },
+        "menuBarVisibility": {
+          "label": "Show in Menu Bar",
+          "option": {
+            "always": "Always",
+            "whenRunning": "When app is running",
+            "never": "Never"
+          }
+        },
+        "trayVisibility": {
+          "label": "Show Tray Icon"
+        }
+      }
+    },
+    "calls": {
+      "skillsSearchPlaceholder": "Search skills",
+      "skillsRemoteMinLength": "Type at least 2 characters and press enter.",
+      "skillsSearchLoading": "Searching skills...",
+      "skillsSearchError": "Search failed.",
+      "skillsSearchLocalEmpty": "No local skills found.",
+      "skillsSearchRemoteEmpty": "No remote skills found.",
+      "skillsUnavailableHint": "Install or repair ClawHub in external tools first.",
+      "openExternalTools": "Open external tools",
+      "skillsInstall": "Install",
+      "skillsInstalled": "Installed",
+      "skillsUninstall": "Uninstall",
+      "skillsUpdate": "Update",
+      "skillsInstallError": "Install failed.",
+      "skillsUpdateError": "Update failed.",
+      "skillsRemoveError": "Remove failed.",
+      "skillsRateLimitedHint": "Rate limit exceeded. Please retry later.",
+      "skillsForceInstallTitle": "Install suspicious skill?",
+      "skillsForceInstallDescription": "This skill is flagged as suspicious. Review the skill code before continuing.",
+      "skillsForceInstall": "Force install",
+      "skillsForceUpdate": "Force update",
+      "skillsDetailPartial": "Failed to load full detail. Showing basic search result.",
+      "skillsDetailOwner": "Owner",
+      "skillsNotInstalled": "Not installed",
+      "skillsDetailAction": "Action",
+      "skillsDetailUpdated": "Updated",
+      "skillsDetailVersions": "Versions",
+      "skillsDetailRuntime": "Runtime requirements",
+      "skillsDetailRuntimeHintLabel": "Runtime hint",
+      "skillsDetailRuntimeHint": "Parsed from SKILL.Md metadata (metadata.ClawDBot/ClawDis).",
+      "skillsDetailRuntimeEmpty": "No runtime requirements declared.",
+      "skillsRuntimePrimaryEnv": "Primary env",
+      "skillsRuntimeOS": "OS",
+      "skillsRuntimeBins": "Required bins",
+      "skillsRuntimeAnyBins": "Any bins",
+      "skillsRuntimeEnv": "Environment",
+      "skillsRuntimeConfig": "Config",
+      "skillsRuntimeInstall": "Install hints",
+      "skillsRuntimeNix": "Nix",
+      "skillsDetailMarkdown": "SKILL.Md",
+      "skillsDetailMarkdownEmpty": "SKILL.Md content not available.",
+      "skillsDetailFileList": "Files",
+      "skillsDetailFileListEmpty": "No file list available.",
+      "skillsSelectTitle": "Please select a skill",
+      "skillsSelectDescription": "Choose a skill from the left list to view details.",
+      "action": {
+        "remove": "Remove",
+        "removeTitle": "Remove item?",
+        "removeDescription": "This will remove {name}."
+      },
+      "skills": {
+        "tab": {
+          "catalog": "Catalog",
+          "sources": "Sources",
+          "security": "Security",
+          "audit": "Audit"
+        },
+        "sources": {
+          "saveFailed": "Save sources failed",
+          "selectDirectory": "Select skills source directory",
+          "selectFailed": "Select directory failed",
+          "loadFailed": "Failed to load skills sources settings.",
+          "blocked": "Source management is blocked by skills security policy (source_write=deny).",
+          "pathPlaceholder": "/Absolute/path/to/skills",
+          "pickDirectory": "Browse",
+          "add": "Add",
+          "emptyTitle": "No Local Sources",
+          "emptyDescription": "Add local skills directories to include them in global skills aggregation.",
+          "trust": {
+            "local": "Local",
+            "trusted": "Trusted",
+            "community": "Community"
+          },
+          "builtin": "Builtin",
+          "tabs": {
+            "local": "Local",
+            "remote": "Remote"
+          },
+          "fields": {
+            "name": "Name",
+            "path": "Path",
+            "trust": "Trust"
+          },
+          "pathHint": {
+            "workspace": "<Dreamcreator>/skills",
+            "managed": "<Workspace>/.Managed/skills",
+            "bundled": "<Workspace>/.Bundled/skills"
+          },
+          "remote": {
+            "provider": "Provider",
+            "searchEnabled": "Search enabled",
+            "installEnabled": "Install/update enabled"
+          }
+        },
+        "security": {
+          "saveFailed": "Save security policy failed",
+          "loadFailed": "Failed to load security settings.",
+          "actionGroup": "Action group",
+          "coverage": "Coverage",
+          "modeLabel": "Mode",
+          "scannerMode": "Scanner mode",
+          "allowedBins": "Allowed bins",
+          "allowedBinsPlaceholder": "FFmpeg, bun, ClawHub",
+          "allowForceInstall": "Allow force install",
+          "requireApproval": "Require approval",
+          "allowExternalToolsOnly": "Only allow external-tools installer",
+          "allowGenericInstaller": "Allow generic installer",
+          "groups": {
+            "read": {
+              "label": "Read",
+              "description": "Skills.Status/skills.Bins/skill_manage.Search/skill_manage.List"
+            },
+            "package_write": {
+              "label": "Package Write",
+              "description": "Skill_manage.Install/update/remove/sync"
+            },
+            "deps_write": {
+              "label": "Dependencies Write",
+              "description": "Skills.Install"
+            },
+            "config_write": {
+              "label": "Config Write",
+              "description": "Skills.Update"
+            },
+            "source_write": {
+              "label": "Source Write",
+              "description": "Settings source management actions"
+            }
+          },
+          "mode": {
+            "allow": "Allow",
+            "ask": "Ask",
+            "deny": "Deny"
+          },
+          "scanner": {
+            "off": "Off",
+            "warn": "Warn",
+            "block": "Block"
+          }
+        },
+        "audit": {
+          "view": {
+            "data": "Data",
+            "config": "Config"
+          },
+          "loadFailed": "Failed to load skills audit logs.",
+          "actionAll": "All actions",
+          "skillAll": "All skills",
+          "result": {
+            "all": "All results",
+            "ok": "Success only",
+            "error": "Failed only"
+          },
+          "emptyDescription": "Run a skills action to generate audit entries.",
+          "emptyFiltered": "No records matched the current filters.",
+          "time": "Time",
+          "tool": "Tool",
+          "action": "Action",
+          "group": "Group",
+          "skill": "Skill",
+          "source": "Source",
+          "assistantId": "Assistant ID",
+          "providerId": "Provider ID",
+          "resultLabel": "Result",
+          "error": "Error",
+          "totalRecords": "Total {count} records",
+          "filteredRecords": "Filtered {count} records",
+          "rowsPerPage": "{count} / page",
+          "pageOf": "Page {page} of {total}",
+          "firstPage": "First page",
+          "prevPage": "Previous page",
+          "nextPage": "Next page",
+          "lastPage": "Last page",
+          "config": {
+            "hideUiOperationRecords": "Hide UI operation logs",
+            "retentionDays": "Audit retention period",
+            "days": "{count} days",
+            "clearLogs": "Clear audit logs",
+            "clearNow": "Clear now",
+            "clearDialogTitle": "Clear all audit logs now?",
+            "clearDialogDescription": "This action will remove all current audit logs and cannot be undone.",
+            "clearDone": "Audit logs cleared",
+            "clearFailed": "Clear audit logs failed",
+            "saveFailed": "Save audit config failed"
+          },
+          "outcome": {
+            "ok": "Success",
+            "error": "Error",
+            "unknown": "Unknown"
+          }
+        }
+      },
+      "skillsRemoteDisabledHint": "Enable remote search in skills > sources first.",
+      "skillsRemoteInstallDisabled": "Remote install disabled",
+      "skillsRemoteInstallDisabledHint": "Enable install in skills > sources first."
+    },
+    "tools": {
+      "category": {
+        "general": "General",
+        "fs": "File system",
+        "runtime": "Runtime",
+        "web": "Web",
+        "ui": "UI",
+        "media": "Media",
+        "messaging": "Messaging",
+        "automation": "Automation",
+        "sessions": "Sessions",
+        "external_tools": "External tools",
+        "skills": "Skills",
+        "nodes": "Nodes",
+        "voice": "Voice",
+        "memory": "Memory",
+        "library": "Library",
+        "other": "Other"
+      },
+      "list": {
+        "empty": "No tools available."
+      },
+      "status": {
+        "allowed": "Allowed",
+        "blocked": "Blocked",
+        "updateFailed": "Failed to update tool status"
+      },
+      "reason": {
+        "unavailable": "Required runtime dependencies are unavailable."
+      },
+      "builtin": {
+        "read": {
+          "name": "Read",
+          "description": "Read file content from the workspace."
+        },
+        "write": {
+          "name": "Write",
+          "description": "Write content to a workspace file."
+        },
+        "edit": {
+          "name": "Edit",
+          "description": "Replace exact text in a workspace file."
+        },
+        "apply_patch": {
+          "name": "Apply patch",
+          "description": "Apply a unified diff patch to workspace files."
+        },
+        "exec": {
+          "name": "Exec",
+          "description": "Execute a command on the host."
+        },
+        "process": {
+          "name": "Process",
+          "description": "Spawn a background process."
+        },
+        "web_fetch": {
+          "name": "Web fetch",
+          "description": "Fetch a web page."
+        },
+        "web_search": {
+          "name": "Web search",
+          "description": "Search the web via the configured provider."
+        },
+        "browser": {
+          "name": "Browser control",
+          "description": "Control browser page loading with Playwright."
+        },
+        "canvas": {
+          "name": "Canvas rendering",
+          "description": "Control node canvases (present/hide/navigate/eval/snapshot/a2ui)."
+        },
+        "image": {
+          "name": "Image processing",
+          "description": "Analyze one or more images with the configured image model."
+        },
+        "message": {
+          "name": "Message sending",
+          "description": "Send a channel message (not implemented)."
+        },
+        "gateway": {
+          "name": "Gateway control",
+          "description": "Invoke Gateway control plane actions."
+        },
+        "cron": {
+          "name": "Scheduler",
+          "description": "Manage Gateway cron jobs and wake events."
+        },
+        "agents_list": {
+          "name": "Agents list",
+          "description": "List agents."
+        },
+        "sessions_list": {
+          "name": "Sessions list",
+          "description": "List sessions."
+        },
+        "sessions_history": {
+          "name": "Session history",
+          "description": "Fetch session history."
+        },
+        "sessions_send": {
+          "name": "Session send",
+          "description": "Send a message to a session."
+        },
+        "sessions_spawn": {
+          "name": "Session spawn",
+          "description": "Spawn a new session."
+        },
+        "session_status": {
+          "name": "Session status",
+          "description": "Get session status."
+        },
+        "external_tools_query": {
+          "name": "External tools query",
+          "description": "Query external tools status, install progress, and updates."
+        },
+        "external_tools_manage": {
+          "name": "External tools manage",
+          "description": "Manage external tools lifecycle operations."
+        },
+        "skills": {
+          "name": "Skills",
+          "description": "Skills runtime tool (status/bins/install/update)."
+        },
+        "skill_manage": {
+          "name": "Skill manage",
+          "description": "Manage skill packages (list/search/install/update/remove/sync)."
+        },
+        "skills_query": {
+          "name": "Skills query",
+          "description": "Query skills status, catalog, and search results."
+        },
+        "skills_manage": {
+          "name": "Skills manage",
+          "description": "Manage skills lifecycle actions."
+        },
+        "skills_policy": {
+          "name": "Skills policy",
+          "description": "Get or set assistant skill policy."
+        },
+        "subagents": {
+          "name": "Subagents",
+          "description": "Manage subagent runs (list/info/log/kill/steer/spawn)."
+        },
+        "nodes": {
+          "name": "Nodes",
+          "description": "Invoke node capability."
+        },
+        "tts": {
+          "name": "Text to speech",
+          "description": "Convert text to speech."
+        },
+        "render_chart": {
+          "name": "Render chart",
+          "description": "Render charts from structured data."
+        },
+        "library_adapter": {
+          "name": "Library adapter",
+          "description": "Adapt tool calls into library tasks."
+        },
+        "tool_ui_registry": {
+          "name": "Tool UI registry",
+          "description": "Frontend tool UI registry."
+        },
+        "grep": {
+          "name": "Grep",
+          "description": "Search workspace files for a pattern."
+        },
+        "find": {
+          "name": "Find",
+          "description": "Find files by glob pattern in the workspace."
+        },
+        "ls": {
+          "name": "Ls",
+          "description": "List directory contents in the workspace."
+        },
+        "bash": {
+          "name": "Bash",
+          "description": "Run shell commands in the workspace sandbox."
+        },
+        "memory_recall": {
+          "name": "Memory recall",
+          "description": "Recall long-term memories with hybrid retrieval."
+        },
+        "memory_store": {
+          "name": "Memory store",
+          "description": "Store new long-term memory entries."
+        },
+        "memory_forget": {
+          "name": "Memory forget",
+          "description": "Delete specific or matched memory entries."
+        },
+        "memory_update": {
+          "name": "Memory update",
+          "description": "Update existing memory entry content or category."
+        },
+        "memory_stats": {
+          "name": "Memory stats",
+          "description": "Show long-term memory usage statistics."
+        },
+        "memory_list": {
+          "name": "Memory list",
+          "description": "List recent memory entries by filter."
+        },
+        "subagent_run": {
+          "name": "Subagent run",
+          "description": "Run a sub-agent task in an isolated workspace."
+        },
+        "subtitle": {
+          "name": "Subtitle ops",
+          "description": "Parse, convert, validate, fix, and translate subtitles."
+        },
+        "library": {
+          "name": "Library query",
+          "description": "Read-only library inspector for library list, full library detail, operations, history, and single operation status."
+        },
+        "library_manage": {
+          "name": "Library jobs",
+          "description": "Create and manage async library jobs for download, transcode, and subtitle processing. Job creation returns an operationId immediately for later progress checks."
+        }
+      },
+      "webSearch": {
+        "type": "Search mode",
+        "typeDesc": "Switch between API search and external tools search.",
+        "typeValue": {
+          "api": "API",
+          "externalTools": "External tools"
+        },
+        "provider": "Provider",
+        "apiBase": "API",
+        "openRouterBase": "OpenRouter",
+        "apiKey": "API key",
+        "apiKeyHint": "Leave blank to use environment variables.",
+        "maxResults": "Max results",
+        "country": "Country",
+        "searchLang": "Search language",
+        "uiLang": "UI language",
+        "freshness": "Freshness",
+        "timeoutSeconds": "Timeout (sec)",
+        "cacheTtlMinutes": "Cache TTL (min)",
+        "externalToolsHint": "External tools mode is reserved. No options are available yet."
+      },
+      "webFetch": {
+        "type": "Mode",
+        "typeDesc": "Switch between Playwright headless browser mode and builtin HTTP fetch mode.",
+        "typeValue": {
+          "playwright": "Playwright",
+          "builtin": "Builtin"
+        },
+        "playwrightMarkdown": "Convert to Markdown",
+        "playwrightMarkdownDesc": "Convert rendered HTML output into Markdown.",
+        "playwrightHint": "Playwright mode runs in headless browser and only reads cookies from connectors. It will not persist new cookies.",
+        "acceptMarkdown": "Prefer Markdown",
+        "acceptMarkdownDesc": "When enabled, requests prefer text/Markdown with HTML fallback.",
+        "enableUserAgent": "Send User-Agent",
+        "enableUserAgentDesc": "When disabled, no explicit User-Agent will be sent.",
+        "userAgent": "User-Agent",
+        "acceptLanguage": "Accept-Language",
+        "timeoutSeconds": "Timeout (sec)",
+        "maxChars": "Max chars",
+        "maxRedirects": "Max redirects",
+        "maxRedirectsDesc": "Set 0 to disable redirect following.",
+        "retryMax": "Max retries",
+        "retryMaxDesc": "Applies only to safely retryable methods (E.G. GET/HEAD/OPTIONS).",
+        "headers": "Extra headers (JSON)",
+        "headersDesc": "Provide a JSON object, E.G. {\"X-Test\":\"1\"}. It merges with tool-call headers.",
+        "headersInvalid": "Invalid headers format",
+        "headersInvalidDesc": "Use a JSON object, E.G. {\"Accept-Language\":\"En-US\"}."
+      },
+      "browserControl": {
+        "enabled": "Enabled",
+        "evaluateEnabled": "Allow evaluate",
+        "evaluateEnabledDesc": "Disable browser evaluate actions.",
+        "ssrfSection": "SSRF Security",
+        "ssrfSectionDesc": "Private network and hostname allowlist options.",
+        "executablePath": "Playwright chromium path",
+        "executablePathDesc": "Managed by Playwright and read-only.",
+        "executablePathPending": "Path will appear after Playwright runtime check.",
+        "headless": "Headless",
+        "headlessDesc": "Start browser in headless mode.",
+        "noSandbox": "No sandbox",
+        "noSandboxDesc": "Pass --no-sandbox to chrome.",
+        "snapshotDefaultMode": "Snapshot default mode",
+        "snapshotDefaultModeAuto": "Auto",
+        "ssrfDangerouslyAllowPrivateNetwork": "Allow private network",
+        "ssrfDangerouslyAllowPrivateNetworkDesc": "Allow browser navigation to private/internal networks.",
+        "ssrfAllowedHostnames": "Allowed hostnames (JSON)",
+        "ssrfHostnameAllowlist": "Hostname allowlist (JSON)",
+        "extraArgs": "Extra args (JSON)",
+        "arrayInvalid": "Array format is invalid",
+        "arrayInvalidDesc": "Use a JSON string array, for example [\"localhost\",\"metadata.Internal\"]."
+      },
+      "detail": {
+        "descriptionLabel": "Description",
+        "enabled": "Enabled",
+        "permissions": {
+          "label": "Permissions",
+          "badges": {
+            "none": "None",
+            "approval": "Approval",
+            "sandbox": "Sandbox"
+          }
+        },
+        "tabs": {
+          "config": "Configuration",
+          "io": "Input/output"
+        },
+        "config": {
+          "title": "Configuration",
+          "noneTitle": "Configuration",
+          "noneDescription": "No configuration is required for this tool."
+        },
+        "io": {
+          "method": "Method",
+          "methodDesc": "Select an available method.",
+          "empty": "No method metadata available.",
+          "input": "Input",
+          "output": "Output"
+        }
+      }
+    },
+    "skills": {
+      "loading": "Loading skills...",
+      "error": "Unable to load skills.",
+      "blocked": "Blocked",
+      "listTitle": "Skills List",
+      "listDescription": "Skills available to runtime.",
+      "listEmpty": "No skills available."
+    },
+    "connectors": {
+      "empty": "Connector settings will appear here.",
+      "searchPlaceholder": "Search connectors",
+      "searchEmpty": "No connectors match your search.",
+      "group.searchEngine": "Search engines",
+      "group.video": "Video",
+      "group.other": "Other",
+      "item.google": "Google",
+      "item.xiaohongshu": "Xiaohongshu",
+      "item.bilibili": "Bilibili",
+      "connect": "Connect",
+      "reconnect": "Reconnect",
+      "clear": "Clear",
+      "noCookies": "No cookies configured",
+      "loginHint": "A browser window will open. Sign in, then close the window to save cookies.",
+      "loginTitle": "Browser Login",
+      "loginDescription": "Finish login in the browser window, then close it.",
+      "installDescription": "Playwright is required to open the browser.",
+      "loginTarget": "Connector",
+      "loginRunning": "Waiting for browser to close...",
+      "loginDone": "Login completed.",
+      "loginError": "Login failed",
+      "playwrightMissing": "Playwright is not installed. Install it to continue.",
+      "openExternalTools": "Open external tools",
+      "installRequiredStatus": "Install required to continue.",
+      "status.connected": "Connected",
+      "status.expired": "Expired",
+      "status.disconnected": "Disconnected",
+      "detail.status": "Status",
+      "detail.data": "Data",
+      "detail.actions": "Actions",
+      "viewCookies": "View",
+      "openSite": "Open site",
+      "openSiteError": "Failed to open site.",
+      "cookiesTitle": "Cookies",
+      "cookiesEmpty": "No cookies stored yet."
+    },
+    "integration": {
+      "channels": {
+        "loading": "Loading channels...",
+        "searchPlaceholder": "Search channels",
+        "searchEmpty": "No channels match your search.",
+        "empty": "Channel settings will appear here.",
+        "probeSuccess": "Probe succeeded.",
+        "probeError": "Probe failed",
+        "logoutSuccess": "Logout succeeded.",
+        "logoutError": "Logout failed",
+        "actions": {
+          "probe": "Probe",
+          "logout": "Logout",
+          "reload": "Reload",
+          "disabledHint": "Configure required credentials to enable actions."
+        },
+        "status": {
+          "online": "Online",
+          "offline": "Offline",
+          "degraded": "Degraded",
+          "reconnecting": "Reconnecting",
+          "disabled": "Disabled",
+          "unknown": "Unknown",
+          "notConfigured": "Not configured",
+          "notConfiguredHint": "Complete required credentials to connect.",
+          "missing": "Missing"
+        },
+        "detail": {
+          "status": "Status",
+          "lastError": "Last error",
+          "updatedAt": "Updated"
+        },
+        "config": {
+          "loading": "Loading configuration...",
+          "loadError": "Failed to load channel config.",
+          "empty": "No configurable fields yet.",
+          "autoSaveError": "Auto-save failed",
+          "autoSave": {
+            "pending": "Pending...",
+            "saving": "Saving...",
+            "error": "Auto-save failed"
+          },
+          "actions": {
+            "addRow": "Add row",
+            "removeRow": "Remove"
+          },
+          "fields": {
+            "enabled": "Enabled",
+            "token": "Token",
+            "botToken": "Bot token",
+            "bearerToken": "Bearer token",
+            "groupPolicy": "Group policy",
+            "dmPolicy": "DM policy",
+            "streamMode": "Stream mode",
+            "allowFrom": "Allow from",
+            "groupAllowList": "Allowed groups",
+            "groupAllowFrom": "Allow from (groups)"
+          },
+          "options": {
+            "default": "Default",
+            "groupPolicy": {
+              "open": "Open",
+              "disabled": "Disabled",
+              "allowlist": "Allowlist"
+            },
+            "dmPolicy": {
+              "pairing": "Pairing",
+              "allowlist": "Allowlist",
+              "open": "Open",
+              "disabled": "Disabled"
+            },
+            "streamMode": {
+              "off": "Off",
+              "partial": "Partial",
+              "block": "Block",
+              "replace": "Replace",
+              "status_final": "Status final",
+              "append": "Append"
+            }
+          },
+          "placeholders": {
+            "token": "Enter value",
+            "allowFrom": "One per line",
+            "groupId": "Group ID or *"
+          },
+          "hints": {
+            "allowFrom": "Use numeric Telegram user IDs, one per line.",
+            "groups": "Use Telegram group chat IDs; use * to match all groups.",
+            "groupAllowFrom": "User IDs in this list bypass group policy checks."
+          },
+          "allowFrom": {
+            "columns": {
+              "userId": "User ID",
+              "actions": "Actions"
+            },
+            "empty": "No allowlist entries."
+          },
+          "groups": {
+            "columns": {
+              "groupId": "Group ID",
+              "requireMention": "Require Mention",
+              "actions": "Actions"
+            },
+            "values": {
+              "requireMention": "Mention required",
+              "noMention": "No mention required"
+            },
+            "empty": "No group entries."
+          },
+          "groupAllowFrom": {
+            "columns": {
+              "userId": "User ID",
+              "actions": "Actions"
+            },
+            "empty": "No allowlist entries."
+          },
+          "pairing": {
+            "title": "Pairing",
+            "description": "Pairing requests and approvals will appear here.",
+            "loading": "Loading pairing requests...",
+            "loadError": "Failed to load pairing requests.",
+            "columns": {
+              "code": "Code",
+              "userId": "User ID",
+              "meta": "Meta",
+              "requested": "Requested",
+              "actions": "Actions"
+            },
+            "actions": {
+              "approve": "Approve",
+              "reject": "Reject"
+            },
+            "approveSuccess": "Pairing approved.",
+            "approveError": "Pairing approve failed",
+            "rejectSuccess": "Pairing rejected.",
+            "rejectError": "Pairing reject failed",
+            "meta": {
+              "account": "Account"
+            },
+            "empty": "Receiving pairing requests"
+          }
+        },
+        "reset": {
+          "title": "Reset channel configuration?",
+          "description": "This will remove all saved configuration for the channel.",
+          "confirm": "Reset",
+          "cancel": "Cancel",
+          "button": "Reset Configuration"
+        },
+        "menu": {
+          "sync": "Sync menu",
+          "syncSuccess": "Menu synced with {{count}} commands.",
+          "syncError": "Menu sync failed",
+          "empty": "No custom commands configured.",
+          "actions": {
+            "add": "Add"
+          },
+          "fields": {
+            "native": "Native commands",
+            "nativeSkills": "Native skill commands",
+            "customCommands": "Custom commands"
+          },
+          "columns": {
+            "command": "Command",
+            "description": "Description",
+            "actions": "Actions"
+          },
+          "validation": {
+            "commandPrefix": "Unable to save: command must start with /.",
+            "commandInvalid": "Unable to save: Telegram custom command is invalid (use a-Z, 0-9, underscore; max 32 chars).",
+            "descriptionRequired": "Unable to save: description is required."
+          },
+          "commands": {
+            "on": "On",
+            "off": "Off"
+          },
+          "placeholders": {
+            "command": "/Command",
+            "description": "Command description"
+          }
+        }
+      }
+    },
+    "externalTools": {
+      "searchPlaceholder": "Search tools",
+      "searchEmpty": "No tools match your search.",
+      "group": {
+        "runtime": "Runtime",
+        "bin": "Binary tools"
+      },
+      "detail": {
+        "currentVersion": "Current version",
+        "latestVersion": "Latest version",
+        "releaseNotes": "Release notes",
+        "path": "Path",
+        "openPath": "Open folder",
+        "actions": "Actions",
+        "noReleaseNotes": "No release notes",
+        "viewReleaseNotes": "View",
+        "notInstalled": "Not installed",
+        "unknown": "Unknown"
+      },
+      "actions": {
+        "install": "Install",
+        "installBunFirst": "Install Bun first",
+        "upgrade": "Upgrade",
+        "repair": "Repair",
+        "verify": "Verify",
+        "remove": "Remove"
+      },
+      "installDialog": {
+        "titlePrefix": "Upgrade",
+        "description": "Review the current version, target version, and install progress for the selected external tool.",
+        "targetVersion": "Target version",
+        "progress": "Install progress",
+        "success": "Install complete",
+        "error": "Install failed",
+        "retry": "Retry",
+        "close": "Close",
+        "stageLabel": "Current task",
+        "stage": {
+          "downloading": "Downloading",
+          "extracting": "Extracting",
+          "verifying": "Verifying",
+          "done": "Completed",
+          "error": "Failed",
+          "idle": "Idle"
+        }
+      },
+      "releaseNotesTitle": "Release Notes",
+      "releaseNotesDescription": "Latest release notes from the tool author.",
+      "releaseNotesClose": "Close",
+      "status.latest": "Latest",
+      "status.update": "Update",
+      "status.install": "Install",
+      "status.repair": "Repair"
+    },
+    "provider": {
+      "updateError": "Update failed",
+      "updateErrorFallback": "Unable to update provider.",
+      "footer": {
+        "reset": "Reset providers to defaults",
+        "add": "Add custom provider",
+        "remove": "Remove custom provider"
+      },
+      "credentials": {
+        "enable": "Enabled",
+        "apiKey": "API key",
+        "apiKeyPlaceholder": "Enter API key",
+        "paste": "Paste API key",
+        "show": "Show API key",
+        "hide": "Hide API key",
+        "fetch": "Fetch models"
+      },
+      "searchPlaceholder": "Search providers",
+      "models": {
+        "searchPlaceholder": "Search models",
+        "loading": "Loading models...",
+        "empty": "No models available.",
+        "syncErrorTitle": "Failed to Fetch Models",
+        "syncErrorFallback": "Unable to fetch models.",
+        "context": "Context",
+        "toggleEnabled": "Enable model",
+        "manage": {
+          "open": "Manage models",
+          "title": "Manage Models",
+          "description": "Add or edit models manually. This is useful when the provider endpoint cannot list models.",
+          "columnModelId": "Model ID",
+          "columnEnabled": "Enabled",
+          "columnVisible": "Show in list",
+          "columnActions": "Actions",
+          "idPlaceholder": "Model ID",
+          "remove": "Remove model",
+          "visible": "Show in list",
+          "add": "Add model",
+          "close": "Close",
+          "invalidTitle": "Invalid Models",
+          "invalidDuplicate": "Model IDs must be unique.",
+          "empty": "No models."
+        },
+        "capability": {
+          "tools": "Tool calling",
+          "reasoning": "Reasoning",
+          "image": "Image",
+          "audio": "Audio",
+          "video": "Video"
+        }
+      },
+      "custom": {
+        "title": "Add Custom Provider",
+        "description": "Provide a name, type, and endpoint for the custom provider.",
+        "updateInvalid": "Name and endpoint are required for a custom provider.",
+        "fields": {
+          "name": "Name",
+          "namePlaceholder": "Custom provider",
+          "type": "Type",
+          "endpoint": "Endpoint",
+          "endpointPlaceholder": "Https://API.Example.Com"
+        },
+        "actions": {
+          "create": "Create provider",
+          "creating": "Creating..."
+        }
+      },
+      "delete": {
+        "title": "Delete Provider",
+        "description": "Delete this provider? This action cannot be undone.",
+        "descriptionWithName": "Delete {name}? This action cannot be undone.",
+        "actions": {
+          "delete": "Delete",
+          "deleting": "Deleting..."
+        }
+      }
+    },
+    "about": {
+      "iconTap": "Dream Creator app icon",
+      "advanced": {
+        "title": "Advanced",
+        "debug": "Debug level",
+        "debugHint": "Off hides debug entry, basic shows debug panels, full also records prompt content in prompt.Report.",
+        "unlockedTitle": "Advanced Unlocked",
+        "unlockedHint": "Debug controls stay visible until you leave the about page.",
+        "options": {
+          "off": "Off",
+          "basic": "Basic",
+          "full": "Full (record prompt)"
+        }
+      },
+      "version": "Current version",
+      "update": {
+        "latest": "Latest version",
+        "latestOk": "Up to date",
+        "latestAvailable": "New version",
+        "latestFailed": "Check failed",
+        "current": "Current version",
+        "changelog": "Release notes",
+        "check": "Check for updates",
+        "install": "Install updates",
+        "restart": "Restart to apply",
+        "command": "Update actions",
+        "viewReleaseNotes": "View",
+        "noReleaseNotes": "No release notes",
+        "releaseNotesClose": "Close"
+      },
+      "meta": {
+        "craftedBy": "Crafted by",
+        "contact": "Contract me",
+        "feedback": "Feedback",
+        "sendFeedback": "Open GitHub issues",
+        "tooltip": {
+          "email": "Email",
+          "twitter": "Twitter",
+          "website": "Website",
+          "github": "GitHub"
+        }
+      },
+      "credits": {
+        "title": "Acknowledgements",
+        "tools": "Referenced tools"
+      }
+    }
+  },
+  "cron": {
+    "tabs": {
+      "overview": "Overview",
+      "list": "Cron list",
+      "records": "Execution record"
+    },
+    "view": {
+      "table": "Table",
+      "cards": "Cards"
+    },
+    "tooltip": {
+      "tableView": "Table view",
+      "cardsView": "Cards view"
+    },
+    "action": {
+      "refresh": "Refresh",
+      "newJob": "New job",
+      "run": "Run now",
+      "delete": "Delete",
+      "selectJobs": "Select",
+      "selectedJobCount": "{count} selected",
+      "cancelSelection": "Cancel selection",
+      "customizeColumns": "Customize columns",
+      "visibleColumns": "Visible columns",
+      "noConfigurableColumns": "No configurable columns"
+    },
+    "status": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "ok": "OK",
+      "error": "Error",
+      "skipped": "Skipped"
+    },
+    "table": {
+      "id": "ID",
+      "name": "Name",
+      "description": "Description",
+      "schedule": "Schedule",
+      "nextRun": "Next run",
+      "runningAt": "Running since",
+      "payload": "Payload",
+      "assistantId": "Assistant",
+      "sessionTarget": "Session",
+      "wakeMode": "Wake mode",
+      "delivery": "Delivery",
+      "sourceChannel": "Source channel",
+      "enabled": "Enabled",
+      "deleteAfterRun": "Delete after run",
+      "lastRun": "Last run",
+      "status": "Status",
+      "lastDuration": "Last duration",
+      "consecutiveErrors": "Consecutive errors",
+      "scheduleErrors": "Schedule errors",
+      "lastDeliveryStatus": "Last delivery",
+      "lastDeliveryError": "Last delivery error",
+      "lastError": "Last error",
+      "createdAt": "Created",
+      "updatedAt": "Updated",
+      "ops": "Ops"
+    },
+    "scheduleValue": {
+      "every": "Every {interval}",
+      "at": "At {value}",
+      "interval": "{count} {unit}",
+      "unit": {
+        "days": "Days",
+        "hours": "Hours",
+        "minutes": "Minutes",
+        "seconds": "Seconds",
+        "milliseconds": "Ms"
+      }
+    },
+    "filter": {
+      "allJobs": "All jobs",
+      "allStatus": "All status",
+      "searchAndFilterJobs": "Search & filter jobs",
+      "searchJobsPlaceholder": "Search name, description, or payload",
+      "searchAndFilterRuns": "Search & filter runs",
+      "searchRunsPlaceholder": "Search summary, error, or model",
+      "job": "Job",
+      "runStatus": "Run status",
+      "enableState": "Enable state",
+      "allEnableStates": "All enable states",
+      "enabledOnly": "Enabled only",
+      "disabledOnly": "Disabled only",
+      "lastRunStatus": "Last run status",
+      "clearJobFilters": "Clear job filters",
+      "clearRunFilters": "Clear run filters"
+    },
+    "runs": {
+      "time": "Started",
+      "job": "Job",
+      "status": "Status",
+      "stage": "Stage",
+      "duration": "Duration",
+      "durationSeconds": "{count}s",
+      "ended": "Ended",
+      "deliveryStatus": "Delivery",
+      "deliveryError": "Delivery error",
+      "model": "Model",
+      "provider": "Provider",
+      "sessionKey": "Session key",
+      "usage": "Usage",
+      "summary": "Summary",
+      "error": "Error",
+      "detailTitle": "Run Detail",
+      "runId": "Run ID",
+      "overview": "Overview",
+      "lifecycle": "Lifecycle",
+      "detailLive": "Live updates via push",
+      "detailRefreshing": "Refreshing...",
+      "detailStable": "Stable",
+      "lifecycleStep": {
+        "trigger": "Trigger",
+        "waiting": "Awaiting",
+        "delivery": "Delivery",
+        "terminal": "Terminal"
+      },
+      "lifecycleWaitingPush": "Waiting for backend push...",
+      "lifecycleStepNoEvents": "No events for this step",
+      "channel": "Channel",
+      "source": "Source",
+      "statusValue": {
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed",
+        "ok": "OK",
+        "error": "Error",
+        "skipped": "Skipped",
+        "pending": "Pending",
+        "delivered": "Delivered",
+        "sent": "Sent",
+        "accepted": "Accepted"
+      },
+      "stageValue": {
+        "started": "Started",
+        "action_accepted": "Action accepted",
+        "action_failed": "Action failed",
+        "delivery_pending": "Delivery pending",
+        "delivery_attempted": "Delivery attempted",
+        "delivery_failed": "Delivery failed",
+        "delivery_delivered": "Delivery delivered",
+        "heartbeat_received": "Heartbeat received",
+        "heartbeat_timeout": "Heartbeat timeout",
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed"
+      },
+      "deliveryStatusValue": {
+        "pending": "Pending",
+        "delivered": "Delivered",
+        "failed": "Failed",
+        "ok": "OK",
+        "unknown": "Unknown",
+        "not_delivered": "Not delivered",
+        "not_requested": "Not requested"
+      }
+    },
+    "pagination": {
+      "totalJobs": "Total {count} jobs",
+      "totalRuns": "Total {count} runs",
+      "rowsPerPage": "{count} / page",
+      "pageOf": "Page {page} of {total}",
+      "firstPage": "First page",
+      "prevPage": "Previous page",
+      "nextPage": "Next page",
+      "lastPage": "Last page"
+    },
+    "empty": {
+      "jobs": "No cron jobs",
+      "runs": "No runs"
+    },
+    "dialog": {
+      "deleteTitle": "Delete Cron Job",
+      "deleteDescription": "This action cannot be undone.",
+      "bulkDeleteTitle": "Delete Selected Cron Jobs",
+      "bulkDeleteDescription": "Delete {count} selected jobs. This action cannot be undone.",
+      "bulkDeleteConfirm": "Delete {count}",
+      "editTitle": "Edit Job",
+      "viewTitle": "View Job",
+      "newTitle": "New Job"
+    },
+    "form": {
+      "section": {
+        "basic": "Basic",
+        "schedule": "Schedule",
+        "payload": "Payload",
+        "delivery": "Delivery"
+      },
+      "name": "Name",
+      "nameRequired": "Name is required",
+      "description": "Description",
+      "scheduleTypeOptions": {
+        "every": "Every",
+        "cron": "Cron",
+        "at": "At time"
+      },
+      "cronExpr": "Cron expression",
+      "cronExprPlaceholder": "E.G. */5 * * * *",
+      "scheduleExact": "Exact timing",
+      "staggerAmount": "Stagger",
+      "staggerAmountPlaceholder": "E.G. 30",
+      "staggerUnit": "Stagger unit",
+      "staggerUnitOptions": {
+        "seconds": "Seconds",
+        "minutes": "Minutes"
+      },
+      "staggerInvalid": "Stagger must be greater than 0",
+      "every": "Every",
+      "everyUnit": "Unit",
+      "everyUnitOptions": {
+        "minutes": "Minutes",
+        "hours": "Hours",
+        "days": "Days"
+      },
+      "at": "Run at",
+      "timezone": "Timezone",
+      "timezonePlaceholder": "Select timezone",
+      "sessionTarget": "Session",
+      "sessionTargetOptions": {
+        "main": "Main",
+        "isolated": "Isolated"
+      },
+      "wakeMode": "Wake mode",
+      "wakeModeOptions": {
+        "now": "Now",
+        "nextHeartbeat": "Next heartbeat"
+      },
+      "payloadKindOptions": {
+        "systemEvent": "System event",
+        "agentTurn": "Agent turn"
+      },
+      "payloadText": "System event text",
+      "payloadMessage": "Agent message",
+      "payloadTextRequired": "System event text is required",
+      "payloadMessageRequired": "Agent message is required",
+      "model": "Model",
+      "modelAuto": "Auto",
+      "modelCustom": "Custom",
+      "thinking": "Thinking",
+      "thinkingAuto": "Auto",
+      "thinkingCustom": "Custom",
+      "thinkingOption": {
+        "off": "Off",
+        "minimal": "Minimal",
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "xhigh": "XHigh"
+      },
+      "timeoutSeconds": "Timeout",
+      "timeoutSecondsPlaceholder": "Unit: seconds",
+      "timeoutInvalid": "Timeout must be greater than 0",
+      "deliveryModeOptions": {
+        "none": "None",
+        "announce": "Announce summary",
+        "webhook": "Webhook POST"
+      },
+      "deliveryChannel": "Channel",
+      "deliveryChannelDefault": "Default",
+      "deliveryChannelApp": "App",
+      "deliveryChannelCustom": "Custom",
+      "deliveryTo": "To",
+      "deliveryToWebhook": "Webhook URL",
+      "deliveryToRequired": "Webhook URL is required",
+      "deliveryToInvalid": "Webhook URL must start with http:// or https://",
+      "deliveryBestEffort": "Best effort",
+      "deliveryFailureMode": "Failure destination",
+      "deliveryFailureModeOptions": {
+        "none": "None",
+        "announce": "Announce",
+        "webhook": "Webhook"
+      },
+      "deliveryFailureChannel": "Failure channel",
+      "deliveryFailureToWebhook": "Failure webhook URL",
+      "deliveryFailureAccountId": "Failure account ID",
+      "deliveryFailureChannelInvalid": "Failure destination channel must be one of: default, app, Telegram",
+      "deliveryFailureToRequired": "Failure destination webhook URL is required",
+      "deliveryFailureToInvalid": "Failure destination webhook URL must start with http:// or https://",
+      "deleteAfterRun": "Delete after run",
+      "enabled": "Enabled",
+      "invalid": "Invalid job",
+      "mainTargetRequiresSystemEvent": "Main session target requires system event payload",
+      "isolatedTargetRequiresAgentTurn": "Isolated session target requires agent turn payload",
+      "cronExprRequired": "Cron expression is required",
+      "everyRequired": "Every interval is required",
+      "atRequired": "Schedule time is required",
+      "atInvalid": "Schedule time is invalid"
+    },
+    "payload": {
+      "systemEvent": "System event",
+      "agentTurn": "Agent turn"
+    },
+    "columns": {
+      "id": "ID",
+      "name": "Name",
+      "description": "Description",
+      "schedule": "Schedule",
+      "nextRun": "Next Run",
+      "runningAt": "Running Since",
+      "payload": "Payload",
+      "assistantId": "Assistant",
+      "sessionTarget": "Session",
+      "wakeMode": "Wake Mode",
+      "delivery": "Delivery",
+      "sourceChannel": "Source Channel",
+      "enabled": "Enabled",
+      "deleteAfterRun": "Delete After Run",
+      "lastRun": "Last Run",
+      "status": "Status",
+      "lastDuration": "Last Duration",
+      "consecutiveErrors": "Consecutive Errors",
+      "scheduleErrors": "Schedule Errors",
+      "lastDeliveryStatus": "Last Delivery Status",
+      "lastDeliveryError": "Last Delivery Error",
+      "lastError": "Last Error",
+      "createdAt": "Created",
+      "updatedAt": "Updated",
+      "runId": "Run ID",
+      "started": "Started",
+      "job": "Job",
+      "duration": "Duration",
+      "stage": "Stage",
+      "ended": "Ended",
+      "deliveryStatus": "Delivery",
+      "deliveryError": "Delivery Error",
+      "usage": "Usage",
+      "model": "Model",
+      "provider": "Provider",
+      "sessionKey": "Session Key",
+      "summary": "Summary",
+      "error": "Error"
+    },
+    "overview": {
+      "cards": {
+        "totalCrons": "Total crons",
+        "totalExecutions": "Total executions",
+        "avgDuration": "Average duration",
+        "nextWake": "Next wake"
+      },
+      "chart": {
+        "title": "Execution Trend",
+        "series": {
+          "success": "Success",
+          "failed": "Failed"
+        }
+      },
+      "granularity": {
+        "minute": "1 Min",
+        "quarterHour": "15 Min",
+        "hour": "1 Hour",
+        "day": "1 Day"
+      },
+      "recent": "Recent execution"
+    },
+    "toast": {
+      "created": "Job created",
+      "createFailed": "Failed to create job",
+      "updated": "Job updated",
+      "updateFailed": "Failed to update job",
+      "deleted": "Job deleted",
+      "deleteFailed": "Failed to delete job",
+      "bulkDeleteSuccess": "Deleted {count} jobs",
+      "bulkDeletePartial": "Deleted {success}; failed {failed}",
+      "bulkDeleteFailed": "Failed to delete selected jobs",
+      "runQueued": "Job run started",
+      "runFailed": "Failed to run job"
+    }
+  },
+  "library": {
+    "tools": {
+      "optionalTitle": "Optional Title",
+      "import": "Import",
+      "dependencyOpenSettings": "Open external tools",
+      "dependencyClose": "Close"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "tasks": "Task list",
+      "resources": "Resources",
+      "all": "All",
+      "video": "Video",
+      "subtitle": "Subtitle",
+      "thumbnail": "Thumbnail",
+      "workspace": "Workspace",
+      "config": "Config"
+    },
+    "actions": {
+      "customizeColumns": "Customize columns",
+      "visibleColumns": "Visible columns",
+      "resetVisibleColumns": "Reset to default",
+      "noConfigurableColumns": "No configurable columns",
+      "selectTasks": "Select",
+      "selectFiles": "Select",
+      "cancelSelection": "Cancel",
+      "selectedTaskCount": "{count} selected",
+      "newDownload": "New download",
+      "newTranscode": "Create transcode",
+      "newSubtitleTranslate": "Translate subtitle",
+      "importVideo": "Import video",
+      "importSubtitle": "Import subtitle",
+      "refresh": "Refresh"
+    },
+    "filter": {
+      "search": "Search by keyword",
+      "searchAndFilterTasks": "Search & filter tasks",
+      "searchTasksPlaceholder": "Search tasks",
+      "searchAndFilterFiles": "Search & filter files",
+      "searchFilesPlaceholder": "Search files",
+      "taskStatus": "Task status",
+      "taskType": "Task type",
+      "noTaskTypes": "No task types",
+      "clearAllTaskFilters": "Clear filters",
+      "fileTypeLabel": "File type",
+      "fileStatusLabel": "File status",
+      "activeFilesOption": "Active files",
+      "recycleBinOption": "Recycle bin",
+      "allFilesOption": "All files",
+      "clearAllFileFilters": "Clear filters"
+    },
+    "resources": {
+      "viewFile": "File view",
+      "viewLibrary": "Library view",
+      "loadMore": "Load more",
+      "libraryEmpty": "No libraries yet",
+      "updatedAt": "Updated",
+      "filteredEmpty": "No matching libraries",
+      "filteredEmptyDescription": "Try another keyword or clear the current search.",
+      "libraryInfoTitle": "Library Info",
+      "fileInfoTitle": "Library Files",
+      "fileInfoEmpty": "No editable library files yet.",
+      "fileInfoTooltip": "Edit in workspace",
+      "recordInfoTitle": "Library Records",
+      "recordInfoTooltip": "View record",
+      "currentRecordsTitle": "Current Records",
+      "deletedFileCount": "Recycle bin · {count}",
+      "deleteLibraryTitle": "Delete Library",
+      "deleteLibrarySuccess": "Library, tasks, files, and records deleted.",
+      "deleteLibraryConfirmTitle": "Delete this library?",
+      "deleteLibraryConfirmDescription": "This permanently deletes the library, its tasks, files, records, and workspace state, and removes local files from disk. This action cannot be undone.",
+      "deleteLibraryConfirmAction": "Delete",
+      "deleteLibraryFiles": "Files",
+      "deleteLibraryTasks": "Tasks",
+      "deleteLibraryRecords": "Records"
+    },
+    "download": {
+      "title": "New Download",
+      "created": "Download operation created.",
+      "reachabilityWarning": "Check connectivity",
+      "dependencyDescription": "Required external tools are missing. Please install or repair them in external tools.",
+      "inputTitle": "Enter Download URL",
+      "inputPlaceholder": "Https://",
+      "request": "Request download",
+      "connectorHint": "Use connector cookies for parsing and download",
+      "connectorUnsupportedHint": "No connector is available for this site yet.",
+      "modifyLink": "Modify link",
+      "tabs.quick": "Quick download",
+      "tabs.custom": "Custom download",
+      "quality": "Quality",
+      "quality.best": "Best quality",
+      "quality.audio": "Audio only",
+      "quality.select": "Select format",
+      "quality.groupAv": "Video + audio",
+      "quality.groupAudio": "Audio only",
+      "subtitle": "Subtitle",
+      "subtitle.none": "No subtitles",
+      "subtitle.auto": "Auto",
+      "transcode": "Transcode",
+      "transcode.deleteSourceAfterTranscode": "Do not keep source file",
+      "transcode.none": "No transcode",
+      "start": "Start",
+      "parse": "Parse"
+    },
+    "task": {
+      "title": "Operation",
+      "loading": "Loading operation details...",
+      "download": "Download",
+      "delete": "Delete operation",
+      "deleteTitle": "Delete task?",
+      "deleteDescription": "This removes the task record for {name}. The library stays available.",
+      "deleteDialogDescription": "This removes the task record for {name}. Files in the library stay untouched.",
+      "deleteImpactDescription": "This task currently outputs {count} file(s). Turn on file deletion only if you also want to remove those outputs from the library.",
+      "deleteKeepFilesDescription": "This task has no removable output files. Deleting it only removes the task record.",
+      "deleteFilesLabel": "Also delete this task's output files",
+      "deleteFilesTitle": "Task Output Files",
+      "deleteConfirm": "Delete task",
+      "deleteSuccessTitle": "Delete Task",
+      "deleteSuccess": "The task record was removed.",
+      "deleteSuccessWithFiles": "The task was removed and its output files were marked as deleted.",
+      "deleteFailedTitle": "Delete Task",
+      "bulkDeleteTitle": "Delete selected tasks?",
+      "bulkDeleteDescription": "This removes {count} selected task record(s). Files in the library stay untouched.",
+      "bulkDeleteConfirm": "Delete {count} tasks",
+      "bulkDeleteSuccessTitle": "Delete Tasks",
+      "bulkDeleteSuccess": "{count} task record(s) removed.",
+      "bulkDeleteFailedTitle": "Delete Tasks",
+      "selectAllPage": "Select current page",
+      "selectRow": "Select task {name}",
+      "error": "Error",
+      "failedUnknown": "Unknown error",
+      "failedCheck": "Check & retry",
+      "failedCheckTitle": "Failure Checks",
+      "failedChecking": "Checking...",
+      "failedCheckOk": "OK",
+      "failedCheckFailed": "Failed",
+      "failedCheckOpenTools": "Open external tools",
+      "failedCheckOpenProxy": "Open settings",
+      "failedRetry": "Retry",
+      "errorCode": "Error code",
+      "errorMessage": "Error message",
+      "tabStatus": "Status",
+      "tabOutputs": "Outputs",
+      "tabLibrary": "Library",
+      "tabLibraryEmpty": "No library files yet",
+      "tabInfo": "Info",
+      "openSourceWebpage": "Open source webpage",
+      "summary": "Summary",
+      "overview": "Overview",
+      "correlation": "Correlation",
+      "requestUrl": "Source URL",
+      "requestId": "Request ID",
+      "runId": "Run ID",
+      "parentOperation": "Parent task",
+      "copySourceUrl": "Copy source URL",
+      "copySourceUrlSuccess": "Source URL copied.",
+      "copySourceUrlFailed": "Failed to copy source URL.",
+      "copyError": "Copy error",
+      "copyErrorSuccess": "Error copied.",
+      "copyErrorFailed": "Failed to copy error.",
+      "checks": {
+        "connectivity": "Network connectivity",
+        "ytdlp": "yt-dlp",
+        "ffmpeg": "FFmpeg",
+        "bun": "Bun",
+        "version": "yt-dlp version",
+        "versionLatest": "{version} (latest)"
+      },
+      "constraints": "Constraints",
+      "subtitleChunks": "Chunks",
+      "failedChunks": "Failed chunks",
+      "checkpoint": "Checkpoint",
+      "resumed": "Resumed",
+      "actions": "Actions",
+      "cancelSuccess": "Task canceled",
+      "cancelSuccessDescription": "The subtitle task has been stopped and checkpoint progress was kept.",
+      "cancelFailed": "Cancel failed",
+      "resumeSuccess": "Task resumed",
+      "resumeSuccessDescription": "The subtitle task will continue from saved checkpoint progress when available.",
+      "resumeFailed": "Resume failed",
+      "dialogDescription": "Inspect operation status, outputs, linked library files, and detailed metadata.",
+      "resume": "Resume",
+      "cancel": "Cancel",
+      "failedCheckDescription": "Review dependency and environment checks before retrying the failed operation.",
+      "glossaryProfiles": "Glossary",
+      "referenceTracks": "Reference track",
+      "promptProfiles": "Prompt profile",
+      "inlinePrompt": "Inline prompt"
+    },
+    "file": {
+      "deleteTitle": "Delete file?",
+      "deleteDescription": "This removes {name} from the library. Linked task records stay available and will show the file as deleted.",
+      "deleteImpactDescription": "Linked task: {task}. Deleting this file does not delete the task or the library.",
+      "deleteKeepTaskDescription": "Deleting this file only affects the file itself. The library stays available.",
+      "deleteFilesLabel": "Also delete local file",
+      "deleteFilesTitle": "Local File to Delete",
+      "deleteConfirm": "Delete file",
+      "deleteSuccessTitle": "Delete File",
+      "deleteSuccess": "The file was removed from the library.",
+      "deleteSuccessWithLocal": "The file was removed from the library and deleted locally.",
+      "deleteFailedTitle": "Delete File",
+      "bulkDeleteTitle": "Delete selected files?",
+      "bulkDeleteDescription": "This removes {count} selected file record(s) from the library. Local files stay untouched.",
+      "bulkDeleteConfirm": "Delete {count} files",
+      "bulkDeleteSuccessTitle": "Delete Files",
+      "bulkDeleteSuccess": "{count} file record(s) removed.",
+      "bulkDeleteFailedTitle": "Delete Files",
+      "selectAllPage": "Select current page",
+      "selectRow": "Select file {name}"
+    },
+    "columns": {
+      "taskName": "Name",
+      "library": "Library",
+      "type": "Type",
+      "source": "Source",
+      "domain": "Domain",
+      "platform": "Platform",
+      "uploader": "Uploader",
+      "status": "Status",
+      "progress": "Progress",
+      "outputCount": "Output Files",
+      "outputSize": "Output Size",
+      "duration": "Duration",
+      "publishTime": "Publish Time",
+      "startedAt": "Started",
+      "createTime": "Create Time",
+      "file": "File",
+      "size": "Size",
+      "task": "Task",
+      "fileFormat": "File Format",
+      "id": "ID"
+    },
+    "jobType": {
+      "ytdlp": "YT-DLP",
+      "subtitleTranslate": "Subtitle translation",
+      "transcode": "Transcode",
+      "subtitleProofread": "Subtitle proofread",
+      "subtitleQaReview": "Subtitle QA review"
+    },
+    "tooltips": {
+      "previewImage": "Preview image",
+      "openTaskDialog": "View task",
+      "outputCount": "Files: {count}",
+      "outputSize": "Total size: {size}",
+      "openFolder": "Open folder"
+    },
+    "table": {
+      "noResults": "No results.",
+      "totalTasks": "Total {count} tasks",
+      "totalFiles": "Total {count} files",
+      "pageOf": "Page {page} of {total}",
+      "rowsPerPage": "{count} / page",
+      "prevPage": "Previous page",
+      "nextPage": "Next page",
+      "noOutputs": "No outputs yet"
+    },
+    "rowMenu": {
+      "actions": "Row actions",
+      "openFolder": "Open folder",
+      "editName": "Edit name",
+      "delete": "Delete",
+      "deleteFilesLabel": "Delete files too",
+      "deleteFilesTitle": "Files to Be Deleted",
+      "deleteFilesEmpty": "No files selected",
+      "renameTitle": "Edit Name",
+      "renameDescription": "Update the name for {name}.",
+      "renamePlaceholder": "Enter a new name",
+      "renameCancel": "Cancel",
+      "renameConfirm": "Save",
+      "renameFallback": "This item",
+      "deleteTitle": "Delete item?",
+      "deleteDescription": "This will remove {name} from the library. This action cannot be undone.",
+      "deleteCancel": "Cancel",
+      "deleteConfirm": "Delete"
+    },
+    "outputs": {
+      "zeroSize": "0 MB"
+    },
+    "status": {
+      "existence": "Available",
+      "nonExistence": "Missing",
+      "deleted": "Deleted",
+      "queued": "Queued",
+      "running": "In progress",
+      "succeeded": "Done",
+      "failed": "Failed",
+      "ready": "Ready",
+      "canceled": "Canceled",
+      "unknown": "Unknown"
+    },
+    "type": {
+      "video": "Video",
+      "audio": "Audio",
+      "subtitle": "Subtitle",
+      "thumbnail": "Thumbnail",
+      "transcode": "Transcode",
+      "import": "Import",
+      "manual": "Manual",
+      "other": "Other"
+    },
+    "source": {
+      "unknown": "Unknown"
+    },
+    "overview": {
+      "card": {
+        "files": "Files",
+        "filesDetail": "{count} libraries",
+        "operations": "Tasks",
+        "operationsDetail": "{count} active / queued",
+        "success": "Success rate",
+        "successDetail": "{count} succeeded",
+        "storage": "Storage",
+        "storageDetail": "{count} tasks in 7 days"
+      },
+      "chart": {
+        "title": "Task Trend",
+        "success": "Success",
+        "failed": "Failed"
+      },
+      "recent": "Recent records",
+      "recentEmpty": "No recent records",
+      "granularity": {
+        "1d": "1D",
+        "7d": "7D",
+        "30d": "30D"
+      }
+    },
+    "preview": {
+      "imageTitle": "Image Preview",
+      "imageUnavailable": "Image preview is unavailable."
+    },
+    "import": {
+      "completed": "Import completed.",
+      "videoPickerTitle": "Select Video File",
+      "subtitlePickerTitle": "Select Subtitle File",
+      "videoFilter": "Video files",
+      "subtitleFilter": "Subtitle files",
+      "openPickerFailed": "Unable to open file picker",
+      "unsupportedTitle": "Unsupported File",
+      "videoUnsupportedHint": "Please choose a supported video format.",
+      "subtitleUnsupportedHint": "Please choose a supported subtitle format (srt/vtt/ass/ssa/itt/ttml/fcpxml).",
+      "videoDialogDescription": "Review the selected video file and set the import name.",
+      "subtitleDialogDescription": "Review the selected subtitle file and set the import name.",
+      "fileName": "File name",
+      "fileFormat": "Format",
+      "filePath": "Path",
+      "reselect": "Re-select file",
+      "targetMode": "Import target",
+      "targetNew": "Create new library",
+      "selectFile": "Select file",
+      "targetCurrent": "Import to current library",
+      "targetCurrentLabel": "Current library",
+      "targetCurrentEmpty": "No current library selected",
+      "dialog": {
+        "ready": "Ready",
+        "selected": "Selected",
+        "customTitle": "Custom",
+        "autoTitle": "Auto",
+        "targetTitle": "Import Target",
+        "targetDescription": "Choose whether the import should create a new library or write into the current workspace library.",
+        "targetHint": "Only the current workspace library can be reused here. Otherwise the import creates a new library entry.",
+        "fileDescription": "Review the selected file details before confirming the import.",
+        "namingTitle": "Naming",
+        "namingDescription": "Keep the suggested name, or override it before importing.",
+        "namingHint": "When left empty, the import uses the selected file name without its extension.",
+        "metrics": {
+          "file": "File",
+          "target": "Target",
+          "title": "Title",
+          "naming": "Naming"
+        }
+      }
+    },
+    "empty": {
+      "description": "Create a download or import media to start building the library."
+    },
+    "errors": {
+      "unknown": "Unknown error"
+    },
+    "loading": {
+      "data": "Loading library data..."
+    },
+    "time": {
+      "justNow": "Just now"
+    },
+    "records": {
+      "title": "Records",
+      "empty": "No records",
+      "emptyDescription": "Operation history and imports will appear here.",
+      "fileCount": "{count} files",
+      "category": {
+        "operation": "Operation",
+        "import": "Import"
+      }
+    },
+    "config": {
+      "saving": "Saving configuration",
+      "saveFailedTitle": "Save Failed",
+      "workspace": {
+        "title": "Workspace",
+        "fastReadLatestState": "Fast read latest state",
+        "fastReadLatestStateDescription": "When opening the workspace, restore the most recently saved workspace state for this library first."
+      },
+      "translateLanguages": {
+        "description": "Manage the global subtitle language enum used by detection and translation targets.",
+        "empty": "No languages yet.",
+        "searchPlaceholder": "Search languages",
+        "searchEmpty": "No languages match the current search.",
+        "untitled": "Untitled language",
+        "code": "Code",
+        "aliases": "Aliases",
+        "aliasesDescription": "Separate multiple aliases with commas.",
+        "add": "Add custom language",
+        "builtinBadge": "Built-in",
+        "customBadge": "Custom"
+      },
+      "pages": {
+        "overview": "Overview",
+        "overviewDescription": "Workspace defaults and subtitle style readiness in one place.",
+        "overviewWorkspaceDescription": "Module-level workspace behavior that applies across all library items.",
+        "taskRuntime": "Task runtime",
+        "taskRuntimeDescription": "Translate and proofread runtime settings.",
+        "languages": "Languages",
+        "languagesDescription": "Builtin and custom languages used by subtitle tasks.",
+        "glossary": "Glossary",
+        "glossaryDescription": "Reusable terminology constraints for subtitle tasks.",
+        "prompts": "Prompts",
+        "promptsDescription": "Reusable prompt presets for translation and proofread flows.",
+        "subtitleStyles": "Subtitle styles",
+        "subtitleStylesDescription": "Mono and bilingual style presets used by preview and subtitle export.",
+        "fontManagement": "Font management",
+        "fontManagementDescription": "Track required fonts and repair missing families.",
+        "subtitleExportPresets": "Subtitle export presets",
+        "subtitleExportPresetsDescription": "Manage subtitle export presets for the current library.",
+        "videoExportPresets": "Video export presets",
+        "videoExportPresetsDescription": "Manage video and audio export presets plus subtitle routing.",
+        "remoteSources": "Remote sources",
+        "remoteSourcesDescription": "Remote style manifests and font source sync status."
+      },
+      "languageAssets": {
+        "anyLanguage": "Any",
+        "addGlossary": "Add glossary profile",
+        "glossaryEmpty": "No glossary profiles yet.",
+        "glossaryEmptyDescription": "Create a glossary profile to turn terminology mappings and wording rules into reusable assets.",
+        "glossarySearchPlaceholder": "Search glossaries",
+        "glossarySearchEmpty": "No glossaries match the current search.",
+        "untitledGlossary": "Untitled glossary",
+        "sourceLanguage": "Source language",
+        "targetLanguage": "Target language",
+        "glossaryDescriptionLabel": "Description",
+        "terms": "Terms",
+        "addTerm": "Add term",
+        "termSource": "Source",
+        "termTarget": "Target",
+        "termNote": "Note / usage hint",
+        "removeTerm": "Remove term",
+        "addPrompt": "Add prompt",
+        "promptEmpty": "No prompt profiles yet.",
+        "promptEmptyDescription": "Create a prompt profile to capture reusable tone, style, and instruction presets.",
+        "promptSearchPlaceholder": "Search prompts",
+        "promptSearchEmpty": "No prompts match the current search.",
+        "untitledPrompt": "Untitled prompt",
+        "promptCategory": "Category",
+        "promptDescriptionLabel": "Description",
+        "promptAll": "All",
+        "promptTranslate": "Translate",
+        "promptProofread": "Proofread",
+        "promptGlossary": "Glossary",
+        "promptBodyLabel": "Prompt body",
+        "promptBody": "Example: translate brand names consistently, keep subtitle wording compact, and avoid over-literal phrasing."
+      },
+      "subtitleStyles": {
+        "sourceBuiltin": "Built-in",
+        "sourceRemote": "Remote",
+        "sourceLibrary": "Library",
+        "builtinBadge": "Built-in",
+        "customBadge": "Custom",
+        "copySuffix": "Copy",
+        "customDocument": "Custom subtitle style",
+        "githubSource": "GitHub style source",
+        "fontFamily": "Font family",
+        "fontSize": "Size",
+        "outlineWidth": "Outline",
+        "outlineColor": "Outline",
+        "bold": "Bold",
+        "italic": "Italic",
+        "alignment": "Alignment",
+        "alignmentBottomLeft": "Bottom left",
+        "alignmentBottomCenter": "Bottom center",
+        "alignmentBottomRight": "Bottom right",
+        "alignmentMiddleLeft": "Middle left",
+        "alignmentMiddleCenter": "Middle center",
+        "alignmentMiddleRight": "Middle right",
+        "alignmentTopLeft": "Top left",
+        "alignmentTopCenter": "Top center",
+        "alignmentTopRight": "Top right",
+        "typeMono": "Mono",
+        "typeBilingual": "Bilingual",
+        "nameLabel": "Name",
+        "typeLabel": "Type",
+        "aspectRatioLabel": "Aspect ratio",
+        "styleFlagsLabel": "Style flags",
+        "styleFlagsNormal": "Normal",
+        "newPreset": "New subtitle style",
+        "createPreset": "Create subtitle style",
+        "importPreset": "Import subtitle style",
+        "exportPreset": "Export subtitle style",
+        "allStylesTitle": "All Styles",
+        "presetName": "Style name",
+        "switchStyle": "Switch style",
+        "saveAs": "Save as",
+        "saveAsStyle": "Save as subtitle style",
+        "monoStyleNamePlaceholder": "Mono style name",
+        "bilingualStyleNamePlaceholder": "Bilingual style name",
+        "applyTemplateConfirm": "Applying this style will overwrite the current style and cannot be undone. Continue?",
+        "newMonoStyle": "New mono style",
+        "newBilingualStyle": "New bilingual style",
+        "createFormTitle": "Create Style",
+        "copyStyleLabel": "Copy style",
+        "emptyStyleTemplate": "Empty style",
+        "monoSection": "Mono",
+        "bilingualSection": "Bilingual",
+        "emptyMono": "No mono styles yet.",
+        "emptyBilingual": "No bilingual styles yet.",
+        "emptyStateTitle": "No subtitle styles yet.",
+        "emptyStateDescription": "Create or import subtitle styles from the top-right. They will appear here grouped by mono and bilingual.",
+        "emptyDetailTitle": "No subtitle styles yet.",
+        "emptyDetailDescription": "Create or import a subtitle style from the top-right. After saving, edit its parameters and preview it here.",
+        "unsavedTitle": "Unsaved Changes",
+        "unsavedDescription": "Save or undo current changes before switching styles.",
+        "importFailedTitle": "Import Subtitle Style Failed",
+        "importGuideTitle": "Import Subtitle Style",
+        "importGuideText": "Select ASS/SSA/DCSSP files, then confirm and create styles on this page.",
+        "importStylePrefix": "Style",
+        "importDetailFormatLabel": "Format",
+        "importDetailTypeLabel": "Type",
+        "importDetailNameLabel": "Name",
+        "importDetailAuthorLabel": "Author",
+        "exportSucceededTitle": "Export Subtitle Style Succeeded",
+        "exportFailedTitle": "Export Subtitle Style Failed",
+        "selectExportFolder": "Select export folder",
+        "previewInfoTitle": "Live Preview Info",
+        "resolutionLabel": "Resolution",
+        "currentResolutionLabel": "Current resolution",
+        "monoStyleSectionTitle": "Font Style",
+        "bilingualMetaSectionTitle": "Bilingual Layout & Sources",
+        "bilingualRequiresMonoTitle": "Can't create bilingual style",
+        "bilingualRequiresMonoDescription": "Save at least one mono style before creating a bilingual style.",
+        "gapLabel": "Gap",
+        "blockAnchorLabel": "Block anchor",
+        "primarySourceTitle": "Primary Source",
+        "secondarySourceTitle": "Secondary Source",
+        "selectSourceMonoStyle": "Select mono style",
+        "primaryTabLabel": "Primary",
+        "secondaryTabLabel": "Secondary",
+        "primaryStyleTitle": "Font Style",
+        "secondaryStyleTitle": "Font Style",
+        "sectionColors": "Colors & opacity",
+        "sectionRendering": "Rendering & layout",
+        "sectionSpacing": "Margins & encoding",
+        "primaryColorLabel": "Primary color",
+        "secondaryColorLabel": "Secondary color",
+        "backColorLabel": "Background color",
+        "underline": "Underline",
+        "strikeOut": "Strikeout",
+        "scaleXLabel": "Scale X",
+        "scaleYLabel": "Scale Y",
+        "spacingLabel": "Spacing",
+        "angleLabel": "Angle",
+        "borderStyleLabel": "Border style",
+        "borderStyleOutline": "Outline",
+        "borderStyleBox": "Box background",
+        "shadowLabel": "Shadow",
+        "marginLLabel": "Left margin",
+        "marginRLabel": "Right margin",
+        "marginVLabel": "Vertical margin",
+        "encodingLabel": "Encoding",
+        "overviewTitle": "Subtitle Style Dashboard",
+        "overviewDescription": "Keep the overview focused on readiness, defaults, and remote coverage for mono/bilingual style presets.",
+        "defaultsTitle": "Default Routing",
+        "defaultsDescription": "These are the mono/bilingual styles currently used as workspace defaults.",
+        "defaultMono": "Default mono style",
+        "defaultBilingual": "Default bilingual style",
+        "monoStyles": "Mono styles",
+        "bilingualStyles": "Bilingual styles",
+        "styleSources": "Style sources",
+        "fontSources": "Font sources",
+        "requiredFonts": "Fonts",
+        "resolvedFonts": "Resolved fonts",
+        "managedFonts": "Managed fonts",
+        "missingFonts": "Missing fonts",
+        "fontCoverageComplete": "All required fonts are available",
+        "deliveryReadinessTitle": "Delivery Readiness",
+        "deliveryReadinessDescription": "A compact check of whether fonts and remote sources are ready enough for preview and export.",
+        "fontManagementTitle": "Font Management",
+        "fontManagementDescription": "Missing fonts are searched from enabled remote font sources. Installation follows FontGet-style user font setup so the operating system can use the font directly.",
+        "referencedFontsTitle": "Referenced Fonts",
+        "referencedFontsDescription": "Every font referenced by subtitle styles is listed here. Missing fonts can be repaired directly from enabled font sources.",
+        "fontStatusMissing": "Missing",
+        "fontStatusInstalled": "Installed",
+        "usedByStyles": "Used by styles",
+        "systemFontFamily": "System font family",
+        "systemFontCatalog": "System font catalog",
+        "addExportProfile": "Add subtitle export preset",
+        "exportProfileFallback": "Subtitle export preset",
+        "subtitleExportPresetFallback": "Subtitle export preset",
+        "exportProfileDefaultName": "New subtitle export preset",
+        "subtitleExportPresetDefaultName": "New subtitle export preset",
+        "exportProfileStyleDocument": "Subtitle style",
+        "exportProfileMediaStrategy": "Media strategy",
+        "mediaStrategyAuto": "Auto",
+        "mediaStrategyFixed": "Fixed",
+        "defaultExportProfile": "Default subtitle export preset",
+        "setDefaultExportProfile": "Set as default subtitle export preset",
+        "defaultBadge": "Default",
+        "totalStyles": "Total presets",
+        "subtitleExportPresets": "Subtitle export presets",
+        "vttKindSubtitles": "Subtitles",
+        "vttKindCaptions": "Captions",
+        "vttKindDescriptions": "Descriptions",
+        "emptySubtitleExportPresets": "No subtitle export presets yet.",
+        "emptyDocuments": "No subtitle styles yet.",
+        "untitledDocument": "Untitled subtitle style",
+        "documentName": "Document name",
+        "detectedFormat": "Detected format",
+        "scriptType": "ScriptType",
+        "playRes": "PlayRes",
+        "playResX": "PlayResX",
+        "playResY": "PlayResY",
+        "stylesCount": "Styles",
+        "dialogueCount": "Dialogues",
+        "commentCount": "Comments",
+        "styleNames": "Style names",
+        "fontCoverage": "Font coverage",
+        "noFontsReferenced": "No explicit font requirement",
+        "featureFlags": "Feature flags",
+        "validationIssues": "Validation issues",
+        "featureOverrideTags": "Override tags",
+        "featureFontOverride": "Font override",
+        "featurePositioning": "Positioning",
+        "featureTransform": "Transform",
+        "featureKaraoke": "Karaoke",
+        "featureVectorDrawing": "Vector drawing",
+        "featureClipping": "Clipping",
+        "featureFade": "Fade",
+        "assContent": "ASS content",
+        "raw": "Raw",
+        "duplicate": "Duplicate",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "defaultDocumentReady": "Ready",
+        "setDefault": "Set default",
+        "styleSourcesTitle": "Remote Style Sources",
+        "styleSourcesDescription": "Configure remote subtitle style sources, browse the remote list, and import selected items into subtitle styles.",
+        "addRemoteSource": "Add remote source",
+        "addStyleSource": "Add style source",
+        "addFontSource": "Add font source",
+        "emptyStyleSources": "No remote style sources yet.",
+        "browseSource": "Browse",
+        "browseSourceFailedTitle": "Browse Source Failed",
+        "sourceKindStyle": "Style source",
+        "fontSourcesTitle": "Remote Font Sources",
+        "fontSourcesDescription": "Built-in FontGet sources are always enabled. Review their sync status here and refresh metadata when needed.",
+        "fontSourcesAlreadyAvailable": "Built-in font sources are already available in this list.",
+        "emptyFontSources": "No remote font sources yet.",
+        "sourceName": "Source name",
+        "provider": "Provider",
+        "sourceEnabled": "Enabled",
+        "owner": "Owner",
+        "repo": "Repository",
+        "ref": "Branch / tag",
+        "manifestPath": "Manifest.Json",
+        "syncStatus": "Sync status",
+        "syncIdle": "Idle",
+        "lastError": "Last error",
+        "syncReady": "Ready",
+        "syncSyncing": "Syncing",
+        "syncError": "Error",
+        "repairingFont": "Installing font",
+        "syncFontSource": "Sync",
+        "syncingFontSource": "Syncing",
+        "syncingFontSourceDescription": "Refreshing remote font metadata...",
+        "syncFontSourceSuccessTitle": "Font Source Synced",
+        "syncFontSourceSuccessDescription": "Remote font source metadata has been refreshed.",
+        "syncFontSourceFailedTitle": "Font Source Sync Failed",
+        "syncFontSourceFailedFallback": "Unable to sync this font source.",
+        "syncFontSourceFailedShort": "Sync failed",
+        "fontSourceFontsUnit": "Fonts",
+        "fontSourceUpdated": "Source updated",
+        "fontSourceLastSynced": "Last synced",
+        "fontSourceNeverSynced": "Not synced yet",
+        "installToUserFont": "Install to user fonts",
+        "installUserFontSuccessTitle": "User Font Installed",
+        "installUserFontSuccessDescription": "The font was installed to your user font directory. The font list will refresh automatically.",
+        "installUserFontFailedTitle": "User Font Install Failed",
+        "installMachineFontSuccessTitle": "System Font Installed",
+        "installMachineFontSuccessDescription": "The font was installed to the system font directory. The font list will refresh automatically.",
+        "installMachineFontFailedTitle": "System Font Install Failed",
+        "noFontSourceEnabled": "Enable at least one remote font source before repairing missing fonts.",
+        "searchingRemoteFonts": "Searching remote fonts...",
+        "remoteMatches": "Remote matches",
+        "remoteUnavailableMatches": "Unavailable matches",
+        "remoteMatchUnavailable": "Matched in remote sources but unavailable to install.",
+        "remoteFontUnavailableNoDownload": "The matched source lists this font, but does not provide a downloadable file.",
+        "remoteFontUnavailableUnsupported": "The matched source exposes this font, but its download format is not supported yet.",
+        "remoteFontUnavailableGeneric": "The matched source exposes this font, but it cannot be installed right now.",
+        "noRemoteFontMatch": "No remote font match found.",
+        "remoteStatus": "Remote status",
+        "version": "Version",
+        "imported": "Imported",
+        "importToLibrary": "Import to library",
+        "updateImport": "Update import",
+        "emptyRemoteStyleItems": "No remote style items found in this manifest.",
+        "importSourceItemSuccessTitle": "Style Imported",
+        "importSourceItemCreated": "The remote subtitle style was added to subtitle styles.",
+        "importSourceItemUpdated": "The remote subtitle style was refreshed in this library.",
+        "importSourceItemFailedTitle": "Import Failed"
+      },
+      "taskRuntime": {
+        "translateTitle": "Translate Runtime",
+        "proofreadTitle": "Proofread Runtime",
+        "searchPlaceholder": "Search runtime settings",
+        "searchEmpty": "No runtime settings match the current search.",
+        "structuredOutput": "Structured output",
+        "structuredOutputDescription": "Auto tries JSON Schema first and falls back to prompt-only JSON if the provider rejects response_format.",
+        "structuredOutputAuto": "Auto fallback",
+        "structuredOutputSchema": "JSON Schema only",
+        "structuredOutputPrompt": "Prompt JSON only",
+        "thinkingMode": "Thinking mode",
+        "thinkingModeDescription": "Structured subtitle tasks are usually most stable with thinking disabled.",
+        "thinkingOff": "Off",
+        "thinkingMinimal": "Minimal",
+        "thinkingLow": "Low",
+        "thinkingMedium": "Medium",
+        "thinkingHigh": "High",
+        "thinkingExtraHigh": "Extra high",
+        "maxTokensFloor": "Max tokens floor",
+        "maxTokensFloorDescription": "Minimum output-token budget reserved for a chunk.",
+        "maxTokensCeiling": "Max tokens ceiling",
+        "maxTokensCeilingDescription": "Upper output-token cap used after estimating chunk size.",
+        "retryTokenStep": "Retry token step",
+        "retryTokenStepDescription": "Extra output tokens added when retrying an invalid chunk response."
+      },
+      "videoExportPresets": {
+        "videoDefaultName": "New video export preset",
+        "audioDefaultName": "New audio export preset",
+        "copySuffix": "Copy",
+        "videoUntitled": "Untitled video export preset",
+        "audioUntitled": "Untitled audio export preset",
+        "savedTitle": "Video Export Preset Saved",
+        "savedDescription": "The custom video export preset has been updated.",
+        "saveFailedTitle": "Save Video Export Preset Failed",
+        "deletedTitle": "Video Export Preset Deleted",
+        "deletedDescription": "The custom export preset has been removed.",
+        "deleteFailedTitle": "Delete Video Export Preset Failed",
+        "addVideo": "Add video export preset",
+        "addVideoOption": "Video preset",
+        "addAudioOption": "Audio preset",
+        "empty": "No video export presets yet.",
+        "name": "Preset name",
+        "outputType": "Output type",
+        "container": "Container",
+        "videoCodec": "Video codec",
+        "audioCodec": "Audio codec",
+        "audioBitrate": "Audio bitrate",
+        "audioBitrateDescription": "Target audio bitrate in kbps.",
+        "qualityMode": "Quality mode",
+        "videoBitrate": "Video bitrate",
+        "crf": "CRF",
+        "videoBitrateDescription": "Target video bitrate in kbps.",
+        "crfDescription": "Lower CRF produces higher visual quality.",
+        "scale": "Scale",
+        "customWidthDescription": "Output width in pixels.",
+        "customHeightDescription": "Output height in pixels.",
+        "ffmpegPreset": "FFmpeg speed preset",
+        "allowUpscale": "Allow upscale",
+        "allowUpscaleDescription": "Permit larger target resolutions even when the source is smaller.",
+        "lossless": "Lossless",
+        "searchPlaceholder": "Search presets",
+        "searchEmpty": "No presets match the current search.",
+        "emptyDetailTitle": "Select a Video Export Preset",
+        "emptyDetailDescription": "Select an existing preset or create a new video or audio export preset."
+      },
+      "taskDefaults": {
+        "none": "None"
+      }
+    },
+    "select": {
+      "description": "Choose a library to view tasks, files and history."
+    },
+    "subtitle": {
+      "documentMissing": "Subtitle document is missing.",
+      "translateCreated": "Subtitle translation operation created."
+    },
+    "transcode": {
+      "created": "Transcode operation created.",
+      "missingPreset": "No matching video export preset is available."
+    },
+    "progress": {
+      "preparing": "Preparing",
+      "starting": "Starting",
+      "fetchingMetadata": "Fetching metadata",
+      "translating": "Translating",
+      "proofreading": "Proofreading",
+      "qaReviewing": "QA reviewing",
+      "transcoding": "Transcoding",
+      "downloading": "Downloading",
+      "downloadingVideo": "Downloading video",
+      "downloadingAudio": "Downloading audio",
+      "downloadingSubtitles": "Downloading subtitles",
+      "downloadingThumbnail": "Downloading thumbnail",
+      "muxing": "Muxing",
+      "cleaningUp": "Cleaning up",
+      "postProcessing": "Post-processing"
+    },
+    "progressDetail": {
+      "preparingDownload": "Preparing download",
+      "preparingSubtitleTranslation": "Preparing subtitle translation",
+      "preparingSubtitleProofread": "Preparing subtitle proofread",
+      "preparingSubtitleQaReview": "Preparing subtitle QA review",
+      "preparingFfmpegTranscode": "Preparing FFmpeg transcode",
+      "ffmpegRenderingOutput": "FFmpeg is rendering the output",
+      "ffmpegTranscodeQueued": "FFmpeg transcode queued",
+      "ffmpegTranscodeCompleted": "FFmpeg transcode completed",
+      "subtitleTranslationQueued": "Subtitle translation queued",
+      "subtitleTranslationCompleted": "Subtitle translation completed",
+      "subtitleProofreadQueued": "Subtitle proofread queued",
+      "subtitleProofreadCompleted": "Subtitle proofread completed",
+      "subtitleQaReviewQueued": "Subtitle QA review queued",
+      "subtitleQaReviewCompleted": "Subtitle QA review completed",
+      "resumeRequested": "Resume requested",
+      "canceledByUser": "Canceled by user",
+      "downloadCanceled": "Download canceled",
+      "transcodeCanceled": "Transcode canceled",
+      "subtitleTranslationCanceled": "Subtitle translation canceled",
+      "subtitleProofreadCanceled": "Subtitle proofread canceled",
+      "subtitleQaReviewCanceled": "Subtitle QA review canceled",
+      "operationCanceled": "Operation canceled",
+      "downloadFailed": "Download failed",
+      "transcodeFailed": "Transcode failed",
+      "subtitleTranslationFailed": "Subtitle translation failed",
+      "subtitleProofreadFailed": "Subtitle proofread failed",
+      "subtitleQaReviewFailed": "Subtitle QA review failed",
+      "operationFailed": "Operation failed",
+      "translatedChunk": "Translated chunk {current} of {total}",
+      "proofreadChunk": "Proofread chunk {current} of {total}"
+    },
+    "workspace": {
+      "exportVideo": "Export video",
+      "exportSubtitle": "Export subtitle",
+      "libraryMeta": "{videos} videos · {subtitles} subtitles · {thumbnails} thumbnails",
+      "emptyTitle": "Open a Library First",
+      "emptyDescription": "The workspace only shows video and subtitle assets from the current library. Without an open library, this view stays empty.",
+      "actions": {
+        "transcode": "Transcode",
+        "translate": "Translate",
+        "export": "Export",
+        "proofread": "Proofread"
+      },
+      "fields": {
+        "width": "Width",
+        "height": "Height",
+        "exportFormat": "Export format"
+      },
+      "header": {
+        "videoEditing": "Video editing",
+        "subtitleEditing": "Subtitle editing",
+        "displaySingle": "Single",
+        "displayDual": "Dual language",
+        "video": "Video",
+        "track": "Track",
+        "secondary": "Secondary",
+        "style": "Style",
+        "guideline": "Guideline",
+        "proofread": "Proofread",
+        "qa": "QA",
+        "restore": "Restore",
+        "noVideoVersion": "No video version",
+        "noSubtitleTrack": "No subtitle track",
+        "trackNumber": "Track {count}",
+        "videoNumber": "Video {count}",
+        "noPairedTrack": "No paired track",
+        "noPairedTrackHint": "Use a single subtitle lane.",
+        "noReferenceTrack": "No reference track",
+        "noReferenceTrackHint": "Translate only from the active source lane.",
+        "translateRunningCount": "Translating · {count}",
+        "translateRunning": "Translating",
+        "proofreadRunning": "Proofreading",
+        "existingSubtitleLane": "Existing subtitle lane"
+      },
+      "track": {
+        "translation": "Translation",
+        "reference": "Reference"
+      },
+      "toolbar": {
+        "searchPlaceholder": "Search subtitle text",
+        "replacePlaceholder": "Replace with",
+        "apply": "Apply",
+        "autoFollow": "Auto-follow",
+        "filterAll": "All cues",
+        "filterNeedsReview": "Needs review",
+        "filterEdited": "Edited",
+        "filterCurrentWindow": "Current window",
+        "qaAll": "QA: all",
+        "qaIssues": "QA: issues",
+        "qaWarnings": "QA: warnings",
+        "qaErrors": "QA: errors",
+        "qaClean": "QA: clean",
+        "densityComfortable": "Comfortable",
+        "densityCompact": "Compact"
+      },
+      "table": {
+        "timelineTitle": "Subtitle Timeline",
+        "editorTitle": "Subtitle Editor",
+        "visibleCount": "{count} visible",
+        "needReviewCount": "{count} need review",
+        "pendingReview": "Pending review",
+        "current": "Current",
+        "editing": "Editing",
+        "draftStatus": "Draft",
+        "draftSaved": "Synced",
+        "draftSaving": "Saving...",
+        "draftDirty": "Pending save",
+        "draftEditing": "Editing",
+        "draftSaveFailed": "Save failed",
+        "track": "Track",
+        "primaryTrack": "Primary",
+        "secondaryTrack": "Secondary",
+        "notSelected": "Not selected",
+        "modeSingle": "Single",
+        "modeDual": "Dual language",
+        "columnTime": "Time",
+        "columnStart": "Start",
+        "columnEnd": "End",
+        "columnDuration": "Duration",
+        "columnText": "Text",
+        "columnSuggestion": "Suggestion",
+        "columnDecision": "Decision",
+        "emptyFiltered": "No subtitle cues match the current filters.",
+        "loading": "Loading subtitle cues..."
+      },
+      "dialogs": {
+        "required": "Required",
+        "exportVideo": {
+          "inputSection": "Input",
+          "outputSection": "Output",
+          "currentVideoFallback": "Current video",
+          "primaryTrack": "Primary subtitle",
+          "secondaryTrack": "Secondary subtitle",
+          "trackEmpty": "Not selected",
+          "presetEmpty": "No preset",
+          "cueCount": "{count} cues",
+          "resolution": "Resolution",
+          "outputHint": "Video export presets are managed in library config and stay aligned with the rest of the library flow.",
+          "subtitleHandlingTitle": "Subtitle Handling",
+          "subtitleHandlingDescription": "Decide whether the export should keep subtitles out of the video, embed a selectable subtitle track, or burn subtitles into the picture.",
+          "trackMappingTitle": "Track Mapping",
+          "embedStyleUnsupported": "The current container only supports embedded text subtitles ({route}), so the export falls back automatically. ASS style selection is only used for burn-in or ASS embedding routes.",
+          "displayMode": "Display mode",
+          "queueing": "Queueing...",
+          "submit": "Queue export",
+          "metrics": {
+            "cueScope": "Cue scope",
+            "subtitleMode": "Subtitle mode",
+            "subtitleDraft": "Subtitle draft"
+          },
+          "handling": {
+            "none": "No subtitles",
+            "noneDescription": "Only export the video output. Subtitle embedding and burn-in stay disabled.",
+            "embed": "Embed subtitle track",
+            "embedDescription": "Mux a soft subtitle track into the exported video so the viewer can toggle it on demand.",
+            "burnin": "Burn-in ASS",
+            "burninDescription": "Render the current subtitle view directly into the exported video with the selected subtitle style."
+          }
+        },
+        "exportSubtitle": {
+          "inputSection": "Input",
+          "outputSection": "Output",
+          "fileFallback": "Current subtitle",
+          "profileManual": "Manual (no preset)",
+          "track": "Track",
+          "trackEmpty": "Not selected",
+          "trackRequired": "Select a subtitle track before exporting the current draft.",
+          "currentFormat": "Current format",
+          "encoding": "Encoding",
+          "kind": "Kind",
+          "language": "Language",
+          "playRes": "PlayRes",
+          "title": "Title",
+          "resolution": "Resolution",
+          "projectName": "Project name",
+          "libraryName": "Library name",
+          "eventName": "Event name",
+          "frameRate": "Frame rate",
+          "frameRateMultiplier": "Frame rate multiplier",
+          "frameDuration": "Frame duration",
+          "vttKindSubtitles": "Subtitles",
+          "vttKindCaptions": "Captions",
+          "vttKindDescriptions": "Descriptions",
+          "width": "Width",
+          "height": "Height",
+          "colorSpace": "Color space",
+          "version": "Version",
+          "defaultLane": "Default lane",
+          "startTimecodeSeconds": "Start timecode (seconds)",
+          "draftDirty": "Unsaved changes",
+          "draftSaved": "Up to date",
+          "outputTitle": "Output",
+          "saveDescription": "After confirmation, the system save dialog lets you choose the target file path.",
+          "exporting": "Exporting...",
+          "metrics": {
+            "cueScope": "Cue scope",
+            "draftStatus": "Draft status"
+          },
+          "fileType": "Subtitle files"
+        },
+        "languageTask": {
+          "translatePromptFallback": "Translate prompt",
+          "proofreadPromptFallback": "Proofread prompt",
+          "proofreadChecks": {
+            "spelling": "Spelling",
+            "punctuation": "Punctuation",
+            "terminology": "Terminology",
+            "spellingDescription": "Fix obvious wording mistakes.",
+            "punctuationDescription": "Normalize punctuation style.",
+            "terminologyDescription": "Keep naming and terms aligned."
+          },
+          "filterOptional": "Optional",
+          "filterAll": "All",
+          "filterShow": "Show",
+          "selectedCount": "{count} selected",
+          "notSelected": "Not selected",
+          "title": "Workspace Tasks",
+          "description": "Configure translation, proofreading, or structural QA for the current workspace draft.",
+          "targetLanguage": "Target language",
+          "sourceLane": "Source lane",
+          "metrics": {
+            "profiles": "Profiles",
+            "prompt": "Prompt",
+            "total": "Total",
+            "checks": "Checks",
+            "draft": "Draft",
+            "action": "Action"
+          },
+          "modelTitle": "Model",
+          "openSettings": "Open settings",
+          "qaGuidelineDescription": "Controls the active realtime QA profile for timing, CPS, CPL, text, and layout checks.",
+          "currentLane": "Current lane",
+          "restoreAction": "Reset",
+          "warningTitle": "Warning",
+          "destructive": "Destructive",
+          "restoreWarningDescription": "Restore replaces the current workspace draft with the original subtitle source for this lane.",
+          "targetTitle": "Target",
+          "targetLanguageDescription": "Choose the language for the derived subtitle lane.",
+          "noLanguageProfile": "No language profile",
+          "translateSourceLaneDescription": "Choose the workspace subtitle lane used as the translation source.",
+          "profilesTitle": "Profiles",
+          "glossaryProfiles": "Glossary profiles",
+          "glossaryProfilesDescription": "Reusable term locks and fixed phrasing.",
+          "noGlossaryProfiles": "No glossary profiles available in library config.",
+          "referenceTrackDescription": "Optional extra subtitle track for terminology or style reference.",
+          "promptProfilesDescription": "Reusable style and tone guidance.",
+          "noPromptProfiles": "No prompt profiles available in library config.",
+          "inlinePromptDescription": "One-off task guidance for this run.",
+          "translateInlinePromptPlaceholder": "Example: keep the tone concise and modern, translate product names with the glossary, and avoid overly literal phrasing.",
+          "optionalProfileName": "Optional profile name",
+          "saveAsPromptProfile": "Save as prompt profile",
+          "scopeTitle": "Scope",
+          "proofreadSourceLaneDescription": "Choose the workspace subtitle lane used as the proofreading source.",
+          "proofreadPromptProfilesDescription": "Reusable proofread guidance.",
+          "noProofreadPromptProfiles": "No proofread prompt profiles available in library config.",
+          "proofreadInlinePromptPlaceholder": "Example: keep the speaker's tone natural, preserve intentional pauses, and prefer concise punctuation.",
+          "qaGuideline": "QA guideline",
+          "qaGuidelineDescriptionLong": "Switch the active subtitle validation guideline for timing, CPS, CPL, text, and layout checks.",
+          "qaRealtimeTitle": "Realtime Checks",
+          "qaRealtimeDescription": "Enabled checks immediately affect row warnings, suggestion content, and metric columns.",
+          "qaChecks": {
+            "text": "Text",
+            "textDescription": "Flag empty subtitle text in the current draft.",
+            "timing": "Timing",
+            "timingDescription": "Flag very short cues and extremely tight gaps.",
+            "layout": "Line layout",
+            "layoutDescription": "Flag cues that exceed the guideline line-count limit.",
+            "cps": "CPS",
+            "cpsDescription": "Show the CPS column and flag cues above the active guideline.",
+            "cpl": "CPL",
+            "cplDescription": "Show the CPL column and flag cues above the active guideline."
+          },
+          "issueBreakdownTitle": "Issue Breakdown",
+          "restoreOriginalTitle": "Restore Original Subtitle",
+          "danger": "Danger",
+          "resetCurrentDraft": "Reset current draft",
+          "resetCurrentDraftDescription": "Discard current workspace edits and reload the original subtitle source for the selected lane.",
+          "restoreOriginalAction": "Restore original",
+          "restoreOriginalWarning": "This action removes current draft edits for the selected subtitle lane and reloads the original source.",
+          "queueTranslation": "Queue translation",
+          "queueProofread": "Queue proofread"
+        },
+        "importSubtitle": {
+          "title": "Import Subtitle",
+          "description": "Configure deterministic text cleanup before the workspace import flow takes over.",
+          "currentGuideline": "Current guideline",
+          "workspaceCues": "Workspace cues",
+          "guidelineSource": "Guideline source",
+          "guidelineSourceCurrent": "Use current workspace profile",
+          "guidelineSourceOverride": "Override on import",
+          "subtitleOnly": "Subtitle only",
+          "metrics": {
+            "normalization": "Normalization",
+            "cueScope": "Cue scope",
+            "guideline": "Guideline",
+            "nextStep": "Next step"
+          },
+          "guidelineShortCurrent": "Current",
+          "guidelineShortOverride": "Override",
+          "pickFile": "Pick file",
+          "normalizationTitle": "Import Normalization",
+          "normalizationDescription": "Only safe cleanup passes live here. Structural QA and language proofreading stay separate.",
+          "normalizeLineBreaks": "Normalize line breaks",
+          "normalizeLineBreaksDescription": "Convert mixed newline styles into a single workspace-safe format.",
+          "trimWhitespace": "Trim whitespace",
+          "trimWhitespaceDescription": "Remove leading and trailing spaces on every subtitle line.",
+          "removeBlankLines": "Remove blank lines",
+          "removeBlankLinesDescription": "Collapse empty lines that make cues look visually broken.",
+          "repairEncoding": "Repair encoding / BOM",
+          "repairEncodingDescription": "Apply basic compatibility fixes before parsing the subtitle source.",
+          "guidelineInheritanceTitle": "Guideline Inheritance",
+          "guidelineInheritanceDescription": "Imported subtitles inherit the current profile by default, but you can override it for this import.",
+          "useCurrentGuideline": "Use current workspace guideline",
+          "currentProfile": "Current profile: {name}",
+          "overrideProfile": "Override profile",
+          "continueImport": "Continue import"
+        },
+        "shared": {
+          "cueCount": "{count} cues",
+          "cueScope": "Cue scope"
+        }
+      },
+      "languages": {
+        "english": "English (EN)",
+        "chinese": "Chinese (ZH)",
+        "japanese": "Japanese (JA)"
+      },
+      "languageAssets": {
+        "termSingular": "1 Term",
+        "termPlural": "{count} terms"
+      },
+      "guideline": {
+        "netflix": {
+          "label": "Netflix",
+          "hint": "Balanced streaming defaults"
+        },
+        "bbc": {
+          "label": "BBC",
+          "hint": "Broadcast readability"
+        },
+        "ade": {
+          "label": "ADE",
+          "hint": "Conservative accessibility profile"
+        },
+        "custom": {
+          "label": "Custom",
+          "hint": "Relaxed in-app working profile"
+        }
+      },
+      "scale": {
+        "original": "Original",
+        "custom": "Custom"
+      },
+      "preview": {
+        "cueLabel": "Cue {count}",
+        "placeholderTitle": "Video Preview Placeholder",
+        "placeholderDescription": "Vidstack and LibASS preview are ready. Connect a media asset to inspect subtitle rendering, playback sync, and burn-in parity."
+      },
+      "meta": {
+        "language": "Language",
+        "format": "Format",
+        "cues": "Cues",
+        "duration": "Duration",
+        "resolution": "Resolution",
+        "frameRate": "Frame rate"
+      },
+      "subtitle": {
+        "noSelection": "No subtitle file selected.",
+        "sourceUnavailable": "Subtitle source is unavailable.",
+        "replace": "Replace",
+        "validateHint": "Validate current subtitle draft for timing and text issues.",
+        "parseFailed": "Unable to parse subtitle file.",
+        "exported": "Subtitle draft has been exported."
+      },
+      "task": {
+        "running": "Running"
+      },
+      "waveform": {
+        "title": "Waveform Timeline",
+        "cueCount": "{count} cues",
+        "segmentMarkers": "Segment markers reserved",
+        "disabled": "Waveform disabled",
+        "disabledLargeMedia": "Waveform is disabled for large media files such as {size}. Playback preview remains available.",
+        "disabledLongMedia": "Waveform is disabled for long media such as {duration}. Playback preview remains available.",
+        "liveCue": "Live {count}",
+        "idle": "Idle"
+      },
+      "transcode": {
+        "selectPreset": "Select video export preset",
+        "tabVideo": "Video",
+        "tabAudio": "Audio",
+        "outputVideo": "Video",
+        "outputAudio": "Audio",
+        "bitrate": "Bitrate (kbps)",
+        "summary": {
+          "original": "Original",
+          "kbps": "{value} kbps",
+          "crf": "CRF {value}",
+          "copy": "Copy"
+        }
+      },
+      "readiness": {
+        "checkingTitle": "Checking Gateway Model",
+        "checkingDescription": "Inspecting the default assistant, provider model, and API key before launching translation.",
+        "noAssistantTitle": "No Assistant Available",
+        "noAssistantDescription": "Create or enable a default assistant in Gateway settings before launching subtitle translation.",
+        "assistantDisabledTitle": "Assistant is disabled",
+        "assistantDisabledDescription": "Enable the default assistant in Gateway settings before launching subtitle translation.",
+        "assistantModelMissingTitle": "Assistant model is not configured",
+        "assistantModelMissingDescription": "Choose a primary agent model for the default assistant before launching subtitle translation.",
+        "noProviderModelTitle": "No Enabled Provider Model",
+        "noProviderModelDescription": "Enable a provider and sync at least one chat model before launching subtitle translation.",
+        "modelReferenceInvalidTitle": "Assistant model reference is incomplete",
+        "modelReferenceInvalidDescription": "The default assistant model must include both provider and model name.",
+        "providerUnavailableTitle": "Provider is unavailable",
+        "providerUnavailableDescription": "The provider configured for the default assistant is disabled or missing from the enabled provider list.",
+        "modelUnavailableTitle": "Configured model is unavailable",
+        "modelUnavailableDescription": "Sync provider models or choose another model for the default assistant before translating subtitles.",
+        "apiKeyMissingTitle": "Provider API key is missing",
+        "apiKeyMissingDescription": "Add the provider API key in provider settings before launching subtitle translation.",
+        "readyTitle": "Gateway Model Ready",
+        "readyDescription": "Using {assistant} on {provider} / {model}."
+      },
+      "review": {
+        "pendingButton": "Review required",
+        "pendingButtonWithMeta": "Review required · {kind} · {count}",
+        "pendingQaShort": "QA",
+        "pendingProofreadShort": "Proofread",
+        "pendingDescription": "{count} suggestions still need a decision. Review them one by one or use the batch actions here, then finish the review.",
+        "lockedTitle": "Review Pending",
+        "lockedTooltip": "Finish the current review and click “complete review” before using this action.",
+        "accept": "Accept suggestion",
+        "reject": "Discard suggestion",
+        "accepted": "Accepted suggestion",
+        "rejected": "Discarded",
+        "undo": "Undo",
+        "bulkAccept": "Accept all",
+        "bulkReject": "Discard all",
+        "complete": "Complete review",
+        "completeBlockedTitle": "Suggestions still need a decision",
+        "completeBlockedDescription": "Resolve every suggestion first, or use the batch actions to finish all decisions before completing the review.",
+        "sourceQa": "QA",
+        "sourceProofread": "Proofread",
+        "detailQa": "Text suggestion",
+        "detailProofread": "Language suggestion",
+        "defaultQaReason": "Text revision suggestion generated from the current QA rules.",
+        "defaultProofreadReason": "Language revision suggestion generated from the current proofreading settings.",
+        "categorySpelling": "Spelling",
+        "categoryPunctuation": "Punctuation",
+        "categoryTerminology": "Terminology",
+        "categoryFluency": "Fluency",
+        "categorySpacing": "Spacing",
+        "categoryCps": "CPS",
+        "categoryCpl": "CPL",
+        "categoryTiming": "Timing",
+        "categoryLayout": "Layout",
+        "categoryText": "Text",
+        "applySuccessTitle": "Review Merged",
+        "applySuccessDescription": "{count} subtitle changes were merged into the current track.",
+        "applyFailedTitle": "Merge Failed",
+        "discardSuccessTitle": "Review Discarded",
+        "discardSuccessDescription": "The pending review suggestions were discarded and the current track is unlocked.",
+        "discardFailedTitle": "Discard Failed",
+        "proofreadRunningDescription": "The current track already has a running proofreading task. Wait for it to finish before starting another one."
+      },
+      "notifications": {
+        "translationReadyTitle": "Translation Ready",
+        "translationReadyDescription": "{name} has been attached as the paired subtitle track.",
+        "proofreadReadyTitle": "Proofread Suggestions Ready",
+        "proofreadReadyDescription": "{count} proofreading suggestions are waiting for review.",
+        "qaReviewReadyTitle": "QA Suggestions Ready",
+        "qaReviewReadyDescription": "{count} QA suggestions are waiting for review.",
+        "subtitleSavedTitle": "Saved",
+        "subtitleSavedDescription": "Subtitle draft saved successfully.",
+        "saveFailedTitle": "Save Failed",
+        "noSubtitleTrackTitle": "No Subtitle Track",
+        "restoreTrackRequiredDescription": "Select a subtitle track before restoring the original content.",
+        "originalRestoredTitle": "Original Restored",
+        "originalRestoredDescription": "The workspace draft has been reloaded from the original subtitle source.",
+        "restoreFailedTitle": "Restore Failed",
+        "noFileSelectedTitle": "No File Selected",
+        "noFileSelectedDescription": "Open a media or subtitle resource before jumping to its location.",
+        "openFileFailedTitle": "Open File Failed",
+        "noVideoSelectedTitle": "No Video Selected",
+        "exportVideoTrackRequiredDescription": "Select a video resource before queuing an export.",
+        "noPresetSelectedTitle": "No Preset Selected",
+        "exportVideoPresetRequiredDescription": "Choose a video export preset before queuing the export.",
+        "emptySubtitleOutputTitle": "Subtitle output is empty",
+        "emptySubtitleOutputDescription": "The current subtitle view has no ASS content to render. Switch lane mode or choose a subtitle track first.",
+        "exportQueuedTitle": "Export Queued",
+        "exportQueuedDescription": "Video export {name} is now running in the background.",
+        "exportFailedTitle": "Export Failed",
+        "inlinePromptEmptyTitle": "Inline prompt is empty",
+        "translatePromptRequiredDescription": "Enter a translate prompt before saving it as a reusable profile.",
+        "moduleConfigUnavailableTitle": "Module Config Unavailable",
+        "moduleConfigUnavailableDescription": "Reload the library module config before saving prompt profiles from the workspace.",
+        "promptProfileSavedTitle": "Prompt Profile Saved",
+        "translatePromptProfileSavedDescription": "{name} is now available in translate prompt profiles.",
+        "savePromptProfileFailedTitle": "Save Prompt Profile Failed",
+        "proofreadPromptRequiredDescription": "Enter a proofread prompt before saving it as a reusable profile.",
+        "proofreadPromptProfileSavedDescription": "{name} is now available in proofread prompt profiles.",
+        "translateTrackRequiredDescription": "Select a subtitle track before launching translation.",
+        "translationQueuedTitle": "Translation Queued",
+        "translationQueuedWithConstraintsDescription": "Background translation started for {language} with {count} constraint slots.",
+        "translationQueuedDescription": "Background translation started for {language}.",
+        "translationFailedTitle": "Translation Failed",
+        "proofreadTrackRequiredDescription": "Select a subtitle track before launching proofreading.",
+        "proofreadQueuedTitle": "Proofread Queued",
+        "proofreadQueuedDescription": "Background proofread started with {checks} checks{prompts}.",
+        "proofreadQueuedPromptSuffix": " And {count} prompt constraints",
+        "proofreadQueuedDefaultDescription": "Background proofread started with a conservative language-quality pass.",
+        "proofreadFailedTitle": "Proofread Failed",
+        "importProfileReadyTitle": "Subtitle Import Profile Ready",
+        "importProfileReadyDescription": "{guideline} guideline with {count} normalization passes will be applied before import."
+      },
+      "page": {
+        "workspaceName": "Workspace",
+        "currentSubtitleTrack": "Current subtitle track",
+        "actionInProgress": "Workspace action in progress",
+        "resourceType": "Resource"
+      },
+      "qaIssues": {
+        "emptyText": "Empty subtitle text",
+        "shortDuration": "Very short duration",
+        "tooManyLines": "More than two lines",
+        "cpsError": "CPS {value} exceeds {guideline} limit",
+        "cpsWarning": "CPS {value} is above {guideline} target",
+        "cplError": "CPL {value} exceeds {guideline} line length limit",
+        "cplWarning": "CPL {value} is above {guideline} target",
+        "tightGap": "Very small gap to previous cue"
+      }
+    }
+  },
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "undo": "Undo",
+    "done": "Done",
+    "close": "Close",
+    "edit": "Edit",
+    "create": "Create",
+    "import": "Import",
+    "loading": "Loading...",
+    "exporting": "Exporting...",
+    "delete": "Delete",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "saving": "Saving...",
+    "refresh": "Refresh",
+    "reset": "Reset",
+    "retry": "Retry",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "notAvailable": "Not available",
+    "justNow": "Just now"
+  },
+  "gateway": {
+    "page": {
+      "subtitle": "Control plane overview and diagnostics"
+    },
+    "health": {
+      "overall": "Health",
+      "components": "Health components",
+      "componentHint": "Latest check results",
+      "empty": "No component data"
+    },
+    "status": {
+      "uptime": "Uptime",
+      "activeRuns": "Active runs",
+      "sessions": "Sessions",
+      "queueDepth": "Queue depth",
+      "nodes": "Nodes"
+    },
+    "logs": {
+      "title": "Log Tail",
+      "subtitle": "Latest gateway logs",
+      "empty": "No log entries"
+    }
+  },
+  "settings.debug": {
+    "tabs": {
+      "overview": "Overview",
+      "context": "Context",
+      "channels": "Channels",
+      "framework": "Framework",
+      "events": "Events",
+      "trace": "Run trace",
+      "prompt": "Prompt"
+    },
+    "status": {
+      "title": "Gateway Status",
+      "activeSessions": "Active sessions",
+      "activeRuns": "Active runs",
+      "queueDepth": "Queue depth",
+      "connectedNodes": "Connected nodes",
+      "uptime": "Uptime"
+    },
+    "diagnostics": {
+      "health": "Health",
+      "logs": "Realtime logs",
+      "logsCount": "Logs",
+      "logsError": "Failed to load logs",
+      "logsEmpty": "No logs yet.",
+      "logsTable": {
+        "time": "Time",
+        "level": "Level",
+        "source": "Source",
+        "message": "Message",
+        "viewPayload": "View JSON"
+      }
+    },
+    "realtime": {
+      "metrics": {
+        "reconnects": "Reconnects",
+        "replay": "Replay events",
+        "resync": "Resync required",
+        "duplicateDrop": "Duplicate drops"
+      },
+      "messagesCount": "Messages",
+      "noPayload": "(No payload)",
+      "table": {
+        "time": "Time",
+        "topic": "Topic",
+        "type": "Type",
+        "seq": "Seq",
+        "replay": "Replay",
+        "viewPayload": "View payload"
+      }
+    },
+    "gateway": {
+      "events": "Gateway events",
+      "eventsCount": "Events",
+      "filterAll": "All events",
+      "eventsEmpty": "No Gateway events yet.",
+      "eventUnknown": "(Unknown)",
+      "noPayload": "(No payload)",
+      "table": {
+        "time": "Time",
+        "event": "Event",
+        "run": "Run",
+        "session": "Session",
+        "viewPayload": "View payload"
+      }
+    },
+    "trace": {
+      "error": "Failed to load run events",
+      "empty": "No run events",
+      "table": {
+        "current": "Current",
+        "runId": "Run",
+        "status": "Status",
+        "events": "Events",
+        "lastEvent": "Last event",
+        "lastAt": "Last time",
+        "time": "Time",
+        "id": "ID",
+        "event": "Event",
+        "tool": "Tool",
+        "viewPayload": "View payload"
+      },
+      "status": {
+        "completed": "Completed",
+        "running": "Running",
+        "error": "Error",
+        "aborted": "Aborted",
+        "unknown": "Unknown"
+      }
+    },
+    "prompt": {
+      "empty": "No prompt.Report events",
+      "emptyForRun": "No prompt.Report event for this run",
+      "view": {
+        "system": "System",
+        "history": "History",
+        "user": "User",
+        "assistant": "Assistant",
+        "tool": "Tool"
+      },
+      "messages": {
+        "unavailable": "No message snapshot. Switch debug to enhanced and run again.",
+        "empty": "No messages",
+        "toolCallId": "ToolCallId",
+        "reasoning": "Reasoning"
+      },
+      "meta": {
+        "runId": "Run ID",
+        "mode": "Mode",
+        "generatedAt": "Generated at",
+        "promptChars": "Prompt chars"
+      },
+      "tools": "Tools",
+      "skills": "Skills",
+      "expandList": "Expand list",
+      "collapseList": "Collapse list",
+      "listEmpty": "(None)",
+      "system": "System prompt",
+      "systemEmpty": "(Empty)"
+    },
+    "framework": {
+      "rows": {
+        "message": "Message",
+        "dialog": "Dialog",
+        "event": "Event"
+      },
+      "actions": {
+        "toast": "Toast",
+        "notification": "Notification",
+        "sendOS": "Send OS message",
+        "dialog": "Dialog",
+        "publish": "Publish debug event"
+      }
+    },
+    "channels": {
+      "title": "Channel Diagnostics",
+      "loading": "Loading channel diagnostics...",
+      "error": "Failed to load channel diagnostics",
+      "empty": "No channel diagnostics available",
+      "updatedAt": "Updated",
+      "kind": "Kind",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "stateUnknown": "Unknown",
+      "lastError": "Last error",
+      "notes": {
+        "debugNotSupported": "Debug not supported yet",
+        "missingBotToken": "Missing bot token",
+        "notRunning": "Not running",
+        "pairingRequired": "Pairing required",
+        "groupAllowlistEmpty": "Group allowlist empty"
+      },
+      "account": {
+        "empty": "No account details",
+        "unknown": "Unknown account",
+        "running": "Running",
+        "stopped": "Stopped"
+      }
+    },
+    "message": {
+      "frontend": {
+        "toastTitle": "Warning Toast",
+        "toastDesc": "This is a sample toast for styling preview.",
+        "notificationTitle": "Success Notification",
+        "notificationDesc": "Notification with quick action.",
+        "action": "Acknowledge",
+        "dialogTitle": "Danger Dialog",
+        "dialogDesc": "Use this to verify modal styles.",
+        "dialogConfirm": "Confirm"
+      },
+      "realtime": {
+        "websocket": "WebSocket",
+        "urlEmpty": "Not available",
+        "clearAll": "Clear all topics",
+        "topics": "Topics",
+        "logEmpty": "No messages yet.",
+        "status": {
+          "connected": "Connected",
+          "disconnected": "Disconnected",
+          "connecting": "Connecting..."
+        },
+        "notifyDenied": "System notification not authorized",
+        "notifyTitle": "Debug Notification",
+        "notifyBody": "This is a test OS notification.",
+        "notifyError": "OS notification error",
+        "publishSuccess": "Published debug event",
+        "publishFailed": "Publish failed",
+        "topicLabel": "Topic"
+      }
+    },
+    "thread": {
+      "empty": "No threads"
+    }
+  },
+  "appearance": {
+    "section": {
+      "appearance": "Appearance",
+      "scheme": "Scheme",
+      "color": "Color",
+      "font": "Font",
+      "size": "Size"
+    },
+    "option": {
+      "light": "Light",
+      "dark": "Dark",
+      "auto": "Auto"
+    },
+    "font": {
+      "systemDefault": "System default",
+      "current": "(Current)"
+    },
+    "color": {
+      "custom": "Custom color",
+      "option": {
+        "system": "Follow system",
+        "blue": "Blue",
+        "purple": "Purple",
+        "pink": "Pink",
+        "red": "Red",
+        "orange": "Orange",
+        "yellow": "Yellow",
+        "green": "Green",
+        "graphite": "Graphite"
+      }
+    },
+    "scheme": {
+      "option": {
+        "default": {
+          "label": "Default",
+          "description": "Quiet neutrals like soft daylight on a white wall"
+        },
+        "contrast": {
+          "label": "Contrast",
+          "description": "Pull the layers apart so every surface keeps its edge"
+        },
+        "slate": {
+          "label": "Slate",
+          "description": "Cool blue gray with a little sea air calm and precise"
+        },
+        "warm": {
+          "label": "Warm",
+          "description": "Like late light on paper warm without turning muddy"
+        }
+      }
+    }
+  },
+  "chat": {
+    "header": {
+      "untitled": "New thread",
+      "openWorkspace": "Open workspace",
+      "messageCount": "{count} {suffix}",
+      "messageSuffix": "Messages",
+      "menu": "Thread menu"
+    },
+    "composer": {
+      "placeholder": "Write a message...",
+      "attach": "Attach",
+      "attachDialogTitle": "Select Files",
+      "attachError": "Attach failed",
+      "attachNoValidFile": "No valid file selected",
+      "selectAssistant": "Select assistant",
+      "assistantEmpty": "No assistant available",
+      "untitledAssistant": "Untitled assistant",
+      "selectModel": "Select model",
+      "contextCurrent": "Current",
+      "contextTotal": "Total",
+      "contextTotalUnknown": "N/A",
+      "contextUsage": "Context usage",
+      "contextUsageShort": "Usage",
+      "permission": {
+        "label": "Permission",
+        "standard": "Default permissions",
+        "allAccess": "Full access",
+        "updateError": "Permission update failed"
+      },
+      "stop": "Stop",
+      "send": "Send"
+    },
+    "welcome": {
+      "entry": {
+        "checkingTitle": "Checking chat readiness",
+        "checkingDescription": "Gateway, model configuration, Bun, and ClawHub status refresh automatically.",
+        "blockedTitle": "Chat is not ready yet",
+        "blockedDescription": "Please finish initializing the items above.",
+        "assistantPill": {
+          "title": "No assistant selected yet",
+          "description": "Choose or create one, then you can start typing right away.",
+          "action": "Configure assistant"
+        }
+      }
+    },
+    "message": {
+      "reasoning": "Reasoning",
+      "sources": "Sources",
+      "error": "Message error",
+      "systemNotice": {
+        "cron": "Scheduled",
+        "exec": "Background task",
+        "subagent": "Subagent",
+        "system": "System notice"
+      }
+    },
+    "tools": {
+      "state": {
+        "calling": "Calling",
+        "actionRequired": "Action required",
+        "completed": "Completed",
+        "failed": "Failed"
+      },
+      "fallback": {
+        "used": "Used tool",
+        "cancelled": "Cancelled tool"
+      },
+      "unknown": "Unknown tool",
+      "approvalTool": {
+        "title": "Approval Required",
+        "tool": "Tool",
+        "approveAction": "Approve",
+        "denyAction": "Deny",
+        "error": "Approval request failed",
+        "resolveError": "Approval failed"
+      },
+      "renderChart": {
+        "loading": "Preparing chart...",
+        "error": "Chart tool error.",
+        "invalid": "Invalid chart specification.",
+        "empty": "No chart data available."
+      }
+    },
+    "actions": {
+      "copy": "Copy",
+      "copied": "Copied",
+      "edit": "Edit",
+      "closeEdit": "Close edit",
+      "retry": "Retry",
+      "previousResponse": "Previous response",
+      "nextResponse": "Next response"
+    }
+  },
+  "sidebar": {
+    "search": {
+      "placeholder": "Search"
+    },
+    "open": "Open sidebar",
+    "close": "Close sidebar",
+    "nav": {
+      "chat": "Chat",
+      "workflow": "Workflow",
+      "library": "Library",
+      "cron": "Cron"
+    },
+    "thread": {
+      "new": "New thread",
+      "empty": "No threads yet",
+      "untitled": "Untitled thread",
+      "rename": "Rename",
+      "archive": "Archive",
+      "archiveError": "Archive failed",
+      "unarchive": "Unarchive",
+      "unarchiveError": "Unarchive failed",
+      "delete": "Delete",
+      "deleteError": "Delete failed"
+    },
+    "footer": {
+      "menu": {
+        "productMode": "Product mode",
+        "notifications": "Notifications",
+        "appUpdate": "App update",
+        "externalToolsUpdate": "Tool updates",
+        "settings": "Settings",
+        "open": "Open profile menu"
+      }
+    }
+  },
+  "productMode": {
+    "eyebrow": "Product mode",
+    "title": "Choose how Dream Creator shows up on this machine",
+    "description": "Switch between a focused download workspace and the full creative cockpit with chat, agents, memory, and gateway controls.",
+    "profileHint": "Current desktop profile",
+    "current": "Current",
+    "firstRunHint": "Pick a mode once. You can change it later from the main sidebar footer.",
+    "changeHint": "You can switch modes at any time. The change applies immediately to the main window and settings navigation.",
+    "close": "Close",
+    "options": {
+      "full": {
+        "title": "Full Mode",
+        "subtitle": "The complete AI workstation.",
+        "description": "Keep chat, assistant workspace, memory, gateway controls, and the broader AI surface available everywhere.",
+        "badge": "Creative cockpit",
+        "action": "Switch to Full Mode"
+      },
+      "download": {
+        "title": "Download Mode",
+        "subtitle": "A clean, fast download-focused workspace.",
+        "description": "Hide the AI-heavy surface and keep the app centered on the library, downloads, and media operations.",
+        "badge": "Focused workflow",
+        "action": "Switch to Download Mode"
+      }
+    }
+  },
+  "setupCenter": {
+    "welcomeTitle": "Welcome To DreamCreator",
+    "actions": {
+      "skip": "Skip",
+      "installing": "Installing",
+      "repairing": "Repairing"
+    },
+    "status": {
+      "missing": "Missing"
+    },
+    "steps": {
+      "general": {
+        "title": "General",
+        "description": "Choose the interface language and validate proxy access when needed."
+      },
+      "ai": {
+        "title": "AI",
+        "description": "Connect a provider, sync available models, and activate the Gateway default assistant model."
+      },
+      "dependencies": {
+        "title": "Dependencies",
+        "description": "Select a product mode and install the tools required by that mode."
+      }
+    },
+    "general": {
+      "language": "Language",
+      "proxy": "Proxy"
+    },
+    "ai": {
+      "provider": "Provider",
+      "providerLabel": "Provider",
+      "apiKey": "Access key",
+      "gatewayAssistantNav": "Agent model",
+      "syncModels": "Refresh",
+      "noAssistant": "No assistant available yet.",
+      "noProvider": "No provider has been configured yet.",
+      "modelsEmpty": "No usable models are available for this provider yet. Refresh to load a compact model list here.",
+      "refreshHint": "Enter the access key and refresh to load the available model list below.",
+      "noModelAvailable": "No model available"
+    },
+    "dependencies": {
+      "modeTitle": "Product Mode",
+      "toolsTitle": "Required Tools",
+      "clawhubWaitForBun": "Install Bun first",
+      "installed": "Installed",
+      "missing": "Missing"
+    },
+    "issues": {
+      "language": {
+        "title": "Language still needs confirmation",
+        "description": "Choose the UI language before finishing setup."
+      },
+      "gateway": {
+        "title": "Gateway is not enabled",
+        "description": "Enable Gateway so assistant features can run."
+      },
+      "providers": {
+        "title": "No provider is ready",
+        "description": "Connect a provider and sync at least one usable model."
+      },
+      "model": {
+        "title": "Gateway model is missing",
+        "description": "Assign a default assistant model so Gateway can respond."
+      },
+      "productMode": {
+        "title": "Choose a Product Mode",
+        "description": "Pick full mode or download mode to resolve the required dependency set."
+      },
+      "downloadTools": {
+        "title": "Download tools are missing"
+      },
+      "fullTools": {
+        "title": "Full mode tools are missing"
+      },
+      "tools": {
+        "description": "{count} required tools still need installation or repair."
+      },
+      "aiSkippedDescription": "AI is deferred. Chat and subtitle translation remain unavailable until this step is completed.",
+      "dependenciesSkippedDescription": "Dependencies are deferred. Some product capabilities remain unavailable until this step is completed."
+    },
+    "footer": {
+      "action": "Setup",
+      "incompleteTitle": "Setup Incomplete",
+      "noticeLabel": "Notifications",
+      "readyTitle": "System Ready",
+      "readyDescription": "No setup blockers are active.",
+      "notificationsDescription": "{count} unread notifications",
+      "close": "Close"
+    }
+  },
+  "notifications": {
+    "center": {
+      "title": "Notifications",
+      "codes": {
+        "heartbeatPeriodic": {
+          "title": "Heartbeat review needs attention",
+          "summary": "A periodic heartbeat review reported something that needs attention.",
+          "body": "{detail}"
+        },
+        "heartbeatEvent": {
+          "title": "Heartbeat event needs attention",
+          "summary": "An event-driven heartbeat follow-up needs attention.",
+          "body": "{detail}"
+        },
+        "heartbeatCron": {
+          "title": "Cron reminder",
+          "summary": "A scheduled reminder or cron follow-up is ready.",
+          "body": "{detail}"
+        },
+        "heartbeatExec": {
+          "title": "Background command update",
+          "summary": "An async exec result needs attention.",
+          "body": "{detail}"
+        },
+        "heartbeatSubagent": {
+          "title": "Subagent update",
+          "summary": "A subagent follow-up needs attention.",
+          "body": "{detail}"
+        },
+        "heartbeatRuntimeFailed": {
+          "title": "Heartbeat failed",
+          "summary": "The heartbeat run failed before producing a result.",
+          "body": "{detail}"
+        }
+      }
+    },
+    "footer": {
+      "codes": {
+        "appUpdate": {
+          "title": "App Update Available",
+          "summary": "A newer app version is ready to install.",
+          "body": "Version {version} is available."
+        },
+        "externalToolsUpdate": {
+          "title": "Tool Updates Available",
+          "summary": "Installed external tools have updates ready.",
+          "body": "{count} installed tool updates are available."
+        }
+      }
+    },
+    "page": {
+      "title": "Notifications"
+    },
+    "tabs": {
+      "active": "Active",
+      "unread": "Unread",
+      "archived": "Archived"
+    },
+    "empty": {
+      "title": "Nothing to Review",
+      "description": "Background activity that needs your attention will appear here."
+    },
+    "categories": {
+      "heartbeat": "Heartbeat",
+      "cron": "Cron",
+      "subagent": "Subagent",
+      "exec": "Exec",
+      "gateway": "Gateway",
+      "update": "Update"
+    },
+    "status": {
+      "unread": "Unread"
+    },
+    "actions": {
+      "markRead": "Mark read",
+      "markAllRead": "Mark all read",
+      "loadMore": "Load more",
+      "archive": "Archive",
+      "viewAll": "View all",
+      "openThread": "Open conversation",
+      "openCron": "Open cron",
+      "openNotifications": "Open notifications",
+      "openAppUpdates": "Open app updates",
+      "openExternalTools": "Open external tools"
+    },
+    "list": {
+      "loadedCount": "{count} shown"
+    }
+  }
+}
