@@ -9,7 +9,7 @@ jobs:
       contents: write
       pull-requests: read
       issues: read
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Release Drafter
         uses: release-drafter/release-drafter@v6
