@@ -17,6 +17,16 @@ tasks:
     cmds:
       - task: "{{OS}}:build"
 
+  test:
+    summary: Runs Go tests
+    cmds:
+      - task: '{{if eq OS "darwin"}}darwin:test{{else}}test:default{{end}}'
+
+  test:default:
+    internal: true
+    cmds:
+      - go test ./...
+
   package:
     summary: Packages a production build of the application
     cmds:
@@ -55,7 +65,7 @@ tasks:
     summary: Weekly regression gate (Go + frontend build + stream parser)
     cmds:
       - task: audit:frontend
-      - go test ./...
+      - task: test
       - cd frontend && bun run build:dev
       - cd frontend && bun run test:stream-parser
 

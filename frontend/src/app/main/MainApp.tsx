@@ -23,6 +23,7 @@ import { useShowSettingsWindow } from "@/shared/query/settings";
 import { useExternalTools, useExternalToolUpdates } from "@/shared/query/externalTools";
 import { useNoticeUnreadCount } from "@/shared/query/notices";
 import { useOpenAssistantWorkspaceDirectory } from "@/shared/query/workspace";
+import { resolvePersistedThreadId } from "@/shared/assistant/thread-identities";
 import { useUpdateStore } from "@/shared/store/update";
 import { AppShell } from "@/components/layout/AppShell";
 import type { SidebarConfig } from "@/components/layout/AppSidebar";
@@ -85,9 +86,11 @@ export function MainApp() {
   const messageCount = useAssistantState(({ thread }) => thread.messages.length);
   const activeThreadStatus = useAssistantState(({ threadListItem }) => threadListItem.status);
   const activeThreadResolvedId = useAssistantState(({ threadListItem }) =>
-    (threadListItem.remoteId ?? threadListItem.id ?? "").trim()
+    resolvePersistedThreadId(threadListItem.remoteId, threadListItem.id)
   );
-  const threadMeta = useThreadStore((state) => state.threads[activeThread.remoteId ?? activeThread.id]);
+  const threadMeta = useThreadStore((state) =>
+    state.threads[resolvePersistedThreadId(activeThread.remoteId, activeThread.id)]
+  );
   const assistantWorkspaceId = threadMeta?.assistantId ?? "";
   const showSettingsWindow = useShowSettingsWindow();
   const updateInfo = useUpdateStore((state) => state.info);

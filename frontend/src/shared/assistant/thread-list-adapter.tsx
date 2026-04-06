@@ -23,6 +23,7 @@ import {
   clearThreadStreamCursor,
   registerThreadAlias,
   removeThreadAlias,
+  resolvePersistedThreadId,
   resolveRemoteThreadId,
 } from "./thread-identities";
 
@@ -627,13 +628,14 @@ const useThreadHistoryAdapter = (httpBaseUrl: string): ThreadHistoryAdapter => {
   return React.useMemo<ThreadHistoryAdapter>(() => {
     return {
       load: async () => {
-        const { remoteId } = api.threadListItem().getState();
-        if (!remoteId) {
+        const { remoteId, id } = api.threadListItem().getState();
+        const threadId = resolvePersistedThreadId(remoteId, id);
+        if (!threadId) {
           return { headId: null, messages: [] };
         }
         const result = await Call.ByName(
           "dreamcreator/internal/presentation/wails.ThreadHandler.ListMessages",
-          remoteId,
+          threadId,
           200
         );
         const raw = (result as ThreadMessageDTO[]) ?? [];
@@ -652,7 +654,7 @@ const useThreadHistoryAdapter = (httpBaseUrl: string): ThreadHistoryAdapter => {
           return;
         }
         const { remoteId, id } = api.threadListItem().getState();
-        const threadId = remoteId || id;
+        const threadId = resolvePersistedThreadId(remoteId, id);
         if (!threadId) {
           return;
         }

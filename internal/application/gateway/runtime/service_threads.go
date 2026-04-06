@@ -189,14 +189,6 @@ func (service *Service) scheduleThreadTitleGeneration(item thread.Thread, reques
 			)
 			return
 		}
-		if !response.Updated {
-			zap.L().Info("thread title generation completed without update",
-				zap.String("threadID", threadID),
-				zap.String("title", strings.TrimSpace(response.Title)),
-				zap.Bool("titleIsDefault", response.TitleIsDefault),
-				zap.String("titleChangedBy", strings.TrimSpace(response.TitleChangedBy)),
-			)
-		}
 		if response.Updated {
 			service.emitThreadUpdated(titleCtx, threadID, "upsert", "auto-generate-title")
 		}
