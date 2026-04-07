@@ -245,3 +245,60 @@ func TestUsageStatusFiltersByRequestSourceAlias(t *testing.T) {
 		t.Fatalf("unexpected bucket response: %+v", resp.Buckets)
 	}
 }
+
+func TestUsageStatusGroupsByDay(t *testing.T) {
+	now := time.Date(2026, 3, 7, 12, 0, 0, 0, time.UTC)
+	repo := &memoryRepo{
+		entries: []LedgerEntry{
+			{ID: "1", Category: CategoryTokens, ProviderID: "provider-a", ModelName: "glm-5", RequestSource: RequestSourceDialogue, Units: 8, CostMicros: 100, CreatedAt: time.Date(2026, 3, 5, 23, 30, 0, 0, time.UTC)},
+			{ID: "2", Category: CategoryTokens, ProviderID: "provider-a", ModelName: "glm-5", RequestSource: RequestSourceDialogue, Units: 3, CostMicros: 50, CreatedAt: time.Date(2026, 3, 5, 1, 30, 0, 0, time.UTC)},
+			{ID: "3", Category: CategoryTokens, ProviderID: "provider-a", ModelName: "glm-5", RequestSource: RequestSourceDialogue, Units: 5, CostMicros: 70, CreatedAt: time.Date(2026, 3, 6, 2, 30, 0, 0, time.UTC)},
+		},
+	}
+	service := NewService(repo)
+	service.now = func() time.Time { return now }
+
+	resp, err := service.Status(context.Background(), UsageStatusRequest{
+		Window:  "7d",
+		GroupBy: []string{"day"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Buckets) != 2 {
+		t.Fatalf("expected 2 buckets, got %d", len(resp.Buckets))
+	}
+	if resp.Buckets[0].BucketStart != "2026-03-05" || resp.Buckets[0].Requests != 2 || resp.Buckets[0].Units != 11 {
+		t.Fatalf("unexpected first bucket: %+v", resp.Buckets[0])
+	}
+	if resp.Buckets[1].BucketStart != "2026-03-06" || resp.Buckets[1].Requests != 1 || resp.Buckets[1].Units != 5 {
+		t.Fatalf("unexpected second bucket: %+v", resp.Buckets[1])
+	}
+}
+
+func TestUsageStatusGroupsByDayWithTimezoneOffset(t *testing.T) {
+	now := time.Date(2026, 3, 7, 12, 0, 0, 0, time.UTC)
+	repo := &memoryRepo{
+		entries: []LedgerEntry{
+			{ID: "1", Category: CategoryTokens, ProviderID: "provider-a", ModelName: "glm-5", RequestSource: RequestSourceDialogue, Units: 8, CreatedAt: time.Date(2026, 3, 5, 17, 30, 0, 0, time.UTC)},
+			{ID: "2", Category: CategoryTokens, ProviderID: "provider-a", ModelName: "glm-5", RequestSource: RequestSourceDialogue, Units: 3, CreatedAt: time.Date(2026, 3, 6, 1, 30, 0, 0, time.UTC)},
+		},
+	}
+	service := NewService(repo)
+	service.now = func() time.Time { return now }
+
+	resp, err := service.Status(context.Background(), UsageStatusRequest{
+		Window:                "7d",
+		GroupBy:               []string{"day"},
+		TimezoneOffsetMinutes: -8 * 60,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Buckets) != 1 {
+		t.Fatalf("expected 1 bucket, got %d", len(resp.Buckets))
+	}
+	if resp.Buckets[0].BucketStart != "2026-03-06" || resp.Buckets[0].Requests != 2 || resp.Buckets[0].Units != 11 {
+		t.Fatalf("unexpected bucket: %+v", resp.Buckets[0])
+	}
+}

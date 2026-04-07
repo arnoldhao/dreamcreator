@@ -10,6 +10,8 @@ export type UsageTotalsEntity = {
 
 export type UsageBucketEntity = {
   key: string;
+  bucketStart?: string;
+  bucketEnd?: string;
   providerId?: string;
   modelName?: string;
   channel?: string;
@@ -32,6 +34,8 @@ export type UsageStatusEntity = {
 };
 
 export type UsageCostLineEntity = {
+  bucketStart?: string;
+  bucketEnd?: string;
   providerId?: string;
   modelName?: string;
   channel?: string;
@@ -65,6 +69,8 @@ export const normalizeUsageStatus = (raw: any): UsageStatusEntity => ({
   buckets: Array.isArray(raw?.buckets)
     ? raw.buckets.map((item: any) => ({
         key: stringOrEmpty(item?.key),
+        bucketStart: stringOrEmpty(item?.bucketStart) || undefined,
+        bucketEnd: stringOrEmpty(item?.bucketEnd) || undefined,
         providerId: stringOrEmpty(item?.providerId) || undefined,
         modelName: stringOrEmpty(item?.modelName) || undefined,
         channel: stringOrEmpty(item?.channel) || undefined,
@@ -87,6 +93,8 @@ export const normalizeUsageCost = (raw: any): UsageCostEntity => ({
   totalCostMicros: numberOrZero(raw?.totalCostMicros),
   lines: Array.isArray(raw?.lines)
     ? raw.lines.map((item: any) => ({
+        bucketStart: stringOrEmpty(item?.bucketStart) || undefined,
+        bucketEnd: stringOrEmpty(item?.bucketEnd) || undefined,
         providerId: stringOrEmpty(item?.providerId) || undefined,
         modelName: stringOrEmpty(item?.modelName) || undefined,
         channel: stringOrEmpty(item?.channel) || undefined,

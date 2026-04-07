@@ -652,7 +652,8 @@
           "all": "全部来源",
           "dialogue": "对话",
           "relay": "中转",
-          "oneShot": "单次调用"
+          "oneShot": "单次调用",
+          "unknown": "未知"
         }
       },
       "actions": {
@@ -667,7 +668,48 @@
         "units": "词元消耗",
         "promptTokens": "输入词元",
         "completionTokens": "输出词元",
+        "cachedTokens": "缓存词元",
+        "reasoningTokens": "推理词元",
         "cost": "费用（USD）"
+      },
+      "metric": {
+        "requestsHint": "模型请求数",
+        "inputHint": "包含缓存输入",
+        "outputHint": "包含推理输出",
+        "avgCost": "单次均费"
+      },
+      "chart": {
+        "tokensByModel": "模型词元构成",
+        "tokensByModelDescription": "所选窗口内 Top 模型，按非缓存输入、缓存输入、输出与推理拆分。",
+        "costByModel": "模型费用排行",
+        "costByModelDescription": "所选窗口内按供应商 / 模型统计的费用排行。",
+        "sourceBreakdown": "来源分布",
+        "sourceBreakdownDescription": "按请求来源统计词元消耗。",
+        "activityHeatmap": "活跃热力图",
+        "activityHeatmapDescription": "过去一年的每日请求活跃度，颜色越深表示当天请求越多。",
+        "input": "输入",
+        "cached": "缓存",
+        "output": "输出",
+        "reasoning": "推理"
+      },
+      "activity": {
+        "less": "少",
+        "more": "多",
+        "future": "未来日期",
+        "weekday": {
+          "mon": "周一",
+          "wed": "周三",
+          "fri": "周五"
+        }
+      },
+      "category": {
+        "tokens": "词元",
+        "contextTokens": "上下文词元",
+        "tts": "TTS"
+      },
+      "costBasis": {
+        "estimated": "估算",
+        "reconciled": "已对账"
       },
       "tabs": {
         "models": "模型",
@@ -681,6 +723,8 @@
       "labels": {
         "providerModel": "供应商 / 模型",
         "category": "分类",
+        "costBasis": "依据",
+        "share": "占比",
         "unknown": "未知"
       }
     },

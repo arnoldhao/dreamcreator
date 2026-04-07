@@ -652,7 +652,8 @@
           "all": "All sources",
           "dialogue": "Dialogue",
           "relay": "Relay",
-          "oneShot": "One-shot"
+          "oneShot": "One-shot",
+          "unknown": "Unknown"
         }
       },
       "actions": {
@@ -667,7 +668,48 @@
         "units": "Tokens",
         "promptTokens": "Input tokens",
         "completionTokens": "Output tokens",
+        "cachedTokens": "Cached tokens",
+        "reasoningTokens": "Reasoning tokens",
         "cost": "Cost (USD)"
+      },
+      "metric": {
+        "requestsHint": "Model requests",
+        "inputHint": "Includes cached input",
+        "outputHint": "Includes reasoning output",
+        "avgCost": "Avg/request"
+      },
+      "chart": {
+        "tokensByModel": "Token mix by model",
+        "tokensByModelDescription": "Top models in the selected window, split by uncached input, cached input, output, and reasoning.",
+        "costByModel": "Cost by model",
+        "costByModelDescription": "Top spend by provider/model in the selected window.",
+        "sourceBreakdown": "Source breakdown",
+        "sourceBreakdownDescription": "Token usage grouped by request source.",
+        "activityHeatmap": "Activity heatmap",
+        "activityHeatmapDescription": "Daily request activity over the past year, with darker cells representing busier days.",
+        "input": "Input",
+        "cached": "Cached",
+        "output": "Output",
+        "reasoning": "Reasoning"
+      },
+      "activity": {
+        "less": "Less",
+        "more": "More",
+        "future": "Future date",
+        "weekday": {
+          "mon": "Mon",
+          "wed": "Wed",
+          "fri": "Fri"
+        }
+      },
+      "category": {
+        "tokens": "Tokens",
+        "contextTokens": "Context tokens",
+        "tts": "TTS"
+      },
+      "costBasis": {
+        "estimated": "Estimated",
+        "reconciled": "Reconciled"
       },
       "tabs": {
         "models": "Models",
@@ -681,6 +723,8 @@
       "labels": {
         "providerModel": "Provider / model",
         "category": "Category",
+        "costBasis": "Basis",
+        "share": "Share",
         "unknown": "Unknown"
       }
     },
