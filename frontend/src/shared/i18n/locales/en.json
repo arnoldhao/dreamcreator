@@ -3244,6 +3244,16 @@
       },
       "preview": {
         "cueLabel": "Cue {count}",
+        "play": "Play",
+        "pause": "Pause",
+        "seek": "Seek",
+        "volume": "Volume",
+        "mute": "Mute",
+        "unmute": "Unmute",
+        "enterWindowedFullscreen": "Enter in-window fullscreen",
+        "exitWindowedFullscreen": "Exit in-window fullscreen",
+        "enterFullscreen": "Enter fullscreen",
+        "exitFullscreen": "Exit fullscreen",
         "placeholderTitle": "Video Preview Placeholder",
         "placeholderDescription": "Vidstack and LibASS preview are ready. Connect a media asset to inspect subtitle rendering, playback sync, and burn-in parity."
       },
