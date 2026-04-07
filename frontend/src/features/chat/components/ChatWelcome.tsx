@@ -16,9 +16,9 @@ import { SetupCardSection, SetupPageCard } from "@/features/setup/cards";
 import { SetupStatusIcon } from "@/features/setup/cards";
 import { FULL_MODE_REQUIRED_TOOLS } from "@/features/setup/constants";
 import {
-  SetupInlineAgentModelCard,
-  SetupInlineProviderCard,
-  SetupInlineToolCard,
+  SetupAgentModelCard,
+  SetupProviderCard,
+  SetupToolCard,
 } from "@/features/setup/inline-cards";
 import { buildSetupNavStatusEntries, getToolItemId } from "@/features/setup/nav";
 import { resolveToolDependencyIssues } from "@/features/setup/readiness";
@@ -180,10 +180,10 @@ export function ChatWelcome({
                       </div>
                       <div className="space-y-4">
                         {providerCardStatus !== "ready" ? (
-                          <SetupInlineProviderCard status={providerCardStatus} />
+                          <SetupProviderCard status={providerCardStatus} />
                         ) : null}
                         {agentModelCardStatus !== "ready" ? (
-                          <SetupInlineAgentModelCard status={agentModelCardStatus} />
+                          <SetupAgentModelCard status={agentModelCardStatus} />
                         ) : null}
                       </div>
                     </section>
@@ -196,7 +196,7 @@ export function ChatWelcome({
                       </div>
                       <div className="space-y-4">
                         {visibleToolNames.map((name) => (
-                          <SetupInlineToolCard
+                          <SetupToolCard
                             key={name}
                             name={name}
                             status={navStatusMap.get(getToolItemId(name)) ?? "pending"}
