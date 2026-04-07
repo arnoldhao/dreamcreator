@@ -105,6 +105,8 @@ function ToolFallbackTrigger({
   const isRunning = statusType === "running";
   const isCancelled =
     status?.type === "incomplete" && status.reason === "cancelled";
+  const isError =
+    status?.type === "incomplete" && status.reason === "error";
   const { t } = useI18n();
 
   const Icon = statusIconMap[statusType];
@@ -130,6 +132,7 @@ function ToolFallbackTrigger({
         className={cn(
           "aui-tool-fallback-trigger-icon size-4 shrink-0",
           isCancelled && "text-muted-foreground",
+          isError && "text-destructive",
           isRunning && "animate-spin",
         )}
       />
@@ -138,6 +141,7 @@ function ToolFallbackTrigger({
         className={cn(
           "aui-tool-fallback-trigger-label-wrapper relative inline-block grow text-left leading-none",
           isCancelled && "text-muted-foreground line-through",
+          isError && "text-destructive",
         )}
       >
         <span>
@@ -266,13 +270,29 @@ function ToolFallbackError({
   return (
     <div
       data-slot="tool-fallback-error"
-      className={cn("aui-tool-fallback-error px-4", className)}
+      className={cn(
+        "aui-tool-fallback-error mx-4 rounded-md border px-3 py-2",
+        isCancelled
+          ? "border-muted-foreground/20 bg-muted/30"
+          : "border-destructive/20 bg-destructive/10",
+        className,
+      )}
       {...props}
     >
-      <p className="aui-tool-fallback-error-header font-semibold text-muted-foreground">
+      <p
+        className={cn(
+          "aui-tool-fallback-error-header font-semibold",
+          isCancelled ? "text-muted-foreground" : "text-destructive",
+        )}
+      >
         {headerText}
       </p>
-      <p className="aui-tool-fallback-error-reason text-muted-foreground">
+      <p
+        className={cn(
+          "aui-tool-fallback-error-reason max-h-32 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed [overflow-wrap:anywhere]",
+          isCancelled ? "text-muted-foreground" : "text-destructive/90",
+        )}
+      >
         {errorText}
       </p>
     </div>

@@ -652,7 +652,8 @@
           "all": "All sources",
           "dialogue": "Dialogue",
           "relay": "Relay",
-          "oneShot": "One-shot"
+          "oneShot": "One-shot",
+          "unknown": "Unknown"
         }
       },
       "actions": {
@@ -667,7 +668,48 @@
         "units": "Tokens",
         "promptTokens": "Input tokens",
         "completionTokens": "Output tokens",
+        "cachedTokens": "Cached tokens",
+        "reasoningTokens": "Reasoning tokens",
         "cost": "Cost (USD)"
+      },
+      "metric": {
+        "requestsHint": "Model requests",
+        "inputHint": "Includes cached input",
+        "outputHint": "Includes reasoning output",
+        "avgCost": "Avg/request"
+      },
+      "chart": {
+        "tokensByModel": "Token mix by model",
+        "tokensByModelDescription": "Top models in the selected window, split by uncached input, cached input, output, and reasoning.",
+        "costByModel": "Cost by model",
+        "costByModelDescription": "Top spend by provider/model in the selected window.",
+        "sourceBreakdown": "Source breakdown",
+        "sourceBreakdownDescription": "Token usage grouped by request source.",
+        "activityHeatmap": "Activity heatmap",
+        "activityHeatmapDescription": "Daily request activity over the past year, with darker cells representing busier days.",
+        "input": "Input",
+        "cached": "Cached",
+        "output": "Output",
+        "reasoning": "Reasoning"
+      },
+      "activity": {
+        "less": "Less",
+        "more": "More",
+        "future": "Future date",
+        "weekday": {
+          "mon": "Mon",
+          "wed": "Wed",
+          "fri": "Fri"
+        }
+      },
+      "category": {
+        "tokens": "Tokens",
+        "contextTokens": "Context tokens",
+        "tts": "TTS"
+      },
+      "costBasis": {
+        "estimated": "Estimated",
+        "reconciled": "Reconciled"
       },
       "tabs": {
         "models": "Models",
@@ -681,6 +723,8 @@
       "labels": {
         "providerModel": "Provider / model",
         "category": "Category",
+        "costBasis": "Basis",
+        "share": "Share",
         "unknown": "Unknown"
       }
     },
@@ -3244,6 +3288,16 @@
       },
       "preview": {
         "cueLabel": "Cue {count}",
+        "play": "Play",
+        "pause": "Pause",
+        "seek": "Seek",
+        "volume": "Volume",
+        "mute": "Mute",
+        "unmute": "Unmute",
+        "enterWindowedFullscreen": "Enter in-window fullscreen",
+        "exitWindowedFullscreen": "Exit in-window fullscreen",
+        "enterFullscreen": "Enter fullscreen",
+        "exitFullscreen": "Exit fullscreen",
         "placeholderTitle": "Video Preview Placeholder",
         "placeholderDescription": "Vidstack and LibASS preview are ready. Connect a media asset to inspect subtitle rendering, playback sync, and burn-in parity."
       },
@@ -3874,9 +3928,6 @@
       "installing": "Installing",
       "repairing": "Repairing"
     },
-    "status": {
-      "missing": "Missing"
-    },
     "steps": {
       "general": {
         "title": "General",
@@ -3909,7 +3960,9 @@
     },
     "dependencies": {
       "modeTitle": "Product Mode",
-      "toolsTitle": "Required Tools",
+      "status": "Status",
+      "version": "Version",
+      "versionDescription": "Current: {current} latest: {latest}",
       "clawhubWaitForBun": "Install Bun first",
       "installed": "Installed",
       "missing": "Missing"
@@ -3954,7 +4007,9 @@
       "readyTitle": "System Ready",
       "readyDescription": "No setup blockers are active.",
       "notificationsDescription": "{count} unread notifications",
-      "close": "Close"
+      "close": "Close",
+      "enter": "Enter DreamCreator",
+      "skipAndEnter": "Skip {count} items and enter"
     }
   },
   "notifications": {

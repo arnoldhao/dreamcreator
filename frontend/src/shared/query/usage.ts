@@ -16,6 +16,7 @@ export type UsageStatusQuery = {
   category?: string;
   requestSource?: string;
   costBasis?: string;
+  timezoneOffsetMinutes?: number;
 };
 
 export type UsageCostQuery = UsageStatusQuery;

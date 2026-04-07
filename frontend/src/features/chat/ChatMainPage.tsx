@@ -25,6 +25,7 @@ import {
   Copy,
   Pencil,
   RotateCcw,
+  XCircle,
 } from "lucide-react";
 
 import { UserMessageAttachments } from "@/components/assistant-ui/attachment";
@@ -654,6 +655,34 @@ function UserMessage() {
   );
 }
 
+function AssistantErrorNotice({ message }: { message: string }) {
+  const { t } = useI18n();
+  const detail = message.trim();
+
+  return (
+    <MessagePrimitive.Error>
+      <ErrorPrimitive.Root
+        role="alert"
+        className="max-w-full overflow-hidden rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-destructive shadow-sm"
+      >
+        <div className="flex min-w-0 gap-2">
+          <XCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="text-sm font-medium leading-tight">
+              {t("chat.message.error")}
+            </div>
+            {detail ? (
+              <div className="max-h-32 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-destructive/90 [overflow-wrap:anywhere]">
+                <ErrorPrimitive.Message>{detail}</ErrorPrimitive.Message>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </ErrorPrimitive.Root>
+    </MessagePrimitive.Error>
+  );
+}
+
 function AssistantMessage() {
   const { t } = useI18n();
   const hasContent = useAssistantState(({ message }) => message.parts.length > 0);
@@ -693,13 +722,7 @@ function AssistantMessage() {
       <ThreadPrimitive.ViewportSlack>
         <div className="mr-auto min-w-0 w-full max-w-3xl space-y-2 py-1 text-sm text-foreground">
           <MessagePartsBody />
-          <MessagePrimitive.Error>
-            <ErrorPrimitive.Root className="mt-2 text-xs text-destructive">
-              <ErrorPrimitive.Message>
-                {assistantErrorText || t("chat.message.error")}
-              </ErrorPrimitive.Message>
-            </ErrorPrimitive.Root>
-          </MessagePrimitive.Error>
+          <AssistantErrorNotice message={assistantErrorText} />
           <MessagePrimitive.If assistant>
             <div className="mt-1 flex items-center justify-between gap-2">
               <ActionBarPrimitive.Root hideWhenRunning autohide="not-last" className="flex items-center gap-1">

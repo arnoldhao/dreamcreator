@@ -121,16 +121,17 @@ type Repository interface {
 }
 
 type UsageStatusRequest struct {
-	Window        string   `json:"window,omitempty"`
-	StartAt       string   `json:"startAt,omitempty"`
-	EndAt         string   `json:"endAt,omitempty"`
-	GroupBy       []string `json:"groupBy,omitempty"`
-	ProviderID    string   `json:"providerId,omitempty"`
-	ModelName     string   `json:"modelName,omitempty"`
-	Channel       string   `json:"channel,omitempty"`
-	Category      string   `json:"category,omitempty"`
-	RequestSource string   `json:"requestSource,omitempty"`
-	CostBasis     string   `json:"costBasis,omitempty"`
+	Window                string   `json:"window,omitempty"`
+	StartAt               string   `json:"startAt,omitempty"`
+	EndAt                 string   `json:"endAt,omitempty"`
+	GroupBy               []string `json:"groupBy,omitempty"`
+	ProviderID            string   `json:"providerId,omitempty"`
+	ModelName             string   `json:"modelName,omitempty"`
+	Channel               string   `json:"channel,omitempty"`
+	Category              string   `json:"category,omitempty"`
+	RequestSource         string   `json:"requestSource,omitempty"`
+	CostBasis             string   `json:"costBasis,omitempty"`
+	TimezoneOffsetMinutes int      `json:"timezoneOffsetMinutes,omitempty"`
 }
 
 type UsageTotals struct {
@@ -145,6 +146,8 @@ type UsageTotals struct {
 
 type UsageBucket struct {
 	Key               string `json:"key"`
+	BucketStart       string `json:"bucketStart,omitempty"`
+	BucketEnd         string `json:"bucketEnd,omitempty"`
 	ProviderID        string `json:"providerId,omitempty"`
 	ModelName         string `json:"modelName,omitempty"`
 	Channel           string `json:"channel,omitempty"`
@@ -167,19 +170,22 @@ type UsageStatusResponse struct {
 }
 
 type UsageCostRequest struct {
-	Window        string   `json:"window,omitempty"`
-	StartAt       string   `json:"startAt,omitempty"`
-	EndAt         string   `json:"endAt,omitempty"`
-	GroupBy       []string `json:"groupBy,omitempty"`
-	ProviderID    string   `json:"providerId,omitempty"`
-	ModelName     string   `json:"modelName,omitempty"`
-	Channel       string   `json:"channel,omitempty"`
-	Category      string   `json:"category,omitempty"`
-	RequestSource string   `json:"requestSource,omitempty"`
-	CostBasis     string   `json:"costBasis,omitempty"`
+	Window                string   `json:"window,omitempty"`
+	StartAt               string   `json:"startAt,omitempty"`
+	EndAt                 string   `json:"endAt,omitempty"`
+	GroupBy               []string `json:"groupBy,omitempty"`
+	ProviderID            string   `json:"providerId,omitempty"`
+	ModelName             string   `json:"modelName,omitempty"`
+	Channel               string   `json:"channel,omitempty"`
+	Category              string   `json:"category,omitempty"`
+	RequestSource         string   `json:"requestSource,omitempty"`
+	CostBasis             string   `json:"costBasis,omitempty"`
+	TimezoneOffsetMinutes int      `json:"timezoneOffsetMinutes,omitempty"`
 }
 
 type UsageCostLine struct {
+	BucketStart   string `json:"bucketStart,omitempty"`
+	BucketEnd     string `json:"bucketEnd,omitempty"`
 	ProviderID    string `json:"providerId,omitempty"`
 	ModelName     string `json:"modelName,omitempty"`
 	Channel       string `json:"channel,omitempty"`

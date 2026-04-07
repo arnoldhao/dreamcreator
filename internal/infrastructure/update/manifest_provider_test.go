@@ -27,13 +27,13 @@ func TestManifestCatalogProviderSelectsCurrentPlatformAssets(t *testing.T) {
 						"publishedAt":"2026-04-06T00:00:00Z",
 						"platforms":{
 							"darwin-arm64":{
-								"artifactName":"DreamCreator_1.3.0_mac_arm64.dmg",
-								"sources":[{"name":"github","kind":"origin","url":"https://example.com/app.dmg","priority":20,"enabled":true}],
-								"installStrategy":"app-installer",
-								"artifactType":"dmg"
+								"artifactName":"dreamcreator-macos-arm64-1.3.0.zip",
+								"sources":[{"name":"github","kind":"origin","url":"https://example.com/app.zip","priority":20,"enabled":true}],
+								"installStrategy":"archive",
+								"artifactType":"zip"
 							},
 							"windows-amd64":{
-								"artifactName":"DreamCreator.Setup_1.3.0.exe",
+								"artifactName":"dreamcreator-windows-x64-1.3.0-installer.exe",
 								"sources":[{"name":"github","kind":"origin","url":"https://example.com/app.exe","priority":20,"enabled":true}],
 								"installStrategy":"app-installer",
 								"artifactType":"exe"
@@ -76,7 +76,7 @@ func TestManifestCatalogProviderSelectsCurrentPlatformAssets(t *testing.T) {
 	if catalog.App == nil {
 		t.Fatal("expected app release")
 	}
-	if catalog.App.Asset.ArtifactName != "DreamCreator_1.3.0_mac_arm64.dmg" {
+	if catalog.App.Asset.ArtifactName != "dreamcreator-macos-arm64-1.3.0.zip" {
 		t.Fatalf("unexpected app asset: %s", catalog.App.Asset.ArtifactName)
 	}
 	ffmpeg, ok := catalog.Tools["ffmpeg"]

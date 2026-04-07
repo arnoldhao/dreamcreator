@@ -20,9 +20,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-15
+          - runner: macos-26
             artifact_suffix: arm64
-          - runner: macos-15-intel
+          - runner: macos-26-intel
             artifact_suffix: x64
     runs-on: ${{ matrix.runner }}
     steps:
@@ -130,6 +130,17 @@ jobs:
 
       - name: Build app (macOS)
         run: wails3 task darwin:package
+
+      - name: Inspect macOS build metadata
+        shell: bash
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcrun --show-sdk-version --sdk macosx
+          echo "Binary build metadata:"
+          otool -l bin/dreamcreator | grep -A3 -B1 LC_BUILD_VERSION
+          echo "Bundle minimum OS version:"
+          plutil -p bin/dreamcreator.app/Contents/Info.plist | grep LSMinimumSystemVersion
 
       - name: Prepare zip artifact
         run: |

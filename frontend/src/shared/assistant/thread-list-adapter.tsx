@@ -403,6 +403,23 @@ const extractStoredRuntimeErrorText = (parts: StoredMessagePart[]) => {
   return "";
 };
 
+const normalizeStoredRuntimeErrorComparisonText = (value: string) =>
+  value.replace(/\s+/g, " ").trim();
+
+const shouldSuppressStoredRuntimeErrorTextPart = (
+  part: StoredMessagePart,
+  runtimeErrorText: string
+) => {
+  const text = typeof part.text === "string" ? part.text : "";
+  if (!text || !runtimeErrorText) {
+    return false;
+  }
+  return (
+    normalizeStoredRuntimeErrorComparisonText(text) ===
+    normalizeStoredRuntimeErrorComparisonText(runtimeErrorText)
+  );
+};
+
 const normalizeStoredSourcePart = (part: StoredMessagePart) => {
   const payload =
     part.data && typeof part.data === "object" && !Array.isArray(part.data)
@@ -426,7 +443,10 @@ const normalizeStoredSourcePart = (part: StoredMessagePart) => {
   };
 };
 
-const storedPartsToThreadContent = (parts: StoredMessagePart[]) => {
+const storedPartsToThreadContent = (
+  parts: StoredMessagePart[],
+  options: { suppressRuntimeErrorParts?: boolean; runtimeErrorText?: string } = {}
+) => {
   const content: Array<any> = [];
   for (const part of parts) {
     const partType = typeof part.type === "string" ? part.type : "";
@@ -434,6 +454,12 @@ const storedPartsToThreadContent = (parts: StoredMessagePart[]) => {
       continue;
     }
     if (partType === "text") {
+      if (
+        options.suppressRuntimeErrorParts &&
+        shouldSuppressStoredRuntimeErrorTextPart(part, options.runtimeErrorText ?? "")
+      ) {
+        continue;
+      }
       content.push({
         type: "text",
         text: typeof part.text === "string" ? part.text : "",
@@ -480,6 +506,9 @@ const storedPartsToThreadContent = (parts: StoredMessagePart[]) => {
     if (partType === "data") {
       const payload = parsePartDataRecord(part.data);
       const dataName = payload && typeof payload.name === "string" ? payload.name.trim() : "";
+      if (options.suppressRuntimeErrorParts && dataName.toLowerCase() === "runtime_error") {
+        continue;
+      }
       if (!dataName) {
         continue;
       }
@@ -559,9 +588,16 @@ const toThreadMessage = (item: ThreadMessageDTO): ThreadMessage => {
   }
 
   if (role === "assistant") {
-    const parts = storedPartsToThreadContent(storedParts);
-    const assistantContent = parts.length > 0 ? parts : [{ type: "text", text: contentText }];
     const runtimeErrorText = extractStoredRuntimeErrorText(storedParts);
+    const parts = storedPartsToThreadContent(storedParts, {
+      suppressRuntimeErrorParts: Boolean(runtimeErrorText),
+      runtimeErrorText,
+    });
+    const assistantContent = parts.length > 0
+      ? parts
+      : runtimeErrorText
+        ? []
+        : [{ type: "text", text: contentText }];
     return {
       id,
       role: "assistant",

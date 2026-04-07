@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
   Download,
@@ -9,10 +10,12 @@ import {
 
 import { messageBus } from "@/shared/message/store";
 import { useI18n } from "@/shared/i18n";
+import { formatTemplate } from "@/features/library/utils/i18n";
 import { useAssistants, useUpdateAssistant } from "@/shared/query/assistant";
 import {
   useExternalToolInstallState,
   useExternalTools,
+  useExternalToolUpdates,
   useInstallExternalTool,
   useVerifyExternalTool,
 } from "@/shared/query/externalTools";
@@ -28,7 +31,10 @@ import {
 } from "@/shared/query/providers";
 import { useUpdateSettings } from "@/shared/query/settings";
 import { useAssistantUiMode } from "@/shared/store/assistantUi";
-import type { ExternalTool } from "@/shared/store/externalTools";
+import type {
+  ExternalToolInstallState,
+  ExternalToolUpdateInfo,
+} from "@/shared/store/externalTools";
 import type { ProviderModel } from "@/shared/store/providers";
 import { useSettingsStore } from "@/shared/store/settings";
 import { Button } from "@/shared/ui/button";
@@ -58,77 +64,19 @@ import {
 } from "./cards";
 import { getToolItemId, type SetupNavStatus } from "./nav";
 import { isInstalledTool, parseModelRef, resolveToolDependencyIssues } from "./readiness";
+import {
+  buildInstallStateHandledKey,
+  clampProgress,
+  formatToolVersion,
+  resolveInstallActionLabel,
+  resolveModelRefFromOptionValue,
+  resolveProviderOption,
+} from "./setup-center-utils";
 import { useSetupCenter } from "./store";
-
-type ProviderOption = {
-  id: string;
-  label: string;
-  endpoint: string;
-  type: string;
-};
-
-type TranslateFn = (key: string) => string;
 
 const EXTERNAL_INSTALL_STAGES = new Set(["downloading", "extracting", "verifying"]);
 
-const clampProgress = (value?: number) => {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return 0;
-  }
-  if (value < 0) {
-    return 0;
-  }
-  if (value > 100) {
-    return 100;
-  }
-  return Math.round(value);
-};
-
-const resolveProviderOption = (
-  allProviders: Array<{ id: string; name: string; endpoint: string; type: string }>
-): ProviderOption[] => {
-  const options: ProviderOption[] = [];
-  const seen = new Set<string>();
-
-  for (const preset of PROVIDER_PRESETS) {
-    const matched = allProviders.find((item) => item.id === preset.id);
-    options.push({
-      id: preset.id,
-      label: matched?.name?.trim() || preset.label,
-      endpoint: matched?.endpoint?.trim() || preset.endpoint,
-      type: matched?.type?.trim() || preset.type,
-    });
-    seen.add(preset.id);
-  }
-
-  for (const provider of allProviders) {
-    if (seen.has(provider.id)) {
-      continue;
-    }
-    options.push({
-      id: provider.id,
-      label: provider.name,
-      endpoint: provider.endpoint,
-      type: provider.type,
-    });
-  }
-
-  return options;
-};
-
-const resolveModelRefFromOptionValue = (value: string, options: AssistantModelOption[]) => {
-  if (!value) {
-    return "";
-  }
-  return options.find((option) => option.value === value)?.modelRef ?? "";
-};
-
-const resolveInstallActionLabel = (tool: ExternalTool | null, t: TranslateFn) =>
-  String(tool?.status ?? "").trim().toLowerCase() === "invalid"
-    ? t("settings.externalTools.actions.repair")
-    : t("settings.externalTools.actions.install");
-
-export function SetupInlineProviderCard({
+export function SetupProviderCard({
   status,
   showSkip = false,
   onSkip,
@@ -339,8 +287,28 @@ export function SetupInlineProviderCard({
       <SetupCardSection>
         <div className="rounded-lg border border-border/70 bg-background/70">
           <div className="flex items-center justify-between gap-3 border-b border-border/70 px-3 py-2">
-            <div className="min-w-0 truncate text-xs font-medium text-muted-foreground">
-              {selectedProvider?.name ?? selectedProviderOption?.label ?? t("setupCenter.ai.noProvider")}
+            <div className="flex min-w-0 items-center gap-2">
+              {selectedProvider?.icon ? (
+                <span
+                  aria-hidden
+                  className="h-4 w-4 shrink-0 bg-current text-muted-foreground"
+                  style={{
+                    WebkitMaskImage: `url(${selectedProvider.icon})`,
+                    maskImage: `url(${selectedProvider.icon})`,
+                    WebkitMaskRepeat: "no-repeat",
+                    maskRepeat: "no-repeat",
+                    WebkitMaskPosition: "center",
+                    maskPosition: "center",
+                    WebkitMaskSize: "contain",
+                    maskSize: "contain",
+                  }}
+                />
+              ) : (
+                <span className="h-4 w-4 shrink-0" aria-hidden />
+              )}
+              <div className="truncate text-xs font-medium text-muted-foreground">
+                {selectedProvider?.name ?? selectedProviderOption?.label ?? t("setupCenter.ai.noProvider")}
+              </div>
             </div>
             <Button
               type="button"
@@ -402,14 +370,16 @@ export function SetupInlineProviderCard({
   );
 }
 
-export function SetupInlineAgentModelCard({
+export function SetupAgentModelCard({
   status,
   showSkip = false,
   onSkip,
+  autoApplyWhenReady = false,
 }: {
   status: SetupNavStatus;
   showSkip?: boolean;
   onSkip?: () => void;
+  autoApplyWhenReady?: boolean;
 }) {
   const { t } = useI18n();
   const { clearAiDeferred, clearSkippedItem } = useSetupCenter();
@@ -428,6 +398,7 @@ export function SetupInlineAgentModelCard({
   );
   const enabledProvidersWithModels = enabledProvidersQuery.data ?? [];
   const [modelDraft, setModelDraft] = React.useState("");
+  const syncKeyRef = React.useRef("");
 
   const assistantModelRef = defaultAssistant?.model?.agent?.primary?.trim() ?? "";
   const agentModelOptions = React.useMemo<AssistantModelOption[]>(() => {
@@ -482,30 +453,57 @@ export function SetupInlineAgentModelCard({
         clearAiDeferred();
         return;
       }
-      if (needsModelUpdate) {
-        await updateAssistant.mutateAsync({
-          id: defaultAssistant.id,
-          model: {
-            ...defaultAssistant.model,
-            agent: {
-              ...defaultAssistant.model.agent,
-              primary: normalizedNext,
-            },
-          },
-        });
+      const syncKey = `${defaultAssistant.id}:${normalizedNext}:${needsGatewayEnable ? "enable" : "keep"}`;
+      if (syncKeyRef.current === syncKey) {
+        return;
       }
-      if (needsGatewayEnable) {
-        await updateSettings.mutateAsync({
-          gateway: {
-            controlPlaneEnabled: true,
-          },
-        });
+      syncKeyRef.current = syncKey;
+      try {
+        if (needsModelUpdate) {
+          await updateAssistant.mutateAsync({
+            id: defaultAssistant.id,
+            model: {
+              ...defaultAssistant.model,
+              agent: {
+                ...defaultAssistant.model.agent,
+                primary: normalizedNext,
+              },
+            },
+          });
+        }
+        if (needsGatewayEnable) {
+          await updateSettings.mutateAsync({
+            gateway: {
+              controlPlaneEnabled: true,
+            },
+          });
+        }
+      } finally {
+        if (syncKeyRef.current === syncKey) {
+          syncKeyRef.current = "";
+        }
       }
       clearSkippedItem("ai.agentModel");
       clearAiDeferred();
     },
     [clearAiDeferred, clearSkippedItem, defaultAssistant, gatewayEnabled, updateAssistant, updateSettings]
   );
+
+  React.useEffect(() => {
+    if (!autoApplyWhenReady || !defaultAssistant || agentModelOptions.length === 0) {
+      return;
+    }
+    const currentPrimary = defaultAssistant.model?.agent?.primary?.trim() ?? "";
+    const nextModelRef = resolveUsableModelRef(currentPrimary, agentModelOptions);
+    if (!nextModelRef) {
+      return;
+    }
+    const modelReady = modelRefEquals(currentPrimary, nextModelRef);
+    if (modelReady && gatewayEnabled) {
+      return;
+    }
+    void applyAgentModel(nextModelRef);
+  }, [agentModelOptions, applyAgentModel, autoApplyWhenReady, defaultAssistant, gatewayEnabled]);
 
   return (
     <SetupPageCard
@@ -567,7 +565,13 @@ export function SetupInlineAgentModelCard({
   );
 }
 
-export function SetupInlineProductModeCard({ status }: { status: SetupNavStatus }) {
+export function SetupProductModeCard({
+  status,
+  headerRight,
+}: {
+  status: SetupNavStatus;
+  headerRight?: React.ReactNode;
+}) {
   const { t } = useI18n();
   const { enabled: assistantUiEnabled, setEnabled: setAssistantUiEnabled } = useAssistantUiMode();
   const { clearDependencyDeferred } = useSetupCenter();
@@ -575,7 +579,7 @@ export function SetupInlineProductModeCard({ status }: { status: SetupNavStatus 
   return (
     <SetupPageCard
       title={t("setupCenter.dependencies.modeTitle")}
-      headerRight={<SetupStatusIcon status={status} />}
+      headerRight={headerRight ?? <SetupStatusIcon status={status} />}
     >
       <SetupCardSection>
         <div className="grid gap-3 lg:grid-cols-2">
@@ -615,30 +619,55 @@ export function SetupInlineProductModeCard({ status }: { status: SetupNavStatus 
   );
 }
 
-export function SetupInlineToolCard({
+export function SetupToolCard({
   name,
   status,
   showSkip = false,
   onSkip,
+  activeInstallName,
+  activeVerifyName,
+  onActiveInstallNameChange,
+  onActiveVerifyNameChange,
 }: {
   name: string;
   status: SetupNavStatus;
   showSkip?: boolean;
   onSkip?: () => void;
+  activeInstallName?: string | null;
+  activeVerifyName?: string | null;
+  onActiveInstallNameChange?: (name: string | null) => void;
+  onActiveVerifyNameChange?: (name: string | null) => void;
 }) {
   const { t } = useI18n();
+  const queryClient = useQueryClient();
   const { clearDependencyDeferred, clearSkippedItem } = useSetupCenter();
   const externalToolsQuery = useExternalTools();
+  const externalToolUpdatesQuery = useExternalToolUpdates();
   const installTool = useInstallExternalTool();
   const verifyTool = useVerifyExternalTool();
-  const [running, setRunning] = React.useState(false);
-  const [verifying, setVerifying] = React.useState(false);
+  const [localActiveInstallName, setLocalActiveInstallName] = React.useState<string | null>(null);
+  const [localActiveVerifyName, setLocalActiveVerifyName] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState("");
-  const shouldTrackInstall = running || installTool.isPending;
+  const installStateHandledRef = React.useRef("");
+  const controlledInstallName = activeInstallName !== undefined;
+  const controlledVerifyName = activeVerifyName !== undefined;
+  const currentActiveInstallName = controlledInstallName ? activeInstallName : localActiveInstallName;
+  const currentActiveVerifyName = controlledVerifyName ? activeVerifyName : localActiveVerifyName;
+  const isInstallingThisTool = currentActiveInstallName === name;
+  const shouldTrackInstall = isInstallingThisTool || installTool.isPending;
   const installState = useExternalToolInstallState(name, shouldTrackInstall);
 
   const tools = externalToolsQuery.data ?? [];
   const tool = tools.find((item) => item.name?.trim().toLowerCase() === name.toLowerCase()) ?? null;
+  const toolUpdatesByName = React.useMemo(() => {
+    const map = new Map<string, ExternalToolUpdateInfo>();
+    for (const update of externalToolUpdatesQuery.data ?? []) {
+      if (update.name) {
+        map.set(update.name, update);
+      }
+    }
+    return map;
+  }, [externalToolUpdatesQuery.data]);
   const bunTool = tools.find((item) => item.name?.trim().toLowerCase() === "bun") ?? null;
   const bunInstalled = isInstalledTool(bunTool);
   const toolIssue = React.useMemo(
@@ -649,11 +678,21 @@ export function SetupInlineToolCard({
   const isInstalled = isInstalledTool(tool);
   const canVerify = !toolIssue && isInstalled;
   const installBlockedByBun = name === "clawhub" && !bunInstalled;
+  const showVersionComparison = name === "yt-dlp" || name === "ffmpeg" || name === "bun";
+  const updateInfo = toolUpdatesByName.get(name);
+  const currentVersionLabel = isInstalled
+    ? formatToolVersion(tool?.version, name) || t("settings.externalTools.detail.unknown")
+    : t("setupCenter.dependencies.missing");
+  const latestVersionLabel =
+    formatToolVersion(updateInfo?.latestVersion, name) ||
+    t("settings.externalTools.detail.unknown");
   const stage = shouldTrackInstall ? String(installState.data?.stage ?? "").trim().toLowerCase() : "";
   const progress = clampProgress(installState.data?.progress);
   const stageMessage = installState.data?.message?.trim() ?? "";
   const isInstalling = shouldTrackInstall || EXTERNAL_INSTALL_STAGES.has(stage);
-  const isVerifyPending = verifying && verifyTool.isPending;
+  const isVerifyPending = currentActiveVerifyName === name && verifyTool.isPending;
+  const blockedByOtherInstall = Boolean(currentActiveInstallName && currentActiveInstallName !== name);
+  const blockedByOtherVerify = Boolean(currentActiveVerifyName && currentActiveVerifyName !== name);
   const actionLabel = isInstalling
     ? isInvalid
       ? t("setupCenter.actions.repairing")
@@ -668,7 +707,15 @@ export function SetupInlineToolCard({
       return;
     }
     if (stage === "done") {
-      setRunning(false);
+      const handledKey = buildInstallStateHandledKey(name, installState.data);
+      if (installStateHandledRef.current === handledKey) {
+        return;
+      }
+      installStateHandledRef.current = handledKey;
+      if (!controlledInstallName) {
+        setLocalActiveInstallName(null);
+      }
+      onActiveInstallNameChange?.(null);
       setActionError("");
       clearSkippedItem(getToolItemId(name));
       clearDependencyDeferred();
@@ -676,15 +723,26 @@ export function SetupInlineToolCard({
       return;
     }
     if (stage === "error") {
-      setRunning(false);
+      const handledKey = buildInstallStateHandledKey(name, installState.data);
+      if (installStateHandledRef.current === handledKey) {
+        return;
+      }
+      installStateHandledRef.current = handledKey;
+      if (!controlledInstallName) {
+        setLocalActiveInstallName(null);
+      }
+      onActiveInstallNameChange?.(null);
       setActionError(stageMessage || t("settings.externalTools.installDialog.error"));
       void externalToolsQuery.refetch();
     }
   }, [
     clearDependencyDeferred,
     clearSkippedItem,
+    controlledInstallName,
     externalToolsQuery,
+    installState.data,
     name,
+    onActiveInstallNameChange,
     shouldTrackInstall,
     stage,
     stageMessage,
@@ -696,14 +754,37 @@ export function SetupInlineToolCard({
       return;
     }
     setActionError("");
-    setRunning(true);
+    const installStateQueryKey = ["external-tools-install-state", name];
+    const previousState = queryClient.getQueryData<ExternalToolInstallState>(installStateQueryKey);
+    installStateHandledRef.current = buildInstallStateHandledKey(name, previousState);
+    queryClient.setQueryData<ExternalToolInstallState>(installStateQueryKey, {
+      name,
+      stage: "downloading",
+      progress: 0,
+      message: "",
+      updatedAt: new Date().toISOString(),
+    });
+    if (!controlledInstallName) {
+      setLocalActiveInstallName(name);
+    }
+    onActiveInstallNameChange?.(name);
     try {
       await installTool.mutateAsync({ name });
       await installState.refetch();
     } catch (error) {
-      setRunning(false);
+      if (!controlledInstallName) {
+        setLocalActiveInstallName(null);
+      }
+      onActiveInstallNameChange?.(null);
       const message =
         error instanceof Error ? error.message : t("settings.externalTools.installDialog.error");
+      queryClient.setQueryData<ExternalToolInstallState>(installStateQueryKey, {
+        name,
+        stage: "error",
+        progress: 0,
+        message,
+        updatedAt: new Date().toISOString(),
+      });
       setActionError(message);
       messageBus.publishToast({
         intent: "warning",
@@ -716,7 +797,10 @@ export function SetupInlineToolCard({
 
   const handleVerify = async () => {
     setActionError("");
-    setVerifying(true);
+    if (!controlledVerifyName) {
+      setLocalActiveVerifyName(name);
+    }
+    onActiveVerifyNameChange?.(name);
     try {
       await verifyTool.mutateAsync({ name });
       await externalToolsQuery.refetch();
@@ -729,7 +813,10 @@ export function SetupInlineToolCard({
         description: message,
       });
     } finally {
-      setVerifying(false);
+      if (!controlledVerifyName) {
+        setLocalActiveVerifyName(null);
+      }
+      onActiveVerifyNameChange?.(null);
     }
   };
 
@@ -745,68 +832,76 @@ export function SetupInlineToolCard({
       {actionError}
     </span>
   ) : null;
+  const toolActionButton = (
+    <Button
+      type="button"
+      size="compact"
+      variant="outline"
+      className="shrink-0"
+      disabled={installBlockedByBun || isInstalling || isVerifyPending || blockedByOtherInstall || blockedByOtherVerify}
+      onClick={() => {
+        if (canVerify) {
+          void handleVerify();
+          return;
+        }
+        void handleInstall();
+      }}
+    >
+      {isInstalling || isVerifyPending ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <ActionIcon className="h-3.5 w-3.5" />
+      )}
+      {isVerifyPending ? t("settings.externalTools.installDialog.stage.verifying") : actionLabel}
+    </Button>
+  );
 
   return (
     <SetupPageCard
       title={name.toUpperCase()}
       titleClassName="text-xs font-semibold uppercase tracking-[0.24em]"
       headerRight={
-        <SetupCardStatusHeader
-          status={status}
-          onSkip={onSkip}
-          showSkip={showSkip && status === "pending"}
-          skipLabel={t("setupCenter.actions.skip")}
-        />
+        <div className="flex items-center gap-2">
+          <SetupCardStatusHeader
+            status={status}
+            onSkip={onSkip}
+            showSkip={showSkip && status === "pending"}
+            skipLabel={t("setupCenter.actions.skip")}
+          />
+          {toolActionButton}
+        </div>
       }
     >
       <SetupCardRows>
-        <SetupCardRow label={t("setupCenter.dependencies.toolsTitle")}>
+        <SetupCardRow label={t("setupCenter.dependencies.status")}>
           <span className="text-xs text-muted-foreground">
             {toolIssue ? t("setupCenter.dependencies.missing") : t("setupCenter.dependencies.installed")}
           </span>
         </SetupCardRow>
-        {tool?.version?.trim() ? (
+        {showVersionComparison ? (
           <>
             <SetupCardSeparator />
-            <SetupCardRow label={t("settings.externalTools.detail.currentVersion")}>
-              <span className="text-xs text-muted-foreground">{tool.version}</span>
+            <SetupCardRow label={t("setupCenter.dependencies.version")}>
+              <span className="text-xs text-muted-foreground">
+                {formatTemplate(t("setupCenter.dependencies.versionDescription"), {
+                  current: currentVersionLabel,
+                  latest: latestVersionLabel,
+                })}
+              </span>
             </SetupCardRow>
           </>
         ) : null}
       </SetupCardRows>
 
       <SetupCardSeparator />
-      <SetupCardSection className="flex h-9 items-center justify-between gap-3 whitespace-nowrap">
-        <div className="min-w-0 flex-1 overflow-hidden">
-          {installBlockedByBun && !canVerify ? (
-            <span className="block truncate text-[11px] text-muted-foreground">
-              {t("setupCenter.dependencies.clawhubWaitForBun")}
-            </span>
-          ) : (
-            actionFeedback
-          )}
-        </div>
-        <Button
-          type="button"
-          size="compact"
-          variant="outline"
-          className="shrink-0"
-          disabled={installBlockedByBun || isInstalling || isVerifyPending}
-          onClick={() => {
-            if (canVerify) {
-              void handleVerify();
-              return;
-            }
-            void handleInstall();
-          }}
-        >
-          {isInstalling || isVerifyPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <ActionIcon className="h-3.5 w-3.5" />
-          )}
-          {isVerifyPending ? t("settings.externalTools.installDialog.stage.verifying") : actionLabel}
-        </Button>
+      <SetupCardSection className="flex h-9 items-center gap-3 whitespace-nowrap">
+        {installBlockedByBun && !canVerify ? (
+          <span className="block truncate text-[11px] text-muted-foreground">
+            {t("setupCenter.dependencies.clawhubWaitForBun")}
+          </span>
+        ) : (
+          actionFeedback
+        )}
       </SetupCardSection>
     </SetupPageCard>
   );

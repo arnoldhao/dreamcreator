@@ -124,7 +124,7 @@ func (service *Service) Status(ctx context.Context, request UsageStatusRequest) 
 		return UsageStatusResponse{}, err
 	}
 	groupBy := normalizeGroupBy(request.GroupBy)
-	buckets, totals := aggregateEntries(entries, groupBy)
+	buckets, totals := aggregateEntries(entries, groupBy, request.TimezoneOffsetMinutes)
 	return UsageStatusResponse{
 		Window:  window,
 		Totals:  totals,
@@ -138,7 +138,7 @@ func (service *Service) Cost(ctx context.Context, request UsageCostRequest) (Usa
 		return UsageCostResponse{}, err
 	}
 	groupBy := normalizeGroupBy(request.GroupBy)
-	lines, total := aggregateCost(entries, groupBy)
+	lines, total := aggregateCost(entries, groupBy, request.TimezoneOffsetMinutes)
 	return UsageCostResponse{
 		Window:          window,
 		TotalCostMicros: total,
@@ -327,6 +327,8 @@ func normalizeGroupBy(values []string) []string {
 			value = "requestSource"
 		case "costbasis", "cost_basis", "cost-basis":
 			value = "costBasis"
+		case "day", "date", "bucketday", "bucket_day":
+			value = "day"
 		default:
 			continue
 		}
@@ -480,7 +482,7 @@ func calculateTokenCostMicros(tokens int, usdPerMillion float64) int64 {
 	return int64(math.Round(micros))
 }
 
-func aggregateEntries(entries []LedgerEntry, groupBy []string) ([]UsageBucket, UsageTotals) {
+func aggregateEntries(entries []LedgerEntry, groupBy []string, timezoneOffsetMinutes int) ([]UsageBucket, UsageTotals) {
 	type bucket struct {
 		item UsageBucket
 	}
@@ -498,6 +500,11 @@ func aggregateEntries(entries []LedgerEntry, groupBy []string) ([]UsageBucket, U
 		item := UsageBucket{}
 		for _, field := range groupBy {
 			switch field {
+			case "day":
+				bucketStart, bucketEnd := usageDayBucket(entry.CreatedAt, timezoneOffsetMinutes)
+				item.BucketStart = bucketStart
+				item.BucketEnd = bucketEnd
+				keyParts = append(keyParts, bucketStart)
 			case "providerId":
 				item.ProviderID = entry.ProviderID
 				keyParts = append(keyParts, entry.ProviderID)
@@ -541,6 +548,9 @@ func aggregateEntries(entries []LedgerEntry, groupBy []string) ([]UsageBucket, U
 		result = append(result, item.item)
 	}
 	sort.Slice(result, func(left, right int) bool {
+		if groupByIncludes(groupBy, "day") && result[left].BucketStart != result[right].BucketStart {
+			return result[left].BucketStart < result[right].BucketStart
+		}
 		if result[left].CostMicros != result[right].CostMicros {
 			return result[left].CostMicros > result[right].CostMicros
 		}
@@ -552,7 +562,7 @@ func aggregateEntries(entries []LedgerEntry, groupBy []string) ([]UsageBucket, U
 	return result, totals
 }
 
-func aggregateCost(entries []LedgerEntry, groupBy []string) ([]UsageCostLine, int64) {
+func aggregateCost(entries []LedgerEntry, groupBy []string, timezoneOffsetMinutes int) ([]UsageCostLine, int64) {
 	type bucket struct {
 		item UsageCostLine
 	}
@@ -564,6 +574,11 @@ func aggregateCost(entries []LedgerEntry, groupBy []string) ([]UsageCostLine, in
 		item := UsageCostLine{}
 		for _, field := range groupBy {
 			switch field {
+			case "day":
+				bucketStart, bucketEnd := usageDayBucket(entry.CreatedAt, timezoneOffsetMinutes)
+				item.BucketStart = bucketStart
+				item.BucketEnd = bucketEnd
+				keyParts = append(keyParts, bucketStart)
 			case "providerId":
 				item.ProviderID = entry.ProviderID
 				keyParts = append(keyParts, entry.ProviderID)
@@ -601,6 +616,9 @@ func aggregateCost(entries []LedgerEntry, groupBy []string) ([]UsageCostLine, in
 		result = append(result, item.item)
 	}
 	sort.Slice(result, func(left, right int) bool {
+		if groupByIncludes(groupBy, "day") && result[left].BucketStart != result[right].BucketStart {
+			return result[left].BucketStart < result[right].BucketStart
+		}
 		if result[left].CostMicros != result[right].CostMicros {
 			return result[left].CostMicros > result[right].CostMicros
 		}
@@ -614,6 +632,7 @@ func aggregateCost(entries []LedgerEntry, groupBy []string) ([]UsageCostLine, in
 
 func buildCostLineKey(line UsageCostLine) string {
 	return strings.Join([]string{
+		line.BucketStart,
 		line.ProviderID,
 		line.ModelName,
 		line.Channel,
@@ -621,6 +640,28 @@ func buildCostLineKey(line UsageCostLine) string {
 		line.RequestSource,
 		line.CostBasis,
 	}, "::")
+}
+
+func groupByIncludes(groupBy []string, field string) bool {
+	for _, item := range groupBy {
+		if item == field {
+			return true
+		}
+	}
+	return false
+}
+
+func usageDayBucket(value time.Time, timezoneOffsetMinutes int) (string, string) {
+	if value.IsZero() {
+		return "unknown", ""
+	}
+	if timezoneOffsetMinutes < -14*60 || timezoneOffsetMinutes > 14*60 {
+		timezoneOffsetMinutes = 0
+	}
+	location := time.FixedZone("usage-bucket", -timezoneOffsetMinutes*60)
+	local := value.In(location)
+	start := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, location)
+	return start.Format("2006-01-02"), start.AddDate(0, 0, 1).Format("2006-01-02")
 }
 
 func maxInt(value int, lowerBound int) int {
