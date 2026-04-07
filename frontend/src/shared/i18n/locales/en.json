@@ -3874,9 +3874,6 @@
       "installing": "Installing",
       "repairing": "Repairing"
     },
-    "status": {
-      "missing": "Missing"
-    },
     "steps": {
       "general": {
         "title": "General",
@@ -3909,7 +3906,9 @@
     },
     "dependencies": {
       "modeTitle": "Product Mode",
-      "toolsTitle": "Required Tools",
+      "status": "Status",
+      "version": "Version",
+      "versionDescription": "Current: {current} latest: {latest}",
       "clawhubWaitForBun": "Install Bun first",
       "installed": "Installed",
       "missing": "Missing"
@@ -3954,7 +3953,9 @@
       "readyTitle": "System Ready",
       "readyDescription": "No setup blockers are active.",
       "notificationsDescription": "{count} unread notifications",
-      "close": "Close"
+      "close": "Close",
+      "enter": "Enter DreamCreator",
+      "skipAndEnter": "Skip {count} items and enter"
     }
   },
   "notifications": {

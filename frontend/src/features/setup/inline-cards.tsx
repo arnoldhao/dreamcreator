@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
   Download,
@@ -9,10 +10,12 @@ import {
 
 import { messageBus } from "@/shared/message/store";
 import { useI18n } from "@/shared/i18n";
+import { formatTemplate } from "@/features/library/utils/i18n";
 import { useAssistants, useUpdateAssistant } from "@/shared/query/assistant";
 import {
   useExternalToolInstallState,
   useExternalTools,
+  useExternalToolUpdates,
   useInstallExternalTool,
   useVerifyExternalTool,
 } from "@/shared/query/externalTools";
@@ -28,7 +31,11 @@ import {
 } from "@/shared/query/providers";
 import { useUpdateSettings } from "@/shared/query/settings";
 import { useAssistantUiMode } from "@/shared/store/assistantUi";
-import type { ExternalTool } from "@/shared/store/externalTools";
+import type {
+  ExternalTool,
+  ExternalToolInstallState,
+  ExternalToolUpdateInfo,
+} from "@/shared/store/externalTools";
 import type { ProviderModel } from "@/shared/store/providers";
 import { useSettingsStore } from "@/shared/store/settings";
 import { Button } from "@/shared/ui/button";
@@ -127,6 +134,38 @@ const resolveInstallActionLabel = (tool: ExternalTool | null, t: TranslateFn) =>
   String(tool?.status ?? "").trim().toLowerCase() === "invalid"
     ? t("settings.externalTools.actions.repair")
     : t("settings.externalTools.actions.install");
+
+const normalizeToolVersion = (version?: string, toolName?: string) => {
+  let value = (version ?? "").trim();
+  if (!value) {
+    return "";
+  }
+  value = value.replace(/^v/i, "");
+  if (toolName?.toLowerCase() === "ffmpeg") {
+    value = value.replace(/^n-/i, "");
+    value = value.replace(/-tessus$/i, "");
+  }
+  return value;
+};
+
+const formatToolVersion = (version?: string, toolName?: string) => {
+  const value = normalizeToolVersion(version, toolName);
+  if (!value) {
+    return "";
+  }
+  return `v${value}`;
+};
+
+const buildInstallStateHandledKey = (
+  name: string,
+  state: ExternalToolInstallState | null | undefined
+) => {
+  const stage = String(state?.stage ?? "").trim();
+  if (stage !== "done" && stage !== "error") {
+    return "";
+  }
+  return `${name}:${stage}:${state?.updatedAt ?? ""}:${state?.message ?? ""}`;
+};
 
 export function SetupInlineProviderCard({
   status,
@@ -627,18 +666,30 @@ export function SetupInlineToolCard({
   onSkip?: () => void;
 }) {
   const { t } = useI18n();
+  const queryClient = useQueryClient();
   const { clearDependencyDeferred, clearSkippedItem } = useSetupCenter();
   const externalToolsQuery = useExternalTools();
+  const externalToolUpdatesQuery = useExternalToolUpdates();
   const installTool = useInstallExternalTool();
   const verifyTool = useVerifyExternalTool();
   const [running, setRunning] = React.useState(false);
   const [verifying, setVerifying] = React.useState(false);
   const [actionError, setActionError] = React.useState("");
+  const installStateHandledRef = React.useRef("");
   const shouldTrackInstall = running || installTool.isPending;
   const installState = useExternalToolInstallState(name, shouldTrackInstall);
 
   const tools = externalToolsQuery.data ?? [];
   const tool = tools.find((item) => item.name?.trim().toLowerCase() === name.toLowerCase()) ?? null;
+  const toolUpdatesByName = React.useMemo(() => {
+    const map = new Map<string, ExternalToolUpdateInfo>();
+    for (const update of externalToolUpdatesQuery.data ?? []) {
+      if (update.name) {
+        map.set(update.name, update);
+      }
+    }
+    return map;
+  }, [externalToolUpdatesQuery.data]);
   const bunTool = tools.find((item) => item.name?.trim().toLowerCase() === "bun") ?? null;
   const bunInstalled = isInstalledTool(bunTool);
   const toolIssue = React.useMemo(
@@ -649,6 +700,14 @@ export function SetupInlineToolCard({
   const isInstalled = isInstalledTool(tool);
   const canVerify = !toolIssue && isInstalled;
   const installBlockedByBun = name === "clawhub" && !bunInstalled;
+  const showVersionComparison = name === "yt-dlp" || name === "ffmpeg" || name === "bun";
+  const updateInfo = toolUpdatesByName.get(name);
+  const currentVersionLabel = isInstalled
+    ? formatToolVersion(tool?.version, name) || t("settings.externalTools.detail.unknown")
+    : t("setupCenter.dependencies.missing");
+  const latestVersionLabel =
+    formatToolVersion(updateInfo?.latestVersion, name) ||
+    t("settings.externalTools.detail.unknown");
   const stage = shouldTrackInstall ? String(installState.data?.stage ?? "").trim().toLowerCase() : "";
   const progress = clampProgress(installState.data?.progress);
   const stageMessage = installState.data?.message?.trim() ?? "";
@@ -668,6 +727,11 @@ export function SetupInlineToolCard({
       return;
     }
     if (stage === "done") {
+      const handledKey = buildInstallStateHandledKey(name, installState.data);
+      if (installStateHandledRef.current === handledKey) {
+        return;
+      }
+      installStateHandledRef.current = handledKey;
       setRunning(false);
       setActionError("");
       clearSkippedItem(getToolItemId(name));
@@ -676,6 +740,11 @@ export function SetupInlineToolCard({
       return;
     }
     if (stage === "error") {
+      const handledKey = buildInstallStateHandledKey(name, installState.data);
+      if (installStateHandledRef.current === handledKey) {
+        return;
+      }
+      installStateHandledRef.current = handledKey;
       setRunning(false);
       setActionError(stageMessage || t("settings.externalTools.installDialog.error"));
       void externalToolsQuery.refetch();
@@ -684,6 +753,7 @@ export function SetupInlineToolCard({
     clearDependencyDeferred,
     clearSkippedItem,
     externalToolsQuery,
+    installState.data,
     name,
     shouldTrackInstall,
     stage,
@@ -696,6 +766,16 @@ export function SetupInlineToolCard({
       return;
     }
     setActionError("");
+    const installStateQueryKey = ["external-tools-install-state", name];
+    const previousState = queryClient.getQueryData<ExternalToolInstallState>(installStateQueryKey);
+    installStateHandledRef.current = buildInstallStateHandledKey(name, previousState);
+    queryClient.setQueryData<ExternalToolInstallState>(installStateQueryKey, {
+      name,
+      stage: "downloading",
+      progress: 0,
+      message: "",
+      updatedAt: new Date().toISOString(),
+    });
     setRunning(true);
     try {
       await installTool.mutateAsync({ name });
@@ -704,6 +784,13 @@ export function SetupInlineToolCard({
       setRunning(false);
       const message =
         error instanceof Error ? error.message : t("settings.externalTools.installDialog.error");
+      queryClient.setQueryData<ExternalToolInstallState>(installStateQueryKey, {
+        name,
+        stage: "error",
+        progress: 0,
+        message,
+        updatedAt: new Date().toISOString(),
+      });
       setActionError(message);
       messageBus.publishToast({
         intent: "warning",
@@ -745,68 +832,76 @@ export function SetupInlineToolCard({
       {actionError}
     </span>
   ) : null;
+  const toolActionButton = (
+    <Button
+      type="button"
+      size="compact"
+      variant="outline"
+      className="shrink-0"
+      disabled={installBlockedByBun || isInstalling || isVerifyPending}
+      onClick={() => {
+        if (canVerify) {
+          void handleVerify();
+          return;
+        }
+        void handleInstall();
+      }}
+    >
+      {isInstalling || isVerifyPending ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <ActionIcon className="h-3.5 w-3.5" />
+      )}
+      {isVerifyPending ? t("settings.externalTools.installDialog.stage.verifying") : actionLabel}
+    </Button>
+  );
 
   return (
     <SetupPageCard
       title={name.toUpperCase()}
       titleClassName="text-xs font-semibold uppercase tracking-[0.24em]"
       headerRight={
-        <SetupCardStatusHeader
-          status={status}
-          onSkip={onSkip}
-          showSkip={showSkip && status === "pending"}
-          skipLabel={t("setupCenter.actions.skip")}
-        />
+        <div className="flex items-center gap-2">
+          <SetupCardStatusHeader
+            status={status}
+            onSkip={onSkip}
+            showSkip={showSkip && status === "pending"}
+            skipLabel={t("setupCenter.actions.skip")}
+          />
+          {toolActionButton}
+        </div>
       }
     >
       <SetupCardRows>
-        <SetupCardRow label={t("setupCenter.dependencies.toolsTitle")}>
+        <SetupCardRow label={t("setupCenter.dependencies.status")}>
           <span className="text-xs text-muted-foreground">
             {toolIssue ? t("setupCenter.dependencies.missing") : t("setupCenter.dependencies.installed")}
           </span>
         </SetupCardRow>
-        {tool?.version?.trim() ? (
+        {showVersionComparison ? (
           <>
             <SetupCardSeparator />
-            <SetupCardRow label={t("settings.externalTools.detail.currentVersion")}>
-              <span className="text-xs text-muted-foreground">{tool.version}</span>
+            <SetupCardRow label={t("setupCenter.dependencies.version")}>
+              <span className="text-xs text-muted-foreground">
+                {formatTemplate(t("setupCenter.dependencies.versionDescription"), {
+                  current: currentVersionLabel,
+                  latest: latestVersionLabel,
+                })}
+              </span>
             </SetupCardRow>
           </>
         ) : null}
       </SetupCardRows>
 
       <SetupCardSeparator />
-      <SetupCardSection className="flex h-9 items-center justify-between gap-3 whitespace-nowrap">
-        <div className="min-w-0 flex-1 overflow-hidden">
-          {installBlockedByBun && !canVerify ? (
-            <span className="block truncate text-[11px] text-muted-foreground">
-              {t("setupCenter.dependencies.clawhubWaitForBun")}
-            </span>
-          ) : (
-            actionFeedback
-          )}
-        </div>
-        <Button
-          type="button"
-          size="compact"
-          variant="outline"
-          className="shrink-0"
-          disabled={installBlockedByBun || isInstalling || isVerifyPending}
-          onClick={() => {
-            if (canVerify) {
-              void handleVerify();
-              return;
-            }
-            void handleInstall();
-          }}
-        >
-          {isInstalling || isVerifyPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <ActionIcon className="h-3.5 w-3.5" />
-          )}
-          {isVerifyPending ? t("settings.externalTools.installDialog.stage.verifying") : actionLabel}
-        </Button>
+      <SetupCardSection className="flex h-9 items-center gap-3 whitespace-nowrap">
+        {installBlockedByBun && !canVerify ? (
+          <span className="block truncate text-[11px] text-muted-foreground">
+            {t("setupCenter.dependencies.clawhubWaitForBun")}
+          </span>
+        ) : (
+          actionFeedback
+        )}
       </SetupCardSection>
     </SetupPageCard>
   );

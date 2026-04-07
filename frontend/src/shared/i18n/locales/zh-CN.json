@@ -3886,9 +3886,6 @@
       "installing": "安装中",
       "repairing": "修复中"
     },
-    "status": {
-      "missing": "未完成"
-    },
     "steps": {
       "general": {
         "title": "常规",
@@ -3921,7 +3918,9 @@
     },
     "dependencies": {
       "modeTitle": "产品形态",
-      "toolsTitle": "所需工具",
+      "status": "状态",
+      "version": "版本",
+      "versionDescription": "当前：{current} 最新：{latest}",
       "clawhubWaitForBun": "请先安装 Bun",
       "installed": "已安装",
       "missing": "缺失"
@@ -3966,7 +3965,9 @@
       "readyTitle": "系统已就绪",
       "readyDescription": "当前没有初始化阻塞项。",
       "notificationsDescription": "{count} 条未读通知",
-      "close": "关闭"
+      "close": "关闭",
+      "enter": "进入追创作",
+      "skipAndEnter": "跳过 {count} 项，直接进入"
     }
   },
   "notifications": {

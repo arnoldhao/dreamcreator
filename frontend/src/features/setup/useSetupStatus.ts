@@ -21,7 +21,7 @@ type SetupEntryKind = "setup" | "notifications";
 
 export function useSetupStatus(unreadNoticeCount = 0) {
   const { t } = useI18n();
-  const { enabled: assistantUiEnabled, hasChosenProductMode } = useAssistantUiMode();
+  const { enabled: assistantUiEnabled } = useAssistantUiMode();
   const { aiDeferred, dependencyDeferred, skippedItemIds } = useSetupCenter();
   const settings = useSettingsStore((state) => state.settings);
   const settingsLoading = useSettingsStore((state) => state.isLoading);
@@ -76,7 +76,8 @@ export function useSetupStatus(unreadNoticeCount = 0) {
   );
   const providersReady = !gatewayReadiness.issues.includes("providers.models");
   const agentModelReady = !gatewayReadiness.issues.includes("model.agent.primary");
-  const dependencyReady = hasChosenProductMode && missingRequiredTools.length === 0;
+  const productModeReady = typeof assistantUiEnabled === "boolean";
+  const dependencyReady = productModeReady && missingRequiredTools.length === 0;
   const generalReady = languageReady;
   const aiReady = gatewayReadiness.ready;
   const aiDegraded = !aiReady && aiDeferred;
@@ -88,7 +89,7 @@ export function useSetupStatus(unreadNoticeCount = 0) {
     if (!languageReady) {
       next.push({ code: "general.language", severity: "blocking", step: "general" });
     }
-    if (!hasChosenProductMode) {
+    if (!productModeReady) {
       next.push({
         code: "dependency.productMode",
         severity: dependencyDeferred ? "recommended" : "blocking",
@@ -139,7 +140,7 @@ export function useSetupStatus(unreadNoticeCount = 0) {
     assistantUiEnabled,
     dependencyDeferred,
     gatewayReadiness.issues,
-    hasChosenProductMode,
+    productModeReady,
     languageReady,
     missingRequiredTools,
   ]);
@@ -155,7 +156,7 @@ export function useSetupStatus(unreadNoticeCount = 0) {
     proxyReady,
     providerCardReady,
     modelCardReady,
-    hasChosenProductMode,
+    productModeReady,
     ...requiredTools.map((name) => !missingRequiredTools.some((item) => item.name === name)),
   ].filter(Boolean).length;
   const totalChecks = 5 + requiredTools.length;
@@ -164,7 +165,7 @@ export function useSetupStatus(unreadNoticeCount = 0) {
     proxyReady,
     providerCardReady || aiDeferred,
     modelCardReady || aiDeferred,
-    hasChosenProductMode || dependencyDeferred,
+    productModeReady || dependencyDeferred,
     ...requiredTools.map((name) => {
       const installed = !missingRequiredTools.some((item) => item.name === name);
       return installed || dependencyDeferred;
@@ -184,7 +185,7 @@ export function useSetupStatus(unreadNoticeCount = 0) {
         providersReady,
         gatewayEnabled,
         agentModelReady,
-        hasChosenProductMode,
+        hasChosenProductMode: productModeReady,
         requiredTools,
         missingRequiredToolNames: missingRequiredTools.map((item) => item.name),
         skippedItemIds,
@@ -192,7 +193,7 @@ export function useSetupStatus(unreadNoticeCount = 0) {
     [
       agentModelReady,
       gatewayEnabled,
-      hasChosenProductMode,
+      productModeReady,
       languageReady,
       missingRequiredTools,
       providersReady,
@@ -236,7 +237,7 @@ export function useSetupStatus(unreadNoticeCount = 0) {
     setupComplete,
     shouldAutoOpen,
     pendingNavItemCount,
-    hasChosenProductMode,
+    hasChosenProductMode: productModeReady,
     assistantUiEnabled,
     missingRequiredTools,
     defaultAssistant,

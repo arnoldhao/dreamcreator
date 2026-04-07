@@ -32,7 +32,13 @@ export function SetupPageCard({
 }) {
   return (
     <PanelCard tone="solid" className={cn("overflow-hidden text-muted-foreground", className)}>
-      <div className={cn(SETTINGS_COMPACT_ROW_CLASS, "flex items-start justify-between gap-4")}>
+      <div
+        className={cn(
+          SETTINGS_COMPACT_ROW_CLASS,
+          "flex justify-between gap-4",
+          description ? "items-start" : "items-center"
+        )}
+      >
         <div className="min-w-0 space-y-1">
           <div className={cn("text-sm font-semibold text-muted-foreground", titleClassName)}>{title}</div>
           {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
