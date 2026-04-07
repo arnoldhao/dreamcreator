@@ -6,8 +6,8 @@ categories:
     labels: ['type: feature', 'feat']
   - title: '🐞 Fixes'
     labels: ['type: bug', 'fix', 'bug']
-  - title: '⚙️ Refactor/Perf'
-    labels: ['refactor', 'perf']
+  - title: '⚙️ Refactor/Perf/Optimize'
+    labels: ['refactor', 'perf', 'optimize']
   - title: '🧰 Chore/Build/CI'
     labels: ['chore', 'build', 'ci', 'deps']
 
@@ -20,7 +20,7 @@ template: |
 version-resolver:
   major: { labels: ['breaking', 'type: breaking'] }
   minor: { labels: ['type: feature', 'feat'] }
-  patch: { labels: ['type: bug', 'fix', 'bug', 'chore', 'build', 'ci', 'refactor', 'perf', 'deps'] }
+  patch: { labels: ['type: bug', 'fix', 'bug', 'chore', 'build', 'ci', 'refactor', 'perf', 'optimize', 'deps'] }
   default: patch
 
 exclude-labels: ['skip-changelog']
