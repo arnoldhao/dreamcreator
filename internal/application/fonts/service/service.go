@@ -331,25 +331,17 @@ func fontNames(font *sfnt.Font, faceIndex int) fontNameEntry {
 		lookupKeys = append(lookupKeys, name)
 	}
 
-	family := readFontName(font, &buf, sfnt.NameIDTypographicFamily)
-	if strings.TrimSpace(family) == "" {
-		family = readFontName(font, &buf, sfnt.NameIDWWSFamily)
-	}
-	if strings.TrimSpace(family) == "" {
-		family = readFontName(font, &buf, sfnt.NameIDFamily)
-	}
-	if strings.TrimSpace(family) == "" {
-		family = readFontName(font, &buf, sfnt.NameIDFull)
-	}
-	if strings.TrimSpace(family) == "" {
-		family = readFontName(font, &buf, sfnt.NameIDPostScript)
-	}
+	typographicFamily := readFontName(font, &buf, sfnt.NameIDTypographicFamily)
+	wwsFamily := readFontName(font, &buf, sfnt.NameIDWWSFamily)
+	legacyFamily := readFontName(font, &buf, sfnt.NameIDFamily)
 	fullName := readFontName(font, &buf, sfnt.NameIDFull)
 	postScript := readFontName(font, &buf, sfnt.NameIDPostScript)
+	family := resolveCatalogFontFamily(typographicFamily, wwsFamily, legacyFamily, fullName, postScript)
 
 	push(family)
-	push(readFontName(font, &buf, sfnt.NameIDWWSFamily))
-	push(readFontName(font, &buf, sfnt.NameIDFamily))
+	push(typographicFamily)
+	push(wwsFamily)
+	push(legacyFamily)
 	push(fullName)
 	push(postScript)
 
@@ -368,6 +360,31 @@ func readFontName(font *sfnt.Font, buf *sfnt.Buffer, id sfnt.NameID) string {
 		return ""
 	}
 	return strings.TrimSpace(name)
+}
+
+func resolveCatalogFontFamily(typographicFamily, wwsFamily, legacyFamily, fullName, postScript string) string {
+	// macOS ships internal faces whose legacy family names are dot-prefixed.
+	// Those names are not exposed to AppKit/WebView, so do not surface the
+	// matching typographic alias in settings either.
+	if isHiddenCatalogFontFamily(legacyFamily) || isHiddenCatalogFontFamily(wwsFamily) {
+		return ""
+	}
+	return firstPublicCatalogFontFamily(legacyFamily, wwsFamily, typographicFamily, fullName, postScript)
+}
+
+func firstPublicCatalogFontFamily(values ...string) string {
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" || isHiddenCatalogFontFamily(trimmed) {
+			continue
+		}
+		return trimmed
+	}
+	return ""
+}
+
+func isHiddenCatalogFontFamily(value string) bool {
+	return strings.HasPrefix(strings.TrimSpace(value), ".")
 }
 
 func isFontFile(path string) bool {

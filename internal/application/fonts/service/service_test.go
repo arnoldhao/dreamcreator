@@ -99,6 +99,27 @@ func TestExtractFontFaceFromCollectionBytes(t *testing.T) {
 	}
 }
 
+func TestResolveCatalogFontFamilyPrefersPublicLegacyFamily(t *testing.T) {
+	got := resolveCatalogFontFamily("Go UI", "", "Go", "Go Regular", "GoRegular")
+	if got != "Go" {
+		t.Fatalf("expected legacy family Go, got %q", got)
+	}
+}
+
+func TestResolveCatalogFontFamilyFallsBackToTypographicWhenLegacyMissing(t *testing.T) {
+	got := resolveCatalogFontFamily("Inter", "", "", "Inter Regular", "Inter-Regular")
+	if got != "Inter" {
+		t.Fatalf("expected typographic family Inter, got %q", got)
+	}
+}
+
+func TestResolveCatalogFontFamilySuppressesHiddenSystemFamilies(t *testing.T) {
+	got := resolveCatalogFontFamily("New York", "", ".New York", ".New York Regular", ".NewYork-Regular")
+	if got != "" {
+		t.Fatalf("expected hidden system family to be suppressed, got %q", got)
+	}
+}
+
 func buildTestTTC(fonts ...[]byte) []byte {
 	headerSize := 12 + len(fonts)*4
 	offsets := make([]int, len(fonts))
