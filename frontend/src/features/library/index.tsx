@@ -819,10 +819,22 @@ export function LibraryPage() {
   )
   const selectedTaskCount = selectedTaskIDs.length
 
-  const fileRows = React.useMemo(() => {
+  const allFileRows = React.useMemo(() => {
     const rows = displayFiles.map((file) => toFileRowFromDTO(file, operationsById, labels))
-    return filterFilesForTable(sortByCreatedAtDesc(rows), searchQuery)
-  }, [displayFiles, labels, operationsById, searchQuery])
+    return sortByCreatedAtDesc(rows)
+  }, [displayFiles, labels, operationsById])
+  const fileRows = React.useMemo(
+    () => filterFilesForTable(allFileRows, searchQuery),
+    [allFileRows, searchQuery],
+  )
+  const overviewFileRows = React.useMemo(
+    () => filterFilesByResourceTypeAndStatus(allFileRows, "all", "active"),
+    [allFileRows],
+  )
+  const overviewSuccessTaskRows = React.useMemo(
+    () => allTaskRows.filter((task) => isTerminalTaskStatus(task.status)),
+    [allTaskRows],
+  )
 
   const resourceRows = React.useMemo(
     () => filterFilesByResourceTypeAndStatus(fileRows, resourceFileTypeFilter, resourceFileStatusFilter),
@@ -872,11 +884,61 @@ export function LibraryPage() {
     [resourceFocusedLibraryId, resourceLibraries],
   )
 
+  const openOverviewResourceFiles = React.useCallback(() => {
+    setPageTab("resources")
+    setSearchQuery("")
+    setResourceViewMode("file")
+    setResourceFileTypeFilter("all")
+    setResourceFileStatusFilter("active")
+    setResourceFocusedLibraryId("")
+    setFileSelectionMode(false)
+    setFileRowSelection({})
+  }, [])
+  const openOverviewTaskList = React.useCallback((statuses: TaskStatusFilter[] = []) => {
+    setPageTab("tasks")
+    setSearchQuery("")
+    setTaskStatusFilters(statuses)
+    setTaskTypeFilters([])
+    setTaskSelectionMode(false)
+    setTaskRowSelection({})
+  }, [])
+  const handleOpenOverviewOperations = React.useCallback(() => {
+    openOverviewTaskList()
+  }, [openOverviewTaskList])
+  const handleOpenOverviewSuccess = React.useCallback(() => {
+    openOverviewTaskList(["succeeded", "failed", "canceled"])
+  }, [openOverviewTaskList])
+
   const overviewCards = React.useMemo(
-    () => buildOverviewCards(taskRows, fileRows, libraryOptions.length, t),
-    [fileRows, libraryOptions.length, t, taskRows],
+    () =>
+      buildOverviewCards(
+        allTaskRows,
+        overviewSuccessTaskRows,
+        overviewFileRows,
+        libraryOptions.length,
+        t,
+        {
+          files: openOverviewResourceFiles,
+          operations: handleOpenOverviewOperations,
+          success: handleOpenOverviewSuccess,
+          storage: openOverviewResourceFiles,
+        },
+      ),
+    [
+      allTaskRows,
+      handleOpenOverviewOperations,
+      handleOpenOverviewSuccess,
+      libraryOptions.length,
+      openOverviewResourceFiles,
+      overviewFileRows,
+      overviewSuccessTaskRows,
+      t,
+    ],
   )
-  const overviewTrendData = React.useMemo(() => buildLibraryTrendData(taskRows, chartGranularity), [chartGranularity, taskRows])
+  const overviewTrendData = React.useMemo(
+    () => buildLibraryTrendData(allTaskRows, chartGranularity),
+    [allTaskRows, chartGranularity],
+  )
 
   const baseTaskColumns = React.useMemo<ColumnDef<LibraryTaskRow>[]>(
     () =>
@@ -4674,12 +4736,24 @@ function columnsToOptions<TData>(columns: Array<{ id?: string; accessorKey?: str
     .filter((column) => column.id)
 }
 
-function buildOverviewCards(tasks: LibraryTaskRow[], files: LibraryFileRow[], libraryCount: number, t: Translator) {
-  const succeeded = tasks.filter((task) => task.status === "succeeded").length
+function buildOverviewCards(
+  tasks: LibraryTaskRow[],
+  successTasks: LibraryTaskRow[],
+  files: LibraryFileRow[],
+  libraryCount: number,
+  t: Translator,
+  actions: {
+    files: () => void
+    operations: () => void
+    success: () => void
+    storage: () => void
+  },
+) {
+  const succeeded = successTasks.filter((task) => task.status === "succeeded").length
   const running = tasks.filter((task) => task.status === "running").length
   const queued = tasks.filter((task) => task.status === "queued").length
   const totalSize = files.reduce((sum, file) => sum + (file.sizeBytes ?? 0), 0)
-  const successRate = tasks.length > 0 ? Math.round((succeeded / tasks.length) * 100) : 0
+  const successRate = successTasks.length > 0 ? Math.round((succeeded / successTasks.length) * 100) : 0
   const recentCount = countRecentTasks(tasks, 7)
   return [
     {
@@ -4688,6 +4762,7 @@ function buildOverviewCards(tasks: LibraryTaskRow[], files: LibraryFileRow[], li
       value: String(files.length),
       detail: formatTemplate(t("library.overview.card.filesDetail"), { count: libraryCount }),
       icon: Database,
+      onClick: actions.files,
     },
     {
       id: "operations",
@@ -4695,6 +4770,7 @@ function buildOverviewCards(tasks: LibraryTaskRow[], files: LibraryFileRow[], li
       value: String(tasks.length),
       detail: formatTemplate(t("library.overview.card.operationsDetail"), { count: running + queued }),
       icon: ListChecks,
+      onClick: actions.operations,
     },
     {
       id: "success",
@@ -4702,6 +4778,7 @@ function buildOverviewCards(tasks: LibraryTaskRow[], files: LibraryFileRow[], li
       value: `${successRate}%`,
       detail: formatTemplate(t("library.overview.card.successDetail"), { count: succeeded }),
       icon: Activity,
+      onClick: actions.success,
     },
     {
       id: "storage",
@@ -4709,6 +4786,7 @@ function buildOverviewCards(tasks: LibraryTaskRow[], files: LibraryFileRow[], li
       value: totalSize > 0 ? formatBytes(totalSize) : "-",
       detail: formatTemplate(t("library.overview.card.storageDetail"), { count: recentCount }),
       icon: Sparkles,
+      onClick: actions.storage,
     },
   ]
 }
@@ -4763,6 +4841,11 @@ function resolveTaskTimestamp(task: LibraryTaskRow) {
 function countRecentTasks(tasks: LibraryTaskRow[], days: number) {
   const threshold = Date.now() - days * 24 * 60 * 60 * 1000
   return tasks.filter((task) => resolveTaskTimestamp(task) >= threshold).length
+}
+
+function isTerminalTaskStatus(status: string) {
+  const normalized = status.trim().toLowerCase()
+  return normalized === "succeeded" || normalized === "failed" || normalized === "canceled"
 }
 
 function resolveErrorMessage(error: unknown, fallback = "Unknown error") {

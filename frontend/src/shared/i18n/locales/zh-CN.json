@@ -2776,7 +2776,7 @@
         "operations": "任务",
         "operationsDetail": "{count} 个运行中/排队中",
         "success": "成功率",
-        "successDetail": "{count} 个已完成",
+        "successDetail": "{count} 个成功",
         "storage": "存储",
         "storageDetail": "近 7 天 {count} 个任务"
       },
