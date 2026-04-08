@@ -2,17 +2,28 @@ import * as React from "react"
 import { MediaPlayer, MediaProvider } from "@vidstack/react"
 import type { AudioSrc, PlayerSrc, VideoSrc } from "@vidstack/react"
 import { Events, Window } from "@wailsio/runtime"
-import { CaptionsRenderer, parseText } from "media-captions"
+import { parseText } from "media-captions"
+import type { VTTCue } from "media-captions"
 import { Maximize, Maximize2, Minimize, Minimize2, Pause, Play, Volume2, VolumeX } from "lucide-react"
 
 import "@vidstack/react/player/styles/base.css"
-import "media-captions/styles/captions.css"
-import "media-captions/styles/regions.css"
 
 import { cn } from "@/lib/utils"
+import type {
+  LibraryBilingualStyleDTO,
+  LibraryMonoStyleDTO,
+  LibrarySubtitleStyleFontDTO,
+} from "@/shared/contracts/library"
 import { useI18n } from "@/shared/i18n"
 import { Button } from "@/shared/ui/button"
 
+import {
+  buildCueDisplayStyle,
+  buildCueTextStyle,
+  buildRenderedPreviewCues,
+  normalizeBaseResolution,
+  resolvePreviewScale,
+} from "../previewCaptionRenderer"
 import { clampMs, formatCueTime } from "./utils"
 
 type VideoPreviewPaneProps = {
@@ -22,8 +33,10 @@ type VideoPreviewPaneProps = {
   playheadMs: number
   isPlaying: boolean
   previewVttContent: string
-  previewStylesheet?: string
-  captionsClassName?: string
+  displayMode: "single" | "dual"
+  monoStyle: LibraryMonoStyleDTO | null
+  lingualStyle: LibraryBilingualStyleDTO | null
+  fontMappings?: LibrarySubtitleStyleFontDTO[]
   onRenderedVideoSizeChange?: (size: { width: number; height: number }) => void
   onPlayheadChange: (value: number) => void
   onPlayingChange: (value: boolean) => void
@@ -59,8 +72,10 @@ export function VideoPreviewPane({
   playheadMs,
   isPlaying,
   previewVttContent,
-  previewStylesheet,
-  captionsClassName,
+  displayMode,
+  monoStyle,
+  lingualStyle,
+  fontMappings = [],
   onRenderedVideoSizeChange,
   onPlayheadChange,
   onPlayingChange,
@@ -69,14 +84,13 @@ export function VideoPreviewPane({
   const [playerElement, setPlayerElement] = React.useState<MediaPlayerElement | null>(null)
   const shellRef = React.useRef<HTMLDivElement | null>(null)
   const previewViewportRef = React.useRef<HTMLDivElement | null>(null)
-  const overlayRef = React.useRef<HTMLDivElement | null>(null)
-  const rendererRef = React.useRef<CaptionsRenderer | null>(null)
   const animationFrameRef = React.useRef<number>()
   const fullscreenModeRef = React.useRef<PreviewFullscreenMode | null>(null)
   const previousWindowedFullscreenRef = React.useRef(false)
   const lastNonZeroVolumeRef = React.useRef(1)
   const [viewportSize, setViewportSize] = React.useState({ width: 0, height: 0 })
   const [mediaNaturalSize, setMediaNaturalSize] = React.useState({ width: 0, height: 0 })
+  const [parsedCues, setParsedCues] = React.useState<VTTCue[]>([])
   const [volume, setVolume] = React.useState(1)
   const [muted, setMuted] = React.useState(false)
   const [windowedFullscreen, setWindowedFullscreen] = React.useState(false)
@@ -191,57 +205,62 @@ export function VideoPreviewPane({
     onRenderedVideoSizeChange?.(fittedViewportSize)
   }, [fittedViewportSize, onRenderedVideoSizeChange])
 
-  React.useEffect(() => {
-    const overlay = overlayRef.current
-    if (!overlay) {
-      return
+  const effectiveMonoStyle = React.useMemo(() => monoStyle ?? buildWorkspacePreviewDefaultMonoStyle(), [monoStyle])
+
+  const effectiveLingualStyle = React.useMemo(
+    () => lingualStyle ?? buildWorkspacePreviewFallbackLingualStyle(effectiveMonoStyle),
+    [effectiveMonoStyle, lingualStyle],
+  )
+
+  const previewBaseResolution = React.useMemo(() => {
+    if (displayMode === "dual") {
+      return normalizeBaseResolution(effectiveLingualStyle.basePlayResX, effectiveLingualStyle.basePlayResY)
     }
-    const renderer = new CaptionsRenderer(overlay, { dir: "ltr" })
-    rendererRef.current = renderer
-    return () => {
-      rendererRef.current = null
-      renderer.destroy()
-    }
-  }, [])
+    return normalizeBaseResolution(effectiveMonoStyle.basePlayResX, effectiveMonoStyle.basePlayResY)
+  }, [displayMode, effectiveLingualStyle.basePlayResX, effectiveLingualStyle.basePlayResY, effectiveMonoStyle.basePlayResX, effectiveMonoStyle.basePlayResY])
+
+  const previewScale = React.useMemo(
+    () => resolvePreviewScale(previewBaseResolution, fittedViewportSize),
+    [fittedViewportSize, previewBaseResolution],
+  )
 
   React.useEffect(() => {
-    const renderer = rendererRef.current
-    if (!renderer) {
-      return
-    }
     let disposed = false
     const content = previewVttContent.trim()
     if (!content) {
-      renderer.reset()
+      setParsedCues([])
       return
     }
     void parseText(content, { type: "vtt" })
       .then((track) => {
-        if (disposed || rendererRef.current !== renderer) {
+        if (disposed) {
           return
         }
-        renderer.changeTrack(track)
-        renderer.currentTime = playheadMs / 1000
-        renderer.update(true)
+        setParsedCues(track.cues)
       })
       .catch(() => {
-        if (!disposed) {
-          renderer.reset()
+        if (disposed) {
+          return
         }
+        setParsedCues([])
       })
     return () => {
       disposed = true
     }
   }, [previewVttContent])
 
-  React.useEffect(() => {
-    const renderer = rendererRef.current
-    if (!renderer) {
-      return
-    }
-    renderer.currentTime = playheadMs / 1000
-    renderer.update(true)
-  }, [playheadMs])
+  const renderedCues = React.useMemo(
+    () =>
+      buildRenderedPreviewCues({
+        cues: parsedCues,
+        kind: displayMode === "dual" ? "bilingual" : "mono",
+        mono: effectiveMonoStyle,
+        bilingual: effectiveLingualStyle,
+        currentTimeSeconds: playheadMs / 1000,
+        latestOnlyPerKey: true,
+      }),
+    [displayMode, effectiveLingualStyle, effectiveMonoStyle, parsedCues, playheadMs],
+  )
 
   React.useEffect(() => {
     const player = playerElement
@@ -468,7 +487,6 @@ export function VideoPreviewPane({
         screenFullscreen && "rounded-none border-0 shadow-none",
       )}
     >
-      {previewStylesheet ? <style>{previewStylesheet}</style> : null}
       <div className={cn("relative min-h-0 flex-1 bg-black p-3", (windowedFullscreen || screenFullscreen) && "p-0")}>
         {mediaUrl ? (
           <div ref={previewViewportRef} className="relative h-full w-full overflow-hidden bg-black">
@@ -494,11 +512,20 @@ export function VideoPreviewPane({
                     }}
                   />
                 </MediaPlayer>
-                <div
-                  ref={overlayRef}
-                  className={`pointer-events-none absolute inset-0 z-10 ${captionsClassName ?? ""}`.trim()}
-                  style={{ "--overlay-padding": "0" } as React.CSSProperties}
-                />
+                <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
+                  {renderedCues.map((cue) => (
+                    <div
+                      key={`${cue.key}:${cue.html}`}
+                      className="absolute overflow-visible"
+                      style={buildCueDisplayStyle(cue.style, previewScale)}
+                    >
+                      <div
+                        style={buildCueTextStyle(cue.style, fontMappings, previewScale)}
+                        dangerouslySetInnerHTML={{ __html: cue.html }}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -594,4 +621,65 @@ export function VideoPreviewPane({
       </div>
     </div>
   )
+}
+
+function buildWorkspacePreviewDefaultMonoStyle(): LibraryMonoStyleDTO {
+  return {
+    id: "workspace-mono-default",
+    name: "Workspace Mono",
+    basePlayResX: 1920,
+    basePlayResY: 1080,
+    baseAspectRatio: "16:9",
+    style: {
+      fontname: "Arial",
+      fontsize: 48,
+      primaryColour: "&H00FFFFFF",
+      secondaryColour: "&H00FFFFFF",
+      outlineColour: "&H00111111",
+      backColour: "&HFF111111",
+      bold: false,
+      italic: false,
+      underline: false,
+      strikeOut: false,
+      scaleX: 100,
+      scaleY: 100,
+      spacing: 0,
+      angle: 0,
+      borderStyle: 1,
+      outline: 2,
+      shadow: 0,
+      alignment: 2,
+      marginL: 72,
+      marginR: 72,
+      marginV: 56,
+      encoding: 1,
+    },
+  }
+}
+
+function buildWorkspacePreviewFallbackLingualStyle(mono: LibraryMonoStyleDTO): LibraryBilingualStyleDTO {
+  const primarySnapshot = {
+    sourceMonoStyleID: mono.id,
+    sourceMonoStyleName: mono.name,
+    name: mono.name || "Primary",
+    basePlayResX: mono.basePlayResX,
+    basePlayResY: mono.basePlayResY,
+    baseAspectRatio: mono.baseAspectRatio,
+    style: { ...mono.style },
+  }
+  const secondarySnapshot = { ...primarySnapshot, style: { ...primarySnapshot.style } }
+
+  return {
+    id: "workspace-lingual-fallback",
+    name: "Workspace Lingual",
+    basePlayResX: mono.basePlayResX,
+    basePlayResY: mono.basePlayResY,
+    baseAspectRatio: mono.baseAspectRatio,
+    primary: primarySnapshot,
+    secondary: secondarySnapshot,
+    layout: {
+      gap: 24,
+      blockAnchor: 2,
+    },
+  }
 }

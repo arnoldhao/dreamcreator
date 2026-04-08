@@ -71,7 +71,6 @@ import {
 } from "../utils/subtitleStyles";
 import { createSubtitleStylePresetID } from "../utils/subtitleStylePresets";
 import {
-  WORKSPACE_PREVIEW_CAPTIONS_CLASS,
   buildDefaultSubtitleExportConfig,
   buildWorkspaceTaskProgressLabel,
   buildWorkspaceTranslateTaskLabel,
@@ -108,7 +107,6 @@ import { WorkspaceExportSubtitleDialog } from "./workspace/WorkspaceExportSubtit
 import { WorkspaceExportVideoDialog } from "./workspace/WorkspaceExportVideoDialog";
 import { VideoEditorLayout } from "./workspace/VideoEditorLayout";
 import { WorkspaceHeader } from "./workspace/WorkspaceHeader";
-import { buildWorkspacePreviewStylesheet } from "./workspace/previewStylesheet";
 import { WorkspaceSubtitleStyleCard } from "./workspace/WorkspaceSubtitleStyleCard";
 import type {
   WorkspaceDensity,
@@ -1264,28 +1262,6 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
   const workspaceFontMappings = React.useMemo(
     () => props.moduleConfig?.subtitleStyles?.fonts ?? [],
     [props.moduleConfig?.subtitleStyles?.fonts],
-  );
-  const workspacePreviewStylesheet = React.useMemo(
-    () =>
-      buildWorkspacePreviewStylesheet({
-        rootClassName: WORKSPACE_PREVIEW_CAPTIONS_CLASS,
-        displayMode: effectiveDisplayMode,
-        monoStyle: activeWorkspaceMonoStyle,
-        lingualStyle: activeWorkspaceLingualStyle,
-        fontMappings: workspaceFontMappings,
-        previewSize: {
-          width: previewRenderSize.width,
-          height: previewRenderSize.height,
-        },
-      }),
-    [
-      activeWorkspaceLingualStyle,
-      activeWorkspaceMonoStyle,
-      effectiveDisplayMode,
-      previewRenderSize.height,
-      previewRenderSize.width,
-      workspaceFontMappings,
-    ],
   );
   const resolveWorkspaceStyleDocumentContent = React.useCallback(
     async (mode: "single" | "dual") => {
@@ -3383,8 +3359,9 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
             durationMs={durationMs}
             isPlaying={isPlaying}
             previewVttContent={previewVttContent}
-            previewStylesheet={workspacePreviewStylesheet}
-            previewCaptionsClassName={WORKSPACE_PREVIEW_CAPTIONS_CLASS}
+            previewMonoStyle={activeWorkspaceMonoStyle}
+            previewLingualStyle={activeWorkspaceLingualStyle}
+            previewFontMappings={workspaceFontMappings}
             onPreviewRenderSizeChange={handlePreviewRenderSizeChange}
             showStyleSidebar={subtitleStyleSidebarOpen}
             styleSidebarContent={
