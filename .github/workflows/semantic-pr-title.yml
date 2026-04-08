@@ -22,6 +22,7 @@ jobs:
             style
             refactor
             perf
+            optimize
             test
             build
             ci

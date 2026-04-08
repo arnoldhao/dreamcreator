@@ -1613,7 +1613,6 @@
         }
       },
       "releaseNotesTitle": "更新日志",
-      "releaseNotesDescription": "来自工具作者的最新更新说明。",
       "releaseNotesClose": "关闭",
       "status.latest": "最新",
       "status.update": "有更新",

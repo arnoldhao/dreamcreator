@@ -27,3 +27,26 @@ func TestSelectAssetForPlatformPrefersMatchingMacArchitecture(t *testing.T) {
 		t.Fatalf("expected arm64 asset, got %q", url)
 	}
 }
+
+func TestWindowsDownloadURLPreferences(t *testing.T) {
+	t.Parallel()
+
+	installerURL := "https://example.com/dreamcreator-windows-x64-1.2.3-installer.exe"
+	portableURL := "https://example.com/dreamcreator-windows-x64-1.2.3.zip"
+
+	installed := preferWindowsInstallerDownloadURLs([]string{portableURL})
+	if len(installed) != 1 {
+		t.Fatalf("expected derived installer URL, got %#v", installed)
+	}
+	if installed[0] != installerURL {
+		t.Fatalf("expected installer URL first, got %#v", installed)
+	}
+
+	portable := preferWindowsPortableDownloadURLs([]string{installerURL})
+	if len(portable) != 1 {
+		t.Fatalf("expected derived portable URL, got %#v", portable)
+	}
+	if portable[0] != portableURL {
+		t.Fatalf("expected portable URL first, got %#v", portable)
+	}
+}

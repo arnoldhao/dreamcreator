@@ -12,11 +12,20 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 )
 
 var ErrPreparedUpdateNotFound = fmt.Errorf("prepared update not found")
+
+type installKind string
+
+const (
+	installKindInstalled installKind = "installed"
+	installKindPortable  installKind = "portable"
+	installKindUnknown   installKind = "unknown"
+)
 
 type PlatformInstaller struct {
 	stateDir       string
@@ -34,6 +43,7 @@ type stagedPlan struct {
 	SourcePath   string `json:"sourcePath"`
 	TargetPath   string `json:"targetPath"`
 	RelaunchPath string `json:"relaunchPath"`
+	FallbackPath string `json:"fallbackPath,omitempty"`
 	InstallDir   string `json:"installDir,omitempty"`
 }
 
@@ -58,6 +68,20 @@ func NewInstaller(statePath string) (*PlatformInstaller, error) {
 		executablePath: os.Executable,
 		startDetached:  startDetachedCommand,
 	}, nil
+}
+
+func (installer *PlatformInstaller) SelectDownloadURLs(_ context.Context, urls []string) []string {
+	if installer == nil || installer.goos != "windows" || len(urls) == 0 {
+		return slices.Clone(urls)
+	}
+	currentExe, err := installer.currentExecutable()
+	if err != nil {
+		return preferWindowsPortableDownloadURLs(urls)
+	}
+	if detectWindowsInstallKind(currentExe) == installKindInstalled {
+		return preferWindowsInstallerDownloadURLs(urls)
+	}
+	return preferWindowsPortableDownloadURLs(urls)
 }
 
 func (installer *PlatformInstaller) Install(ctx context.Context, artifactPath string) error {
@@ -149,9 +173,9 @@ func (installer *PlatformInstaller) prepareMacUpdate(ctx context.Context, artifa
 	if err != nil {
 		return err
 	}
-	targetBundle, err := resolveAppBundle(currentExe)
+	currentBundle, err := resolveAppBundle(currentExe)
 	if err != nil {
-		return err
+		return fmt.Errorf("automatic update requires a macOS app bundle: %w", err)
 	}
 
 	stageDir, err := installer.newStageDir()
@@ -170,6 +194,7 @@ func (installer *PlatformInstaller) prepareMacUpdate(ctx context.Context, artifa
 		return err
 	}
 	_ = removeMacQuarantine(stagedBundle)
+	targetBundle := resolveMacTargetBundle(currentBundle)
 
 	return installer.savePlan(stagedPlan{
 		Platform:     "darwin",
@@ -178,6 +203,7 @@ func (installer *PlatformInstaller) prepareMacUpdate(ctx context.Context, artifa
 		SourcePath:   stagedBundle,
 		TargetPath:   targetBundle,
 		RelaunchPath: targetBundle,
+		FallbackPath: currentBundle,
 	})
 }
 
@@ -208,11 +234,22 @@ func (installer *PlatformInstaller) restartDarwin(plan stagedPlan) error {
 		return err
 	}
 
+	relaunchPath := strings.TrimSpace(plan.RelaunchPath)
+	if relaunchPath == "" {
+		relaunchPath = plan.TargetPath
+	}
+	fallbackPath := strings.TrimSpace(plan.FallbackPath)
+	if fallbackPath == "" {
+		fallbackPath = plan.TargetPath
+	}
+
 	args := []string{
 		scriptPath,
 		strconv.Itoa(os.Getpid()),
 		plan.SourcePath,
 		plan.TargetPath,
+		relaunchPath,
+		fallbackPath,
 		plan.StageDir,
 		installer.planPath,
 	}
@@ -298,6 +335,30 @@ func resolveAppBundle(executablePath string) (string, error) {
 		current = next
 	}
 	return "", fmt.Errorf("mac app bundle not found for executable %q", executablePath)
+}
+
+func resolveMacTargetBundle(currentBundle string) string {
+	normalized := filepath.Clean(strings.TrimSpace(currentBundle))
+	if isWithinDir(normalized, "/Applications") {
+		return normalized
+	}
+	return filepath.Join("/Applications", filepath.Base(normalized))
+}
+
+func isWithinDir(path string, root string) bool {
+	cleanedPath := filepath.Clean(strings.TrimSpace(path))
+	cleanedRoot := filepath.Clean(strings.TrimSpace(root))
+	if cleanedPath == "" || cleanedRoot == "" {
+		return false
+	}
+	rel, err := filepath.Rel(cleanedRoot, cleanedPath)
+	if err != nil {
+		return false
+	}
+	if rel == "." || rel == ".." {
+		return false
+	}
+	return !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
 }
 
 func findFirstAppBundle(root string) (string, error) {
@@ -410,6 +471,91 @@ func copyFile(src string, dst string) error {
 	return out.Close()
 }
 
+func preferWindowsInstallerDownloadURLs(urls []string) []string {
+	result := make([]string, 0, len(urls)*2)
+	seen := make(map[string]struct{}, len(urls)*2)
+	add := func(raw string) {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			return
+		}
+		if _, ok := seen[trimmed]; ok {
+			return
+		}
+		seen[trimmed] = struct{}{}
+		result = append(result, trimmed)
+	}
+
+	for _, raw := range urls {
+		if strings.Contains(strings.ToLower(raw), "-installer.exe") {
+			add(raw)
+			continue
+		}
+		if installerURL := installerWindowsDownloadURL(raw); installerURL != "" {
+			add(installerURL)
+		}
+	}
+	if len(result) == 0 {
+		return slices.Clone(urls)
+	}
+	return result
+}
+
+func preferWindowsPortableDownloadURLs(urls []string) []string {
+	result := make([]string, 0, len(urls)*2)
+	seen := make(map[string]struct{}, len(urls)*2)
+	add := func(raw string) {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			return
+		}
+		if _, ok := seen[trimmed]; ok {
+			return
+		}
+		seen[trimmed] = struct{}{}
+		result = append(result, trimmed)
+	}
+
+	for _, raw := range urls {
+		if portable := portableWindowsDownloadURL(raw); portable != "" {
+			add(portable)
+			continue
+		}
+		if strings.HasSuffix(strings.ToLower(strings.TrimSpace(raw)), ".zip") {
+			add(raw)
+		}
+	}
+	if len(result) == 0 {
+		return slices.Clone(urls)
+	}
+	return result
+}
+
+func installerWindowsDownloadURL(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	const portableSuffix = ".zip"
+	if !strings.HasSuffix(strings.ToLower(trimmed), portableSuffix) {
+		return ""
+	}
+	return trimmed[:len(trimmed)-len(portableSuffix)] + "-installer.exe"
+}
+
+func portableWindowsDownloadURL(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	const installerSuffix = "-installer.exe"
+	index := strings.LastIndex(strings.ToLower(trimmed), installerSuffix)
+	if index < 0 {
+		return ""
+	}
+	return trimmed[:index] + ".zip" + trimmed[index+len(installerSuffix):]
+}
+
 const windowsApplyScript = `param(
   [Parameter(Mandatory = $true)][int]$ParentPid,
   [Parameter(Mandatory = $true)][string]$Mode,
@@ -422,6 +568,77 @@ const windowsApplyScript = `param(
 
 $ErrorActionPreference = "Stop"
 
+function ConvertTo-PSLiteral {
+  param([string]$Value)
+  return "'" + ($Value -replace "'", "''") + "'"
+}
+
+function Copy-PortableUpdate {
+  param(
+    [Parameter(Mandatory = $true)][string]$Source,
+    [Parameter(Mandatory = $true)][string]$Target
+  )
+
+  $backupPath = $Target + ".old"
+  $targetDir = Split-Path -Parent $Target
+  if (-not [string]::IsNullOrWhiteSpace($targetDir)) {
+    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+  }
+  Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+  if (Test-Path -LiteralPath $Target) {
+    Move-Item -LiteralPath $Target -Destination $backupPath -Force
+  }
+
+  try {
+    Copy-Item -LiteralPath $Source -Destination $Target -Force -ErrorAction Stop
+    Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+  } catch {
+    Remove-Item -LiteralPath $Target -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $backupPath) {
+      Move-Item -LiteralPath $backupPath -Destination $Target -Force -ErrorAction SilentlyContinue
+    }
+    throw
+  }
+}
+
+function Copy-PortableUpdateElevated {
+  param(
+    [Parameter(Mandatory = $true)][string]$Source,
+    [Parameter(Mandatory = $true)][string]$Target
+  )
+
+  $command = @'
+$ErrorActionPreference = "Stop"
+$source = __SOURCE__
+$target = __TARGET__
+$backupPath = $target + ".old"
+$targetDir = Split-Path -Parent $target
+if (-not [string]::IsNullOrWhiteSpace($targetDir)) {
+  New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+}
+Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+if (Test-Path -LiteralPath $target) {
+  Move-Item -LiteralPath $target -Destination $backupPath -Force
+}
+try {
+  Copy-Item -LiteralPath $source -Destination $target -Force -ErrorAction Stop
+  Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+} catch {
+  Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
+  if (Test-Path -LiteralPath $backupPath) {
+    Move-Item -LiteralPath $backupPath -Destination $target -Force -ErrorAction SilentlyContinue
+  }
+  throw
+}
+'@
+  $command = $command.Replace("__SOURCE__", (ConvertTo-PSLiteral $Source)).Replace("__TARGET__", (ConvertTo-PSLiteral $Target))
+  $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+  $result = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", $encoded) -Verb RunAs -Wait -PassThru
+  if ($null -ne $result.ExitCode -and $result.ExitCode -ne 0) {
+    throw ("elevated portable copy exited with code " + $result.ExitCode)
+  }
+}
+
 for ($i = 0; $i -lt 480; $i++) {
   $proc = Get-Process -Id $ParentPid -ErrorAction SilentlyContinue
   if (-not $proc) {
@@ -430,24 +647,38 @@ for ($i = 0; $i -lt 480; $i++) {
   Start-Sleep -Milliseconds 250
 }
 
-switch ($Mode) {
-  "installer" {
-    $result = Start-Process -FilePath $SourcePath -ArgumentList @("/S", "/D=" + $InstallDir) -Verb RunAs -Wait -PassThru
-    if ($result.ExitCode -ne 0) {
-      throw ("installer exited with code " + $result.ExitCode)
+try {
+  switch ($Mode) {
+    "installer" {
+      $result = Start-Process -FilePath $SourcePath -ArgumentList @("/S", "/D=" + $InstallDir) -Verb RunAs -Wait -PassThru
+      if ($null -ne $result.ExitCode -and $result.ExitCode -ne 0) {
+        throw ("installer exited with code " + $result.ExitCode)
+      }
+    }
+    "portable" {
+      try {
+        Copy-PortableUpdate -Source $SourcePath -Target $TargetPath
+      } catch {
+        Copy-PortableUpdateElevated -Source $SourcePath -Target $TargetPath
+      }
+    }
+    default {
+      throw ("unsupported update mode: " + $Mode)
     }
   }
-  "portable" {
-    Copy-Item $SourcePath $TargetPath -Force
-  }
-  default {
-    throw ("unsupported update mode: " + $Mode)
-  }
-}
 
-Start-Process -FilePath $TargetPath -WorkingDirectory $InstallDir | Out-Null
-Remove-Item $PlanPath -Force -ErrorAction SilentlyContinue
-Remove-Item $StageDir -Recurse -Force -ErrorAction SilentlyContinue
+  Start-Process -FilePath $TargetPath -WorkingDirectory $InstallDir | Out-Null
+  Remove-Item -LiteralPath $PlanPath -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $StageDir -Recurse -Force -ErrorAction SilentlyContinue
+} catch {
+  try {
+    if (Test-Path -LiteralPath $TargetPath) {
+      Start-Process -FilePath $TargetPath -WorkingDirectory $InstallDir | Out-Null
+    }
+  } catch {
+  }
+  exit 1
+}
 `
 
 const darwinApplyScript = `#!/bin/sh
@@ -456,13 +687,36 @@ set -eu
 PARENT_PID="$1"
 SOURCE_APP="$2"
 TARGET_APP="$3"
-STAGE_DIR="$4"
-PLAN_PATH="$5"
+RELAUNCH_APP="$4"
+FALLBACK_APP="$5"
+STAGE_DIR="$6"
+PLAN_PATH="$7"
 BACKUP_APP="${TARGET_APP}.old"
 
 while kill -0 "$PARENT_PID" 2>/dev/null; do
   sleep 0.25
 done
+
+relaunch_app() {
+  APP_PATH="$1"
+  if [ -n "$APP_PATH" ] && [ -d "$APP_PATH" ]; then
+    open "$APP_PATH" >/dev/null 2>&1 || true
+  fi
+}
+
+restore_backup() {
+  if [ -d "$BACKUP_APP" ]; then
+    rm -rf "$TARGET_APP"
+    mv "$BACKUP_APP" "$TARGET_APP"
+  fi
+}
+
+relaunch_fallback() {
+  relaunch_app "$FALLBACK_APP"
+  if [ "$FALLBACK_APP" != "$TARGET_APP" ]; then
+    relaunch_app "$TARGET_APP"
+  fi
+}
 
 install_direct() {
   mkdir -p "$(dirname "$TARGET_APP")"
@@ -498,11 +752,18 @@ APPLESCRIPT
 }
 
 if ! install_direct; then
-  install_privileged
+  if ! install_privileged; then
+    restore_backup
+    relaunch_fallback
+    exit 1
+  fi
 fi
 
 /usr/bin/xattr -dr com.apple.quarantine "$TARGET_APP" >/dev/null 2>&1 || true
-open "$TARGET_APP"
+if ! open "$RELAUNCH_APP"; then
+  relaunch_fallback
+  exit 1
+fi
 rm -rf "$BACKUP_APP"
 rm -f "$PLAN_PATH"
 rm -rf "$STAGE_DIR"
@@ -511,4 +772,5 @@ rm -rf "$STAGE_DIR"
 var _ interface {
 	Install(context.Context, string) error
 	RestartToApply(context.Context) error
+	SelectDownloadURLs(context.Context, []string) []string
 } = (*PlatformInstaller)(nil)

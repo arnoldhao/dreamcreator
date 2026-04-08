@@ -3,6 +3,7 @@ package update
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
@@ -32,9 +33,11 @@ func (stub *downloaderStub) Download(_ context.Context, _ string, progress func(
 }
 
 type installerStub struct {
-	installErr error
-	restartErr error
-	restarted  bool
+	installErr            error
+	restartErr            error
+	restarted             bool
+	selectedDownloadURLs  []string
+	selectDownloadInvoked bool
 }
 
 func (stub installerStub) Install(_ context.Context, _ string) error {
@@ -44,6 +47,14 @@ func (stub installerStub) Install(_ context.Context, _ string) error {
 func (stub *installerStub) RestartToApply(_ context.Context) error {
 	stub.restarted = true
 	return stub.restartErr
+}
+
+func (stub *installerStub) SelectDownloadURLs(_ context.Context, urls []string) []string {
+	stub.selectDownloadInvoked = true
+	if stub.selectedDownloadURLs != nil {
+		return stub.selectedDownloadURLs
+	}
+	return urls
 }
 
 func (stub *catalogProviderStub) FetchCatalog(_ context.Context, _ softwareupdate.Request) (softwareupdate.Catalog, error) {
@@ -153,6 +164,39 @@ func TestCheckForUpdateReturnsNoUpdateWhenCurrentVersionIsNewerThanLatest(t *tes
 	}
 }
 
+func TestCheckForUpdateUsesInstallerDownloadURLSelector(t *testing.T) {
+	t.Parallel()
+
+	provider := &catalogProviderStub{
+		catalog: buildCatalog("1.2.4", "https://example.com/dreamcreator-windows-x64-1.2.4-installer.exe"),
+	}
+	installer := &installerStub{
+		selectedDownloadURLs: []string{
+			"https://example.com/dreamcreator-windows-x64-1.2.4.zip",
+		},
+	}
+	service := NewService(ServiceParams{Catalog: newCatalogService(provider), Installer: installer})
+
+	info, err := service.CheckForUpdate(context.Background(), "1.2.3")
+	if err != nil {
+		t.Fatalf("check for update failed: %v", err)
+	}
+	if !installer.selectDownloadInvoked {
+		t.Fatal("expected installer download selector to be called")
+	}
+	if info.DownloadURL != "https://example.com/dreamcreator-windows-x64-1.2.4.zip" {
+		t.Fatalf("expected selected portable URL, got %q", info.DownloadURL)
+	}
+
+	urls := service.resolveDownloadURLsLocked()
+	if len(urls) != 1 {
+		t.Fatalf("expected selected portable URL, got %#v", urls)
+	}
+	if urls[0] != "https://example.com/dreamcreator-windows-x64-1.2.4.zip" {
+		t.Fatalf("expected portable URL first, got %#v", urls)
+	}
+}
+
 func TestDownloadUpdatePublishesErrorWhenInstallerUnavailable(t *testing.T) {
 	t.Parallel()
 
@@ -176,6 +220,43 @@ func TestDownloadUpdatePublishesErrorWhenInstallerUnavailable(t *testing.T) {
 	}
 	if info.Message != installerErr.Error() {
 		t.Fatalf("expected error message %q, got %q", installerErr.Error(), info.Message)
+	}
+}
+
+func TestDownloadUpdatePublishesErrorWhenChecksumMismatches(t *testing.T) {
+	t.Parallel()
+
+	file, err := os.CreateTemp(t.TempDir(), "update-*.zip")
+	if err != nil {
+		t.Fatalf("create temp file failed: %v", err)
+	}
+	if _, err := file.WriteString("hello"); err != nil {
+		t.Fatalf("write temp file failed: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close temp file failed: %v", err)
+	}
+
+	service := NewService(ServiceParams{
+		Downloader: &downloaderStub{path: file.Name()},
+		Installer:  &installerStub{},
+	})
+	service.state = domainupdate.Info{
+		Kind:        domainupdate.KindApp,
+		Status:      domainupdate.StatusAvailable,
+		DownloadURL: "https://example.com/dreamcreator-update.zip",
+	}
+	service.downloadSHA256 = "sha256:deadbeef"
+
+	info, err := service.DownloadUpdate(context.Background())
+	if err == nil {
+		t.Fatal("expected checksum mismatch error")
+	}
+	if info.Status != domainupdate.StatusError {
+		t.Fatalf("expected error status, got %q", info.Status)
+	}
+	if info.Message != "download checksum mismatch" {
+		t.Fatalf("unexpected error message: %q", info.Message)
 	}
 }
 
