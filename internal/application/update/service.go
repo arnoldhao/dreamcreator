@@ -2,7 +2,11 @@ package update
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -44,6 +48,7 @@ type Service struct {
 	scheduleTicker *time.Ticker
 	cancelSchedule context.CancelFunc
 	downloadURLs   []string
+	downloadSHA256 string
 }
 
 type ServiceParams struct {
@@ -92,6 +97,7 @@ func (service *Service) SetCurrentVersion(version string) {
 		service.state.DownloadURL = ""
 		service.state.Message = ""
 		service.downloadURLs = nil
+		service.downloadSHA256 = ""
 	}
 	service.mu.Unlock()
 }
@@ -141,6 +147,7 @@ func (service *Service) CheckForUpdate(ctx context.Context, currentVersion strin
 	}
 	service.state.CheckedAt = service.now()
 	service.downloadURLs = downloadURLs
+	service.downloadSHA256 = normalizeSHA256(release.Asset.SHA256)
 	zap.L().Info("update: check result",
 		zap.String("currentVersion", current),
 		zap.String("latestVersion", latest),
@@ -151,6 +158,7 @@ func (service *Service) CheckForUpdate(ctx context.Context, currentVersion strin
 		service.setStatusLocked(update.StatusNoUpdate, 0, "")
 		state := service.state
 		service.downloadURLs = nil
+		service.downloadSHA256 = ""
 		service.notifyAvailability(false)
 		go service.publishSnapshot(state)
 		return state, nil
@@ -173,6 +181,7 @@ func (service *Service) CheckForUpdate(ctx context.Context, currentVersion strin
 func (service *Service) DownloadUpdate(ctx context.Context) (update.Info, error) {
 	service.mu.Lock()
 	downloadURLs := service.resolveDownloadURLsLocked()
+	expectedSHA256 := service.downloadSHA256
 	service.setStatusLocked(update.StatusDownloading, 0, "")
 	state := service.state
 	service.mu.Unlock()
@@ -196,7 +205,11 @@ func (service *Service) DownloadUpdate(ctx context.Context) (update.Info, error)
 			service.publishSnapshot(state)
 		})
 		if err == nil {
-			break
+			if verifyErr := verifyDownloadedAsset(path, expectedSHA256); verifyErr == nil {
+				break
+			} else {
+				err = verifyErr
+			}
 		}
 		zap.L().Warn("update: download source failed", zap.String("url", downloadURL), zap.Error(err))
 	}
@@ -238,6 +251,7 @@ func (service *Service) RestartToApply(ctx context.Context) (update.Info, error)
 	service.mu.Lock()
 	service.setStatusLocked(update.StatusIdle, 0, "")
 	service.downloadURLs = nil
+	service.downloadSHA256 = ""
 	state := service.state
 	service.mu.Unlock()
 	service.notifyAvailability(false)
@@ -352,6 +366,35 @@ func (service *Service) resolveDownloadURLsLocked() []string {
 		return nil
 	}
 	return []string{service.state.DownloadURL}
+}
+
+func normalizeSHA256(raw string) string {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	value = strings.TrimPrefix(value, "sha256:")
+	return value
+}
+
+func verifyDownloadedAsset(path string, expectedSHA256 string) error {
+	expected := normalizeSHA256(expectedSHA256)
+	if expected == "" {
+		return nil
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		return err
+	}
+	actual := hex.EncodeToString(hasher.Sum(nil))
+	if actual != expected {
+		return fmt.Errorf("download checksum mismatch")
+	}
+	return nil
 }
 
 func (service *Service) selectDownloadURLs(ctx context.Context, urls []string) []string {

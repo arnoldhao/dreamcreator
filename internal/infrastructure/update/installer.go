@@ -43,6 +43,7 @@ type stagedPlan struct {
 	SourcePath   string `json:"sourcePath"`
 	TargetPath   string `json:"targetPath"`
 	RelaunchPath string `json:"relaunchPath"`
+	FallbackPath string `json:"fallbackPath,omitempty"`
 	InstallDir   string `json:"installDir,omitempty"`
 }
 
@@ -172,9 +173,9 @@ func (installer *PlatformInstaller) prepareMacUpdate(ctx context.Context, artifa
 	if err != nil {
 		return err
 	}
-	targetBundle, err := resolveAppBundle(currentExe)
+	currentBundle, err := resolveAppBundle(currentExe)
 	if err != nil {
-		return err
+		return fmt.Errorf("automatic update requires a macOS app bundle: %w", err)
 	}
 
 	stageDir, err := installer.newStageDir()
@@ -193,6 +194,7 @@ func (installer *PlatformInstaller) prepareMacUpdate(ctx context.Context, artifa
 		return err
 	}
 	_ = removeMacQuarantine(stagedBundle)
+	targetBundle := resolveMacTargetBundle(currentBundle)
 
 	return installer.savePlan(stagedPlan{
 		Platform:     "darwin",
@@ -201,6 +203,7 @@ func (installer *PlatformInstaller) prepareMacUpdate(ctx context.Context, artifa
 		SourcePath:   stagedBundle,
 		TargetPath:   targetBundle,
 		RelaunchPath: targetBundle,
+		FallbackPath: currentBundle,
 	})
 }
 
@@ -231,11 +234,22 @@ func (installer *PlatformInstaller) restartDarwin(plan stagedPlan) error {
 		return err
 	}
 
+	relaunchPath := strings.TrimSpace(plan.RelaunchPath)
+	if relaunchPath == "" {
+		relaunchPath = plan.TargetPath
+	}
+	fallbackPath := strings.TrimSpace(plan.FallbackPath)
+	if fallbackPath == "" {
+		fallbackPath = plan.TargetPath
+	}
+
 	args := []string{
 		scriptPath,
 		strconv.Itoa(os.Getpid()),
 		plan.SourcePath,
 		plan.TargetPath,
+		relaunchPath,
+		fallbackPath,
 		plan.StageDir,
 		installer.planPath,
 	}
@@ -321,6 +335,30 @@ func resolveAppBundle(executablePath string) (string, error) {
 		current = next
 	}
 	return "", fmt.Errorf("mac app bundle not found for executable %q", executablePath)
+}
+
+func resolveMacTargetBundle(currentBundle string) string {
+	normalized := filepath.Clean(strings.TrimSpace(currentBundle))
+	if isWithinDir(normalized, "/Applications") {
+		return normalized
+	}
+	return filepath.Join("/Applications", filepath.Base(normalized))
+}
+
+func isWithinDir(path string, root string) bool {
+	cleanedPath := filepath.Clean(strings.TrimSpace(path))
+	cleanedRoot := filepath.Clean(strings.TrimSpace(root))
+	if cleanedPath == "" || cleanedRoot == "" {
+		return false
+	}
+	rel, err := filepath.Rel(cleanedRoot, cleanedPath)
+	if err != nil {
+		return false
+	}
+	if rel == "." || rel == ".." {
+		return false
+	}
+	return !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
 }
 
 func findFirstAppBundle(root string) (string, error) {
@@ -649,13 +687,36 @@ set -eu
 PARENT_PID="$1"
 SOURCE_APP="$2"
 TARGET_APP="$3"
-STAGE_DIR="$4"
-PLAN_PATH="$5"
+RELAUNCH_APP="$4"
+FALLBACK_APP="$5"
+STAGE_DIR="$6"
+PLAN_PATH="$7"
 BACKUP_APP="${TARGET_APP}.old"
 
 while kill -0 "$PARENT_PID" 2>/dev/null; do
   sleep 0.25
 done
+
+relaunch_app() {
+  APP_PATH="$1"
+  if [ -n "$APP_PATH" ] && [ -d "$APP_PATH" ]; then
+    open "$APP_PATH" >/dev/null 2>&1 || true
+  fi
+}
+
+restore_backup() {
+  if [ -d "$BACKUP_APP" ]; then
+    rm -rf "$TARGET_APP"
+    mv "$BACKUP_APP" "$TARGET_APP"
+  fi
+}
+
+relaunch_fallback() {
+  relaunch_app "$FALLBACK_APP"
+  if [ "$FALLBACK_APP" != "$TARGET_APP" ]; then
+    relaunch_app "$TARGET_APP"
+  fi
+}
 
 install_direct() {
   mkdir -p "$(dirname "$TARGET_APP")"
@@ -691,11 +752,18 @@ APPLESCRIPT
 }
 
 if ! install_direct; then
-  install_privileged
+  if ! install_privileged; then
+    restore_backup
+    relaunch_fallback
+    exit 1
+  fi
 fi
 
 /usr/bin/xattr -dr com.apple.quarantine "$TARGET_APP" >/dev/null 2>&1 || true
-open "$TARGET_APP"
+if ! open "$RELAUNCH_APP"; then
+  relaunch_fallback
+  exit 1
+fi
 rm -rf "$BACKUP_APP"
 rm -f "$PLAN_PATH"
 rm -rf "$STAGE_DIR"

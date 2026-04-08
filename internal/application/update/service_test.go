@@ -3,6 +3,7 @@ package update
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
@@ -219,6 +220,43 @@ func TestDownloadUpdatePublishesErrorWhenInstallerUnavailable(t *testing.T) {
 	}
 	if info.Message != installerErr.Error() {
 		t.Fatalf("expected error message %q, got %q", installerErr.Error(), info.Message)
+	}
+}
+
+func TestDownloadUpdatePublishesErrorWhenChecksumMismatches(t *testing.T) {
+	t.Parallel()
+
+	file, err := os.CreateTemp(t.TempDir(), "update-*.zip")
+	if err != nil {
+		t.Fatalf("create temp file failed: %v", err)
+	}
+	if _, err := file.WriteString("hello"); err != nil {
+		t.Fatalf("write temp file failed: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close temp file failed: %v", err)
+	}
+
+	service := NewService(ServiceParams{
+		Downloader: &downloaderStub{path: file.Name()},
+		Installer:  &installerStub{},
+	})
+	service.state = domainupdate.Info{
+		Kind:        domainupdate.KindApp,
+		Status:      domainupdate.StatusAvailable,
+		DownloadURL: "https://example.com/dreamcreator-update.zip",
+	}
+	service.downloadSHA256 = "sha256:deadbeef"
+
+	info, err := service.DownloadUpdate(context.Background())
+	if err == nil {
+		t.Fatal("expected checksum mismatch error")
+	}
+	if info.Status != domainupdate.StatusError {
+		t.Fatalf("expected error status, got %q", info.Status)
+	}
+	if info.Message != "download checksum mismatch" {
+		t.Fatalf("unexpected error message: %q", info.Message)
 	}
 }
 
