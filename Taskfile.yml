@@ -61,6 +61,22 @@ tasks:
     cmds:
       - bun run audit:all
 
+  precommit:frontend:
+    summary: Pre-commit frontend gate (bindings + governance audits + build + telemetry test)
+    cmds:
+      - task: common:generate:bindings
+      - task: audit:frontend
+      - task: common:build:frontend
+        vars:
+          DEV: "true"
+      - cd frontend && bun run test:telemetry
+
+  precommit:
+    summary: Pre-commit gate aligned with the main CI checks
+    cmds:
+      - task: precommit:frontend
+      - task: test
+
   regression:weekly:
     summary: Weekly regression gate (Go + frontend build + stream parser)
     cmds:

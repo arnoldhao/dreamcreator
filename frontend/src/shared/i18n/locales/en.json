@@ -1613,7 +1613,6 @@
         }
       },
       "releaseNotesTitle": "Release Notes",
-      "releaseNotesDescription": "Latest release notes from the tool author.",
       "releaseNotesClose": "Close",
       "status.latest": "Latest",
       "status.update": "Update",
