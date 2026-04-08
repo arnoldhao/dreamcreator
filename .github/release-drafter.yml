@@ -24,6 +24,11 @@ header: |
   - macOS Intel: [点击下载](https://github.com/arnoldhao/dreamcreator/releases/download/v$RESOLVED_VERSION/dreamcreator-macos-x64-$RESOLVED_VERSION.zip)
   - Windows 安装版: [点击下载](https://github.com/arnoldhao/dreamcreator/releases/download/v$RESOLVED_VERSION/dreamcreator-windows-x64-$RESOLVED_VERSION-installer.exe)
   - Windows 便携版: [点击下载](https://github.com/arnoldhao/dreamcreator/releases/download/v$RESOLVED_VERSION/dreamcreator-windows-x64-$RESOLVED_VERSION.zip)
+
+  ## macOS 首次运行说明
+  将 `DreamCreator.app` 移动到“应用程序”目录后，若提示“无法打开”或“已损坏”，请在终端执行：
+
+  `sudo xattr -rd com.apple.quarantine /Applications/DreamCreator.app`
   <!-- dreamapp-release-header:end -->
 
 template: |
