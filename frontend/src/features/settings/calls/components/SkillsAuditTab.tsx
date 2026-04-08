@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { Skeleton } from "@/shared/ui/skeleton";
+import { canAdoptIncomingDraftSnapshot, shouldSkipDraftPersist } from "@/app/settings/draftSync";
 import { useI18n } from "@/shared/i18n";
 import { messageBus } from "@/shared/message";
 import { useSettings, useUpdateSettings } from "@/shared/query/settings";
@@ -248,11 +249,7 @@ export function SkillsAuditTab() {
   const [expandedRows, setExpandedRows] = React.useState<Record<string, boolean>>({});
   const [configDraft, setConfigDraft] = React.useState<SkillsAuditConfig>(() => cloneAuditConfig(auditConfig));
   const lastPersistedConfigSignatureRef = React.useRef("");
-
-  const auditConfigSignature = React.useMemo(() => JSON.stringify(auditConfig), [auditConfig]);
-  React.useEffect(() => {
-    setConfigDraft(cloneAuditConfig(auditConfig));
-  }, [auditConfigSignature]);
+  const pendingConfigSignatureRef = React.useRef("");
 
   const normalizedConfigDraft = React.useMemo(
     () => ({
@@ -263,13 +260,31 @@ export function SkillsAuditTab() {
   );
   const currentConfigSignature = React.useMemo(() => JSON.stringify(auditConfig), [auditConfig]);
   const draftConfigSignature = React.useMemo(() => JSON.stringify(normalizedConfigDraft), [normalizedConfigDraft]);
+  const previousConfigSignatureRef = React.useRef(currentConfigSignature);
+
+  React.useEffect(() => {
+    const previousConfigSignature = previousConfigSignatureRef.current;
+    previousConfigSignatureRef.current = currentConfigSignature;
+    const canAdoptRemote = canAdoptIncomingDraftSnapshot({
+      draftSignature: draftConfigSignature,
+      currentRemoteSignature: currentConfigSignature,
+      previousRemoteSignature: previousConfigSignature,
+      lastPersistedSignature: lastPersistedConfigSignatureRef.current,
+    });
+    if (!canAdoptRemote) {
+      return;
+    }
+    setConfigDraft(cloneAuditConfig(auditConfig));
+  }, [auditConfig, currentConfigSignature, draftConfigSignature]);
+
   const configDirty = React.useMemo(
     () => currentConfigSignature !== draftConfigSignature,
     [currentConfigSignature, draftConfigSignature]
   );
 
   const persistConfig = React.useCallback(() => {
-    lastPersistedConfigSignatureRef.current = draftConfigSignature;
+    const submittedSignature = draftConfigSignature;
+    pendingConfigSignatureRef.current = submittedSignature;
     const nextSkillsConfig: Record<string, unknown> = {
       ...skillsConfig,
       auditConfig: toAuditConfigPayload(normalizedConfigDraft),
@@ -284,8 +299,16 @@ export function SkillsAuditTab() {
         skills: nextSkillsConfig,
       },
       {
+        onSuccess: () => {
+          lastPersistedConfigSignatureRef.current = submittedSignature;
+          if (pendingConfigSignatureRef.current === submittedSignature) {
+            pendingConfigSignatureRef.current = "";
+          }
+        },
         onError: (error) => {
-          lastPersistedConfigSignatureRef.current = "";
+          if (pendingConfigSignatureRef.current === submittedSignature) {
+            pendingConfigSignatureRef.current = "";
+          }
           messageBus.publishToast({
             intent: "warning",
             title: t("settings.calls.skills.audit.config.saveFailed"),
@@ -307,7 +330,13 @@ export function SkillsAuditTab() {
     if (!configDirty) {
       return;
     }
-    if (lastPersistedConfigSignatureRef.current === draftConfigSignature) {
+    if (
+      shouldSkipDraftPersist({
+        draftSignature: draftConfigSignature,
+        lastPersistedSignature: lastPersistedConfigSignatureRef.current,
+        pendingSubmittedSignature: pendingConfigSignatureRef.current,
+      })
+    ) {
       return;
     }
     const timer = window.setTimeout(() => {
@@ -322,6 +351,9 @@ export function SkillsAuditTab() {
   React.useEffect(() => {
     if (!configDirty && currentConfigSignature === draftConfigSignature) {
       lastPersistedConfigSignatureRef.current = draftConfigSignature;
+      if (pendingConfigSignatureRef.current === draftConfigSignature) {
+        pendingConfigSignatureRef.current = "";
+      }
     }
   }, [configDirty, currentConfigSignature, draftConfigSignature]);
 

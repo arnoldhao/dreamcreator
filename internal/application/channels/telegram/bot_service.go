@@ -316,6 +316,18 @@ func (service *BotService) SetModelSelectionNotifiers(
 	service.mu.Unlock()
 }
 
+func (service *BotService) notifySettingsUpdated(updated settingsdto.Settings) {
+	if service == nil {
+		return
+	}
+	service.mu.Lock()
+	notify := service.onSettingsUpdated
+	service.mu.Unlock()
+	if notify != nil {
+		notify(updated)
+	}
+}
+
 func (service *BotService) Refresh(ctx context.Context) error {
 	if service == nil || service.settings == nil {
 		return errors.New("settings service unavailable")
@@ -492,6 +504,7 @@ func (service *BotService) Logout(ctx context.Context) error {
 	if err == nil {
 		service.clearAllAccountErrors()
 		service.clearAllUpdateOffsets()
+		service.notifySettingsUpdated(updated)
 		if refreshErr := service.RefreshFromSettings(ctx, updated); refreshErr != nil {
 			return refreshErr
 		}
@@ -1929,12 +1942,7 @@ func (service *BotService) syncGlobalModelSelection(ctx context.Context, provide
 		AgentModelName:       &trimmedModel,
 	})
 	if updateErr == nil {
-		service.mu.Lock()
-		notify := service.onSettingsUpdated
-		service.mu.Unlock()
-		if notify != nil {
-			notify(updated)
-		}
+		service.notifySettingsUpdated(updated)
 	}
 	return updateErr
 }

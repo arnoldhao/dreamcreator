@@ -4,7 +4,7 @@ import { Events, System } from '@wailsio/runtime';
 
 import { SettingsApp } from "./app/settings";
 import { MainApp } from "./app/main";
-import { SETTINGS_QUERY_KEY, useSettings } from "./shared/query/settings";
+import { setLatestSettingsQueryData, useSettings } from "./shared/query/settings";
 import { useAssistantUiStorageSync } from "./shared/store/assistantUi";
 import { useSettingsStore } from "./shared/store/settings";
 import { detectBrowserLanguage, setLanguage } from "./shared/i18n";
@@ -143,7 +143,7 @@ function applyPlatformChrome() {
 
 function App() {
   const queryClient = useQueryClient();
-  const { data: settings } = useSettings();
+  const { data: settings, refetch: refetchSettings } = useSettings();
   const setSettings = useSettingsStore((state) => state.setSettings);
   useAssistantUiStorageSync();
 
@@ -187,15 +187,19 @@ function App() {
         return;
       }
 
-      queryClient.setQueryData(SETTINGS_QUERY_KEY, payload);
-      setSettings(payload);
-      applyTheme(payload.effectiveAppearance);
-      applyColorScheme(payload.colorScheme);
-      applyFont(payload.fontFamily);
-      applyFontSize(payload.fontSize);
-      applyThemeColor(payload.themeColor, payload.systemThemeColor);
-      if (payload.language) {
-        setLanguage(payload.language);
+      const next = setLatestSettingsQueryData(queryClient, payload);
+      if (!next) {
+        return;
+      }
+
+      setSettings(next);
+      applyTheme(next.effectiveAppearance);
+      applyColorScheme(next.colorScheme);
+      applyFont(next.fontFamily);
+      applyFontSize(next.fontSize);
+      applyThemeColor(next.themeColor, next.systemThemeColor);
+      if (next.language) {
+        setLanguage(next.language);
       }
     });
 
@@ -209,6 +213,22 @@ function App() {
       offThemeChanged();
     };
   }, [queryClient]);
+
+  useEffect(() => {
+    const reconcileSettings = () => {
+      if (document.visibilityState === "hidden") {
+        return;
+      }
+      void refetchSettings();
+    };
+
+    window.addEventListener("focus", reconcileSettings);
+    document.addEventListener("visibilitychange", reconcileSettings);
+    return () => {
+      window.removeEventListener("focus", reconcileSettings);
+      document.removeEventListener("visibilitychange", reconcileSettings);
+    };
+  }, [refetchSettings]);
 
   if (windowType === 'settings') {
     return <SettingsApp />;

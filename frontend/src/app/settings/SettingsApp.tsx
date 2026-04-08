@@ -44,6 +44,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { LoadingState } from "@/shared/ui/LoadingState";
 import type { MemorySettings, ProxySettings } from "@/shared/contracts/settings";
 import { messageBus } from "@/shared/message";
+import { mergeIncomingProxyDraft } from "./proxyDraft";
 
 import {
   Sidebar,
@@ -196,21 +197,6 @@ export function SettingsApp() {
     [assistantUiEnabled, debugEnabled]
   );
 
-  const isProxyConfigEqual = (left: ProxySettings, right: ProxySettings) => {
-    const noProxyLeft = JSON.stringify(left.noProxy ?? []);
-    const noProxyRight = JSON.stringify(right.noProxy ?? []);
-    return (
-      left.mode === right.mode &&
-      left.scheme === right.scheme &&
-      left.host === right.host &&
-      left.port === right.port &&
-      left.username === right.username &&
-      left.password === right.password &&
-      left.timeoutSeconds === right.timeoutSeconds &&
-      noProxyLeft === noProxyRight
-    );
-  };
-
   React.useEffect(() => {
     setIntegrationTab((current) => resolveVisibleIntegrationTab(current));
   }, [resolveVisibleIntegrationTab]);
@@ -278,12 +264,8 @@ export function SettingsApp() {
     if (!settings?.proxy) {
       return;
     }
-    setProxyDraft((current) => {
-      if (!current || !lastSavedProxyRef.current || isProxyConfigEqual(current, lastSavedProxyRef.current)) {
-        return settings.proxy;
-      }
-      return current;
-    });
+    const previousSavedProxy = lastSavedProxyRef.current;
+    setProxyDraft((current) => mergeIncomingProxyDraft(current, previousSavedProxy, settings.proxy));
     lastSavedProxyRef.current = settings.proxy;
   }, [settings?.proxy]);
 

@@ -2,6 +2,7 @@ import * as React from "react";
 import { ChevronsUpDown, Loader2 } from "lucide-react";
 import { Events } from "@wailsio/runtime";
 
+import { canAdoptIncomingDraftSnapshot } from "@/app/settings/draftSync";
 import { gatewayRequest } from "@/shared/api/gateway";
 import { useI18n } from "@/shared/i18n";
 import { messageBus } from "@/shared/message";
@@ -100,6 +101,7 @@ export function GatewayDetailsPanel({
   const [heartbeatTriggerPending, setHeartbeatTriggerPending] = React.useState<boolean>(false);
   const [heartbeatTriggerFeedback, setHeartbeatTriggerFeedback] =
     React.useState<HeartbeatTriggerFeedback | null>(null);
+  const lastPersistedHeartbeatSpecSignatureRef = React.useRef("");
 
   const [activeSectionId, setActiveSectionId] = React.useState<DetailsSectionId>("gateway");
   const [contextTab, setContextTab] = React.useState<"guard" | "compaction" | "memory">("guard");
@@ -193,6 +195,21 @@ export function GatewayDetailsPanel({
     updateSettings.mutate({ gateway: payload });
   };
 
+  const serializeHeartbeatSpecDraft = React.useCallback((value: HeartbeatSpecDraft) => {
+    return JSON.stringify({
+      title: value.title.trim(),
+      notes: value.notes.trim(),
+      items: value.items
+        .map((item) => ({
+          id: item.id.trim(),
+          text: item.text.trim(),
+          done: item.done,
+          priority: item.priority.trim(),
+        }))
+        .filter((item) => item.id !== "" || item.text !== ""),
+    });
+  }, []);
+
   const handleExecPermissionModeChange = React.useCallback(
     (nextMode: ExecPermissionMode) => {
       if (nextMode === execPermissionMode) {
@@ -217,16 +234,52 @@ export function GatewayDetailsPanel({
     [callsToolsRaw, execPermissionMode, t, updateSettings]
   );
 
+  const heartbeatChecklist = gateway?.heartbeat.checklist;
+  const currentHeartbeatSpecDraft = React.useMemo(
+    () => buildHeartbeatSpecDraftFromChecklist(heartbeatChecklist),
+    [heartbeatChecklist]
+  );
+  const currentHeartbeatSpecSignature = React.useMemo(
+    () => serializeHeartbeatSpecDraft(currentHeartbeatSpecDraft),
+    [currentHeartbeatSpecDraft, serializeHeartbeatSpecDraft]
+  );
+  const draftHeartbeatSpecSignature = React.useMemo(
+    () => serializeHeartbeatSpecDraft(heartbeatSpecDraft),
+    [heartbeatSpecDraft, serializeHeartbeatSpecDraft]
+  );
+  const previousHeartbeatSpecSignatureRef = React.useRef(currentHeartbeatSpecSignature);
+
   React.useEffect(() => {
-    const checklist = gateway?.heartbeat.checklist;
-    setHeartbeatSpecDraft(buildHeartbeatSpecDraftFromChecklist(checklist));
+    const previousHeartbeatSpecSignature = previousHeartbeatSpecSignatureRef.current;
+    previousHeartbeatSpecSignatureRef.current = currentHeartbeatSpecSignature;
+    const canAdoptRemote = canAdoptIncomingDraftSnapshot({
+      draftSignature: draftHeartbeatSpecSignature,
+      currentRemoteSignature: currentHeartbeatSpecSignature,
+      previousRemoteSignature: previousHeartbeatSpecSignature,
+      lastPersistedSignature: lastPersistedHeartbeatSpecSignatureRef.current,
+    });
+    if (!canAdoptRemote) {
+      return;
+    }
+    setHeartbeatSpecDraft(currentHeartbeatSpecDraft);
     setHeartbeatSpecVersion(
-      checklist && typeof checklist.version === "number" ? checklist.version : 0
+      heartbeatChecklist && typeof heartbeatChecklist.version === "number" ? heartbeatChecklist.version : 0
     );
     setHeartbeatSpecUpdatedAt(
-      checklist && typeof checklist.updatedAt === "string" ? checklist.updatedAt : ""
+      heartbeatChecklist && typeof heartbeatChecklist.updatedAt === "string" ? heartbeatChecklist.updatedAt : ""
     );
-  }, [gateway?.heartbeat.checklist]);
+  }, [
+    currentHeartbeatSpecDraft,
+    currentHeartbeatSpecSignature,
+    draftHeartbeatSpecSignature,
+    heartbeatChecklist,
+  ]);
+
+  React.useEffect(() => {
+    if (draftHeartbeatSpecSignature === currentHeartbeatSpecSignature) {
+      lastPersistedHeartbeatSpecSignatureRef.current = currentHeartbeatSpecSignature;
+    }
+  }, [currentHeartbeatSpecSignature, draftHeartbeatSpecSignature]);
 
   const updateHeartbeatSpecItem = (index: number, patch: Partial<HeartbeatSpecItemDraft>) => {
     setHeartbeatSpecDraft((previous) => {
@@ -260,14 +313,21 @@ export function GatewayDetailsPanel({
     if (!gateway) {
       return;
     }
+    const nextDraft = {
+      ...heartbeatSpecDraft,
+      title: heartbeatSpecDraft.title.trim(),
+      notes: heartbeatSpecDraft.notes.trim(),
+      items: normalizedItems,
+    };
+    const submittedSignature = serializeHeartbeatSpecDraft(nextDraft);
     setHeartbeatSpecSaving(true);
     updateSettings.mutate(
       {
         gateway: {
           heartbeat: {
             checklist: {
-              title: heartbeatSpecDraft.title.trim(),
-              notes: heartbeatSpecDraft.notes.trim(),
+              title: nextDraft.title,
+              notes: nextDraft.notes,
               items: normalizedItems.map((item) => ({
                 id: item.id,
                 text: item.text,
@@ -281,10 +341,8 @@ export function GatewayDetailsPanel({
       },
       {
         onSuccess: () => {
-          setHeartbeatSpecDraft((previous) => ({
-            ...previous,
-            items: normalizedItems,
-          }));
+          lastPersistedHeartbeatSpecSignatureRef.current = submittedSignature;
+          setHeartbeatSpecDraft(nextDraft);
           messageBus.publishToast({
             intent: "success",
             title: t("settings.gateway.detailsPanel.heartbeat.spec.saved"),
@@ -308,6 +366,7 @@ export function GatewayDetailsPanel({
     if (!gateway) {
       return;
     }
+    const submittedSignature = serializeHeartbeatSpecDraft(buildEmptyHeartbeatSpecDraft());
     setHeartbeatSpecSaving(true);
     updateSettings.mutate(
       {
@@ -325,6 +384,7 @@ export function GatewayDetailsPanel({
       },
       {
         onSuccess: () => {
+          lastPersistedHeartbeatSpecSignatureRef.current = submittedSignature;
           setHeartbeatSpecDraft(buildEmptyHeartbeatSpecDraft());
           setHeartbeatSpecVersion(0);
           setHeartbeatSpecUpdatedAt("");

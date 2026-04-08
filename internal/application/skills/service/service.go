@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	settingsdto "dreamcreator/internal/application/settings/dto"
 	settingsservice "dreamcreator/internal/application/settings/service"
 	"dreamcreator/internal/application/skills/dto"
 	workspaceDTO "dreamcreator/internal/application/workspace/dto"
@@ -34,6 +35,7 @@ type SkillsService struct {
 	packageAdapter   SkillsPackageAdapter
 	metrics          *skillsMetrics
 	realtimeNotifier SkillsRealtimeNotifier
+	settingsUpdated  func(settingsdto.Settings)
 	now              func() time.Time
 }
 
@@ -71,6 +73,20 @@ func (service *SkillsService) SetPackageAdapter(adapter SkillsPackageAdapter) {
 		return
 	}
 	service.packageAdapter = adapter
+}
+
+func (service *SkillsService) SetSettingsUpdatedNotifier(notifier func(settingsdto.Settings)) {
+	if service == nil {
+		return
+	}
+	service.settingsUpdated = notifier
+}
+
+func (service *SkillsService) notifySettingsUpdated(updated settingsdto.Settings) {
+	if service == nil || service.settingsUpdated == nil {
+		return
+	}
+	service.settingsUpdated(updated)
 }
 
 func (service *SkillsService) RegisterSkill(ctx context.Context, request dto.RegisterSkillRequest) (dto.ProviderSkillSpec, error) {

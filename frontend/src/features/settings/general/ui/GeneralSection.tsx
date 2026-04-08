@@ -113,6 +113,7 @@ export function GeneralSection({
   const [proxyCheckStatus, setProxyCheckStatus] = React.useState<"idle" | "checking" | "available" | "unavailable">("idle");
   const [proxyCheckKey, setProxyCheckKey] = React.useState("");
   const proxyCheckRequestRef = React.useRef(0);
+  const proxyCheckInFlightKeyRef = React.useRef("");
 
   const resetProxyTestState = (next: ProxySettings) => ({
     ...next,
@@ -271,12 +272,17 @@ export function GeneralSection({
         return;
       }
       const key = `${mode}:${address}`;
+      if (proxyCheckInFlightKeyRef.current === key) {
+        return;
+      }
+      const payload = buildProxyTestPayload(mode);
+      proxyCheckInFlightKeyRef.current = key;
       proxyCheckRequestRef.current += 1;
       const requestId = proxyCheckRequestRef.current;
       setProxyCheckKey(key);
       setProxyCheckStatus("checking");
       try {
-        const result = await proxyCheck.mutateAsync(buildProxyTestPayload(mode));
+        const result = await proxyCheck.mutateAsync(payload);
         if (proxyCheckRequestRef.current !== requestId) {
           return;
         }
@@ -303,6 +309,10 @@ export function GeneralSection({
           description: message,
           intent: "warning",
         });
+      } finally {
+        if (proxyCheckInFlightKeyRef.current === key) {
+          proxyCheckInFlightKeyRef.current = "";
+        }
       }
     },
     [proxyCheck, savedProxy, t]
@@ -331,18 +341,14 @@ export function GeneralSection({
   }, [hasStatusAddress, refetchSystemProxy, runProxyCheck, statusAddress, statusMode]);
 
   React.useEffect(() => {
-    if (draftProxy.mode === "system") {
-      void refetchSystemProxy();
-    }
-  }, [draftProxy.mode, refetchSystemProxy]);
-
-  React.useEffect(() => {
     if (statusMode === "none") {
+      proxyCheckInFlightKeyRef.current = "";
       setProxyCheckStatus("idle");
       setProxyCheckKey("");
       return;
     }
     if (!hasStatusAddress) {
+      proxyCheckInFlightKeyRef.current = "";
       setProxyCheckStatus("idle");
       setProxyCheckKey("");
       return;

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	agentservice "dreamcreator/internal/application/agent/service"
@@ -133,6 +134,52 @@ func (notifier providersUpdatedWindowNotifier) ProvidersUpdated() {
 	notifier.manager.EmitProvidersUpdated()
 }
 
+type settingsBroadcastAdapter struct {
+	service *service.SettingsService
+
+	mu      sync.RWMutex
+	applier func(settingsdto.Settings)
+}
+
+func newSettingsBroadcastAdapter(settingsService *service.SettingsService) *settingsBroadcastAdapter {
+	return &settingsBroadcastAdapter{service: settingsService}
+}
+
+func (adapter *settingsBroadcastAdapter) SetApplier(applier func(settingsdto.Settings)) {
+	if adapter == nil {
+		return
+	}
+	adapter.mu.Lock()
+	adapter.applier = applier
+	adapter.mu.Unlock()
+}
+
+func (adapter *settingsBroadcastAdapter) GetSettings(ctx context.Context) (settingsdto.Settings, error) {
+	if adapter == nil || adapter.service == nil {
+		return settingsdto.Settings{}, errors.New("settings service unavailable")
+	}
+	return adapter.service.GetSettings(ctx)
+}
+
+func (adapter *settingsBroadcastAdapter) UpdateSettings(ctx context.Context, request settingsdto.UpdateSettingsRequest) (settingsdto.Settings, error) {
+	if adapter == nil || adapter.service == nil {
+		return settingsdto.Settings{}, errors.New("settings service unavailable")
+	}
+	return adapter.service.UpdateSettings(ctx, request)
+}
+
+func (adapter *settingsBroadcastAdapter) ApplySettings(updated settingsdto.Settings) {
+	if adapter == nil {
+		return
+	}
+	adapter.mu.RLock()
+	applier := adapter.applier
+	adapter.mu.RUnlock()
+	if applier != nil {
+		applier(updated)
+	}
+}
+
 func CreateApplication(assets fs.FS) (*application.App, error) {
 	appVersion := resolveVersion(os.Getenv("APP_ENV"))
 	startup := currentStartupContext(os.Args[1:])
@@ -181,6 +228,7 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	themeProvider := NewAppThemeProvider(app)
 	defaultLanguage := i18n.DetectSystemLanguage()
 	settingsService := service.NewSettingsService(repo, themeProvider, settings.DefaultSettingsWithLanguage(defaultLanguage.String()))
+	settingsNotifier := newSettingsBroadcastAdapter(settingsService)
 	skillRepo := skillsrepo.NewSettingsRepository(repo)
 	skillsService := skillsservice.NewSkillsService(skillRepo, settingsService)
 
@@ -385,7 +433,17 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	if err != nil {
 		return nil, err
 	}
+	settingsNotifier.SetApplier(func(updated settingsdto.Settings) {
+		if windowManager != nil {
+			windowManager.ApplySettings(updated)
+		}
+	})
 	configService.SetSettingsApplier(windowManager)
+	skillsService.SetSettingsUpdatedNotifier(func(updated settingsdto.Settings) {
+		if windowManager != nil {
+			windowManager.ApplySettings(updated)
+		}
+	})
 	telegramBotService.SetModelSelectionNotifiers(
 		func(updated settingsdto.Settings) {
 			if windowManager != nil {
@@ -500,7 +558,7 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	toolService.SetExecutor(toolExecutor)
 	policyAuditStore := toolpolicyrepo.NewSQLitePolicyAuditStore(database.Bun)
 	sandboxService := gatewaysandbox.NewService(currentSettings.Gateway.SandboxEnabled, secure.NoopHealthChecker{})
-	gatewayToolService := gatewaytools.NewService(toolService, approvalService, sandboxService, settingsService, policyAuditStore, gatewayEvents)
+	gatewayToolService := gatewaytools.NewService(toolService, approvalService, sandboxService, settingsNotifier, policyAuditStore, gatewayEvents)
 	toolsInvokeHandler := gatewaytoolhttp.NewHandler(gatewayToolService)
 	realtimeServer.Handle("/tools/invoke", toolsInvokeHandler)
 	realtimeServer.Handle("/tools/invoke/", toolsInvokeHandler)
@@ -578,7 +636,7 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	gatewaymethods.RegisterUsage(gatewayRouter, usageService)
 	gatewaymethods.RegisterVoice(gatewayRouter, voiceService)
 	gatewaytools.RegisterBuiltinTools(ctx, toolService, toolExecutor, gatewaytools.BuiltinToolDeps{
-		Settings:      settingsService,
+		Settings:      settingsNotifier,
 		Sessions:      sessionStore,
 		Threads:       threadService,
 		Agents:        agentService,
@@ -1134,6 +1192,11 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 			telegramPairingStore,
 			proxyManager.HTTPClient(),
 		)
+		telegramPairingService.SetSettingsUpdatedNotifier(func(updated settingsdto.Settings) {
+			if windowManager != nil {
+				windowManager.ApplySettings(updated)
+			}
+		})
 		gatewaymethods.RegisterChannelPairing(gatewayRouter, telegramPairingService)
 	}
 	heartbeatRunner := gatewayautomation.NewHeartbeatRunner(sessionManager, runRepo)
