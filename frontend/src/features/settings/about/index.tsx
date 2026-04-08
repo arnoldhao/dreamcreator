@@ -14,6 +14,7 @@ import {
 
 import { Select } from "@/shared/ui/select";
 import { useI18n } from "@/shared/i18n";
+import { DialogMarkdown } from "@/shared/markdown/dialog-markdown";
 import { type DebugModeLevel, useDebugMode } from "@/shared/store/debug";
 import { Button } from "@/shared/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
@@ -351,9 +352,7 @@ export function AboutSection() {
             <DialogHeader>
               <DialogTitle>{t("settings.about.update.changelog")}</DialogTitle>
             </DialogHeader>
-            <div className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-sm text-foreground">
-              {releaseNotes}
-            </div>
+            <DialogMarkdown content={releaseNotes} />
             <DialogFooter>
               <Button variant="ghost" size="compact" onClick={() => setReleaseNotesOpen(false)}>
                 {t("settings.about.update.releaseNotesClose")}

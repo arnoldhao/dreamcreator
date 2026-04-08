@@ -1,5 +1,4 @@
 import * as React from "react";
-import { Browser } from "@wailsio/runtime";
 import {
   AlertTriangle,
   ArrowUpCircle,
@@ -12,9 +11,8 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import ReactMarkdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
 
+import { DialogMarkdown } from "@/shared/markdown/dialog-markdown";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -355,51 +353,6 @@ export function ExternalToolsSection() {
   const installCurrentVersion = installLiveTool?.version
     ? formatVersion(installLiveTool.version)
     : t("settings.externalTools.detail.notInstalled");
-
-  const markdownComponents = React.useMemo<Components>(
-    () => ({
-      h1: ({ children }) => <h2 className="text-base font-semibold text-foreground">{children}</h2>,
-      h2: ({ children }) => <h3 className="text-sm font-semibold text-foreground">{children}</h3>,
-      h3: ({ children }) => <h4 className="text-sm font-medium text-foreground">{children}</h4>,
-      p: ({ children }) => <p className="text-sm leading-relaxed text-foreground">{children}</p>,
-      ul: ({ children }) => <ul className="ml-4 list-disc space-y-1 text-sm text-foreground">{children}</ul>,
-      ol: ({ children }) => <ol className="ml-4 list-decimal space-y-1 text-sm text-foreground">{children}</ol>,
-      li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-      a: ({ href, children, ...props }) => (
-        <a
-          href={href}
-          className="text-primary underline underline-offset-4"
-          onClick={(event) => {
-            if (!href) {
-              return;
-            }
-            event.preventDefault();
-            Browser.OpenURL(href);
-          }}
-          {...props}
-        >
-          {children}
-        </a>
-      ),
-      code: ({ className, children, ...props }) => {
-        const content = String(children ?? "").replace(/\n$/, "");
-        if (!className) {
-          return (
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]" {...props}>
-              {content}
-            </code>
-          );
-        }
-        return (
-          <code className="block overflow-x-auto rounded bg-muted p-2 font-mono text-[0.85em]" {...props}>
-            {content}
-          </code>
-        );
-      },
-      pre: ({ children }) => <pre className="overflow-x-auto rounded bg-muted p-2 text-xs">{children}</pre>,
-    }),
-    []
-  );
 
   const rowClassName = SETTINGS_ROW_CLASS;
   const stageOrder = ["downloading", "extracting", "verifying"];
@@ -751,15 +704,8 @@ export function ExternalToolsSection() {
             <DialogTitle>
               {t("settings.externalTools.releaseNotesTitle")} {releaseNotesTitle}
             </DialogTitle>
-            <DialogDescription>
-              {t("settings.externalTools.releaseNotesDescription")}
-            </DialogDescription>
           </DialogHeader>
-          <div className="max-h-80 overflow-auto space-y-2 text-sm text-foreground">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-              {releaseNotesContent}
-            </ReactMarkdown>
-          </div>
+          <DialogMarkdown content={releaseNotesContent} />
           <DialogFooter>
             <Button variant="ghost" size="compact" onClick={() => setReleaseDialogOpen(false)}>
               {t("settings.externalTools.releaseNotesClose")}
