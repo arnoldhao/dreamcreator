@@ -32,9 +32,11 @@ func (stub *downloaderStub) Download(_ context.Context, _ string, progress func(
 }
 
 type installerStub struct {
-	installErr error
-	restartErr error
-	restarted  bool
+	installErr            error
+	restartErr            error
+	restarted             bool
+	selectedDownloadURLs  []string
+	selectDownloadInvoked bool
 }
 
 func (stub installerStub) Install(_ context.Context, _ string) error {
@@ -44,6 +46,14 @@ func (stub installerStub) Install(_ context.Context, _ string) error {
 func (stub *installerStub) RestartToApply(_ context.Context) error {
 	stub.restarted = true
 	return stub.restartErr
+}
+
+func (stub *installerStub) SelectDownloadURLs(_ context.Context, urls []string) []string {
+	stub.selectDownloadInvoked = true
+	if stub.selectedDownloadURLs != nil {
+		return stub.selectedDownloadURLs
+	}
+	return urls
 }
 
 func (stub *catalogProviderStub) FetchCatalog(_ context.Context, _ softwareupdate.Request) (softwareupdate.Catalog, error) {
@@ -150,6 +160,39 @@ func TestCheckForUpdateReturnsNoUpdateWhenCurrentVersionIsNewerThanLatest(t *tes
 	}
 	if info.LatestVersion != "1.3.0" {
 		t.Fatalf("expected latest version 1.3.0, got %q", info.LatestVersion)
+	}
+}
+
+func TestCheckForUpdateUsesInstallerDownloadURLSelector(t *testing.T) {
+	t.Parallel()
+
+	provider := &catalogProviderStub{
+		catalog: buildCatalog("1.2.4", "https://example.com/dreamcreator-windows-x64-1.2.4-installer.exe"),
+	}
+	installer := &installerStub{
+		selectedDownloadURLs: []string{
+			"https://example.com/dreamcreator-windows-x64-1.2.4.zip",
+		},
+	}
+	service := NewService(ServiceParams{Catalog: newCatalogService(provider), Installer: installer})
+
+	info, err := service.CheckForUpdate(context.Background(), "1.2.3")
+	if err != nil {
+		t.Fatalf("check for update failed: %v", err)
+	}
+	if !installer.selectDownloadInvoked {
+		t.Fatal("expected installer download selector to be called")
+	}
+	if info.DownloadURL != "https://example.com/dreamcreator-windows-x64-1.2.4.zip" {
+		t.Fatalf("expected selected portable URL, got %q", info.DownloadURL)
+	}
+
+	urls := service.resolveDownloadURLsLocked()
+	if len(urls) != 1 {
+		t.Fatalf("expected selected portable URL, got %#v", urls)
+	}
+	if urls[0] != "https://example.com/dreamcreator-windows-x64-1.2.4.zip" {
+		t.Fatalf("expected portable URL first, got %#v", urls)
 	}
 }
 

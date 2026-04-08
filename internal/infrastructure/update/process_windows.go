@@ -10,7 +10,6 @@ import (
 
 const (
 	createNewProcessGroup = 0x00000200
-	detachedProcess       = 0x00000008
 )
 
 func startDetachedCommand(name string, args []string) error {
@@ -23,7 +22,9 @@ func startDetachedCommand(name string, args []string) error {
 		cmd.Stderr = devNull
 	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		CreationFlags: createNewProcessGroup | detachedProcess,
+		// A fresh process group is enough here. Using DETACHED_PROCESS with
+		// powershell.exe has proven unreliable for the update helper.
+		CreationFlags: createNewProcessGroup,
 		HideWindow:    true,
 	}
 	return cmd.Start()

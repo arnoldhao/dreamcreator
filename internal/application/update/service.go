@@ -23,6 +23,10 @@ type Installer interface {
 	RestartToApply(ctx context.Context) error
 }
 
+type downloadURLSelector interface {
+	SelectDownloadURLs(ctx context.Context, urls []string) []string
+}
+
 type Notifier interface {
 	SetUpdateAvailable(available bool)
 	NotifyUpdateState(info update.Info)
@@ -114,22 +118,29 @@ func (service *Service) CheckForUpdate(ctx context.Context, currentVersion strin
 		CurrentVersion: state.CurrentVersion,
 	})
 
-	service.mu.Lock()
-	defer service.mu.Unlock()
 	if err != nil {
+		service.mu.Lock()
 		service.setStatusLocked(update.StatusError, service.state.Progress, err.Error())
 		state := service.state
+		service.mu.Unlock()
 		go service.publishSnapshot(state)
 		return state, err
 	}
 
+	downloadURLs := service.selectDownloadURLs(ctx, release.Asset.DownloadURLs())
+
+	service.mu.Lock()
+	defer service.mu.Unlock()
 	latest := update.NormalizeVersion(release.Version)
 	current := update.NormalizeVersion(service.state.CurrentVersion)
 	service.state.LatestVersion = latest
 	service.state.Changelog = release.Notes
-	service.state.DownloadURL = release.Asset.PrimaryDownloadURL()
+	service.state.DownloadURL = ""
+	if len(downloadURLs) > 0 {
+		service.state.DownloadURL = downloadURLs[0]
+	}
 	service.state.CheckedAt = service.now()
-	service.downloadURLs = slices.Clone(release.Asset.DownloadURLs())
+	service.downloadURLs = downloadURLs
 	zap.L().Info("update: check result",
 		zap.String("currentVersion", current),
 		zap.String("latestVersion", latest),
@@ -341,4 +352,13 @@ func (service *Service) resolveDownloadURLsLocked() []string {
 		return nil
 	}
 	return []string{service.state.DownloadURL}
+}
+
+func (service *Service) selectDownloadURLs(ctx context.Context, urls []string) []string {
+	if selector, ok := service.installer.(downloadURLSelector); ok && selector != nil {
+		if selected := selector.SelectDownloadURLs(ctx, urls); len(selected) > 0 {
+			return selected
+		}
+	}
+	return slices.Clone(urls)
 }

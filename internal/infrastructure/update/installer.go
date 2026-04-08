@@ -12,11 +12,20 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 )
 
 var ErrPreparedUpdateNotFound = fmt.Errorf("prepared update not found")
+
+type installKind string
+
+const (
+	installKindInstalled installKind = "installed"
+	installKindPortable  installKind = "portable"
+	installKindUnknown   installKind = "unknown"
+)
 
 type PlatformInstaller struct {
 	stateDir       string
@@ -58,6 +67,20 @@ func NewInstaller(statePath string) (*PlatformInstaller, error) {
 		executablePath: os.Executable,
 		startDetached:  startDetachedCommand,
 	}, nil
+}
+
+func (installer *PlatformInstaller) SelectDownloadURLs(_ context.Context, urls []string) []string {
+	if installer == nil || installer.goos != "windows" || len(urls) == 0 {
+		return slices.Clone(urls)
+	}
+	currentExe, err := installer.currentExecutable()
+	if err != nil {
+		return preferWindowsPortableDownloadURLs(urls)
+	}
+	if detectWindowsInstallKind(currentExe) == installKindInstalled {
+		return preferWindowsInstallerDownloadURLs(urls)
+	}
+	return preferWindowsPortableDownloadURLs(urls)
 }
 
 func (installer *PlatformInstaller) Install(ctx context.Context, artifactPath string) error {
@@ -410,6 +433,91 @@ func copyFile(src string, dst string) error {
 	return out.Close()
 }
 
+func preferWindowsInstallerDownloadURLs(urls []string) []string {
+	result := make([]string, 0, len(urls)*2)
+	seen := make(map[string]struct{}, len(urls)*2)
+	add := func(raw string) {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			return
+		}
+		if _, ok := seen[trimmed]; ok {
+			return
+		}
+		seen[trimmed] = struct{}{}
+		result = append(result, trimmed)
+	}
+
+	for _, raw := range urls {
+		if strings.Contains(strings.ToLower(raw), "-installer.exe") {
+			add(raw)
+			continue
+		}
+		if installerURL := installerWindowsDownloadURL(raw); installerURL != "" {
+			add(installerURL)
+		}
+	}
+	if len(result) == 0 {
+		return slices.Clone(urls)
+	}
+	return result
+}
+
+func preferWindowsPortableDownloadURLs(urls []string) []string {
+	result := make([]string, 0, len(urls)*2)
+	seen := make(map[string]struct{}, len(urls)*2)
+	add := func(raw string) {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			return
+		}
+		if _, ok := seen[trimmed]; ok {
+			return
+		}
+		seen[trimmed] = struct{}{}
+		result = append(result, trimmed)
+	}
+
+	for _, raw := range urls {
+		if portable := portableWindowsDownloadURL(raw); portable != "" {
+			add(portable)
+			continue
+		}
+		if strings.HasSuffix(strings.ToLower(strings.TrimSpace(raw)), ".zip") {
+			add(raw)
+		}
+	}
+	if len(result) == 0 {
+		return slices.Clone(urls)
+	}
+	return result
+}
+
+func installerWindowsDownloadURL(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	const portableSuffix = ".zip"
+	if !strings.HasSuffix(strings.ToLower(trimmed), portableSuffix) {
+		return ""
+	}
+	return trimmed[:len(trimmed)-len(portableSuffix)] + "-installer.exe"
+}
+
+func portableWindowsDownloadURL(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	const installerSuffix = "-installer.exe"
+	index := strings.LastIndex(strings.ToLower(trimmed), installerSuffix)
+	if index < 0 {
+		return ""
+	}
+	return trimmed[:index] + ".zip" + trimmed[index+len(installerSuffix):]
+}
+
 const windowsApplyScript = `param(
   [Parameter(Mandatory = $true)][int]$ParentPid,
   [Parameter(Mandatory = $true)][string]$Mode,
@@ -422,6 +530,77 @@ const windowsApplyScript = `param(
 
 $ErrorActionPreference = "Stop"
 
+function ConvertTo-PSLiteral {
+  param([string]$Value)
+  return "'" + ($Value -replace "'", "''") + "'"
+}
+
+function Copy-PortableUpdate {
+  param(
+    [Parameter(Mandatory = $true)][string]$Source,
+    [Parameter(Mandatory = $true)][string]$Target
+  )
+
+  $backupPath = $Target + ".old"
+  $targetDir = Split-Path -Parent $Target
+  if (-not [string]::IsNullOrWhiteSpace($targetDir)) {
+    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+  }
+  Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+  if (Test-Path -LiteralPath $Target) {
+    Move-Item -LiteralPath $Target -Destination $backupPath -Force
+  }
+
+  try {
+    Copy-Item -LiteralPath $Source -Destination $Target -Force -ErrorAction Stop
+    Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+  } catch {
+    Remove-Item -LiteralPath $Target -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $backupPath) {
+      Move-Item -LiteralPath $backupPath -Destination $Target -Force -ErrorAction SilentlyContinue
+    }
+    throw
+  }
+}
+
+function Copy-PortableUpdateElevated {
+  param(
+    [Parameter(Mandatory = $true)][string]$Source,
+    [Parameter(Mandatory = $true)][string]$Target
+  )
+
+  $command = @'
+$ErrorActionPreference = "Stop"
+$source = __SOURCE__
+$target = __TARGET__
+$backupPath = $target + ".old"
+$targetDir = Split-Path -Parent $target
+if (-not [string]::IsNullOrWhiteSpace($targetDir)) {
+  New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+}
+Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+if (Test-Path -LiteralPath $target) {
+  Move-Item -LiteralPath $target -Destination $backupPath -Force
+}
+try {
+  Copy-Item -LiteralPath $source -Destination $target -Force -ErrorAction Stop
+  Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+} catch {
+  Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
+  if (Test-Path -LiteralPath $backupPath) {
+    Move-Item -LiteralPath $backupPath -Destination $target -Force -ErrorAction SilentlyContinue
+  }
+  throw
+}
+'@
+  $command = $command.Replace("__SOURCE__", (ConvertTo-PSLiteral $Source)).Replace("__TARGET__", (ConvertTo-PSLiteral $Target))
+  $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+  $result = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", $encoded) -Verb RunAs -Wait -PassThru
+  if ($null -ne $result.ExitCode -and $result.ExitCode -ne 0) {
+    throw ("elevated portable copy exited with code " + $result.ExitCode)
+  }
+}
+
 for ($i = 0; $i -lt 480; $i++) {
   $proc = Get-Process -Id $ParentPid -ErrorAction SilentlyContinue
   if (-not $proc) {
@@ -430,24 +609,38 @@ for ($i = 0; $i -lt 480; $i++) {
   Start-Sleep -Milliseconds 250
 }
 
-switch ($Mode) {
-  "installer" {
-    $result = Start-Process -FilePath $SourcePath -ArgumentList @("/S", "/D=" + $InstallDir) -Verb RunAs -Wait -PassThru
-    if ($result.ExitCode -ne 0) {
-      throw ("installer exited with code " + $result.ExitCode)
+try {
+  switch ($Mode) {
+    "installer" {
+      $result = Start-Process -FilePath $SourcePath -ArgumentList @("/S", "/D=" + $InstallDir) -Verb RunAs -Wait -PassThru
+      if ($null -ne $result.ExitCode -and $result.ExitCode -ne 0) {
+        throw ("installer exited with code " + $result.ExitCode)
+      }
+    }
+    "portable" {
+      try {
+        Copy-PortableUpdate -Source $SourcePath -Target $TargetPath
+      } catch {
+        Copy-PortableUpdateElevated -Source $SourcePath -Target $TargetPath
+      }
+    }
+    default {
+      throw ("unsupported update mode: " + $Mode)
     }
   }
-  "portable" {
-    Copy-Item $SourcePath $TargetPath -Force
-  }
-  default {
-    throw ("unsupported update mode: " + $Mode)
-  }
-}
 
-Start-Process -FilePath $TargetPath -WorkingDirectory $InstallDir | Out-Null
-Remove-Item $PlanPath -Force -ErrorAction SilentlyContinue
-Remove-Item $StageDir -Recurse -Force -ErrorAction SilentlyContinue
+  Start-Process -FilePath $TargetPath -WorkingDirectory $InstallDir | Out-Null
+  Remove-Item -LiteralPath $PlanPath -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $StageDir -Recurse -Force -ErrorAction SilentlyContinue
+} catch {
+  try {
+    if (Test-Path -LiteralPath $TargetPath) {
+      Start-Process -FilePath $TargetPath -WorkingDirectory $InstallDir | Out-Null
+    }
+  } catch {
+  }
+  exit 1
+}
 `
 
 const darwinApplyScript = `#!/bin/sh
@@ -511,4 +704,5 @@ rm -rf "$STAGE_DIR"
 var _ interface {
 	Install(context.Context, string) error
 	RestartToApply(context.Context) error
+	SelectDownloadURLs(context.Context, []string) []string
 } = (*PlatformInstaller)(nil)
