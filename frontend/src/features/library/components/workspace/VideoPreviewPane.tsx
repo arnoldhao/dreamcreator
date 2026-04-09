@@ -47,6 +47,8 @@ const PREVIEW_SHELL_CLASS =
 const PREVIEW_CONTROL_BUTTON_CLASS =
   "rounded-full text-white/90 hover:bg-white/15 hover:text-white focus-visible:ring-white/50 focus-visible:ring-offset-0"
 const PREVIEW_CONTROL_RANGE_CLASS = "h-1 cursor-pointer accent-primary"
+const PLAYHEAD_PARENT_SYNC_INTERVAL_MS = 120
+const PLAYHEAD_PARENT_DRIFT_MS = 180
 const PREVIEW_VOLUME_RANGE_CLASS = cn(
   PREVIEW_CONTROL_RANGE_CLASS,
   "ml-0 w-0 min-w-0 opacity-0 transition-[margin,width,opacity] duration-150 ease-out",
@@ -60,6 +62,10 @@ function clampVolume(value: number) {
     return 1
   }
   return Math.min(1, Math.max(0, value))
+}
+
+function normalizePlayhead(value: number, durationMs: number) {
+  return Math.round(clampMs(value, durationMs))
 }
 
 type MediaPlayerElement = React.ElementRef<typeof MediaPlayer>
@@ -88,6 +94,11 @@ export function VideoPreviewPane({
   const fullscreenModeRef = React.useRef<PreviewFullscreenMode | null>(null)
   const previousWindowedFullscreenRef = React.useRef(false)
   const lastNonZeroVolumeRef = React.useRef(1)
+  const [localPlayheadMs, setLocalPlayheadMs] = React.useState(() =>
+    normalizePlayhead(playheadMs, durationMs),
+  )
+  const localPlayheadMsRef = React.useRef(localPlayheadMs)
+  const lastCommittedPlayheadMsRef = React.useRef(localPlayheadMs)
   const [viewportSize, setViewportSize] = React.useState({ width: 0, height: 0 })
   const [mediaNaturalSize, setMediaNaturalSize] = React.useState({ width: 0, height: 0 })
   const [parsedCues, setParsedCues] = React.useState<VTTCue[]>([])
@@ -165,6 +176,48 @@ export function VideoPreviewPane({
     }
     setMuted(Boolean(player.muted))
   }, [playerElement])
+
+  const updateLocalPlayhead = React.useCallback(
+    (value: number) => {
+      const next = normalizePlayhead(value, durationMs)
+      localPlayheadMsRef.current = next
+      setLocalPlayheadMs((current) => (current === next ? current : next))
+      return next
+    },
+    [durationMs],
+  )
+
+  const syncPlayheadToParent = React.useCallback(
+    (value: number, force = false) => {
+      const next = normalizePlayhead(value, durationMs)
+      if (!force && next === lastCommittedPlayheadMsRef.current) {
+        return next
+      }
+      lastCommittedPlayheadMsRef.current = next
+      onPlayheadChange(next)
+      return next
+    },
+    [durationMs, onPlayheadChange],
+  )
+
+  React.useEffect(() => {
+    const next = normalizePlayhead(playheadMs, durationMs)
+    const shouldIgnoreOwnSync =
+      next === lastCommittedPlayheadMsRef.current &&
+      Math.abs(next - localPlayheadMsRef.current) <= PLAYHEAD_PARENT_DRIFT_MS
+    if (shouldIgnoreOwnSync) {
+      return
+    }
+    updateLocalPlayhead(next)
+    lastCommittedPlayheadMsRef.current = next
+  }, [durationMs, mediaUrl, playheadMs, updateLocalPlayhead])
+
+  React.useEffect(() => {
+    if (isPlaying || localPlayheadMsRef.current === lastCommittedPlayheadMsRef.current) {
+      return
+    }
+    syncPlayheadToParent(localPlayheadMsRef.current, true)
+  }, [isPlaying, syncPlayheadToParent])
 
   React.useEffect(() => {
     const player = playerElement
@@ -256,10 +309,10 @@ export function VideoPreviewPane({
         kind: displayMode === "dual" ? "bilingual" : "mono",
         mono: effectiveMonoStyle,
         bilingual: effectiveLingualStyle,
-        currentTimeSeconds: playheadMs / 1000,
+        currentTimeSeconds: localPlayheadMs / 1000,
         latestOnlyPerKey: true,
       }),
-    [displayMode, effectiveLingualStyle, effectiveMonoStyle, parsedCues, playheadMs],
+    [displayMode, effectiveLingualStyle, effectiveMonoStyle, localPlayheadMs, parsedCues],
   )
 
   React.useEffect(() => {
@@ -268,10 +321,10 @@ export function VideoPreviewPane({
       return
     }
     const currentTime = Number(player.currentTime || 0) * 1000
-    if (Math.abs(currentTime - playheadMs) > 180) {
-      player.currentTime = playheadMs / 1000
+    if (Math.abs(currentTime - localPlayheadMs) > PLAYHEAD_PARENT_DRIFT_MS) {
+      player.currentTime = localPlayheadMs / 1000
     }
-  }, [mediaUrl, playheadMs, playerElement])
+  }, [localPlayheadMs, mediaUrl, playerElement])
 
   React.useEffect(() => {
     const player = playerElement
@@ -301,11 +354,14 @@ export function VideoPreviewPane({
       if (!player) {
         return
       }
-      const next = clampMs(Number(player.currentTime || 0) * 1000, durationMs)
-      onPlayheadChange(next)
+      const next = updateLocalPlayhead(Number(player.currentTime || 0) * 1000)
       if (next >= durationMs) {
+        syncPlayheadToParent(next, true)
         onPlayingChange(false)
         return
+      }
+      if (Math.abs(next - lastCommittedPlayheadMsRef.current) >= PLAYHEAD_PARENT_SYNC_INTERVAL_MS) {
+        syncPlayheadToParent(next)
       }
       animationFrameRef.current = requestAnimationFrame(tick)
     }
@@ -317,7 +373,7 @@ export function VideoPreviewPane({
         animationFrameRef.current = undefined
       }
     }
-  }, [durationMs, isPlaying, mediaUrl, onPlayheadChange, onPlayingChange, playerElement])
+  }, [durationMs, isPlaying, mediaUrl, onPlayingChange, playerElement, syncPlayheadToParent, updateLocalPlayhead])
 
   React.useEffect(() => {
     const restoreWindowedFullscreenAfterScreenExit = () => {
@@ -375,6 +431,11 @@ export function VideoPreviewPane({
 
   const handleTogglePlay = () => {
     onPlayingChange(!isPlaying)
+  }
+
+  const handlePlayheadChange = (value: number) => {
+    const next = updateLocalPlayhead(value)
+    syncPlayheadToParent(next, true)
   }
 
   const handleToggleMute = () => {
@@ -557,17 +618,17 @@ export function VideoPreviewPane({
             {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
           </Button>
           <div className="flex min-w-[12rem] flex-1 items-center">
-            <span className="mr-2 shrink-0 font-mono text-xs tabular-nums text-white/75">{formatCueTime(playheadMs)}</span>
+            <span className="mr-2 shrink-0 font-mono text-2xs tabular-nums text-white/75">{formatCueTime(localPlayheadMs)}</span>
             <input
               type="range"
               min={0}
               max={durationMs || 1}
-              value={Math.min(playheadMs, durationMs || 1)}
-              onChange={(event) => onPlayheadChange(Number(event.target.value))}
+              value={Math.min(localPlayheadMs, durationMs || 1)}
+              onChange={(event) => handlePlayheadChange(Number(event.target.value))}
               aria-label={t("library.workspace.preview.seek")}
               className={`${PREVIEW_CONTROL_RANGE_CLASS} w-full`}
             />
-            <span className="ml-2 shrink-0 font-mono text-xs tabular-nums text-white/75">{formatCueTime(durationMs)}</span>
+            <span className="ml-2 shrink-0 font-mono text-2xs tabular-nums text-white/75">{formatCueTime(durationMs)}</span>
           </div>
           <div className="group/volume flex shrink-0 items-center">
             <Button

@@ -1,6 +1,7 @@
 import * as React from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { AlertTriangle, CheckCircle2, CircleDot, XCircle } from "lucide-react"
 
 import { useI18n } from "@/shared/i18n"
@@ -67,6 +68,12 @@ const COLUMN_WIDTHS: Record<"video" | "subtitle", Record<string, string>> = {
     suggestion: "w-[180px] min-w-[180px] max-w-[220px]",
     decision: "w-[156px] min-w-[156px] max-w-[176px]",
   },
+}
+
+const VIDEO_TIMELINE_VIRTUAL_OVERSCAN = 8
+type VirtualTimelineRow = {
+  key: React.Key
+  start: number
 }
 
 function SuggestionCell({ row, mode }: { row: WorkspaceResolvedSubtitleRow; mode: "video" | "subtitle" }) {
@@ -228,7 +235,7 @@ function MetricCell({
   return (
     <div
       className={cn(
-        "font-mono text-xs font-medium",
+        "font-mono text-2xs font-medium",
         error ? "text-rose-600" : warning ? "text-amber-700" : "text-foreground/80",
       )}
     >
@@ -255,16 +262,23 @@ function TextCell({
   const editable = mode === "subtitle" && editing && onEditSourceText
   const sourceTextClassName =
     mode === "video"
-      ? "whitespace-pre-wrap break-words text-xs font-medium leading-6 tracking-[0.01em] text-foreground"
-      : "whitespace-pre-wrap break-words text-2xs leading-5 text-foreground"
+      ? "line-clamp-1 break-words text-xs font-medium leading-5 tracking-[0.01em] text-foreground"
+      : "whitespace-pre-wrap break-words text-xs leading-5 text-foreground"
   const translationTextClassName =
     mode === "video"
-      ? "whitespace-pre-wrap break-words text-2xs leading-5 text-muted-foreground"
-      : "whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground"
+      ? "line-clamp-1 break-words text-2xs leading-5 text-muted-foreground"
+      : "whitespace-pre-wrap break-words text-2xs leading-5 text-muted-foreground"
+  const showSecondaryTrack = mode === "video" && displayMode === "dual" && row.translationText.trim().length > 0
 
   return (
     <div
-      className={cn("space-y-1", mode === "video" ? "space-y-1.5" : "min-w-[460px]")}
+      className={cn(
+        mode === "video"
+          ? showSecondaryTrack
+            ? "space-y-0.5"
+            : ""
+          : "min-w-[460px] space-y-1",
+      )}
       style={mode === "video" && textColumnWidth ? { minWidth: textColumnWidth } : undefined}
     >
       {editable ? (
@@ -275,18 +289,18 @@ function TextCell({
           onChange={(event) => onEditSourceText?.(row.id, event.target.value)}
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
-          className="min-h-[72px] w-full resize-y rounded-md border border-border/70 bg-background px-2.5 py-2 text-2xs leading-5 text-foreground outline-none focus:border-ring"
+          className="min-h-[72px] w-full resize-y rounded-md border border-border/70 bg-background px-2.5 py-2 text-xs leading-5 text-foreground outline-none focus:border-ring"
           autoFocus
         />
       ) : (
-        row.reviewSuggestion ? (
+        row.reviewSuggestion && mode !== "video" ? (
           <ReviewDiffTextCell row={row} />
         ) : (
           <div className={sourceTextClassName}>{row.sourceText}</div>
         )
       )}
 
-      {displayMode === "dual" ? (
+      {showSecondaryTrack ? (
         <div className={translationTextClassName}>
           {row.translationText}
         </div>
@@ -298,14 +312,14 @@ function TextCell({
 function ReviewDiffTextCell({ row }: { row: WorkspaceResolvedSubtitleRow }) {
   const suggestion = row.reviewSuggestion
   if (!suggestion) {
-    return <div className="whitespace-pre-wrap break-words text-2xs leading-5 text-foreground">{row.sourceText}</div>
+    return <div className="whitespace-pre-wrap break-words text-xs leading-5 text-foreground">{row.sourceText}</div>
   }
   const diff = buildInlineDiff(suggestion.originalText, suggestion.suggestedText)
   return (
     <div className="space-y-1.5">
       <div className="flex items-start gap-2 rounded-md border border-rose-500/20 bg-rose-500/[0.06] px-2.5 py-1.5">
         <div className="shrink-0 pt-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-rose-700">-</div>
-        <div className="min-w-0 whitespace-pre-wrap break-words text-2xs leading-5 text-rose-900">
+        <div className="min-w-0 whitespace-pre-wrap break-words text-xs leading-5 text-rose-900">
           <span>{diff.prefix}</span>
           {diff.beforeDiff ? <span className="rounded bg-rose-500/18 px-0.5">{diff.beforeDiff}</span> : null}
           <span>{diff.suffix}</span>
@@ -313,7 +327,7 @@ function ReviewDiffTextCell({ row }: { row: WorkspaceResolvedSubtitleRow }) {
       </div>
       <div className="flex items-start gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/[0.07] px-2.5 py-1.5">
         <div className="shrink-0 pt-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700">+</div>
-        <div className="min-w-0 whitespace-pre-wrap break-words text-2xs leading-5 text-emerald-900">
+        <div className="min-w-0 whitespace-pre-wrap break-words text-xs leading-5 text-emerald-900">
           <span>{diff.prefix}</span>
           {diff.afterDiff ? <span className="rounded bg-emerald-500/20 px-0.5">{diff.afterDiff}</span> : null}
           <span>{diff.suffix}</span>
@@ -381,12 +395,13 @@ export function SubtitleTablePane({
 }: SubtitleTablePaneProps) {
   const { t } = useI18n()
   const rowRefs = React.useRef<Record<string, HTMLElement | null>>({})
+  const scrollParentRef = React.useRef<HTMLDivElement | null>(null)
   const columnWidths = COLUMN_WIDTHS[mode]
   const longestVisibleTextLength = React.useMemo(() => {
-      if (mode !== "video") {
-        return 0
-      }
-      return rows.reduce((maxLength, row) => {
+    if (mode !== "video") {
+      return 0
+    }
+    return rows.reduce((maxLength, row) => {
       const visibleParts: string[] = [row.sourceText]
       if (displayMode === "dual") {
         visibleParts.push(row.translationText)
@@ -404,6 +419,27 @@ export function SubtitleTablePane({
     }
     return Math.max(260, Math.min(680, longestVisibleTextLength * 8 + 56))
   }, [longestVisibleTextLength, mode])
+  const videoGridMinWidth = React.useMemo(() => {
+    if (mode !== "video") {
+      return 0
+    }
+    return 68 + 136 + 78 + (videoTextColumnWidth ?? 260)
+  }, [mode, videoTextColumnWidth])
+  const videoGridTemplateColumns = React.useMemo(() => {
+    if (mode !== "video") {
+      return ""
+    }
+    return `68px 136px 78px minmax(${videoTextColumnWidth ?? 260}px, 1fr)`
+  }, [mode, videoTextColumnWidth])
+  const estimatedVideoRowHeight = React.useMemo(() => {
+    if (compressed) {
+      return displayMode === "dual" ? 76 : 58
+    }
+    if (density === "compact") {
+      return displayMode === "dual" ? 92 : 74
+    }
+    return displayMode === "dual" ? 104 : 86
+  }, [compressed, density, displayMode])
   const showCpsColumn = mode === "subtitle" && hasWorkspaceQaMetricColumn(qaCheckSettings, "cps")
   const showCplColumn = mode === "subtitle" && hasWorkspaceQaMetricColumn(qaCheckSettings, "cpl")
   const tableWrapperClassName = mode === "video" ? "min-w-full w-max" : "min-w-[1320px]"
@@ -427,7 +463,7 @@ export function SubtitleTablePane({
           const active = row.original.id === currentRowId
           const warned = row.original.qaIssues.length > 0
           return (
-            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <div className="flex h-full items-center gap-1.5 text-2xs font-medium leading-5 text-muted-foreground">
               {active ? <CircleDot className="h-3.5 w-3.5 text-sky-600" /> : <span className="h-3.5 w-3.5 rounded-full border border-border/70" />}
               <span>{String(row.original.index).padStart(3, "0")}</span>
               {mode === "video" && warned ? <AlertTriangle className="h-3 w-3 text-amber-600" /> : null}
@@ -438,7 +474,7 @@ export function SubtitleTablePane({
       const durationColumn: ColumnDef<WorkspaceResolvedSubtitleRow> = {
         id: "duration",
         header: () => <span>{t("library.workspace.table.columnDuration")}</span>,
-        cell: ({ row }) => <div className="font-mono text-xs text-foreground/80">{row.original.durationLabel}</div>,
+        cell: ({ row }) => <div className="font-mono text-2xs leading-5 text-foreground/80">{row.original.durationLabel}</div>,
       }
       const textColumn: ColumnDef<WorkspaceResolvedSubtitleRow> = {
         id: "text",
@@ -462,7 +498,7 @@ export function SubtitleTablePane({
             id: "time",
             header: () => <span>{t("library.workspace.table.columnTime")}</span>,
             cell: ({ row }) => (
-              <div className="font-mono text-xs text-foreground/80">
+              <div className="font-mono text-2xs leading-5 text-foreground/80">
                 {`${formatTimelineColumnTime(row.original.startMs)} - ${formatTimelineColumnTime(row.original.endMs)}`}
               </div>
             ),
@@ -477,12 +513,12 @@ export function SubtitleTablePane({
         {
           id: "start",
           header: () => <span>{t("library.workspace.table.columnStart")}</span>,
-          cell: ({ row }) => <div className="font-mono text-xs text-foreground/80">{row.original.start}</div>,
+          cell: ({ row }) => <div className="font-mono text-2xs leading-5 text-foreground/80">{row.original.start}</div>,
         },
         {
           id: "end",
           header: () => <span>{t("library.workspace.table.columnEnd")}</span>,
-          cell: ({ row }) => <div className="font-mono text-xs text-foreground/80">{row.original.end}</div>,
+          cell: ({ row }) => <div className="font-mono text-2xs leading-5 text-foreground/80">{row.original.end}</div>,
         },
         durationColumn,
         ...(showCpsColumn
@@ -546,14 +582,41 @@ export function SubtitleTablePane({
     columns,
     getCoreRowModel: getCoreRowModel(),
   })
+  const rowModelRows = table.getRowModel().rows
+  const rowIndexById = React.useMemo(
+    () => new Map(rows.map((row, index) => [row.id, index])),
+    [rows],
+  )
+  const videoRowVirtualizer = useVirtualizer({
+    count: mode === "video" ? rowModelRows.length : 0,
+    getScrollElement: () => scrollParentRef.current,
+    estimateSize: () => estimatedVideoRowHeight,
+    overscan: VIDEO_TIMELINE_VIRTUAL_OVERSCAN,
+  })
+  const virtualVideoRows = mode === "video" ? videoRowVirtualizer.getVirtualItems() : []
+
+  React.useEffect(() => {
+    if (mode !== "video") {
+      return
+    }
+    videoRowVirtualizer.measure()
+  }, [compressed, density, displayMode, mode, videoRowVirtualizer, videoTextColumnWidth])
 
   React.useEffect(() => {
     if (!autoFollow || !currentRowId) {
       return
     }
+    if (mode === "video") {
+      const currentIndex = rowIndexById.get(currentRowId)
+      if (typeof currentIndex !== "number") {
+        return
+      }
+      videoRowVirtualizer.scrollToIndex(currentIndex, { align: "auto" })
+      return
+    }
     const row = rowRefs.current[currentRowId]
     row?.scrollIntoView({ block: "nearest" })
-  }, [autoFollow, currentRowId])
+  }, [autoFollow, currentRowId, mode, rowIndexById, videoRowVirtualizer])
 
   React.useEffect(() => {
     if (mode !== "subtitle" || !selectedRowId) {
@@ -571,52 +634,145 @@ export function SubtitleTablePane({
       ).length
     : rows.filter((row) => row.qaIssues.length > 0).length
 
+  const setMeasuredRowRef = React.useCallback(
+    (rowId: string, index: number, node: HTMLElement | null) => {
+      if (node) {
+        node.dataset.index = String(index)
+        rowRefs.current[rowId] = node
+        videoRowVirtualizer.measureElement(node)
+        return
+      }
+      delete rowRefs.current[rowId]
+    },
+    [videoRowVirtualizer],
+  )
+
+  const renderVideoCompressedRow = React.useCallback(
+    (row: WorkspaceResolvedSubtitleRow, virtualRow: VirtualTimelineRow & { index: number }) => {
+      const selected = row.id === selectedRowId
+      const current = row.id === currentRowId
+      const hovered = row.id === hoveredRowId
+      return (
+        <button
+          key={row.id}
+          type="button"
+          ref={(node) => setMeasuredRowRef(row.id, virtualRow.index, node)}
+          data-index={virtualRow.index}
+          className={cn(
+            "absolute left-0 right-0 top-0 w-full rounded-md border border-border/60 px-2.5 py-2 text-left transition-colors",
+            "bg-background/70 hover:bg-muted/50",
+            selected && "border-primary/40 bg-primary/[0.08]",
+            current && "shadow-[inset_2px_0_0_0_rgba(56,189,248,0.8)]",
+            hovered && "bg-muted/60",
+          )}
+          style={{ transform: `translateY(${virtualRow.start}px)` }}
+          onClick={() => onSelectRow(row.id)}
+          onMouseEnter={() => onHoverRow(row.id)}
+          onMouseLeave={() => onHoverRow("")}
+        >
+          <div className="flex items-center gap-2 text-2xs text-muted-foreground">
+            <span>#{row.index}</span>
+            <span>{`${formatTimelineColumnTime(row.startMs)} - ${formatTimelineColumnTime(row.endMs)}`}</span>
+            <span>{row.durationLabel}</span>
+          </div>
+          <div className="mt-1 line-clamp-1 whitespace-pre-wrap break-words text-xs leading-5 text-foreground">
+            {row.sourceText}
+          </div>
+          {displayMode === "dual" ? (
+            <div className="line-clamp-1 whitespace-pre-wrap break-words text-2xs leading-5 text-muted-foreground">
+              {row.translationText}
+            </div>
+          ) : null}
+        </button>
+      )
+    },
+    [currentRowId, displayMode, formatTimelineColumnTime, hoveredRowId, onHoverRow, onSelectRow, selectedRowId, setMeasuredRowRef],
+  )
+
+  const renderVideoTableRow = React.useCallback(
+    (row: (typeof rowModelRows)[number], virtualRow: VirtualTimelineRow & { index: number }) => {
+      const original = row.original
+      const selected = original.id === selectedRowId
+      const current = original.id === currentRowId
+      const hovered = original.id === hoveredRowId
+      const warned = original.qaIssues.length > 0
+      return (
+        <div
+          key={row.id}
+          ref={(node) => setMeasuredRowRef(original.id, virtualRow.index, node)}
+          data-subtitle-row-id={original.id}
+          data-index={virtualRow.index}
+          className={cn(
+            "absolute left-0 right-0 top-0 grid cursor-pointer border-b border-border/60 align-top transition-colors",
+            density === "compact" ? "py-1.5" : "py-2",
+            "border-border/50 bg-background",
+            warned && "bg-amber-500/[0.035] hover:bg-amber-500/[0.08]",
+            current &&
+              "bg-sky-500/[0.08] shadow-[inset_3px_0_0_0_rgba(56,189,248,0.72)] hover:bg-sky-500/[0.12]",
+            hovered && "bg-muted/45",
+            selected &&
+              "bg-primary/[0.06] shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.22)] hover:bg-primary/[0.1]",
+          )}
+          style={{
+            transform: `translateY(${virtualRow.start}px)`,
+            gridTemplateColumns: videoGridTemplateColumns,
+            minWidth: videoGridMinWidth,
+          }}
+          onClick={() => onSelectRow(original.id)}
+          onMouseEnter={() => onHoverRow(original.id)}
+          onMouseLeave={() => onHoverRow("")}
+        >
+          {row.getVisibleCells().map((cell) => (
+            <div
+              key={cell.id}
+              className={cn(
+                "px-3 text-2xs",
+                cell.column.id === "text"
+                  ? "whitespace-normal py-1 pr-4 text-left"
+                  : "flex h-full items-center whitespace-nowrap text-2xs leading-5 text-foreground/76",
+                columnWidths[cell.column.id] ?? "",
+              )}
+              style={
+                cell.column.id === "text" && videoTextColumnWidth
+                  ? { width: videoTextColumnWidth, minWidth: videoTextColumnWidth }
+                  : undefined
+              }
+            >
+              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </div>
+          ))}
+        </div>
+      )
+    },
+    [
+      columnWidths,
+      currentRowId,
+      density,
+      hoveredRowId,
+      onHoverRow,
+      onSelectRow,
+      selectedRowId,
+      setMeasuredRowRef,
+      videoGridMinWidth,
+      videoGridTemplateColumns,
+      videoTextColumnWidth,
+    ],
+  )
+
   if (mode === "video" && compressed) {
     const compressedContent = (
       <div
+        ref={scrollParentRef}
         className={cn(
           "min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain px-2 py-2",
           chrome === "plain" ? "h-full" : "flex-1",
         )}
       >
-        {rows.map((row) => {
-          const selected = row.id === selectedRowId
-          const current = row.id === currentRowId
-          const hovered = row.id === hoveredRowId
-          return (
-            <button
-              key={row.id}
-              type="button"
-              ref={(node) => {
-                rowRefs.current[row.id] = node
-              }}
-              className={cn(
-                "mb-1.5 w-full rounded-md border border-border/60 px-2.5 py-2 text-left transition-colors",
-                "bg-background/70 hover:bg-muted/50",
-                selected && "border-primary/40 bg-primary/[0.08]",
-                current && "shadow-[inset_2px_0_0_0_rgba(56,189,248,0.8)]",
-                hovered && "bg-muted/60",
-              )}
-              onClick={() => onSelectRow(row.id)}
-              onMouseEnter={() => onHoverRow(row.id)}
-              onMouseLeave={() => onHoverRow("")}
-            >
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span>#{row.index}</span>
-                <span>{`${formatTimelineColumnTime(row.startMs)} - ${formatTimelineColumnTime(row.endMs)}`}</span>
-                <span>{row.durationLabel}</span>
-              </div>
-              <div className="mt-1 line-clamp-1 whitespace-pre-wrap break-words text-2xs leading-5 text-foreground">
-                {row.sourceText}
-              </div>
-              {displayMode === "dual" ? (
-                <div className="line-clamp-1 whitespace-pre-wrap break-words text-2xs leading-5 text-muted-foreground">
-                  {row.translationText}
-                </div>
-              ) : null}
-            </button>
-          )
-        })}
+        <div style={{ height: videoRowVirtualizer.getTotalSize(), position: "relative" }}>
+          {virtualVideoRows.map((virtualRow) =>
+            renderVideoCompressedRow(rows[virtualRow.index], virtualRow),
+          )}
+        </div>
         {!isLoading && rows.length === 0 ? (
           <div className="flex min-h-[180px] items-center justify-center px-4 text-center text-xs text-muted-foreground">
             {errorMessage || t("library.workspace.table.emptyFiltered")}
@@ -651,6 +807,7 @@ export function SubtitleTablePane({
 
   const tableContent = (
     <div
+      ref={mode === "video" ? scrollParentRef : undefined}
       className={cn(
         "min-h-0 overflow-x-auto overflow-y-auto overscroll-contain",
         chrome === "card" ? "flex-1" : "h-full",
@@ -662,96 +819,104 @@ export function SubtitleTablePane({
       }}
     >
       <div className={tableWrapperClassName}>
-        <Table className={cn("table-auto", mode === "video" ? "min-w-full w-auto" : "w-full")}>
-          <TableHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+        {mode === "video" ? (
+          <div className="min-w-full w-max" style={{ minWidth: videoGridMinWidth }}>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-transparent">
+              <div
+                key={headerGroup.id}
+                className="sticky top-0 z-10 grid bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85"
+                style={{ gridTemplateColumns: videoGridTemplateColumns, minWidth: videoGridMinWidth }}
+              >
                 {headerGroup.headers.map((header) => (
-                  <TableHead
+                  <div
                     key={header.id}
                     className={cn(
-                      "h-9 whitespace-nowrap px-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground",
-                      mode === "video" && "h-8 text-xs tracking-[0.16em] text-muted-foreground/80",
+                      "h-8 whitespace-nowrap px-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground/80",
+                      "flex items-center border-b border-border/70",
                       columnWidths[header.column.id] ?? "",
                     )}
                     style={
-                      mode === "video" && header.column.id === "text" && videoTextColumnWidth
+                      header.column.id === "text" && videoTextColumnWidth
                         ? { width: videoTextColumnWidth, minWidth: videoTextColumnWidth }
                         : undefined
                     }
                   >
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
+                  </div>
                 ))}
-              </TableRow>
+              </div>
             ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.map((row) => {
-              const original = row.original
-              const selected = original.id === selectedRowId
-              const current = original.id === currentRowId
-              const hovered = original.id === hoveredRowId
-              const warned = original.qaIssues.length > 0
-              return (
-                <TableRow
-                  key={row.id}
-                  ref={(node) => {
-                    rowRefs.current[original.id] = node
-                  }}
-                  data-subtitle-row-id={original.id}
-                  className={cn(
-                    "cursor-pointer border-b border-border/60 align-top transition-colors",
-                    mode === "video"
-                      ? density === "compact"
-                        ? "[&_td]:py-2.5"
-                        : "[&_td]:py-3.5"
-                      : density === "compact"
-                        ? "[&_td]:py-2"
-                        : "[&_td]:py-3",
-                    mode === "video" && "border-border/50",
-                    warned && "bg-amber-500/[0.035] hover:bg-amber-500/[0.08]",
-                    current &&
-                      cn(
-                        "bg-sky-500/[0.08] hover:bg-sky-500/[0.12]",
-                        mode === "video" && "shadow-[inset_3px_0_0_0_rgba(56,189,248,0.72)]",
-                      ),
-                    hovered && "bg-muted/45",
-                    selected &&
-                      cn(
-                        "bg-primary/[0.08] shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.22)] hover:bg-primary/[0.1]",
-                        mode === "video" && "bg-primary/[0.06]",
-                      ),
-                  )}
-                  onClick={() => onSelectRow(original.id)}
-                  onMouseEnter={() => onHoverRow(original.id)}
-                  onMouseLeave={() => onHoverRow("")}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
+            <div style={{ height: videoRowVirtualizer.getTotalSize(), position: "relative" }}>
+              {virtualVideoRows.map((virtualRow) => renderVideoTableRow(rowModelRows[virtualRow.index], virtualRow))}
+            </div>
+          </div>
+        ) : (
+          <Table className="table-auto w-full">
+            <TableHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
                       className={cn(
-                        "px-3 text-xs",
-                        cell.column.id === "decision" ? "align-middle" : "align-top",
-                        cell.column.id === "text" ? "whitespace-normal text-left" : "whitespace-nowrap",
-                        mode === "video" && cell.column.id !== "text" && "text-xs text-foreground/76",
-                        mode === "video" && cell.column.id === "text" && "py-3 pr-4",
-                        columnWidths[cell.column.id] ?? "",
+                        "h-9 whitespace-nowrap px-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground",
+                        columnWidths[header.column.id] ?? "",
                       )}
-                      style={
-                        mode === "video" && cell.column.id === "text" && videoTextColumnWidth
-                          ? { width: videoTextColumnWidth, minWidth: videoTextColumnWidth }
-                          : undefined
-                      }
                     >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
                   ))}
                 </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {rowModelRows.map((row) => {
+                const original = row.original
+                const selected = original.id === selectedRowId
+                const current = original.id === currentRowId
+                const hovered = original.id === hoveredRowId
+                const warned = original.qaIssues.length > 0
+                return (
+                  <TableRow
+                    key={row.id}
+                    ref={(node) => {
+                      rowRefs.current[original.id] = node
+                    }}
+                    data-subtitle-row-id={original.id}
+                    className={cn(
+                      "cursor-pointer border-b border-border/60 align-top transition-colors",
+                      density === "compact"
+                        ? "[&_td]:py-2"
+                        : "[&_td]:py-3",
+                      warned && "bg-amber-500/[0.035] hover:bg-amber-500/[0.08]",
+                      current &&
+                        "bg-sky-500/[0.08] hover:bg-sky-500/[0.12]",
+                      hovered && "bg-muted/45",
+                      selected && "bg-primary/[0.08] shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.22)] hover:bg-primary/[0.1]",
+                    )}
+                    onClick={() => onSelectRow(original.id)}
+                    onMouseEnter={() => onHoverRow(original.id)}
+                    onMouseLeave={() => onHoverRow("")}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          "px-3 text-2xs",
+                          cell.column.id === "text" ? "align-top" : "align-middle",
+                          cell.column.id === "text" ? "whitespace-normal text-left" : "whitespace-nowrap",
+                          columnWidths[cell.column.id] ?? "",
+                        )}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       {!isLoading && rows.length === 0 ? (

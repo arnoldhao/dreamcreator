@@ -700,11 +700,22 @@ export function resolveCurrentRow(rows: WorkspaceResolvedSubtitleRow[], playhead
   if (rows.length === 0) {
     return null
   }
-  return (
-    rows.find((row) => playheadMs >= row.startMs && playheadMs < row.endMs) ??
-    rows.find((row) => playheadMs < row.startMs) ??
-    rows[rows.length - 1]
-  )
+  let low = 0
+  let high = rows.length
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2)
+    if (rows[mid].startMs <= playheadMs) {
+      low = mid + 1
+      continue
+    }
+    high = mid
+  }
+  const nextRow = rows[low] ?? null
+  const previousRow = rows[low - 1] ?? null
+  if (previousRow && playheadMs < previousRow.endMs) {
+    return previousRow
+  }
+  return nextRow ?? rows[rows.length - 1]
 }
 
 export function resolveWorkspaceDurationMs(videoFile: LibraryFileDTO | null, rows: WorkspaceSubtitleRow[]) {

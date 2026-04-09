@@ -77,7 +77,7 @@ export function WaveformFooter({
         <div className="flex items-center gap-3">
           <span className="font-medium text-foreground">{t("library.workspace.waveform.title")}</span>
           <span>{t("library.workspace.waveform.cueCount").replace("{count}", String(rows.length))}</span>
-          <span>{formatCueTime(playheadMs)} / {formatCueTime(durationMs)}</span>
+          <span className="font-mono text-2xs tabular-nums">{formatCueTime(playheadMs)} / {formatCueTime(durationMs)}</span>
         </div>
         <div className="flex items-center gap-3">
           <span>{t("library.workspace.waveform.segmentMarkers")}</span>
