@@ -1,14 +1,22 @@
 import * as React from "react"
 import { parseText } from "media-captions"
+import { Crosshair } from "lucide-react"
 
 import type { GenerateSubtitleStylePreviewVTTRequest as GenerateSubtitleStylePreviewVTTBindingRequest } from "../../../../bindings/dreamcreator/internal/application/library/dto"
 import { GenerateSubtitleStylePreviewVTT } from "../../../../bindings/dreamcreator/internal/presentation/wails/libraryhandler"
+import { cn } from "@/lib/utils"
 import type {
   LibraryBilingualStyleDTO,
   LibraryMonoStyleDTO,
   LibrarySubtitleStyleFontDTO,
 } from "@/shared/contracts/library"
+import { useI18n } from "@/shared/i18n"
+import { Button } from "@/shared/ui/button"
 
+import {
+  PreviewGuideLegend,
+  RenderedFrameReferenceGuides,
+} from "./PreviewReferenceGuides"
 import {
   DEFAULT_PREVIEW_SIZE,
   buildCueDisplayStyle,
@@ -40,11 +48,13 @@ export function SubtitleStylePresetPreview({
   fontMappings = [],
   onPreviewSizeChange,
 }: SubtitleStylePresetPreviewProps) {
+  const { t } = useI18n()
   const frameRef = React.useRef<HTMLDivElement | null>(null)
   const requestVersionRef = React.useRef(0)
   const [previewSize, setPreviewSize] = React.useState<PreviewSize>(DEFAULT_PREVIEW_SIZE)
   const [trackContent, setTrackContent] = React.useState("")
   const [renderedCues, setRenderedCues] = React.useState<RenderedPreviewCue[]>([])
+  const [showReferenceGuides, setShowReferenceGuides] = React.useState(true)
 
   const baseResolution = React.useMemo(() => {
     if (kind === "bilingual" && bilingual) {
@@ -161,14 +171,40 @@ export function SubtitleStylePresetPreview({
     }
   }, [bilingual, kind, mono, trackContent])
 
+  const referenceGuidesLabel = showReferenceGuides
+    ? t("library.workspace.preview.hideReferenceGuides")
+    : t("library.workspace.preview.showReferenceGuides")
+
   return (
-    <div className="overflow-hidden rounded-xl border border-border/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(241,245,249,0.98))] shadow-[0_24px_72px_-42px_rgba(15,23,42,0.28)]">
+    <div className="relative overflow-hidden rounded-none border border-slate-800/80 bg-[linear-gradient(180deg,rgba(10,16,24,0.98),rgba(3,6,10,0.99))] shadow-[0_28px_90px_-46px_rgba(2,6,23,0.78)]">
+      <div className="absolute right-2 top-2 z-30">
+        <Button
+          type="button"
+          variant="ghost"
+          size="compactIcon"
+          className={cn(
+            "rounded-full bg-slate-950/78 text-white/90 hover:bg-slate-950/88 hover:text-white focus-visible:ring-white/50 focus-visible:ring-offset-0",
+            showReferenceGuides && "bg-slate-950/92 text-white",
+          )}
+          onClick={() => setShowReferenceGuides((value) => !value)}
+          aria-label={referenceGuidesLabel}
+          title={referenceGuidesLabel}
+        >
+          <Crosshair className="h-3 w-3" />
+        </Button>
+      </div>
       <div
         ref={frameRef}
         className="relative w-full overflow-hidden"
         style={{ aspectRatio: `${baseResolution.width} / ${baseResolution.height}` }}
       >
         <PreviewBackdrop />
+        {showReferenceGuides ? (
+          <>
+            <RenderedFrameReferenceGuides />
+            <PreviewGuideLegend renderedSize={previewSize} />
+          </>
+        ) : null}
 
         <div className="absolute inset-0 overflow-hidden">
           {renderedCues.map((cue) => (
@@ -191,28 +227,23 @@ export function SubtitleStylePresetPreview({
 
 function PreviewBackdrop() {
   return (
-    <div className="absolute inset-0 overflow-hidden bg-[linear-gradient(180deg,#f8fafc_0%,#e2e8f0_100%)]">
-      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(14,165,233,0.12),transparent_42%,rgba(249,115,22,0.08))]" />
-      <div className="absolute inset-x-0 top-0 h-[52%] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.88),rgba(255,255,255,0)_72%)]" />
-      <div className="absolute left-[8%] top-[12%] h-[24%] w-[34%] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.16),rgba(56,189,248,0)_72%)] blur-3xl" />
-      <div className="absolute right-[6%] top-[18%] h-[22%] w-[26%] rounded-full bg-[radial-gradient(circle,rgba(251,191,36,0.14),rgba(251,191,36,0)_72%)] blur-3xl" />
+    <div className="absolute inset-0 overflow-hidden bg-[linear-gradient(180deg,#111923_0%,#070b11_52%,#03060b_100%)]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(103,232,249,0.16),rgba(103,232,249,0)_42%),radial-gradient(circle_at_82%_18%,rgba(251,191,36,0.12),rgba(251,191,36,0)_24%),radial-gradient(circle_at_50%_100%,rgba(15,23,42,0.72),rgba(15,23,42,0)_52%)]" />
+      <div className="absolute inset-[4%] border border-white/8 shadow-[inset_0_0_0_1px_rgba(103,232,249,0.08)]" />
+      <div className="absolute inset-x-0 top-0 h-[34%] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.1),rgba(255,255,255,0)_72%)]" />
+      <div className="absolute left-[10%] top-[10%] h-[26%] w-[30%] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.14),rgba(56,189,248,0)_72%)] blur-3xl" />
+      <div className="absolute right-[8%] top-[16%] h-[18%] w-[22%] rounded-full bg-[radial-gradient(circle,rgba(251,191,36,0.12),rgba(251,191,36,0)_72%)] blur-3xl" />
+      <div className="absolute inset-x-[16%] bottom-[8%] h-[24%] rounded-[50%] bg-[radial-gradient(circle,rgba(56,189,248,0.08),rgba(56,189,248,0)_72%)] blur-3xl" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0)_18%,rgba(255,255,255,0)_82%,rgba(0,0,0,0.24))]" />
       <div
-        className="absolute inset-0 opacity-[0.16]"
+        className="absolute inset-0 opacity-[0.12]"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(148,163,184,0.45) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.45) 1px, transparent 1px)",
-          backgroundSize: "24px 24px",
+            "repeating-linear-gradient(180deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 4px), linear-gradient(rgba(148,163,184,0.22) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.18) 1px, transparent 1px)",
+          backgroundSize: "100% 100%, 32px 32px, 32px 32px",
         }}
       />
-      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[linear-gradient(180deg,transparent,rgba(14,165,233,0.7)_12%,rgba(14,165,233,0.7)_88%,transparent)] opacity-80" />
-      <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[linear-gradient(90deg,transparent,rgba(14,165,233,0.7)_12%,rgba(14,165,233,0.7)_88%,transparent)] opacity-80" />
-      <div className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-sky-400/35 bg-white/78 px-2 py-0.5 text-[10px] font-medium tracking-[0.12em] text-sky-700 shadow-sm">
-        50%
-      </div>
-      <div className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-sky-400/35 bg-white/78 px-2 py-0.5 text-[10px] font-medium tracking-[0.12em] text-sky-700 shadow-sm">
-        50%
-      </div>
-      <div className="absolute inset-x-[8%] bottom-[14%] h-px bg-[linear-gradient(90deg,transparent,rgba(148,163,184,0.72),transparent)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0)_40%,rgba(0,0,0,0.32)_100%)]" />
     </div>
   )
 }

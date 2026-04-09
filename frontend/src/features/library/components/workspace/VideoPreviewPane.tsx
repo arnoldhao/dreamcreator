@@ -4,7 +4,7 @@ import type { AudioSrc, PlayerSrc, VideoSrc } from "@vidstack/react"
 import { Events, Window } from "@wailsio/runtime"
 import { parseText } from "media-captions"
 import type { VTTCue } from "media-captions"
-import { Maximize, Maximize2, Minimize, Minimize2, Pause, Play, Volume2, VolumeX } from "lucide-react"
+import { Crosshair, Maximize, Maximize2, Minimize, Minimize2, Pause, Play, Volume2, VolumeX } from "lucide-react"
 
 import "@vidstack/react/player/styles/base.css"
 
@@ -17,6 +17,11 @@ import type {
 import { useI18n } from "@/shared/i18n"
 import { Button } from "@/shared/ui/button"
 
+import {
+  PreviewGuideLegend,
+  PreviewViewportBoundary,
+  RenderedFrameReferenceGuides,
+} from "../PreviewReferenceGuides"
 import {
   buildCueDisplayStyle,
   buildCueTextStyle,
@@ -106,6 +111,7 @@ export function VideoPreviewPane({
   const [muted, setMuted] = React.useState(false)
   const [windowedFullscreen, setWindowedFullscreen] = React.useState(false)
   const [screenFullscreen, setScreenFullscreen] = React.useState(false)
+  const [showReferenceGuides, setShowReferenceGuides] = React.useState(true)
   const handlePlayerRef = React.useCallback((node: MediaPlayerElement | null) => {
     setPlayerElement(node)
   }, [])
@@ -538,6 +544,9 @@ export function VideoPreviewPane({
   const screenFullscreenLabel = screenFullscreen
     ? t("library.workspace.preview.exitFullscreen")
     : t("library.workspace.preview.enterFullscreen")
+  const referenceGuidesLabel = showReferenceGuides
+    ? t("library.workspace.preview.hideReferenceGuides")
+    : t("library.workspace.preview.showReferenceGuides")
 
   return (
     <div
@@ -551,11 +560,18 @@ export function VideoPreviewPane({
       <div className={cn("relative min-h-0 flex-1 bg-black p-3", (windowedFullscreen || screenFullscreen) && "p-0")}>
         {mediaUrl ? (
           <div ref={previewViewportRef} className="relative h-full w-full overflow-hidden bg-black">
+            {showReferenceGuides ? (
+              <>
+                <PreviewViewportBoundary />
+                <PreviewGuideLegend viewportSize={viewportSize} renderedSize={fittedViewportSize} />
+              </>
+            ) : null}
             <div
               className="absolute left-1/2 top-1/2 overflow-hidden -translate-x-1/2 -translate-y-1/2"
               style={fittedViewportStyle}
             >
               <div className="relative h-full w-full overflow-hidden">
+                {showReferenceGuides ? <RenderedFrameReferenceGuides /> : null}
                 <MediaPlayer
                   ref={handlePlayerRef}
                   src={playerSource}
@@ -654,6 +670,17 @@ export function VideoPreviewPane({
               className={PREVIEW_VOLUME_RANGE_CLASS}
             />
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="compactIcon"
+            className={cn(PREVIEW_CONTROL_BUTTON_CLASS, showReferenceGuides && "bg-white/15 text-white")}
+            onClick={() => setShowReferenceGuides((value) => !value)}
+            aria-label={referenceGuidesLabel}
+            title={referenceGuidesLabel}
+          >
+            <Crosshair className="h-3 w-3" />
+          </Button>
           <div className="flex shrink-0 items-center gap-2">
             <Button
               type="button"
