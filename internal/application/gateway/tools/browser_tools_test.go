@@ -255,6 +255,31 @@ func TestNormalizeBrowserTimeoutMsClampRange(t *testing.T) {
 	}
 }
 
+func TestTabResultFromEvaluateReturnsStoredValue(t *testing.T) {
+	t.Parallel()
+
+	tab := &browserTabState{TargetID: "tab-1"}
+	tab.mu.Lock()
+	tab.evaluateResult = map[string]any{"ok": true, "value": "done"}
+	tab.mu.Unlock()
+
+	result, ok := tabResultFromEvaluate(tab).(map[string]any)
+	if !ok {
+		t.Fatalf("expected evaluate result map")
+	}
+	if value, _ := result["value"].(string); value != "done" {
+		t.Fatalf("expected stored evaluate result, got %#v", result)
+	}
+}
+
+func TestTabResultFromEvaluateNilTab(t *testing.T) {
+	t.Parallel()
+
+	if result := tabResultFromEvaluate(nil); result != nil {
+		t.Fatalf("expected nil result for nil tab, got %#v", result)
+	}
+}
+
 func TestRunBrowserActionOnNodeRequiresNodesService(t *testing.T) {
 	t.Parallel()
 
