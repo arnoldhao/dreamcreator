@@ -1,72 +1,90 @@
 package heartbeat
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 )
 
-func TestSanitizeSpec_TrimAndDropEmptyItems(t *testing.T) {
+func TestMemoryEventStoreRetainsBoundedRecentEventsAndLast(t *testing.T) {
 	t.Parallel()
 
-	now := time.Date(2026, time.February, 26, 8, 0, 0, 0, time.UTC)
-	cleaned := sanitizeSpec(Spec{
-		Title:     " Daily ",
-		Notes:     " track async jobs ",
-		Version:   2,
-		UpdatedAt: now,
-		Items: []ChecklistItem{
-			{ID: "1", Text: " sync ", Done: false, Priority: " high "},
-			{ID: " ", Text: " ", Done: false, Priority: ""},
-		},
-	})
-	if cleaned.Title != "Daily" {
-		t.Fatalf("unexpected title: %q", cleaned.Title)
+	store := NewMemoryEventStore()
+	sessionKey := "session-1"
+	base := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+
+	for index := 0; index < maxMemoryEventsPerSession+24; index++ {
+		err := store.Save(context.Background(), Event{
+			ID:          fmt.Sprintf("evt-%03d", index),
+			SessionKey:  sessionKey,
+			ContentHash: fmt.Sprintf("hash-%03d", index),
+			CreatedAt:   base.Add(time.Duration(index) * time.Second),
+		})
+		if err != nil {
+			t.Fatalf("save event %d: %v", index, err)
+		}
 	}
-	if cleaned.Notes != "track async jobs" {
-		t.Fatalf("unexpected notes: %q", cleaned.Notes)
+
+	store.mu.RLock()
+	session := store.entries[sessionKey]
+	store.mu.RUnlock()
+	if session == nil {
+		t.Fatalf("expected session cache")
 	}
-	if cleaned.Version != 2 {
-		t.Fatalf("unexpected version: %d", cleaned.Version)
+	if len(session.recent) != maxMemoryEventsPerSession {
+		t.Fatalf("expected bounded recent cache size %d, got %d", maxMemoryEventsPerSession, len(session.recent))
 	}
-	if len(cleaned.Items) != 1 {
-		t.Fatalf("unexpected item count: %d", len(cleaned.Items))
+	if got := session.recent[0].ID; got != "evt-024" {
+		t.Fatalf("expected oldest retained event evt-024, got %q", got)
 	}
-	if cleaned.Items[0].Text != "sync" {
-		t.Fatalf("unexpected item text: %q", cleaned.Items[0].Text)
+
+	last, err := store.Last(context.Background(), sessionKey)
+	if err != nil {
+		t.Fatalf("last event: %v", err)
 	}
-	if cleaned.Items[0].Priority != "high" {
-		t.Fatalf("unexpected item priority: %q", cleaned.Items[0].Priority)
+	if last.ID != fmt.Sprintf("evt-%03d", maxMemoryEventsPerSession+23) {
+		t.Fatalf("unexpected last event %q", last.ID)
 	}
 }
 
-func TestSystemEventQueue_DeduplicatesByContextRunAndText(t *testing.T) {
+func TestMemoryEventStoreHasDuplicateChecksRetainedWindow(t *testing.T) {
 	t.Parallel()
 
-	queue := NewSystemEventQueue()
-	input := SystemEventInput{
-		SessionKey: "session-1",
-		Text:       "done",
-		ContextKey: "subagent:success",
-		RunID:      "run-1",
-		Source:     "subagent",
+	store := NewMemoryEventStore()
+	sessionKey := "session-2"
+	base := time.Date(2026, time.February, 3, 4, 5, 6, 0, time.UTC)
+
+	for index := 0; index < maxMemoryEventsPerSession+8; index++ {
+		hash := fmt.Sprintf("hash-%03d", index)
+		if index == maxMemoryEventsPerSession+7 {
+			hash = "target-hash"
+		}
+		err := store.Save(context.Background(), Event{
+			ID:          fmt.Sprintf("evt-%03d", index),
+			SessionKey:  sessionKey,
+			ContentHash: hash,
+			CreatedAt:   base.Add(time.Duration(index) * time.Second),
+		})
+		if err != nil {
+			t.Fatalf("save event %d: %v", index, err)
+		}
 	}
-	if !queue.Enqueue(input) {
-		t.Fatalf("first enqueue should be queued")
+
+	duplicate, err := store.HasDuplicate(context.Background(), sessionKey, "target-hash", base)
+	if err != nil {
+		t.Fatalf("has duplicate: %v", err)
 	}
-	if queue.Enqueue(input) {
-		t.Fatalf("duplicate enqueue should be skipped")
+	if !duplicate {
+		t.Fatalf("expected retained duplicate to be found")
 	}
-	if !queue.Enqueue(SystemEventInput{
-		SessionKey: "session-1",
-		Text:       "done",
-		ContextKey: "subagent:success",
-		RunID:      "run-2",
-		Source:     "subagent",
-	}) {
-		t.Fatalf("different run id should be queued")
+
+	trimmedHash := "hash-000"
+	duplicate, err = store.HasDuplicate(context.Background(), sessionKey, trimmedHash, base)
+	if err != nil {
+		t.Fatalf("has duplicate for trimmed hash: %v", err)
 	}
-	items := queue.Drain("session-1")
-	if len(items) != 2 {
-		t.Fatalf("expected 2 events, got %d", len(items))
+	if duplicate {
+		t.Fatalf("expected trimmed hash %q to be evicted from recent cache", trimmedHash)
 	}
 }
