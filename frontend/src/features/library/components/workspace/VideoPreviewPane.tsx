@@ -46,15 +46,15 @@ const PREVIEW_SHELL_CLASS =
   "flex h-full min-h-0 flex-col overflow-hidden rounded-[18px] border border-border/70 bg-[#0b1118] text-white shadow-[0_20px_60px_-36px_rgba(15,23,42,0.65)]"
 const PREVIEW_CONTROL_BUTTON_CLASS =
   "rounded-full text-white/90 hover:bg-white/15 hover:text-white focus-visible:ring-white/50 focus-visible:ring-offset-0"
-const PREVIEW_CONTROL_RANGE_CLASS = "h-1 cursor-pointer accent-primary"
+const PREVIEW_CONTROL_RANGE_CLASS = "h-0.5 cursor-pointer accent-primary"
 const PLAYHEAD_PARENT_SYNC_INTERVAL_MS = 120
 const PLAYHEAD_PARENT_DRIFT_MS = 180
 const PREVIEW_VOLUME_RANGE_CLASS = cn(
   PREVIEW_CONTROL_RANGE_CLASS,
   "ml-0 w-0 min-w-0 opacity-0 transition-[margin,width,opacity] duration-150 ease-out",
-  "pointer-events-none group-hover/volume:ml-2 group-hover/volume:w-20 group-hover/volume:opacity-100 group-hover/volume:pointer-events-auto",
-  "group-focus-within/volume:ml-2 group-focus-within/volume:w-20 group-focus-within/volume:opacity-100 group-focus-within/volume:pointer-events-auto",
-  "sm:group-hover/volume:w-24 sm:group-focus-within/volume:w-24",
+  "pointer-events-none group-hover/volume:ml-1.5 group-hover/volume:w-16 group-hover/volume:opacity-100 group-hover/volume:pointer-events-auto",
+  "group-focus-within/volume:ml-1.5 group-focus-within/volume:w-16 group-focus-within/volume:opacity-100 group-focus-within/volume:pointer-events-auto",
+  "sm:group-hover/volume:w-20 sm:group-focus-within/volume:w-20",
 )
 
 function clampVolume(value: number) {
@@ -604,8 +604,8 @@ export function VideoPreviewPane({
         )}
       </div>
 
-      <div className="shrink-0 border-t border-white/5 bg-[#0f0f0f] px-4 py-2.5">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="shrink-0 border-t border-white/5 bg-[#0f0f0f] px-3 py-1.5">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
           <Button
             type="button"
             variant="ghost"
@@ -615,10 +615,10 @@ export function VideoPreviewPane({
             aria-label={isPlaying ? t("library.workspace.preview.pause") : t("library.workspace.preview.play")}
             title={isPlaying ? t("library.workspace.preview.pause") : t("library.workspace.preview.play")}
           >
-            {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+            {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
           </Button>
-          <div className="flex min-w-[12rem] flex-1 items-center">
-            <span className="mr-2 shrink-0 font-mono text-2xs tabular-nums text-white/75">{formatCueTime(localPlayheadMs)}</span>
+          <div className="flex min-w-[10.5rem] flex-1 items-center">
+            <span className="mr-1.5 shrink-0 font-mono text-2xs tabular-nums text-white/75">{formatCueTime(localPlayheadMs)}</span>
             <input
               type="range"
               min={0}
@@ -628,7 +628,7 @@ export function VideoPreviewPane({
               aria-label={t("library.workspace.preview.seek")}
               className={`${PREVIEW_CONTROL_RANGE_CLASS} w-full`}
             />
-            <span className="ml-2 shrink-0 font-mono text-2xs tabular-nums text-white/75">{formatCueTime(durationMs)}</span>
+            <span className="ml-1.5 shrink-0 font-mono text-2xs tabular-nums text-white/75">{formatCueTime(durationMs)}</span>
           </div>
           <div className="group/volume flex shrink-0 items-center">
             <Button
@@ -640,7 +640,7 @@ export function VideoPreviewPane({
               aria-label={muteLabel}
               title={muteLabel}
             >
-              {muted || volume <= 0 ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+              {muted || volume <= 0 ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
             </Button>
             <input
               type="range"
@@ -664,7 +664,7 @@ export function VideoPreviewPane({
               aria-label={windowedFullscreenLabel}
               title={windowedFullscreenLabel}
             >
-              {windowedFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+              {windowedFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
             </Button>
             <Button
               type="button"
@@ -675,7 +675,7 @@ export function VideoPreviewPane({
               aria-label={screenFullscreenLabel}
               title={screenFullscreenLabel}
             >
-              {screenFullscreen ? <Minimize className="h-3.5 w-3.5" /> : <Maximize className="h-3.5 w-3.5" />}
+              {screenFullscreen ? <Minimize className="h-3 w-3" /> : <Maximize className="h-3 w-3" />}
             </Button>
           </div>
         </div>
