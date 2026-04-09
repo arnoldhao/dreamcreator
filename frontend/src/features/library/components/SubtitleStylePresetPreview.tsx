@@ -38,8 +38,6 @@ type SubtitleStylePresetPreviewProps = {
 }
 
 const PREVIEW_REQUEST_DEBOUNCE_MS = 80
-const PREVIEW_PRIMARY_TEXT = "DreamCreator 追创作 0214"
-const PREVIEW_SECONDARY_TEXT = "DreamCreator 追创作 0214"
 
 export function SubtitleStylePresetPreview({
   kind,
@@ -55,6 +53,8 @@ export function SubtitleStylePresetPreview({
   const [trackContent, setTrackContent] = React.useState("")
   const [renderedCues, setRenderedCues] = React.useState<RenderedPreviewCue[]>([])
   const [showReferenceGuides, setShowReferenceGuides] = React.useState(true)
+  const previewPrimaryText = t("library.config.subtitleStyles.previewPrimaryText")
+  const previewSecondaryText = t("library.config.subtitleStyles.previewSecondaryText")
 
   const baseResolution = React.useMemo(() => {
     if (kind === "bilingual" && bilingual) {
@@ -76,8 +76,10 @@ export function SubtitleStylePresetPreview({
         bilingual: bilingual ?? null,
         fontMappings,
         previewSize,
+        previewPrimaryText,
+        previewSecondaryText,
       }),
-    [bilingual, fontMappings, kind, mono, previewSize],
+    [bilingual, fontMappings, kind, mono, previewPrimaryText, previewSecondaryText, previewSize],
   )
   const previewRequestKey = React.useMemo(() => JSON.stringify(previewRequest), [previewRequest])
 
@@ -254,20 +256,24 @@ function buildPreviewRequest({
   bilingual,
   fontMappings,
   previewSize,
+  previewPrimaryText,
+  previewSecondaryText,
 }: {
   kind: "mono" | "bilingual"
   mono: LibraryMonoStyleDTO | null
   bilingual: LibraryBilingualStyleDTO | null
   fontMappings: LibrarySubtitleStyleFontDTO[]
   previewSize: PreviewSize
+  previewPrimaryText: string
+  previewSecondaryText: string
 }): GenerateSubtitleStylePreviewVTTBindingRequest {
   if (kind === "bilingual" && bilingual) {
     return {
       type: "bilingual",
       bilingual,
       fontMappings: normalizePreviewFontMappings(fontMappings),
-      primaryText: PREVIEW_PRIMARY_TEXT,
-      secondaryText: PREVIEW_SECONDARY_TEXT,
+      primaryText: previewPrimaryText,
+      secondaryText: previewSecondaryText,
       previewWidth: previewSize.width,
       previewHeight: previewSize.height,
     }
@@ -277,7 +283,7 @@ function buildPreviewRequest({
     type: "mono",
     mono: mono ?? undefined,
     fontMappings: normalizePreviewFontMappings(fontMappings),
-    primaryText: PREVIEW_PRIMARY_TEXT,
+    primaryText: previewPrimaryText,
     previewWidth: previewSize.width,
     previewHeight: previewSize.height,
   }

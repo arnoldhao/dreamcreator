@@ -2658,6 +2658,8 @@
         "exportFailedTitle": "Export Subtitle Style Failed",
         "selectExportFolder": "Select export folder",
         "previewInfoTitle": "Live Preview Info",
+        "previewPrimaryText": "DreamCreator creative flow 0214",
+        "previewSecondaryText": "DreamCreator creative flow 0214",
         "resolutionLabel": "Resolution",
         "currentResolutionLabel": "Current resolution",
         "monoStyleSectionTitle": "Font Style",

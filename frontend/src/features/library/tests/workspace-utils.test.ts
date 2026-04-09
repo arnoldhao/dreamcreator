@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
-import type { WorkspaceResolvedSubtitleRow } from "./types"
-import { resolveCurrentRow } from "./utils"
+import type { WorkspaceResolvedSubtitleRow } from "../components/workspace/types"
+import { resolveCurrentRow } from "../components/workspace/utils"
 
 function buildRow(id: string, startMs: number, endMs: number, index: number): WorkspaceResolvedSubtitleRow {
   return {

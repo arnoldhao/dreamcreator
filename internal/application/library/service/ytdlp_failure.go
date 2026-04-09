@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	ytdlpCheckStatusOK     = "ok"
-	ytdlpCheckStatusFailed = "failed"
+	ytdlpCheckStatusOK       = "ok"
+	ytdlpCheckStatusFailed   = "failed"
+	ytdlpVersionCheckTimeout = 10 * time.Second
 )
 
 const (
@@ -209,7 +210,7 @@ func (service *LibraryService) checkYTDLPVersion(ctx context.Context) (string, s
 	if err != nil {
 		return ytdlpCheckStatusFailed, err.Error()
 	}
-	versionCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	versionCtx, cancel := context.WithTimeout(ctx, ytdlpVersionCheckTimeout)
 	defer cancel()
 	output, err := execCommandOutput(versionCtx, execPath, "--version")
 	version := normalizeToolVersion(output)

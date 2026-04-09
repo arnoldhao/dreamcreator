@@ -77,7 +77,6 @@ import type {
   TranscodePreset,
   WorkspaceProjectDTO,
   YtdlpFormatOption,
-  YtdlpSubtitleOption,
 } from "@/shared/contracts/library"
 import { openTaskDialog } from "@/shared/store/taskDialog"
 import { useLibraryRealtimeStore, toOperationListItem } from "@/shared/store/libraryRealtime"
@@ -144,6 +143,17 @@ import { openLibraryWorkspace, useLibraryWorkspaceStore } from "./model/workspac
 import type { LibraryFileRow, LibraryProgress, LibraryTaskOutput, LibraryTaskRow, LibraryWorkspaceTarget } from "./model/types"
 import { formatBytes } from "./utils/format"
 import { formatTemplate } from "./utils/i18n"
+import {
+  buildAssetPreviewURL,
+  dedupeStrings,
+  extractExtensionFromPath,
+  formatDomainLabel,
+  formatSubtitleLabel,
+  getPathBaseName,
+  resolveDialogPath,
+  stripPathExtension,
+  toggleMultiFilterValue,
+} from "./utils/resourceHelpers"
 import { formatDuration, formatRelativeTime } from "./utils/time"
 import { resolvePresetName } from "./utils/transcodePresets"
 
@@ -4941,109 +4951,4 @@ function pickDefaultTranscodePreset(file: LibraryFileRow, presets: TranscodePres
     return presets.find((preset) => preset.outputType === "audio") ?? null
   }
   return presets.find((preset) => preset.outputType !== "audio") ?? null
-}
-
-function formatDomainLabel(domain?: string, url?: string) {
-  const raw = (domain ?? "").trim()
-  let host = raw
-  if (!host && url) {
-    try {
-      host = new URL(url).hostname
-    } catch {
-      host = ""
-    }
-  }
-  host = host.replace(/^www\./i, "")
-  if (!host) {
-    return ""
-  }
-  const parts = host.split(".")
-  const label = parts.length > 1 ? parts.slice(0, -1).join(".") : host
-  return label.toUpperCase()
-}
-
-function formatSubtitleLabel(subtitle: YtdlpSubtitleOption, t: Translator) {
-  const name = subtitle.name?.trim() || subtitle.language?.trim() || subtitle.id
-  const parts = [name]
-  if (subtitle.ext) {
-    parts.push(subtitle.ext.toUpperCase())
-  }
-  if (subtitle.isAuto) {
-    parts.push(t("library.download.subtitle.auto"))
-  }
-  return parts.filter(Boolean).join(" · ")
-}
-
-function resolveDialogPath(selection: unknown) {
-  if (typeof selection === "string") {
-    return selection.trim()
-  }
-  if (Array.isArray(selection) && typeof selection[0] === "string") {
-    return selection[0].trim()
-  }
-  return ""
-}
-
-function getPathBaseName(path: string) {
-  if (!path) {
-    return ""
-  }
-  const normalized = path.replace(/\\/g, "/")
-  return normalized.split("/").pop()?.trim() ?? ""
-}
-
-function extractExtensionFromPath(path: string) {
-  const baseName = getPathBaseName(path)
-  if (!baseName) {
-    return ""
-  }
-  const dotIndex = baseName.lastIndexOf(".")
-  if (dotIndex <= 0 || dotIndex >= baseName.length - 1) {
-    return ""
-  }
-  return baseName.slice(dotIndex + 1).trim().toLowerCase()
-}
-
-function stripPathExtension(fileName: string) {
-  if (!fileName) {
-    return ""
-  }
-  const dotIndex = fileName.lastIndexOf(".")
-  if (dotIndex <= 0) {
-    return fileName
-  }
-  return fileName.slice(0, dotIndex)
-}
-
-function dedupeStrings(values: string[]) {
-  const result: string[] = []
-  const seen = new Set<string>()
-  values.forEach((value) => {
-    const trimmed = value.trim()
-    if (!trimmed || seen.has(trimmed)) {
-      return
-    }
-    seen.add(trimmed)
-    result.push(trimmed)
-  })
-  return result
-}
-
-function toggleMultiFilterValue<T extends string>(current: T[], value: T, checked: boolean): T[] {
-  if (checked) {
-    if (current.includes(value)) {
-      return current
-    }
-    return [...current, value]
-  }
-  return current.filter((item) => item !== value)
-}
-
-function buildAssetPreviewURL(baseURL: string, path: string) {
-  if (!baseURL || !path) {
-    return ""
-  }
-  const trimmed = baseURL.replace(/\/+$/, "")
-  const previewName = path.replace(/\\/g, "/").split("/").pop()?.trim() || "asset"
-  return `${trimmed}/api/library/asset/${encodeURIComponent(previewName)}?path=${encodeURIComponent(path)}`
 }

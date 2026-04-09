@@ -37,8 +37,6 @@ func (stub *ytdlpFailureToolResolverStub) ToolReadiness(_ context.Context, _ ext
 }
 
 func TestCheckYTDLPVersionAcceptsVersionOutputEvenWhenProcessReturnsError(t *testing.T) {
-	t.Parallel()
-
 	execPath := writeVersionScript(t, "2026.03.17", true)
 	service := &LibraryService{
 		tools: &ytdlpFailureToolResolverStub{execPath: execPath},
