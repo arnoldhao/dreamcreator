@@ -305,8 +305,12 @@ export function NotificationsPanel({
 
   return (
     <Sheet open onOpenChange={(open) => (!open ? onClose() : undefined)}>
-      <SheetContent side="right" showCloseButton={false} className="w-[380px] gap-0 p-4 sm:max-w-[380px]">
-        <PanelCard tone="solid" className="flex min-h-0 w-full flex-1 flex-col">
+      <SheetContent
+        side="right"
+        showCloseButton={false}
+        className="flex h-full w-[380px] flex-col gap-0 overflow-hidden p-4 sm:max-w-[380px]"
+      >
+        <PanelCard tone="solid" className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
           <div className="border-b border-border/70 px-4 py-3">
             <div className="space-y-2">
               <div className="min-w-0">

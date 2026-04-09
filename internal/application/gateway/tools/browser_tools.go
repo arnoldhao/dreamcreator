@@ -151,7 +151,9 @@ type browserTabState struct {
 	TargetID string
 	Page     playwright.Page
 
-	refs map[string]browserSnapshotRef
+	mu             sync.RWMutex
+	refs           map[string]browserSnapshotRef
+	evaluateResult any
 }
 
 type browserSnapshotRef struct {
@@ -1249,17 +1251,13 @@ func browserActionAct(payload toolArgs, state *browserProfileState) (map[string]
 	return result, nil
 }
 
-var browserEvaluateResultStore sync.Map
-
 func tabResultFromEvaluate(tab *browserTabState) any {
 	if tab == nil {
 		return nil
 	}
-	value, ok := browserEvaluateResultStore.Load(tab.TargetID)
-	if !ok {
-		return nil
-	}
-	return value
+	tab.mu.RLock()
+	defer tab.mu.RUnlock()
+	return tab.evaluateResult
 }
 
 func browserActClick(tab *browserTabState, request toolArgs, payload toolArgs) error {
@@ -1604,7 +1602,9 @@ func browserActEvaluate(tab *browserTabState, request toolArgs, payload toolArgs
 	if err != nil {
 		return err
 	}
-	browserEvaluateResultStore.Store(tab.TargetID, result)
+	tab.mu.Lock()
+	tab.evaluateResult = result
+	tab.mu.Unlock()
 	return nil
 }
 

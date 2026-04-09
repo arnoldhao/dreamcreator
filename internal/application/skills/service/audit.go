@@ -154,10 +154,13 @@ func (service *SkillsService) appendSkillsAuditRecord(
 	}
 	skillsConfig["audit"] = auditEntries
 
-	_, _ = service.settings.UpdateSettings(ctx, settingsdto.UpdateSettingsRequest{
+	updated, err := service.settings.UpdateSettings(ctx, settingsdto.UpdateSettingsRequest{
 		Tools:  toolsConfig,
 		Skills: skillsConfig,
 	})
+	if err == nil {
+		service.notifySettingsUpdated(updated)
+	}
 }
 
 func resolveSkillsAuditMaxEntries(skillsConfig map[string]any) int {

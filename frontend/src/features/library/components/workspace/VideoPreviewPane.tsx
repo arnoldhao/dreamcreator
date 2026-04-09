@@ -2,17 +2,33 @@ import * as React from "react"
 import { MediaPlayer, MediaProvider } from "@vidstack/react"
 import type { AudioSrc, PlayerSrc, VideoSrc } from "@vidstack/react"
 import { Events, Window } from "@wailsio/runtime"
-import { CaptionsRenderer, parseText } from "media-captions"
-import { Maximize, Maximize2, Minimize, Minimize2, Pause, Play, Volume2, VolumeX } from "lucide-react"
+import { parseText } from "media-captions"
+import type { VTTCue } from "media-captions"
+import { Crosshair, Maximize, Maximize2, Minimize, Minimize2, Pause, Play, Volume2, VolumeX } from "lucide-react"
 
 import "@vidstack/react/player/styles/base.css"
-import "media-captions/styles/captions.css"
-import "media-captions/styles/regions.css"
 
 import { cn } from "@/lib/utils"
+import type {
+  LibraryBilingualStyleDTO,
+  LibraryMonoStyleDTO,
+  LibrarySubtitleStyleFontDTO,
+} from "@/shared/contracts/library"
 import { useI18n } from "@/shared/i18n"
 import { Button } from "@/shared/ui/button"
 
+import {
+  PreviewGuideLegend,
+  PreviewViewportBoundary,
+  RenderedFrameReferenceGuides,
+} from "../PreviewReferenceGuides"
+import {
+  buildCueDisplayStyle,
+  buildCueTextStyle,
+  buildRenderedPreviewCues,
+  normalizeBaseResolution,
+  resolvePreviewScale,
+} from "../previewCaptionRenderer"
 import { clampMs, formatCueTime } from "./utils"
 
 type VideoPreviewPaneProps = {
@@ -22,8 +38,10 @@ type VideoPreviewPaneProps = {
   playheadMs: number
   isPlaying: boolean
   previewVttContent: string
-  previewStylesheet?: string
-  captionsClassName?: string
+  displayMode: "single" | "dual"
+  monoStyle: LibraryMonoStyleDTO | null
+  lingualStyle: LibraryBilingualStyleDTO | null
+  fontMappings?: LibrarySubtitleStyleFontDTO[]
   onRenderedVideoSizeChange?: (size: { width: number; height: number }) => void
   onPlayheadChange: (value: number) => void
   onPlayingChange: (value: boolean) => void
@@ -33,13 +51,15 @@ const PREVIEW_SHELL_CLASS =
   "flex h-full min-h-0 flex-col overflow-hidden rounded-[18px] border border-border/70 bg-[#0b1118] text-white shadow-[0_20px_60px_-36px_rgba(15,23,42,0.65)]"
 const PREVIEW_CONTROL_BUTTON_CLASS =
   "rounded-full text-white/90 hover:bg-white/15 hover:text-white focus-visible:ring-white/50 focus-visible:ring-offset-0"
-const PREVIEW_CONTROL_RANGE_CLASS = "h-1 cursor-pointer accent-primary"
+const PREVIEW_CONTROL_RANGE_CLASS = "h-0.5 cursor-pointer accent-primary"
+const PLAYHEAD_PARENT_SYNC_INTERVAL_MS = 120
+const PLAYHEAD_PARENT_DRIFT_MS = 180
 const PREVIEW_VOLUME_RANGE_CLASS = cn(
   PREVIEW_CONTROL_RANGE_CLASS,
   "ml-0 w-0 min-w-0 opacity-0 transition-[margin,width,opacity] duration-150 ease-out",
-  "pointer-events-none group-hover/volume:ml-2 group-hover/volume:w-20 group-hover/volume:opacity-100 group-hover/volume:pointer-events-auto",
-  "group-focus-within/volume:ml-2 group-focus-within/volume:w-20 group-focus-within/volume:opacity-100 group-focus-within/volume:pointer-events-auto",
-  "sm:group-hover/volume:w-24 sm:group-focus-within/volume:w-24",
+  "pointer-events-none group-hover/volume:ml-1.5 group-hover/volume:w-16 group-hover/volume:opacity-100 group-hover/volume:pointer-events-auto",
+  "group-focus-within/volume:ml-1.5 group-focus-within/volume:w-16 group-focus-within/volume:opacity-100 group-focus-within/volume:pointer-events-auto",
+  "sm:group-hover/volume:w-20 sm:group-focus-within/volume:w-20",
 )
 
 function clampVolume(value: number) {
@@ -47,6 +67,10 @@ function clampVolume(value: number) {
     return 1
   }
   return Math.min(1, Math.max(0, value))
+}
+
+function normalizePlayhead(value: number, durationMs: number) {
+  return Math.round(clampMs(value, durationMs))
 }
 
 type MediaPlayerElement = React.ElementRef<typeof MediaPlayer>
@@ -59,8 +83,10 @@ export function VideoPreviewPane({
   playheadMs,
   isPlaying,
   previewVttContent,
-  previewStylesheet,
-  captionsClassName,
+  displayMode,
+  monoStyle,
+  lingualStyle,
+  fontMappings = [],
   onRenderedVideoSizeChange,
   onPlayheadChange,
   onPlayingChange,
@@ -69,18 +95,23 @@ export function VideoPreviewPane({
   const [playerElement, setPlayerElement] = React.useState<MediaPlayerElement | null>(null)
   const shellRef = React.useRef<HTMLDivElement | null>(null)
   const previewViewportRef = React.useRef<HTMLDivElement | null>(null)
-  const overlayRef = React.useRef<HTMLDivElement | null>(null)
-  const rendererRef = React.useRef<CaptionsRenderer | null>(null)
   const animationFrameRef = React.useRef<number>()
   const fullscreenModeRef = React.useRef<PreviewFullscreenMode | null>(null)
   const previousWindowedFullscreenRef = React.useRef(false)
   const lastNonZeroVolumeRef = React.useRef(1)
+  const [localPlayheadMs, setLocalPlayheadMs] = React.useState(() =>
+    normalizePlayhead(playheadMs, durationMs),
+  )
+  const localPlayheadMsRef = React.useRef(localPlayheadMs)
+  const lastCommittedPlayheadMsRef = React.useRef(localPlayheadMs)
   const [viewportSize, setViewportSize] = React.useState({ width: 0, height: 0 })
   const [mediaNaturalSize, setMediaNaturalSize] = React.useState({ width: 0, height: 0 })
+  const [parsedCues, setParsedCues] = React.useState<VTTCue[]>([])
   const [volume, setVolume] = React.useState(1)
   const [muted, setMuted] = React.useState(false)
   const [windowedFullscreen, setWindowedFullscreen] = React.useState(false)
   const [screenFullscreen, setScreenFullscreen] = React.useState(false)
+  const [showReferenceGuides, setShowReferenceGuides] = React.useState(true)
   const handlePlayerRef = React.useCallback((node: MediaPlayerElement | null) => {
     setPlayerElement(node)
   }, [])
@@ -152,6 +183,48 @@ export function VideoPreviewPane({
     setMuted(Boolean(player.muted))
   }, [playerElement])
 
+  const updateLocalPlayhead = React.useCallback(
+    (value: number) => {
+      const next = normalizePlayhead(value, durationMs)
+      localPlayheadMsRef.current = next
+      setLocalPlayheadMs((current) => (current === next ? current : next))
+      return next
+    },
+    [durationMs],
+  )
+
+  const syncPlayheadToParent = React.useCallback(
+    (value: number, force = false) => {
+      const next = normalizePlayhead(value, durationMs)
+      if (!force && next === lastCommittedPlayheadMsRef.current) {
+        return next
+      }
+      lastCommittedPlayheadMsRef.current = next
+      onPlayheadChange(next)
+      return next
+    },
+    [durationMs, onPlayheadChange],
+  )
+
+  React.useEffect(() => {
+    const next = normalizePlayhead(playheadMs, durationMs)
+    const shouldIgnoreOwnSync =
+      next === lastCommittedPlayheadMsRef.current &&
+      Math.abs(next - localPlayheadMsRef.current) <= PLAYHEAD_PARENT_DRIFT_MS
+    if (shouldIgnoreOwnSync) {
+      return
+    }
+    updateLocalPlayhead(next)
+    lastCommittedPlayheadMsRef.current = next
+  }, [durationMs, mediaUrl, playheadMs, updateLocalPlayhead])
+
+  React.useEffect(() => {
+    if (isPlaying || localPlayheadMsRef.current === lastCommittedPlayheadMsRef.current) {
+      return
+    }
+    syncPlayheadToParent(localPlayheadMsRef.current, true)
+  }, [isPlaying, syncPlayheadToParent])
+
   React.useEffect(() => {
     const player = playerElement
     if (!player) {
@@ -191,57 +264,62 @@ export function VideoPreviewPane({
     onRenderedVideoSizeChange?.(fittedViewportSize)
   }, [fittedViewportSize, onRenderedVideoSizeChange])
 
-  React.useEffect(() => {
-    const overlay = overlayRef.current
-    if (!overlay) {
-      return
+  const effectiveMonoStyle = React.useMemo(() => monoStyle ?? buildWorkspacePreviewDefaultMonoStyle(), [monoStyle])
+
+  const effectiveLingualStyle = React.useMemo(
+    () => lingualStyle ?? buildWorkspacePreviewFallbackLingualStyle(effectiveMonoStyle),
+    [effectiveMonoStyle, lingualStyle],
+  )
+
+  const previewBaseResolution = React.useMemo(() => {
+    if (displayMode === "dual") {
+      return normalizeBaseResolution(effectiveLingualStyle.basePlayResX, effectiveLingualStyle.basePlayResY)
     }
-    const renderer = new CaptionsRenderer(overlay, { dir: "ltr" })
-    rendererRef.current = renderer
-    return () => {
-      rendererRef.current = null
-      renderer.destroy()
-    }
-  }, [])
+    return normalizeBaseResolution(effectiveMonoStyle.basePlayResX, effectiveMonoStyle.basePlayResY)
+  }, [displayMode, effectiveLingualStyle.basePlayResX, effectiveLingualStyle.basePlayResY, effectiveMonoStyle.basePlayResX, effectiveMonoStyle.basePlayResY])
+
+  const previewScale = React.useMemo(
+    () => resolvePreviewScale(previewBaseResolution, fittedViewportSize),
+    [fittedViewportSize, previewBaseResolution],
+  )
 
   React.useEffect(() => {
-    const renderer = rendererRef.current
-    if (!renderer) {
-      return
-    }
     let disposed = false
     const content = previewVttContent.trim()
     if (!content) {
-      renderer.reset()
+      setParsedCues([])
       return
     }
     void parseText(content, { type: "vtt" })
       .then((track) => {
-        if (disposed || rendererRef.current !== renderer) {
+        if (disposed) {
           return
         }
-        renderer.changeTrack(track)
-        renderer.currentTime = playheadMs / 1000
-        renderer.update(true)
+        setParsedCues(track.cues)
       })
       .catch(() => {
-        if (!disposed) {
-          renderer.reset()
+        if (disposed) {
+          return
         }
+        setParsedCues([])
       })
     return () => {
       disposed = true
     }
   }, [previewVttContent])
 
-  React.useEffect(() => {
-    const renderer = rendererRef.current
-    if (!renderer) {
-      return
-    }
-    renderer.currentTime = playheadMs / 1000
-    renderer.update(true)
-  }, [playheadMs])
+  const renderedCues = React.useMemo(
+    () =>
+      buildRenderedPreviewCues({
+        cues: parsedCues,
+        kind: displayMode === "dual" ? "bilingual" : "mono",
+        mono: effectiveMonoStyle,
+        bilingual: effectiveLingualStyle,
+        currentTimeSeconds: localPlayheadMs / 1000,
+        latestOnlyPerKey: true,
+      }),
+    [displayMode, effectiveLingualStyle, effectiveMonoStyle, localPlayheadMs, parsedCues],
+  )
 
   React.useEffect(() => {
     const player = playerElement
@@ -249,10 +327,10 @@ export function VideoPreviewPane({
       return
     }
     const currentTime = Number(player.currentTime || 0) * 1000
-    if (Math.abs(currentTime - playheadMs) > 180) {
-      player.currentTime = playheadMs / 1000
+    if (Math.abs(currentTime - localPlayheadMs) > PLAYHEAD_PARENT_DRIFT_MS) {
+      player.currentTime = localPlayheadMs / 1000
     }
-  }, [mediaUrl, playheadMs, playerElement])
+  }, [localPlayheadMs, mediaUrl, playerElement])
 
   React.useEffect(() => {
     const player = playerElement
@@ -282,11 +360,14 @@ export function VideoPreviewPane({
       if (!player) {
         return
       }
-      const next = clampMs(Number(player.currentTime || 0) * 1000, durationMs)
-      onPlayheadChange(next)
+      const next = updateLocalPlayhead(Number(player.currentTime || 0) * 1000)
       if (next >= durationMs) {
+        syncPlayheadToParent(next, true)
         onPlayingChange(false)
         return
+      }
+      if (Math.abs(next - lastCommittedPlayheadMsRef.current) >= PLAYHEAD_PARENT_SYNC_INTERVAL_MS) {
+        syncPlayheadToParent(next)
       }
       animationFrameRef.current = requestAnimationFrame(tick)
     }
@@ -298,7 +379,7 @@ export function VideoPreviewPane({
         animationFrameRef.current = undefined
       }
     }
-  }, [durationMs, isPlaying, mediaUrl, onPlayheadChange, onPlayingChange, playerElement])
+  }, [durationMs, isPlaying, mediaUrl, onPlayingChange, playerElement, syncPlayheadToParent, updateLocalPlayhead])
 
   React.useEffect(() => {
     const restoreWindowedFullscreenAfterScreenExit = () => {
@@ -356,6 +437,11 @@ export function VideoPreviewPane({
 
   const handleTogglePlay = () => {
     onPlayingChange(!isPlaying)
+  }
+
+  const handlePlayheadChange = (value: number) => {
+    const next = updateLocalPlayhead(value)
+    syncPlayheadToParent(next, true)
   }
 
   const handleToggleMute = () => {
@@ -458,6 +544,9 @@ export function VideoPreviewPane({
   const screenFullscreenLabel = screenFullscreen
     ? t("library.workspace.preview.exitFullscreen")
     : t("library.workspace.preview.enterFullscreen")
+  const referenceGuidesLabel = showReferenceGuides
+    ? t("library.workspace.preview.hideReferenceGuides")
+    : t("library.workspace.preview.showReferenceGuides")
 
   return (
     <div
@@ -468,15 +557,21 @@ export function VideoPreviewPane({
         screenFullscreen && "rounded-none border-0 shadow-none",
       )}
     >
-      {previewStylesheet ? <style>{previewStylesheet}</style> : null}
       <div className={cn("relative min-h-0 flex-1 bg-black p-3", (windowedFullscreen || screenFullscreen) && "p-0")}>
         {mediaUrl ? (
           <div ref={previewViewportRef} className="relative h-full w-full overflow-hidden bg-black">
+            {showReferenceGuides ? (
+              <>
+                <PreviewViewportBoundary />
+                <PreviewGuideLegend viewportSize={viewportSize} renderedSize={fittedViewportSize} />
+              </>
+            ) : null}
             <div
               className="absolute left-1/2 top-1/2 overflow-hidden -translate-x-1/2 -translate-y-1/2"
               style={fittedViewportStyle}
             >
               <div className="relative h-full w-full overflow-hidden">
+                {showReferenceGuides ? <RenderedFrameReferenceGuides /> : null}
                 <MediaPlayer
                   ref={handlePlayerRef}
                   src={playerSource}
@@ -494,11 +589,20 @@ export function VideoPreviewPane({
                     }}
                   />
                 </MediaPlayer>
-                <div
-                  ref={overlayRef}
-                  className={`pointer-events-none absolute inset-0 z-10 ${captionsClassName ?? ""}`.trim()}
-                  style={{ "--overlay-padding": "0" } as React.CSSProperties}
-                />
+                <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
+                  {renderedCues.map((cue) => (
+                    <div
+                      key={`${cue.key}:${cue.html}`}
+                      className="absolute overflow-visible"
+                      style={buildCueDisplayStyle(cue.style, previewScale)}
+                    >
+                      <div
+                        style={buildCueTextStyle(cue.style, fontMappings, previewScale)}
+                        dangerouslySetInnerHTML={{ __html: cue.html }}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -516,8 +620,8 @@ export function VideoPreviewPane({
         )}
       </div>
 
-      <div className="shrink-0 border-t border-white/5 bg-[#0f0f0f] px-4 py-2.5">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="shrink-0 border-t border-white/5 bg-[#0f0f0f] px-3 py-1.5">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
           <Button
             type="button"
             variant="ghost"
@@ -527,20 +631,20 @@ export function VideoPreviewPane({
             aria-label={isPlaying ? t("library.workspace.preview.pause") : t("library.workspace.preview.play")}
             title={isPlaying ? t("library.workspace.preview.pause") : t("library.workspace.preview.play")}
           >
-            {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+            {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
           </Button>
-          <div className="flex min-w-[12rem] flex-1 items-center">
-            <span className="mr-2 shrink-0 font-mono text-xs tabular-nums text-white/75">{formatCueTime(playheadMs)}</span>
+          <div className="flex min-w-[10.5rem] flex-1 items-center">
+            <span className="mr-1.5 shrink-0 font-mono text-2xs tabular-nums text-white/75">{formatCueTime(localPlayheadMs)}</span>
             <input
               type="range"
               min={0}
               max={durationMs || 1}
-              value={Math.min(playheadMs, durationMs || 1)}
-              onChange={(event) => onPlayheadChange(Number(event.target.value))}
+              value={Math.min(localPlayheadMs, durationMs || 1)}
+              onChange={(event) => handlePlayheadChange(Number(event.target.value))}
               aria-label={t("library.workspace.preview.seek")}
               className={`${PREVIEW_CONTROL_RANGE_CLASS} w-full`}
             />
-            <span className="ml-2 shrink-0 font-mono text-xs tabular-nums text-white/75">{formatCueTime(durationMs)}</span>
+            <span className="ml-1.5 shrink-0 font-mono text-2xs tabular-nums text-white/75">{formatCueTime(durationMs)}</span>
           </div>
           <div className="group/volume flex shrink-0 items-center">
             <Button
@@ -552,7 +656,7 @@ export function VideoPreviewPane({
               aria-label={muteLabel}
               title={muteLabel}
             >
-              {muted || volume <= 0 ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+              {muted || volume <= 0 ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
             </Button>
             <input
               type="range"
@@ -566,6 +670,17 @@ export function VideoPreviewPane({
               className={PREVIEW_VOLUME_RANGE_CLASS}
             />
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="compactIcon"
+            className={cn(PREVIEW_CONTROL_BUTTON_CLASS, showReferenceGuides && "bg-white/15 text-white")}
+            onClick={() => setShowReferenceGuides((value) => !value)}
+            aria-label={referenceGuidesLabel}
+            title={referenceGuidesLabel}
+          >
+            <Crosshair className="h-3 w-3" />
+          </Button>
           <div className="flex shrink-0 items-center gap-2">
             <Button
               type="button"
@@ -576,7 +691,7 @@ export function VideoPreviewPane({
               aria-label={windowedFullscreenLabel}
               title={windowedFullscreenLabel}
             >
-              {windowedFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+              {windowedFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
             </Button>
             <Button
               type="button"
@@ -587,11 +702,72 @@ export function VideoPreviewPane({
               aria-label={screenFullscreenLabel}
               title={screenFullscreenLabel}
             >
-              {screenFullscreen ? <Minimize className="h-3.5 w-3.5" /> : <Maximize className="h-3.5 w-3.5" />}
+              {screenFullscreen ? <Minimize className="h-3 w-3" /> : <Maximize className="h-3 w-3" />}
             </Button>
           </div>
         </div>
       </div>
     </div>
   )
+}
+
+function buildWorkspacePreviewDefaultMonoStyle(): LibraryMonoStyleDTO {
+  return {
+    id: "workspace-mono-default",
+    name: "Workspace Mono",
+    basePlayResX: 1920,
+    basePlayResY: 1080,
+    baseAspectRatio: "16:9",
+    style: {
+      fontname: "Arial",
+      fontsize: 48,
+      primaryColour: "&H00FFFFFF",
+      secondaryColour: "&H00FFFFFF",
+      outlineColour: "&H00111111",
+      backColour: "&HFF111111",
+      bold: false,
+      italic: false,
+      underline: false,
+      strikeOut: false,
+      scaleX: 100,
+      scaleY: 100,
+      spacing: 0,
+      angle: 0,
+      borderStyle: 1,
+      outline: 2,
+      shadow: 0,
+      alignment: 2,
+      marginL: 72,
+      marginR: 72,
+      marginV: 56,
+      encoding: 1,
+    },
+  }
+}
+
+function buildWorkspacePreviewFallbackLingualStyle(mono: LibraryMonoStyleDTO): LibraryBilingualStyleDTO {
+  const primarySnapshot = {
+    sourceMonoStyleID: mono.id,
+    sourceMonoStyleName: mono.name,
+    name: mono.name || "Primary",
+    basePlayResX: mono.basePlayResX,
+    basePlayResY: mono.basePlayResY,
+    baseAspectRatio: mono.baseAspectRatio,
+    style: { ...mono.style },
+  }
+  const secondarySnapshot = { ...primarySnapshot, style: { ...primarySnapshot.style } }
+
+  return {
+    id: "workspace-lingual-fallback",
+    name: "Workspace Lingual",
+    basePlayResX: mono.basePlayResX,
+    basePlayResY: mono.basePlayResY,
+    baseAspectRatio: mono.baseAspectRatio,
+    primary: primarySnapshot,
+    secondary: secondarySnapshot,
+    layout: {
+      gap: 24,
+      blockAnchor: 2,
+    },
+  }
 }

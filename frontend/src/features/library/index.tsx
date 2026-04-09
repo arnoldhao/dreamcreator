@@ -77,7 +77,6 @@ import type {
   TranscodePreset,
   WorkspaceProjectDTO,
   YtdlpFormatOption,
-  YtdlpSubtitleOption,
 } from "@/shared/contracts/library"
 import { openTaskDialog } from "@/shared/store/taskDialog"
 import { useLibraryRealtimeStore, toOperationListItem } from "@/shared/store/libraryRealtime"
@@ -144,6 +143,17 @@ import { openLibraryWorkspace, useLibraryWorkspaceStore } from "./model/workspac
 import type { LibraryFileRow, LibraryProgress, LibraryTaskOutput, LibraryTaskRow, LibraryWorkspaceTarget } from "./model/types"
 import { formatBytes } from "./utils/format"
 import { formatTemplate } from "./utils/i18n"
+import {
+  buildAssetPreviewURL,
+  dedupeStrings,
+  extractExtensionFromPath,
+  formatDomainLabel,
+  formatSubtitleLabel,
+  getPathBaseName,
+  resolveDialogPath,
+  stripPathExtension,
+  toggleMultiFilterValue,
+} from "./utils/resourceHelpers"
 import { formatDuration, formatRelativeTime } from "./utils/time"
 import { resolvePresetName } from "./utils/transcodePresets"
 
@@ -819,10 +829,22 @@ export function LibraryPage() {
   )
   const selectedTaskCount = selectedTaskIDs.length
 
-  const fileRows = React.useMemo(() => {
+  const allFileRows = React.useMemo(() => {
     const rows = displayFiles.map((file) => toFileRowFromDTO(file, operationsById, labels))
-    return filterFilesForTable(sortByCreatedAtDesc(rows), searchQuery)
-  }, [displayFiles, labels, operationsById, searchQuery])
+    return sortByCreatedAtDesc(rows)
+  }, [displayFiles, labels, operationsById])
+  const fileRows = React.useMemo(
+    () => filterFilesForTable(allFileRows, searchQuery),
+    [allFileRows, searchQuery],
+  )
+  const overviewFileRows = React.useMemo(
+    () => filterFilesByResourceTypeAndStatus(allFileRows, "all", "active"),
+    [allFileRows],
+  )
+  const overviewSuccessTaskRows = React.useMemo(
+    () => allTaskRows.filter((task) => isTerminalTaskStatus(task.status)),
+    [allTaskRows],
+  )
 
   const resourceRows = React.useMemo(
     () => filterFilesByResourceTypeAndStatus(fileRows, resourceFileTypeFilter, resourceFileStatusFilter),
@@ -872,11 +894,61 @@ export function LibraryPage() {
     [resourceFocusedLibraryId, resourceLibraries],
   )
 
+  const openOverviewResourceFiles = React.useCallback(() => {
+    setPageTab("resources")
+    setSearchQuery("")
+    setResourceViewMode("file")
+    setResourceFileTypeFilter("all")
+    setResourceFileStatusFilter("active")
+    setResourceFocusedLibraryId("")
+    setFileSelectionMode(false)
+    setFileRowSelection({})
+  }, [])
+  const openOverviewTaskList = React.useCallback((statuses: TaskStatusFilter[] = []) => {
+    setPageTab("tasks")
+    setSearchQuery("")
+    setTaskStatusFilters(statuses)
+    setTaskTypeFilters([])
+    setTaskSelectionMode(false)
+    setTaskRowSelection({})
+  }, [])
+  const handleOpenOverviewOperations = React.useCallback(() => {
+    openOverviewTaskList()
+  }, [openOverviewTaskList])
+  const handleOpenOverviewSuccess = React.useCallback(() => {
+    openOverviewTaskList(["succeeded", "failed", "canceled"])
+  }, [openOverviewTaskList])
+
   const overviewCards = React.useMemo(
-    () => buildOverviewCards(taskRows, fileRows, libraryOptions.length, t),
-    [fileRows, libraryOptions.length, t, taskRows],
+    () =>
+      buildOverviewCards(
+        allTaskRows,
+        overviewSuccessTaskRows,
+        overviewFileRows,
+        libraryOptions.length,
+        t,
+        {
+          files: openOverviewResourceFiles,
+          operations: handleOpenOverviewOperations,
+          success: handleOpenOverviewSuccess,
+          storage: openOverviewResourceFiles,
+        },
+      ),
+    [
+      allTaskRows,
+      handleOpenOverviewOperations,
+      handleOpenOverviewSuccess,
+      libraryOptions.length,
+      openOverviewResourceFiles,
+      overviewFileRows,
+      overviewSuccessTaskRows,
+      t,
+    ],
   )
-  const overviewTrendData = React.useMemo(() => buildLibraryTrendData(taskRows, chartGranularity), [chartGranularity, taskRows])
+  const overviewTrendData = React.useMemo(
+    () => buildLibraryTrendData(allTaskRows, chartGranularity),
+    [allTaskRows, chartGranularity],
+  )
 
   const baseTaskColumns = React.useMemo<ColumnDef<LibraryTaskRow>[]>(
     () =>
@@ -4674,12 +4746,24 @@ function columnsToOptions<TData>(columns: Array<{ id?: string; accessorKey?: str
     .filter((column) => column.id)
 }
 
-function buildOverviewCards(tasks: LibraryTaskRow[], files: LibraryFileRow[], libraryCount: number, t: Translator) {
-  const succeeded = tasks.filter((task) => task.status === "succeeded").length
+function buildOverviewCards(
+  tasks: LibraryTaskRow[],
+  successTasks: LibraryTaskRow[],
+  files: LibraryFileRow[],
+  libraryCount: number,
+  t: Translator,
+  actions: {
+    files: () => void
+    operations: () => void
+    success: () => void
+    storage: () => void
+  },
+) {
+  const succeeded = successTasks.filter((task) => task.status === "succeeded").length
   const running = tasks.filter((task) => task.status === "running").length
   const queued = tasks.filter((task) => task.status === "queued").length
   const totalSize = files.reduce((sum, file) => sum + (file.sizeBytes ?? 0), 0)
-  const successRate = tasks.length > 0 ? Math.round((succeeded / tasks.length) * 100) : 0
+  const successRate = successTasks.length > 0 ? Math.round((succeeded / successTasks.length) * 100) : 0
   const recentCount = countRecentTasks(tasks, 7)
   return [
     {
@@ -4688,6 +4772,7 @@ function buildOverviewCards(tasks: LibraryTaskRow[], files: LibraryFileRow[], li
       value: String(files.length),
       detail: formatTemplate(t("library.overview.card.filesDetail"), { count: libraryCount }),
       icon: Database,
+      onClick: actions.files,
     },
     {
       id: "operations",
@@ -4695,6 +4780,7 @@ function buildOverviewCards(tasks: LibraryTaskRow[], files: LibraryFileRow[], li
       value: String(tasks.length),
       detail: formatTemplate(t("library.overview.card.operationsDetail"), { count: running + queued }),
       icon: ListChecks,
+      onClick: actions.operations,
     },
     {
       id: "success",
@@ -4702,6 +4788,7 @@ function buildOverviewCards(tasks: LibraryTaskRow[], files: LibraryFileRow[], li
       value: `${successRate}%`,
       detail: formatTemplate(t("library.overview.card.successDetail"), { count: succeeded }),
       icon: Activity,
+      onClick: actions.success,
     },
     {
       id: "storage",
@@ -4709,6 +4796,7 @@ function buildOverviewCards(tasks: LibraryTaskRow[], files: LibraryFileRow[], li
       value: totalSize > 0 ? formatBytes(totalSize) : "-",
       detail: formatTemplate(t("library.overview.card.storageDetail"), { count: recentCount }),
       icon: Sparkles,
+      onClick: actions.storage,
     },
   ]
 }
@@ -4763,6 +4851,11 @@ function resolveTaskTimestamp(task: LibraryTaskRow) {
 function countRecentTasks(tasks: LibraryTaskRow[], days: number) {
   const threshold = Date.now() - days * 24 * 60 * 60 * 1000
   return tasks.filter((task) => resolveTaskTimestamp(task) >= threshold).length
+}
+
+function isTerminalTaskStatus(status: string) {
+  const normalized = status.trim().toLowerCase()
+  return normalized === "succeeded" || normalized === "failed" || normalized === "canceled"
 }
 
 function resolveErrorMessage(error: unknown, fallback = "Unknown error") {
@@ -4858,109 +4951,4 @@ function pickDefaultTranscodePreset(file: LibraryFileRow, presets: TranscodePres
     return presets.find((preset) => preset.outputType === "audio") ?? null
   }
   return presets.find((preset) => preset.outputType !== "audio") ?? null
-}
-
-function formatDomainLabel(domain?: string, url?: string) {
-  const raw = (domain ?? "").trim()
-  let host = raw
-  if (!host && url) {
-    try {
-      host = new URL(url).hostname
-    } catch {
-      host = ""
-    }
-  }
-  host = host.replace(/^www\./i, "")
-  if (!host) {
-    return ""
-  }
-  const parts = host.split(".")
-  const label = parts.length > 1 ? parts.slice(0, -1).join(".") : host
-  return label.toUpperCase()
-}
-
-function formatSubtitleLabel(subtitle: YtdlpSubtitleOption, t: Translator) {
-  const name = subtitle.name?.trim() || subtitle.language?.trim() || subtitle.id
-  const parts = [name]
-  if (subtitle.ext) {
-    parts.push(subtitle.ext.toUpperCase())
-  }
-  if (subtitle.isAuto) {
-    parts.push(t("library.download.subtitle.auto"))
-  }
-  return parts.filter(Boolean).join(" · ")
-}
-
-function resolveDialogPath(selection: unknown) {
-  if (typeof selection === "string") {
-    return selection.trim()
-  }
-  if (Array.isArray(selection) && typeof selection[0] === "string") {
-    return selection[0].trim()
-  }
-  return ""
-}
-
-function getPathBaseName(path: string) {
-  if (!path) {
-    return ""
-  }
-  const normalized = path.replace(/\\/g, "/")
-  return normalized.split("/").pop()?.trim() ?? ""
-}
-
-function extractExtensionFromPath(path: string) {
-  const baseName = getPathBaseName(path)
-  if (!baseName) {
-    return ""
-  }
-  const dotIndex = baseName.lastIndexOf(".")
-  if (dotIndex <= 0 || dotIndex >= baseName.length - 1) {
-    return ""
-  }
-  return baseName.slice(dotIndex + 1).trim().toLowerCase()
-}
-
-function stripPathExtension(fileName: string) {
-  if (!fileName) {
-    return ""
-  }
-  const dotIndex = fileName.lastIndexOf(".")
-  if (dotIndex <= 0) {
-    return fileName
-  }
-  return fileName.slice(0, dotIndex)
-}
-
-function dedupeStrings(values: string[]) {
-  const result: string[] = []
-  const seen = new Set<string>()
-  values.forEach((value) => {
-    const trimmed = value.trim()
-    if (!trimmed || seen.has(trimmed)) {
-      return
-    }
-    seen.add(trimmed)
-    result.push(trimmed)
-  })
-  return result
-}
-
-function toggleMultiFilterValue<T extends string>(current: T[], value: T, checked: boolean): T[] {
-  if (checked) {
-    if (current.includes(value)) {
-      return current
-    }
-    return [...current, value]
-  }
-  return current.filter((item) => item !== value)
-}
-
-function buildAssetPreviewURL(baseURL: string, path: string) {
-  if (!baseURL || !path) {
-    return ""
-  }
-  const trimmed = baseURL.replace(/\/+$/, "")
-  const previewName = path.replace(/\\/g, "/").split("/").pop()?.trim() || "asset"
-  return `${trimmed}/api/library/asset/${encodeURIComponent(previewName)}?path=${encodeURIComponent(path)}`
 }

@@ -18,6 +18,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 
 const DRACO_DECODER_PATH = "/three/draco/";
 const KTX2_TRANSCODER_PATH = "/three/basis/";
+const CONTROL_SETTLE_FRAME_COUNT = 18;
 
 interface Avatar3DViewerProps {
   src: string;
@@ -40,8 +41,102 @@ export function Avatar3DViewer({ src, motionSrc, className, canvasClassName }: A
   const currentVrmRef = React.useRef<VRM | null>(null);
   const mixerRef = React.useRef<THREE.AnimationMixer | null>(null);
   const resizeObserverRef = React.useRef<ResizeObserver | null>(null);
+  const intersectionObserverRef = React.useRef<IntersectionObserver | null>(null);
   const motionTokenRef = React.useRef(0);
+  const renderLoopActiveRef = React.useRef(false);
+  const interactionActiveRef = React.useRef(false);
+  const settleFramesRef = React.useRef(0);
+  const pageVisibleRef = React.useRef(typeof document === "undefined" ? true : document.visibilityState === "visible");
+  const viewportVisibleRef = React.useRef(true);
   const [state, setState] = React.useState<LoadState>("idle");
+
+  const canRender = React.useCallback(() => {
+    return Boolean(rendererRef.current && sceneRef.current && cameraRef.current) && pageVisibleRef.current && viewportVisibleRef.current;
+  }, []);
+
+  const renderScene = React.useCallback((delta = 0) => {
+    const renderer = rendererRef.current;
+    const scene = sceneRef.current;
+    const camera = cameraRef.current;
+    if (!renderer || !scene || !camera) {
+      return;
+    }
+    if (delta > 0 && currentVrmRef.current) {
+      currentVrmRef.current.update(delta);
+    }
+    if (delta > 0 && mixerRef.current) {
+      mixerRef.current.update(delta);
+    }
+    controlsRef.current?.update();
+    renderer.render(scene, camera);
+  }, []);
+
+  const stopRenderLoop = React.useCallback(() => {
+    if (frameRef.current !== null) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+    renderLoopActiveRef.current = false;
+    if (clockRef.current.running) {
+      clockRef.current.stop();
+    }
+  }, []);
+
+  const renderLoopRef = React.useRef<() => void>(() => {});
+
+  const ensureRenderLoop = React.useCallback(() => {
+    if (renderLoopActiveRef.current || !canRender()) {
+      return;
+    }
+    renderLoopActiveRef.current = true;
+    if (!clockRef.current.running) {
+      clockRef.current.start();
+    }
+    frameRef.current = requestAnimationFrame(() => {
+      renderLoopRef.current();
+    });
+  }, [canRender]);
+
+  const requestRender = React.useCallback(
+    (settleFrames = 0) => {
+      if (settleFrames > 0) {
+        settleFramesRef.current = Math.max(settleFramesRef.current, settleFrames);
+      }
+      if (!canRender()) {
+        return;
+      }
+      if (renderLoopActiveRef.current) {
+        return;
+      }
+      if (mixerRef.current || interactionActiveRef.current || settleFramesRef.current > 0) {
+        ensureRenderLoop();
+        return;
+      }
+      renderScene(0);
+    },
+    [canRender, ensureRenderLoop, renderScene],
+  );
+
+  renderLoopRef.current = () => {
+    if (!canRender()) {
+      stopRenderLoop();
+      return;
+    }
+    const settleFrames = settleFramesRef.current;
+    const delta = clockRef.current.getDelta();
+    renderScene(delta);
+    if (!interactionActiveRef.current && settleFrames > 0) {
+      settleFramesRef.current = settleFrames - 1;
+    }
+    if (mixerRef.current || interactionActiveRef.current || settleFramesRef.current > 0) {
+      frameRef.current = requestAnimationFrame(() => {
+        renderLoopRef.current();
+      });
+      renderLoopActiveRef.current = true;
+      return;
+    }
+    stopRenderLoop();
+  };
 
   React.useEffect(() => {
     const container = containerRef.current;
@@ -69,6 +164,21 @@ export function Avatar3DViewer({ src, motionSrc, className, canvasClassName }: A
     controls.enablePan = false;
     controlsRef.current = controls;
 
+    const handleControlsStart = () => {
+      interactionActiveRef.current = true;
+      ensureRenderLoop();
+    };
+    const handleControlsChange = () => {
+      requestRender(interactionActiveRef.current ? 0 : 1);
+    };
+    const handleControlsEnd = () => {
+      interactionActiveRef.current = false;
+      requestRender(controls.enableDamping ? CONTROL_SETTLE_FRAME_COUNT : 1);
+    };
+    controls.addEventListener("start", handleControlsStart);
+    controls.addEventListener("change", handleControlsChange);
+    controls.addEventListener("end", handleControlsEnd);
+
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
     hemiLight.position.set(0, 2, 0);
     scene.add(hemiLight);
@@ -80,20 +190,7 @@ export function Avatar3DViewer({ src, motionSrc, className, canvasClassName }: A
     rendererRef.current = renderer;
     sceneRef.current = scene;
     cameraRef.current = camera;
-
-    const render = () => {
-      frameRef.current = requestAnimationFrame(render);
-      const delta = clockRef.current.getDelta();
-      if (currentVrmRef.current) {
-        currentVrmRef.current.update(delta);
-      }
-      if (mixerRef.current) {
-        mixerRef.current.update(delta);
-      }
-      controlsRef.current?.update();
-      renderer.render(scene, camera);
-    };
-    render();
+    requestRender();
 
     const resizeObserver = new ResizeObserver(() => {
       const nextWidth = container.clientWidth || 1;
@@ -101,14 +198,42 @@ export function Avatar3DViewer({ src, motionSrc, className, canvasClassName }: A
       renderer.setSize(nextWidth, nextHeight);
       camera.aspect = nextWidth / nextHeight;
       camera.updateProjectionMatrix();
+      requestRender();
     });
     resizeObserver.observe(container);
     resizeObserverRef.current = resizeObserver;
 
-    return () => {
-      if (frameRef.current !== null) {
-        cancelAnimationFrame(frameRef.current);
+    const handleVisibilityChange = () => {
+      pageVisibleRef.current = document.visibilityState === "visible";
+      if (!pageVisibleRef.current) {
+        stopRenderLoop();
+        return;
       }
+      requestRender();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    if ("IntersectionObserver" in window) {
+      const intersectionObserver = new IntersectionObserver(
+        ([entry]) => {
+          viewportVisibleRef.current = entry?.isIntersecting ?? true;
+          if (!viewportVisibleRef.current) {
+            stopRenderLoop();
+            return;
+          }
+          requestRender();
+        },
+        { threshold: 0.01 },
+      );
+      intersectionObserver.observe(container);
+      intersectionObserverRef.current = intersectionObserver;
+    }
+
+    return () => {
+      stopRenderLoop();
+      controls.removeEventListener("start", handleControlsStart);
+      controls.removeEventListener("change", handleControlsChange);
+      controls.removeEventListener("end", handleControlsEnd);
       if (currentObjectRef.current) {
         scene.remove(currentObjectRef.current);
         disposeObject(currentObjectRef.current);
@@ -118,8 +243,11 @@ export function Avatar3DViewer({ src, motionSrc, className, canvasClassName }: A
         controlsRef.current.dispose();
         controlsRef.current = null;
       }
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       resizeObserver.disconnect();
       resizeObserverRef.current = null;
+      intersectionObserverRef.current?.disconnect();
+      intersectionObserverRef.current = null;
       renderer.dispose();
       renderer.forceContextLoss();
       renderer.domElement.remove();
@@ -203,10 +331,11 @@ export function Avatar3DViewer({ src, motionSrc, className, canvasClassName }: A
         }
 
         if (motionSrc && currentVrmRef.current) {
-          loadMotion(loader, motionSrc, currentVrmRef.current, mixerRef, motionTokenRef);
+          loadMotion(loader, motionSrc, currentVrmRef.current, mixerRef, motionTokenRef, requestRender);
         }
 
         setState("ready");
+        requestRender();
       },
       undefined,
       () => {
@@ -214,6 +343,7 @@ export function Avatar3DViewer({ src, motionSrc, className, canvasClassName }: A
           return;
         }
         setState("error");
+        requestRender();
       }
     );
 
@@ -227,14 +357,15 @@ export function Avatar3DViewer({ src, motionSrc, className, canvasClassName }: A
   React.useEffect(() => {
     if (!motionSrc || !currentVrmRef.current) {
       disposeMixer(mixerRef);
+      requestRender();
       return;
     }
     const loader = new GLTFLoader();
     loader.crossOrigin = "anonymous";
     loader.register((parser) => new VRMLoaderPlugin(parser));
     loader.register((parser) => new VRMAnimationLoaderPlugin(parser));
-    loadMotion(loader, motionSrc, currentVrmRef.current, mixerRef, motionTokenRef);
-  }, [motionSrc]);
+    loadMotion(loader, motionSrc, currentVrmRef.current, mixerRef, motionTokenRef, requestRender);
+  }, [motionSrc, requestRender]);
 
   return (
     <div className={cn("relative h-full w-full", className)}>
@@ -310,7 +441,8 @@ function loadMotion(
   motionSrc: string,
   vrm: VRM,
   mixerRef: React.MutableRefObject<THREE.AnimationMixer | null>,
-  tokenRef: React.MutableRefObject<number>
+  tokenRef: React.MutableRefObject<number>,
+  requestRender: (settleFrames?: number) => void
 ) {
   const token = tokenRef.current + 1;
   tokenRef.current = token;
@@ -325,6 +457,7 @@ function loadMotion(
       const vrmAnimation = animations?.[0];
       if (!vrmAnimation) {
         disposeMixer(mixerRef);
+        requestRender();
         return;
       }
       if (!mixerRef.current) {
@@ -334,11 +467,13 @@ function loadMotion(
       mixer.stopAllAction();
       const clip = createVRMAnimationClip(vrmAnimation, vrm);
       mixer.clipAction(clip).play();
+      requestRender(1);
     },
     undefined,
     () => {
       if (tokenRef.current === token) {
         disposeMixer(mixerRef);
+        requestRender();
       }
     }
   );

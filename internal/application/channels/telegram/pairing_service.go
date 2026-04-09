@@ -38,6 +38,8 @@ type PairingService struct {
 	settings   *settingsservice.SettingsService
 	runtime    *BotService
 	httpClient *http.Client
+
+	onSettingsUpdated func(settingsdto.Settings)
 }
 
 func NewPairingService(settings *settingsservice.SettingsService, runtime *BotService, store *channelpairing.Store, client *http.Client) *PairingService {
@@ -47,6 +49,13 @@ func NewPairingService(settings *settingsservice.SettingsService, runtime *BotSe
 		runtime:    runtime,
 		httpClient: client,
 	}
+}
+
+func (service *PairingService) SetSettingsUpdatedNotifier(notifier func(settingsdto.Settings)) {
+	if service == nil {
+		return
+	}
+	service.onSettingsUpdated = notifier
 }
 
 func (service *PairingService) List(ctx context.Context, accountID string) (PairingListResult, error) {
@@ -157,6 +166,9 @@ func (service *PairingService) addAllowFrom(ctx context.Context, entry string, a
 	}
 	if service.runtime != nil {
 		_ = service.runtime.RefreshFromSettings(context.Background(), updated)
+	}
+	if service.onSettingsUpdated != nil {
+		service.onSettingsUpdated(updated)
 	}
 	return nil
 }

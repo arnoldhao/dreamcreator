@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Call } from "@wailsio/runtime";
 
 import type { ProxySettings, Settings, SystemProxyInfo, UpdateSettingsRequest } from "@/shared/contracts/settings";
@@ -42,9 +42,27 @@ export function useUpdateSettings() {
       return toSettings(result as Partial<Settings>);
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(SETTINGS_QUERY_KEY, data);
+      setLatestSettingsQueryData(queryClient, data);
     },
   });
+}
+
+export function setLatestSettingsQueryData(
+  queryClient: QueryClient,
+  raw: Partial<Settings> | Settings,
+): Settings | null {
+  const next = toSettings(raw as Partial<Settings>);
+  let applied = false;
+
+  queryClient.setQueryData(SETTINGS_QUERY_KEY, (current: Settings | undefined) => {
+    if (!shouldAdoptSettingsSnapshot(current, next)) {
+      return current;
+    }
+    applied = true;
+    return next;
+  });
+
+  return applied ? next : null;
 }
 
 export function useShowSettingsWindow() {
@@ -128,6 +146,19 @@ function toSettings(raw: Partial<Settings>): Settings {
     skills: raw.skills,
     channels: raw.channels ?? {},
   };
+}
+
+function shouldAdoptSettingsSnapshot(current: Settings | undefined, next: Settings) {
+  if (!current) {
+    return true;
+  }
+  if (next.version > current.version) {
+    return true;
+  }
+  if (next.version < current.version) {
+    return false;
+  }
+  return JSON.stringify(current) !== JSON.stringify(next);
 }
 
 function toProxySettings(raw: BindingsProxy): ProxySettings {

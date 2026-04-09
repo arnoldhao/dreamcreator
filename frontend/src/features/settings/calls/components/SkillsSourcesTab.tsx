@@ -14,6 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 
+import { canAdoptIncomingDraftSnapshot, shouldSkipDraftPersist } from "@/app/settings/draftSync";
 import { cn } from "@/lib/utils";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/shared/ui/empty";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -143,12 +144,7 @@ export function SkillsSourcesTab() {
   const [expandedRemoteSourceIds, setExpandedRemoteSourceIds] = React.useState<string[]>([]);
   const [editingLocalNameId, setEditingLocalNameId] = React.useState<string | null>(null);
   const lastPersistedDraftSignatureRef = React.useRef("");
-
-  const sourceSignature = React.useMemo(() => JSON.stringify(sourcesState), [sourcesState]);
-  React.useEffect(() => {
-    setDraftLocalSources(cloneLocalSources(sourcesState.local));
-    setDraftRemoteSources(cloneRemoteSources(sourcesState.remote));
-  }, [sourceSignature, sourcesState.local, sourcesState.remote]);
+  const pendingDraftSignatureRef = React.useRef("");
 
   const isSaving = updateSettings.isPending;
   const writeMode = security.actionModes.source_write ?? "ask";
@@ -165,6 +161,24 @@ export function SkillsSourcesTab() {
     () => JSON.stringify({ local: normalizedDraftLocal, remote: normalizedDraftRemote }),
     [normalizedDraftLocal, normalizedDraftRemote]
   );
+  const previousSourcesSignatureRef = React.useRef(currentSourcesSignature);
+
+  React.useEffect(() => {
+    const previousSourcesSignature = previousSourcesSignatureRef.current;
+    previousSourcesSignatureRef.current = currentSourcesSignature;
+    const canAdoptRemote = canAdoptIncomingDraftSnapshot({
+      draftSignature: draftSourcesSignature,
+      currentRemoteSignature: currentSourcesSignature,
+      previousRemoteSignature: previousSourcesSignature,
+      lastPersistedSignature: lastPersistedDraftSignatureRef.current,
+    });
+    if (!canAdoptRemote) {
+      return;
+    }
+    setDraftLocalSources(cloneLocalSources(sourcesState.local));
+    setDraftRemoteSources(cloneRemoteSources(sourcesState.remote));
+  }, [currentSourcesSignature, draftSourcesSignature, sourcesState.local, sourcesState.remote]);
+
   const dirty = React.useMemo(() => {
     return currentSourcesSignature !== draftSourcesSignature;
   }, [currentSourcesSignature, draftSourcesSignature]);
@@ -173,7 +187,8 @@ export function SkillsSourcesTab() {
     if (blocked) {
       return;
     }
-    lastPersistedDraftSignatureRef.current = draftSourcesSignature;
+    const submittedSignature = draftSourcesSignature;
+    pendingDraftSignatureRef.current = submittedSignature;
     const nextSkillsConfig: Record<string, unknown> = {
       ...skillsConfig,
       sources: toSourcesPayload({
@@ -191,8 +206,16 @@ export function SkillsSourcesTab() {
         skills: nextSkillsConfig,
       },
       {
+        onSuccess: () => {
+          lastPersistedDraftSignatureRef.current = submittedSignature;
+          if (pendingDraftSignatureRef.current === submittedSignature) {
+            pendingDraftSignatureRef.current = "";
+          }
+        },
         onError: (error) => {
-          lastPersistedDraftSignatureRef.current = "";
+          if (pendingDraftSignatureRef.current === submittedSignature) {
+            pendingDraftSignatureRef.current = "";
+          }
           messageBus.publishToast({
             intent: "warning",
             title: t("settings.calls.skills.sources.saveFailed"),
@@ -207,7 +230,13 @@ export function SkillsSourcesTab() {
     if (blocked || !dirty) {
       return;
     }
-    if (lastPersistedDraftSignatureRef.current === draftSourcesSignature) {
+    if (
+      shouldSkipDraftPersist({
+        draftSignature: draftSourcesSignature,
+        lastPersistedSignature: lastPersistedDraftSignatureRef.current,
+        pendingSubmittedSignature: pendingDraftSignatureRef.current,
+      })
+    ) {
       return;
     }
     const timer = window.setTimeout(() => {
@@ -222,6 +251,9 @@ export function SkillsSourcesTab() {
   React.useEffect(() => {
     if (!dirty && currentSourcesSignature === draftSourcesSignature) {
       lastPersistedDraftSignatureRef.current = draftSourcesSignature;
+      if (pendingDraftSignatureRef.current === draftSourcesSignature) {
+        pendingDraftSignatureRef.current = "";
+      }
     }
   }, [currentSourcesSignature, dirty, draftSourcesSignature]);
 

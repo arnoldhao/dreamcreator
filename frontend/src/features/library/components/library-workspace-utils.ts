@@ -29,8 +29,6 @@ import {
 } from "../utils/subtitleStyles";
 import type { WorkspaceSubtitleRow } from "./workspace/types";
 
-export const WORKSPACE_PREVIEW_CAPTIONS_CLASS = "dc-workspace-preview__captions";
-
 function normalizeWorkspacePersistedEditorValue(
   value: unknown,
 ): LibraryWorkspaceEditor {

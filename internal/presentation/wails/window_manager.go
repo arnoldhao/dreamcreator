@@ -215,8 +215,8 @@ func (manager *WindowManager) ApplySettings(current dto.Settings) {
 		manager.settingsWindow.SetBackgroundColour(color)
 		manager.rebuildMenu(current)
 		manager.systemTray.Update(current)
-		manager.app.Event.Emit("settings:updated", current)
-		manager.app.Event.Emit("theme:changed", current.EffectiveAppearance)
+		manager.dispatchWindowEvent("settings:updated", current)
+		manager.dispatchWindowEvent("theme:changed", current.EffectiveAppearance)
 	}
 
 	if manager.initialized {
@@ -225,6 +225,24 @@ func (manager *WindowManager) ApplySettings(current dto.Settings) {
 	}
 
 	apply()
+}
+
+func (manager *WindowManager) dispatchWindowEvent(name string, data any) {
+	if manager == nil {
+		return
+	}
+
+	event := &application.CustomEvent{
+		Name: name,
+		Data: data,
+	}
+
+	if manager.mainWindow != nil {
+		manager.mainWindow.DispatchWailsEvent(event)
+	}
+	if manager.settingsWindow != nil {
+		manager.settingsWindow.DispatchWailsEvent(event)
+	}
 }
 
 func (manager *WindowManager) EmitAssistantsUpdated() {

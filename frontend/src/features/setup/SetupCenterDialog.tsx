@@ -127,10 +127,11 @@ export function SetupCenterDialog({ open, onOpenChange }: SetupCenterDialogProps
   const sectionRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
   const sectionRefCallbacks = React.useRef<Record<string, (node: HTMLDivElement | null) => void>>({});
   const proxyCheckRequestRef = React.useRef(0);
+  const proxyCheckInFlightKeyRef = React.useRef("");
   const wasOpenRef = React.useRef(false);
 
   const proxyMode = proxyDraft?.mode ?? settings?.proxy.mode ?? "system";
-  const systemProxyQuery = useSystemProxyInfo(proxyMode === "system");
+  const systemProxyQuery = useSystemProxyInfo(open && proxyMode === "system");
   const highlightShadow = "0 0 0 1px hsl(var(--border)), 0 0 0 3px hsl(var(--primary))";
   const { refetch: refetchSystemProxy, isFetching: isSystemProxyFetching } = systemProxyQuery;
   const resetProxyTestState = React.useCallback((next: ProxySettings): ProxySettings => ({
@@ -403,12 +404,6 @@ export function SetupCenterDialog({ open, onOpenChange }: SetupCenterDialogProps
   }, [settings?.proxy]);
 
   React.useEffect(() => {
-    if (proxyMode === "system") {
-      void refetchSystemProxy();
-    }
-  }, [proxyMode, refetchSystemProxy]);
-
-  React.useEffect(() => {
     if (!open) {
       return;
     }
@@ -603,6 +598,10 @@ export function SetupCenterDialog({ open, onOpenChange }: SetupCenterDialogProps
         return;
       }
       const key = `${mode}:${address}`;
+      if (proxyCheckInFlightKeyRef.current === key) {
+        return;
+      }
+      proxyCheckInFlightKeyRef.current = key;
       proxyCheckRequestRef.current += 1;
       const requestId = proxyCheckRequestRef.current;
       setProxyCheckKey(key);
@@ -635,6 +634,10 @@ export function SetupCenterDialog({ open, onOpenChange }: SetupCenterDialogProps
           description: message,
           intent: "warning",
         });
+      } finally {
+        if (proxyCheckInFlightKeyRef.current === key) {
+          proxyCheckInFlightKeyRef.current = "";
+        }
       }
     },
     [buildProxyTestPayload, t, testProxy]
@@ -663,12 +666,20 @@ export function SetupCenterDialog({ open, onOpenChange }: SetupCenterDialogProps
   }, [hasStatusAddress, proxyMode, refetchSystemProxy, runProxyCheck, statusAddress]);
 
   React.useEffect(() => {
+    if (!open) {
+      proxyCheckInFlightKeyRef.current = "";
+      setProxyCheckStatus("idle");
+      setProxyCheckKey("");
+      return;
+    }
     if (proxyMode === "none") {
+      proxyCheckInFlightKeyRef.current = "";
       setProxyCheckStatus("idle");
       setProxyCheckKey("");
       return;
     }
     if (!hasStatusAddress) {
+      proxyCheckInFlightKeyRef.current = "";
       setProxyCheckStatus("idle");
       setProxyCheckKey("");
       return;
@@ -677,7 +688,7 @@ export function SetupCenterDialog({ open, onOpenChange }: SetupCenterDialogProps
       return;
     }
     void runProxyCheck(proxyMode, statusAddress);
-  }, [hasStatusAddress, proxyCheckKey, proxyCheckStatus, proxyMode, runProxyCheck, statusAddress, statusKey]);
+  }, [hasStatusAddress, open, proxyCheckKey, proxyCheckStatus, proxyMode, runProxyCheck, statusAddress, statusKey]);
 
   const handleSkipItem = React.useCallback(
     (itemId: SetupNavItemId) => {

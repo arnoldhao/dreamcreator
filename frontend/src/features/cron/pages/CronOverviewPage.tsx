@@ -19,6 +19,7 @@ type OverviewCardItem = {
   id: string;
   label: string;
   value: string;
+  onClick?: () => void;
 };
 
 type OverviewChartPoint = {
@@ -125,16 +126,35 @@ export function CronOverviewPage({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 pt-px sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => {
-          return (
+          const metricCard = (
             <MetricCard
-              key={card.id}
               title={card.label}
               value={card.value}
               icon={resolveOverviewCardIcon(card.id)}
+              className={cn(
+                "h-full",
+                card.onClick
+                  ? "cursor-pointer transition-[transform,border-color] group-hover:-translate-y-px group-hover:border-primary/35 group-focus-visible:border-primary/50"
+                  : undefined,
+              )}
               valueClassName={resolveOverviewCardValueClass(card.value)}
             />
+          );
+          if (!card.onClick) {
+            return <React.Fragment key={card.id}>{metricCard}</React.Fragment>;
+          }
+          return (
+            <button
+              key={card.id}
+              type="button"
+              onClick={card.onClick}
+              className="group w-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2"
+              aria-label={`${card.label}: ${card.value}`}
+            >
+              {metricCard}
+            </button>
           );
         })}
       </div>

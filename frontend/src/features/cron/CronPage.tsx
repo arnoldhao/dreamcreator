@@ -2972,30 +2972,62 @@ export function CronPage() {
     }));
   }, [chartGranularity, overviewRuns]);
 
+  const openOverviewJobs = React.useCallback(() => {
+    setActiveTab("list");
+    setJobSearchQuery("");
+    setJobEnabledFilter("");
+    setJobLastRunStatusFilter("");
+    setJobSelectionMode(false);
+    setSelectedJobSelection({});
+    setJobsPage(1);
+    setJobsViewMode("table");
+  }, [setActiveTab, setJobsViewMode]);
+
+  const openOverviewRuns = React.useCallback(() => {
+    setActiveTab("records");
+    setRunSearchQuery("");
+    setJobFilter("");
+    setRunStatusFilter("");
+    setRunsPage(1);
+    setRunsViewMode("table");
+  }, [setActiveTab, setRunsViewMode]);
+
   const overviewCards = React.useMemo(
     () => [
       {
         id: "total-crons",
         label: t("cron.overview.cards.totalCrons"),
         value: String(jobs.length),
+        onClick: openOverviewJobs,
       },
       {
         id: "total-executions",
         label: t("cron.overview.cards.totalExecutions"),
         value: String(overviewTotalExecutions),
+        onClick: openOverviewRuns,
       },
       {
         id: "avg-duration",
         label: t("cron.overview.cards.avgDuration"),
         value: overviewAverageDurationText,
+        onClick: openOverviewRuns,
       },
       {
         id: "next-wake",
         label: t("cron.overview.cards.nextWake"),
         value: formatDateTime(statusQuery.data?.nextWakeAt),
+        onClick: openOverviewJobs,
       },
     ],
-    [jobs.length, overviewAverageDurationText, overviewTotalExecutions, statusQuery.data?.nextWakeAt, t]
+    [
+      jobs.length,
+      openOverviewJobs,
+      openOverviewRuns,
+      overviewAverageDurationText,
+      overviewTotalExecutions,
+      statusQuery.data?.nextWakeAt,
+      t,
+    ]
   );
   const overviewRecentRuns = React.useMemo(() => {
     const items = [...overviewRuns];

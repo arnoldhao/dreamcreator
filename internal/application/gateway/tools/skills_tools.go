@@ -120,6 +120,10 @@ type skillsSettingsUpdater interface {
 	UpdateSettings(ctx context.Context, request settingsdto.UpdateSettingsRequest) (settingsdto.Settings, error)
 }
 
+type skillsSettingsApplier interface {
+	ApplySettings(settingsdto.Settings)
+}
+
 type skillsExternalToolInstaller interface {
 	InstallTool(ctx context.Context, request externaltoolsdto.InstallExternalToolRequest) (externaltoolsdto.ExternalTool, error)
 	ToolReadiness(ctx context.Context, name externaltools.ToolName) (bool, string, error)
@@ -1411,12 +1415,15 @@ func mutateSkillsToolSettings(ctx context.Context, settings SettingsReader, muta
 		return nil, err
 	}
 
-	_, err = updater.UpdateSettings(ctx, settingsdto.UpdateSettingsRequest{
+	updated, err := updater.UpdateSettings(ctx, settingsdto.UpdateSettingsRequest{
 		Tools:  toolsConfig,
 		Skills: skillsConfig,
 	})
 	if err != nil {
 		return nil, err
+	}
+	if applier, ok := settings.(skillsSettingsApplier); ok {
+		applier.ApplySettings(updated)
 	}
 	return skillsConfig, nil
 }

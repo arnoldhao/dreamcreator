@@ -61,10 +61,16 @@ const EXEC_PERMISSION_MODE_KEY = "execPermissionMode";
 const EXEC_PERMISSION_MODE_DEFAULT_PERMISSIONS = "default permissions";
 const EXEC_PERMISSION_MODE_FULL_ACCESS = "full access";
 const ASSISTANT_TRIGGER_MAX_WIDTH_STYLE: React.CSSProperties = {
-  maxWidth: "var(--chat-composer-assistant-max-width, 280px)",
+  maxWidth: "var(--chat-composer-assistant-max-width, 240px)",
+  flexBasis: "auto",
+  flexGrow: 0,
+  flexShrink: 1,
 };
 const MODEL_TRIGGER_MAX_WIDTH_STYLE: React.CSSProperties = {
-  maxWidth: "var(--chat-composer-model-max-width, 420px)",
+  maxWidth: "var(--chat-composer-model-max-width, 320px)",
+  flexBasis: "auto",
+  flexGrow: 0,
+  flexShrink: 2,
 };
 const PERMISSION_TRIGGER_MAX_WIDTH_STYLE: React.CSSProperties = {
   maxWidth: "var(--chat-composer-permission-max-width, 220px)",
@@ -536,10 +542,10 @@ function AssistantModelDropdown({
           variant="ghost"
           size="sm"
           title={selectedAssistantLabel}
-          className="w-fit min-w-0"
+          className="w-fit min-w-0 max-w-full focus-visible:ring-0 focus-visible:ring-offset-0"
           style={ASSISTANT_TRIGGER_MAX_WIDTH_STYLE}
         >
-          <span className="truncate">{selectedAssistantLabel}</span>
+          <span className="min-w-0 truncate">{selectedAssistantLabel}</span>
         </AuiSelectTrigger>
         <AuiSelectContent align="center" className="max-w-[320px]">
           {assistants.length === 0 ? (
@@ -571,7 +577,7 @@ function AssistantModelDropdown({
         variant="ghost"
         size="sm"
         title={selectedModelLabel}
-        className="w-fit min-w-0"
+        className="w-fit min-w-0 max-w-full focus-visible:ring-0 focus-visible:ring-offset-0"
         style={MODEL_TRIGGER_MAX_WIDTH_STYLE}
         disabled={disabled || !selectedAssistant || updateAssistant.isPending}
       >
@@ -579,7 +585,7 @@ function AssistantModelDropdown({
           {selectedModelOption?.providerIcon ? (
             <ThemedProviderIcon icon={selectedModelOption.providerIcon} />
           ) : null}
-          <span className="truncate">{selectedModelLabel}</span>
+          <span className="min-w-0 truncate">{selectedModelLabel}</span>
         </div>
       </ModelSelectorTrigger>
       <ModelSelectorContent align="center" className="max-w-[420px]" />
@@ -950,75 +956,82 @@ export function ComposerBar({
             "focus-visible:outline-none"
           )}
         />
-        <div className="flex flex-wrap items-center gap-2">
-          <ComposerAddAttachmentButton
-            aria-label={t("chat.composer.attach")}
-            disabled={isRunning}
-            onClick={handleAddAttachment}
-          />
+        <div className="flex w-full min-w-0 items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+            <div className="shrink-0">
+              <ComposerAddAttachmentButton
+                aria-label={t("chat.composer.attach")}
+                disabled={isRunning}
+                onClick={handleAddAttachment}
+              />
+            </div>
+            <AssistantModelDropdown
+              assistants={assistants}
+              assistantId={assistantId}
+              selectedAssistant={selectedAssistant}
+              setAssistantId={setAssistantId}
+              modelGroups={modelGroups}
+              agentProviderId={agentProviderId}
+              agentModelName={agentModelName}
+              disabled={isRunning}
+              mode="assistant"
+            />
+            <AssistantModelDropdown
+              assistants={assistants}
+              assistantId={assistantId}
+              selectedAssistant={selectedAssistant}
+              setAssistantId={setAssistantId}
+              modelGroups={modelGroups}
+              agentProviderId={agentProviderId}
+              agentModelName={agentModelName}
+              disabled={isRunning}
+              mode="model"
+            />
+            <div className="shrink-0">
+              <PermissionModeSelector
+                value={execPermissionMode}
+                options={permissionModeOptions}
+                disabled={isRunning || updateSettings.isPending}
+                onChange={handleExecPermissionModeChange}
+                title={permissionLabel}
+              />
+            </div>
+            {showContextUsage ? (
+              <div className="shrink-0">
+                <TooltipProvider delayDuration={0}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 hover:bg-muted/40"
+                        aria-label={t("chat.composer.contextUsage")}
+                      >
+                        <PieChart className={cn("h-4 w-4", contextUsageColor)} aria-hidden />
+                        <span className={cn("text-xs font-medium tabular-nums", contextUsageColor)}>
+                          {contextUsageText}
+                        </span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" align="start">
+                      <div className="space-y-1 text-xs">
+                        <div>
+                          {t("chat.composer.contextCurrent")}: {contextTotalText}
+                        </div>
+                        <div>
+                          {t("chat.composer.contextTotal")}: {contextLimitText}
+                        </div>
+                        <div>
+                          {t("chat.composer.contextUsageShort")}: {contextUsageText}
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            ) : null}
+          </div>
 
-          <AssistantModelDropdown
-            assistants={assistants}
-            assistantId={assistantId}
-            selectedAssistant={selectedAssistant}
-            setAssistantId={setAssistantId}
-            modelGroups={modelGroups}
-            agentProviderId={agentProviderId}
-            agentModelName={agentModelName}
-            disabled={isRunning}
-            mode="assistant"
-          />
-          <AssistantModelDropdown
-            assistants={assistants}
-            assistantId={assistantId}
-            selectedAssistant={selectedAssistant}
-            setAssistantId={setAssistantId}
-            modelGroups={modelGroups}
-            agentProviderId={agentProviderId}
-            agentModelName={agentModelName}
-            disabled={isRunning}
-            mode="model"
-          />
-          <PermissionModeSelector
-            value={execPermissionMode}
-            options={permissionModeOptions}
-            disabled={isRunning || updateSettings.isPending}
-            onChange={handleExecPermissionModeChange}
-            title={permissionLabel}
-          />
-          {showContextUsage ? (
-            <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 hover:bg-muted/40"
-                    aria-label={t("chat.composer.contextUsage")}
-                  >
-                    <PieChart className={cn("h-4 w-4", contextUsageColor)} aria-hidden />
-                    <span className={cn("text-xs font-medium tabular-nums", contextUsageColor)}>
-                      {contextUsageText}
-                    </span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" align="start">
-                  <div className="space-y-1 text-xs">
-                    <div>
-                      {t("chat.composer.contextCurrent")}: {contextTotalText}
-                    </div>
-                    <div>
-                      {t("chat.composer.contextTotal")}: {contextLimitText}
-                    </div>
-                    <div>
-                      {t("chat.composer.contextUsageShort")}: {contextUsageText}
-                    </div>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : null}
-
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {isRunning ? (
               <TooltipProvider delayDuration={0}>
                 <Tooltip>

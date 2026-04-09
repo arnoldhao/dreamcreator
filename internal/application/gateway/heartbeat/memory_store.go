@@ -9,12 +9,19 @@ import (
 
 type MemoryEventStore struct {
 	mu      sync.RWMutex
-	entries map[string][]Event
+	entries map[string]*memoryEventSession
 }
+
+type memoryEventSession struct {
+	last   Event
+	recent []Event
+}
+
+const maxMemoryEventsPerSession = 256
 
 func NewMemoryEventStore() *MemoryEventStore {
 	return &MemoryEventStore{
-		entries: make(map[string][]Event),
+		entries: make(map[string]*memoryEventSession),
 	}
 }
 
@@ -27,7 +34,20 @@ func (store *MemoryEventStore) Save(_ context.Context, event Event) error {
 		event.CreatedAt = time.Now()
 	}
 	store.mu.Lock()
-	store.entries[key] = append(store.entries[key], event)
+	session := store.entries[key]
+	if session == nil {
+		session = &memoryEventSession{}
+		store.entries[key] = session
+	}
+	if session.last.CreatedAt.IsZero() || event.CreatedAt.After(session.last.CreatedAt) {
+		session.last = event
+	}
+	if len(session.recent) < maxMemoryEventsPerSession {
+		session.recent = append(session.recent, event)
+	} else {
+		copy(session.recent, session.recent[1:])
+		session.recent[len(session.recent)-1] = event
+	}
 	store.mu.Unlock()
 	return nil
 }
@@ -39,17 +59,11 @@ func (store *MemoryEventStore) Last(_ context.Context, sessionKey string) (Event
 	key := strings.TrimSpace(sessionKey)
 	store.mu.RLock()
 	defer store.mu.RUnlock()
-	items := store.entries[key]
-	if len(items) == 0 {
+	session := store.entries[key]
+	if session == nil || session.last.CreatedAt.IsZero() {
 		return Event{}, ErrEventNotFound
 	}
-	latest := items[0]
-	for _, item := range items[1:] {
-		if item.CreatedAt.After(latest.CreatedAt) {
-			latest = item
-		}
-	}
-	return latest, nil
+	return session.last, nil
 }
 
 func (store *MemoryEventStore) HasDuplicate(_ context.Context, sessionKey string, contentHash string, since time.Time) (bool, error) {
@@ -63,7 +77,12 @@ func (store *MemoryEventStore) HasDuplicate(_ context.Context, sessionKey string
 	}
 	store.mu.RLock()
 	defer store.mu.RUnlock()
-	for _, item := range store.entries[key] {
+	session := store.entries[key]
+	if session == nil {
+		return false, nil
+	}
+	for index := len(session.recent) - 1; index >= 0; index-- {
+		item := session.recent[index]
 		if strings.TrimSpace(item.ContentHash) != hash {
 			continue
 		}

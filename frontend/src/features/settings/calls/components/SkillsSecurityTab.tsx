@@ -1,6 +1,7 @@
 import * as React from "react";
 import { RotateCcw } from "lucide-react";
 
+import { canAdoptIncomingDraftSnapshot, shouldSkipDraftPersist } from "@/app/settings/draftSync";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { useI18n } from "@/shared/i18n";
 import { messageBus } from "@/shared/message";
@@ -95,13 +96,9 @@ export function SkillsSecurityTab() {
   const [draft, setDraft] = React.useState<SkillsSecurityConfig>(() => cloneSecurity(security));
   const [allowedBinsInput, setAllowedBinsInput] = React.useState<string>("");
   const lastPersistedDraftSignatureRef = React.useRef("");
-
-  const signature = React.useMemo(() => JSON.stringify(security), [security]);
-  React.useEffect(() => {
-    const next = cloneSecurity(security);
-    setDraft(next);
-    setAllowedBinsInput(toBinsInput(next.allowedBins));
-  }, [signature]);
+  const pendingDraftSignatureRef = React.useRef("");
+  const currentSecuritySignature = React.useMemo(() => JSON.stringify(security), [security]);
+  const previousSecuritySignatureRef = React.useRef(currentSecuritySignature);
 
   const normalizedDraft = React.useMemo(() => {
     const next = cloneSecurity(draft);
@@ -111,8 +108,24 @@ export function SkillsSecurityTab() {
     }
     return next;
   }, [allowedBinsInput, draft]);
-  const currentSecuritySignature = React.useMemo(() => JSON.stringify(security), [security]);
   const draftSecuritySignature = React.useMemo(() => JSON.stringify(normalizedDraft), [normalizedDraft]);
+
+  React.useEffect(() => {
+    const previousSecuritySignature = previousSecuritySignatureRef.current;
+    previousSecuritySignatureRef.current = currentSecuritySignature;
+    const canAdoptRemote = canAdoptIncomingDraftSnapshot({
+      draftSignature: draftSecuritySignature,
+      currentRemoteSignature: currentSecuritySignature,
+      previousRemoteSignature: previousSecuritySignature,
+      lastPersistedSignature: lastPersistedDraftSignatureRef.current,
+    });
+    if (!canAdoptRemote) {
+      return;
+    }
+    const next = cloneSecurity(security);
+    setDraft(next);
+    setAllowedBinsInput(toBinsInput(next.allowedBins));
+  }, [currentSecuritySignature, draftSecuritySignature, security]);
   const dirty = React.useMemo(() => {
     return currentSecuritySignature !== draftSecuritySignature;
   }, [currentSecuritySignature, draftSecuritySignature]);
@@ -128,7 +141,8 @@ export function SkillsSecurityTab() {
   }, []);
 
   const persistSecurity = React.useCallback(() => {
-    lastPersistedDraftSignatureRef.current = draftSecuritySignature;
+    const submittedSignature = draftSecuritySignature;
+    pendingDraftSignatureRef.current = submittedSignature;
     const nextSkillsConfig: Record<string, unknown> = {
       ...skillsConfig,
       security: toSecurityPayload(normalizedDraft),
@@ -143,8 +157,16 @@ export function SkillsSecurityTab() {
         skills: nextSkillsConfig,
       },
       {
+        onSuccess: () => {
+          lastPersistedDraftSignatureRef.current = submittedSignature;
+          if (pendingDraftSignatureRef.current === submittedSignature) {
+            pendingDraftSignatureRef.current = "";
+          }
+        },
         onError: (error) => {
-          lastPersistedDraftSignatureRef.current = "";
+          if (pendingDraftSignatureRef.current === submittedSignature) {
+            pendingDraftSignatureRef.current = "";
+          }
           messageBus.publishToast({
             intent: "warning",
             title: t("settings.calls.skills.security.saveFailed"),
@@ -159,7 +181,13 @@ export function SkillsSecurityTab() {
     if (!dirty) {
       return;
     }
-    if (lastPersistedDraftSignatureRef.current === draftSecuritySignature) {
+    if (
+      shouldSkipDraftPersist({
+        draftSignature: draftSecuritySignature,
+        lastPersistedSignature: lastPersistedDraftSignatureRef.current,
+        pendingSubmittedSignature: pendingDraftSignatureRef.current,
+      })
+    ) {
       return;
     }
     const timer = window.setTimeout(() => {
@@ -174,6 +202,9 @@ export function SkillsSecurityTab() {
   React.useEffect(() => {
     if (!dirty && currentSecuritySignature === draftSecuritySignature) {
       lastPersistedDraftSignatureRef.current = draftSecuritySignature;
+      if (pendingDraftSignatureRef.current === draftSecuritySignature) {
+        pendingDraftSignatureRef.current = "";
+      }
     }
   }, [currentSecuritySignature, dirty, draftSecuritySignature]);
 
