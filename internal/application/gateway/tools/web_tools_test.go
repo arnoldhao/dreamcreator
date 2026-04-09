@@ -188,6 +188,7 @@ func TestResolveWebFetchOptions_ReadsTopLevelWebFetchConfig(t *testing.T) {
 		"web_fetch": map[string]any{
 			"timeoutSeconds":  21,
 			"maxChars":        1234,
+			"maxBodyBytes":    4321,
 			"acceptMarkdown":  false,
 			"enableUserAgent": false,
 			"userAgent":       "top-level-agent",
@@ -202,6 +203,9 @@ func TestResolveWebFetchOptions_ReadsTopLevelWebFetchConfig(t *testing.T) {
 	}
 	if options.MaxChars != 1234 {
 		t.Fatalf("expected maxChars from web_fetch, got %d", options.MaxChars)
+	}
+	if options.MaxBodyBytes != 4321 {
+		t.Fatalf("expected maxBodyBytes from web_fetch, got %d", options.MaxBodyBytes)
 	}
 	if options.MaxRedirects != defaultWebFetchMaxRedirects {
 		t.Fatalf("expected default maxRedirects, got %d", options.MaxRedirects)
@@ -220,6 +224,39 @@ func TestResolveWebFetchOptions_ReadsTopLevelWebFetchConfig(t *testing.T) {
 	}
 	if options.Headers["X-One"] != "1" {
 		t.Fatalf("expected headers from web_fetch, got %#v", options.Headers)
+	}
+}
+
+func TestRunWebFetchTool_TruncatesLargeBodiesByMaxBodyBytes(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = w.Write([]byte(strings.Repeat("a", 512)))
+	}))
+	defer server.Close()
+
+	handler := runWebFetchTool(builtinWebFetchSettingsStub(), nil)
+	output, err := handler(context.Background(), `{"url":"`+server.URL+`","maxBodyBytes":64,"maxChars":200}`)
+	if err != nil {
+		t.Fatalf("run web_fetch: %v", err)
+	}
+
+	var payload webFetchResult
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("decode result: %v", err)
+	}
+	if payload.Status != webStatusOK {
+		t.Fatalf("unexpected status: %q", payload.Status)
+	}
+	if !payload.Truncated {
+		t.Fatalf("expected payload to be truncated")
+	}
+	if len(payload.Content) != 64 {
+		t.Fatalf("expected content to be capped at 64 bytes, got %d", len(payload.Content))
+	}
+	if payload.Content != strings.Repeat("a", 64) {
+		t.Fatalf("unexpected truncated content length=%d", len(payload.Content))
 	}
 }
 

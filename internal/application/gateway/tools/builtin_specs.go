@@ -180,6 +180,7 @@ func specWebFetch() toolSpec {
 				"method":          map[string]any{"type": "string"},
 				"headers":         map[string]any{"type": "object"},
 				"maxChars":        map[string]any{"type": "integer"},
+				"maxBodyBytes":    map[string]any{"type": "integer"},
 				"maxRedirects":    map[string]any{"type": "integer"},
 				"retryMax":        map[string]any{"type": "integer"},
 				"timeoutSeconds":  map[string]any{"type": "integer"},

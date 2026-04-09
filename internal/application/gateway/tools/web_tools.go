@@ -31,6 +31,7 @@ const webFetchTypePlaywright = "playwright"
 const defaultWebFetchType = webFetchTypeBuiltin
 const defaultWebFetchTimeoutSeconds = 20
 const defaultWebFetchMaxChars = 50000
+const defaultWebFetchMaxBodyBytes = 2 << 20
 const defaultWebFetchMaxRedirects = 3
 const defaultWebFetchRetryMax = 2
 const defaultWebFetchAcceptMarkdown = true
@@ -152,6 +153,7 @@ type webFetchResult struct {
 type webFetchOptions struct {
 	TimeoutSeconds  int
 	MaxChars        int
+	MaxBodyBytes    int
 	MaxRedirects    int
 	RetryMax        int
 	AcceptMarkdown  bool
@@ -802,11 +804,11 @@ func fetchWithBuiltinOptions(
 		return webFetchResponse{}, err
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
+	body, bodyTruncated, err := readWebFetchBodyLimited(resp.Body, options.MaxBodyBytes)
 	if err != nil {
 		return webFetchResponse{}, err
 	}
-	content, truncated := truncateWebFetchContent(body, options.MaxChars)
+	content, charTruncated := truncateWebFetchContent(body, options.MaxChars)
 	markdownTokens, _ := strconv.Atoi(strings.TrimSpace(resp.Header.Get("x-markdown-tokens")))
 	finalURL := strings.TrimSpace(targetURL)
 	if resp.Request != nil && resp.Request.URL != nil {
@@ -823,7 +825,7 @@ func fetchWithBuiltinOptions(
 		Content:        content,
 		MarkdownTokens: markdownTokens,
 		ContentSignal:  strings.TrimSpace(resp.Header.Get("content-signal")),
-		Truncated:      truncated,
+		Truncated:      bodyTruncated || charTruncated,
 	}, nil
 }
 
@@ -929,6 +931,14 @@ func resolveWebFetchOptions(payload toolArgs, config map[string]any, timeoutFall
 		maxChars = defaultWebFetchMaxChars
 	}
 
+	maxBodyBytes, ok := getIntArg(fetchConfig, "maxBodyBytes")
+	if !ok || maxBodyBytes <= 0 {
+		maxBodyBytes, _ = getIntArg(payload, "maxBodyBytes")
+	}
+	if maxBodyBytes <= 0 {
+		maxBodyBytes = defaultWebFetchMaxBodyBytes
+	}
+
 	maxRedirects := defaultWebFetchMaxRedirects
 	if value, present := getIntArg(fetchConfig, "maxRedirects"); present {
 		maxRedirects = value
@@ -987,6 +997,7 @@ func resolveWebFetchOptions(payload toolArgs, config map[string]any, timeoutFall
 	return webFetchOptions{
 		TimeoutSeconds:  timeoutSeconds,
 		MaxChars:        maxChars,
+		MaxBodyBytes:    maxBodyBytes,
 		MaxRedirects:    maxRedirects,
 		RetryMax:        retryMax,
 		AcceptMarkdown:  acceptMarkdown,
@@ -1047,11 +1058,35 @@ func truncateWebFetchContent(body []byte, maxChars int) (string, bool) {
 	if maxChars <= 0 {
 		return content, false
 	}
-	runes := []rune(content)
-	if len(runes) <= maxChars {
+	runeCount := 0
+	for index := range content {
+		if runeCount >= maxChars {
+			return content[:index], true
+		}
+		runeCount++
+	}
+	if runeCount <= maxChars {
 		return content, false
 	}
-	return string(runes[:maxChars]), true
+	return content, false
+}
+
+func readWebFetchBodyLimited(reader io.Reader, maxBytes int) ([]byte, bool, error) {
+	if reader == nil {
+		return nil, false, nil
+	}
+	if maxBytes <= 0 {
+		maxBytes = defaultWebFetchMaxBodyBytes
+	}
+	limited := io.LimitReader(reader, int64(maxBytes)+1)
+	body, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(body) > maxBytes {
+		return body[:maxBytes], true, nil
+	}
+	return body, false, nil
 }
 
 func buildCookieHeader(targetURL string, cookies []connectorsdto.ConnectorCookie) string {
