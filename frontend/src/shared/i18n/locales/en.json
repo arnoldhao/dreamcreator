@@ -2597,6 +2597,7 @@
         "customDocument": "Custom subtitle style",
         "githubSource": "GitHub style source",
         "fontFamily": "Font family",
+        "fontFace": "Font face",
         "fontSize": "Size",
         "outlineWidth": "Outline",
         "outlineColor": "Outline",
@@ -2660,6 +2661,7 @@
         "previewInfoTitle": "Live Preview Info",
         "previewPrimaryText": "DreamCreator creative flow 0214",
         "previewSecondaryText": "DreamCreator creative flow 0214",
+        "fontPreviewFallback": "Sans serif",
         "resolutionLabel": "Resolution",
         "currentResolutionLabel": "Current resolution",
         "monoStyleSectionTitle": "Font Style",
@@ -2726,7 +2728,7 @@
         "subtitleExportPresetFallback": "Subtitle export preset",
         "exportProfileDefaultName": "New subtitle export preset",
         "subtitleExportPresetDefaultName": "New subtitle export preset",
-        "exportProfileStyleDocument": "Subtitle style",
+        "exportProfileStyleDocument": "Subtitle Style",
         "exportProfileMediaStrategy": "Media strategy",
         "mediaStrategyAuto": "Auto",
         "mediaStrategyFixed": "Fixed",
@@ -2983,10 +2985,10 @@
         "exportFormat": "Export format"
       },
       "header": {
-        "videoEditing": "Video editing",
-        "subtitleEditing": "Subtitle editing",
-        "displaySingle": "Single",
-        "displayDual": "Dual language",
+        "videoEditing": "Video Editing",
+        "subtitleEditing": "Subtitle Editing",
+        "displayMono": "Mono",
+        "displayBilingual": "Bilingual",
         "video": "Video",
         "track": "Track",
         "secondary": "Secondary",
@@ -3006,7 +3008,8 @@
         "translateRunningCount": "Translating · {count}",
         "translateRunning": "Translating",
         "proofreadRunning": "Proofreading",
-        "existingSubtitleLane": "Existing subtitle lane"
+        "existingSubtitleLane": "Existing subtitle lane",
+        "speechToSubtitle": "Speech to Subtitles"
       },
       "track": {
         "translation": "Translation",
@@ -3047,8 +3050,8 @@
         "primaryTrack": "Primary",
         "secondaryTrack": "Secondary",
         "notSelected": "Not selected",
-        "modeSingle": "Single",
-        "modeDual": "Dual language",
+        "modeMono": "Mono",
+        "modeBilingual": "Bilingual",
         "columnTime": "Time",
         "columnStart": "Start",
         "columnEnd": "End",
@@ -3062,6 +3065,7 @@
       "dialogs": {
         "required": "Required",
         "exportVideo": {
+          "dialogDescription": "Configure the video export preset, subtitle handling, display mode, and track mapping before queuing the current workspace output.",
           "inputSection": "Input",
           "outputSection": "Output",
           "currentVideoFallback": "Current video",
@@ -3094,6 +3098,7 @@
           }
         },
         "exportSubtitle": {
+          "dialogDescription": "Configure the subtitle export format and style options before exporting the current workspace subtitles to a target file.",
           "inputSection": "Input",
           "outputSection": "Output",
           "fileFallback": "Current subtitle",
@@ -3101,6 +3106,9 @@
           "track": "Track",
           "trackEmpty": "Not selected",
           "trackRequired": "Select a subtitle track before exporting the current draft.",
+          "style": "Subtitle Export Style",
+          "styleUnsupported": "This format does not support subtitle styling",
+          "styleUnsupportedDescription": "The export stays plain text and will not include font, size, or alignment metadata.",
           "currentFormat": "Current format",
           "encoding": "Encoding",
           "kind": "Kind",
@@ -3486,6 +3494,7 @@
   },
   "common": {
     "cancel": "Cancel",
+    "confirm": "Confirm",
     "save": "Save",
     "undo": "Undo",
     "done": "Done",

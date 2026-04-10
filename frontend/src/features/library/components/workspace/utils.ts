@@ -337,6 +337,27 @@ export function parseCueTime(value?: string) {
     return 0
   }
   const normalized = value.trim().replace(",", ".")
+  const smpteParts = normalized.split(":")
+  if (smpteParts.length === 4) {
+    const [hoursRaw, minutesRaw, secondsRaw, framesRaw] = smpteParts
+    const hours = Number.parseInt(hoursRaw, 10)
+    const minutes = Number.parseInt(minutesRaw, 10)
+    const seconds = Number.parseInt(secondsRaw, 10)
+    const frames = Number.parseInt(framesRaw.split(".")[0] ?? "", 10)
+    if (
+      !Number.isNaN(hours) &&
+      !Number.isNaN(minutes) &&
+      !Number.isNaN(seconds) &&
+      !Number.isNaN(frames)
+    ) {
+      return (
+        hours * 3_600_000 +
+        minutes * 60_000 +
+        seconds * 1000 +
+        Math.round((frames / 30) * 1000)
+      )
+    }
+  }
   const [timePart, fractionPart = "0"] = normalized.split(".")
   const pieces = timePart.split(":").map((part) => Number.parseInt(part, 10))
   if (pieces.some((part) => Number.isNaN(part))) {
@@ -661,7 +682,7 @@ export function filterWorkspaceRows(
   return rows.filter((row) => {
     if (normalizedSearch) {
       const haystack =
-        displayMode === "single"
+        displayMode === "mono"
           ? row.sourceText
           : `${row.sourceText}\n${row.translationText}`
       if (!haystack.toLowerCase().includes(normalizedSearch)) {
@@ -759,7 +780,7 @@ export function resolveResourceTypeLabel(videoFile: LibraryFileDTO | null, subti
 }
 
 export function resolveVisibleText(row: WorkspaceResolvedSubtitleRow, displayMode: WorkspaceDisplayMode) {
-  if (displayMode === "single") {
+  if (displayMode === "mono") {
     return row.sourceText
   }
   if (!row.translationText.trim()) {

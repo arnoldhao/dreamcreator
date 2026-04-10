@@ -25,6 +25,16 @@ export type FCPXMLFrameDurationPreset = {
   fps: number
 }
 
+export type FCPXMLStartTimecodePreset = {
+  value: number
+  label: string
+}
+
+export type FCPXMLVersionOption = {
+  value: string
+  label: string
+}
+
 export type ITTFrameRateMultiplierPreset = {
   value: string
   label: string
@@ -33,6 +43,15 @@ export type ITTFrameRateMultiplierPreset = {
 export type ITTFrameTiming = {
   frameRate: number
   frameRateMultiplier: string
+}
+
+export type ITTFrameRatePreset = ITTFrameTiming & {
+  value: string
+  label: string
+}
+
+type LibrarySubtitleExportPresetWithDescription = LibrarySubtitleExportPresetDTO & {
+  description?: string
 }
 
 export type AssDocumentSummary = {
@@ -57,7 +76,7 @@ export type VideoExportSoftSubtitleRoute = {
 
 type BuildAssSubtitleContentOptions = {
   rows: SubtitleStyleCueLike[]
-  displayMode: "single" | "dual"
+  displayMode: "mono" | "bilingual"
   document: LibrarySubtitleStyleDocumentDTO | null
   title?: string
 }
@@ -87,6 +106,8 @@ const DEFAULT_ASS_DOCUMENT_CONTENT = [
 ].join("\n")
 
 export const DEFAULT_FCPXML_FRAME_DURATION = "1/30s"
+export const DEFAULT_FCPXML_START_TIMECODE_SECONDS = 0
+export const DEFAULT_FCPXML_VERSION = "1.11"
 export const DEFAULT_ITT_FRAME_RATE = 30
 export const DEFAULT_ITT_FRAME_RATE_MULTIPLIER = "1 1"
 export const DEFAULT_SUBTITLE_EXPORT_ASS_TITLE = "DreamCreator Export"
@@ -155,9 +176,269 @@ export const FCPXML_FRAME_DURATION_PRESETS: FCPXMLFrameDurationPreset[] = [
   { value: "1/60s", label: "60", fps: 60 },
 ]
 
+export const FCPXML_START_TIMECODE_PRESETS: FCPXMLStartTimecodePreset[] = [
+  { value: 0, label: "00:00:00:00 (0s)" },
+  { value: 3600, label: "01:00:00:00 (1h)" },
+]
+
+export const FCPXML_VERSION_OPTIONS: FCPXMLVersionOption[] = [
+  { value: DEFAULT_FCPXML_VERSION, label: DEFAULT_FCPXML_VERSION },
+]
+
 export const ITT_FRAME_RATE_MULTIPLIER_PRESETS: ITTFrameRateMultiplierPreset[] = [
   { value: "1 1", label: "1/1 (Exact)" },
   { value: "1000 1001", label: "1000/1001 (NTSC)" },
+]
+
+export const ITT_FRAME_RATE_PRESETS: ITTFrameRatePreset[] = [
+  { value: "23.976", label: "23.976 fps", frameRate: 24, frameRateMultiplier: "1000 1001" },
+  { value: "24", label: "24 fps", frameRate: 24, frameRateMultiplier: "1 1" },
+  { value: "25", label: "25 fps", frameRate: 25, frameRateMultiplier: "1 1" },
+  { value: "29.97", label: "29.97 fps", frameRate: 30, frameRateMultiplier: "1000 1001" },
+  { value: "30", label: "30 fps", frameRate: 30, frameRateMultiplier: "1 1" },
+  { value: "50", label: "50 fps", frameRate: 50, frameRateMultiplier: "1 1" },
+  { value: "59.94", label: "59.94 fps", frameRate: 60, frameRateMultiplier: "1000 1001" },
+  { value: "60", label: "60 fps", frameRate: 60, frameRateMultiplier: "1 1" },
+]
+
+const DEFAULT_BUILTIN_SUBTITLE_EXPORT_PRESETS: LibrarySubtitleExportPresetWithDescription[] = [
+  {
+    id: "builtin-subtitle-export-preset-srt-auto",
+    name: "SRT · Auto",
+    description: "SRT output with source-matched timing defaults.",
+    format: "srt",
+    targetFormat: "srt",
+    mediaStrategy: "auto",
+    config: {
+      srt: {
+        encoding: "utf-8",
+      },
+    },
+  },
+  {
+    id: "builtin-subtitle-export-preset-vtt-auto",
+    name: "WebVTT · Auto",
+    description: "WebVTT output for web playback and soft subtitle muxing.",
+    format: "vtt",
+    targetFormat: "vtt",
+    mediaStrategy: "auto",
+    config: {
+      vtt: {
+        kind: "subtitles",
+        language: "en-US",
+      },
+    },
+  },
+  {
+    id: "builtin-subtitle-export-preset-ass-auto",
+    name: "ASS · Auto",
+    description: "ASS output with auto-matched script resolution.",
+    format: "ass",
+    targetFormat: "ass",
+    mediaStrategy: "auto",
+    config: {
+      ass: {
+        title: DEFAULT_SUBTITLE_EXPORT_ASS_TITLE,
+      },
+    },
+  },
+  {
+    id: "builtin-subtitle-export-preset-ass-4k",
+    name: "ASS · 4K",
+    description: "ASS output forced to 3840x2160 delivery.",
+    format: "ass",
+    targetFormat: "ass",
+    mediaStrategy: "fixed",
+    config: {
+      ass: {
+        playResX: 3840,
+        playResY: 2160,
+        title: DEFAULT_SUBTITLE_EXPORT_ASS_TITLE,
+      },
+    },
+  },
+  {
+    id: "builtin-subtitle-export-preset-ass-1080p",
+    name: "ASS · 1080p",
+    description: "ASS output forced to 1920x1080 delivery.",
+    format: "ass",
+    targetFormat: "ass",
+    mediaStrategy: "fixed",
+    config: {
+      ass: {
+        playResX: 1920,
+        playResY: 1080,
+        title: DEFAULT_SUBTITLE_EXPORT_ASS_TITLE,
+      },
+    },
+  },
+  {
+    id: "builtin-subtitle-export-preset-itt-auto",
+    name: "ITT · Auto",
+    description: "ITT output with source-matched frame timing.",
+    format: "itt",
+    targetFormat: "itt",
+    mediaStrategy: "auto",
+    config: {
+      itt: {
+        frameRate: 30,
+        frameRateMultiplier: "1 1",
+        language: "en-US",
+      },
+    },
+  },
+  {
+    id: "builtin-subtitle-export-preset-itt-4k60",
+    name: "ITT · 4K · 60fps",
+    description: "ITT output forced to 60fps timing for 4K delivery.",
+    format: "itt",
+    targetFormat: "itt",
+    mediaStrategy: "fixed",
+    config: {
+      itt: {
+        frameRate: 60,
+        frameRateMultiplier: "1 1",
+        language: "en-US",
+      },
+    },
+  },
+  {
+    id: "builtin-subtitle-export-preset-itt-4k30",
+    name: "ITT · 4K · 30fps",
+    description: "ITT output forced to 30fps timing for 4K delivery.",
+    format: "itt",
+    targetFormat: "itt",
+    mediaStrategy: "fixed",
+    config: {
+      itt: {
+        frameRate: 30,
+        frameRateMultiplier: "1 1",
+        language: "en-US",
+      },
+    },
+  },
+  {
+    id: "builtin-subtitle-export-preset-itt-1080p60",
+    name: "ITT · 1080p · 60fps",
+    description: "ITT output forced to 60fps timing for 1080p delivery.",
+    format: "itt",
+    targetFormat: "itt",
+    mediaStrategy: "fixed",
+    config: {
+      itt: {
+        frameRate: 60,
+        frameRateMultiplier: "1 1",
+        language: "en-US",
+      },
+    },
+  },
+  {
+    id: "builtin-subtitle-export-preset-itt-1080p30",
+    name: "ITT · 1080p · 30fps",
+    description: "ITT output forced to 30fps timing for 1080p delivery.",
+    format: "itt",
+    targetFormat: "itt",
+    mediaStrategy: "fixed",
+    config: {
+      itt: {
+        frameRate: 30,
+        frameRateMultiplier: "1 1",
+        language: "en-US",
+      },
+    },
+  },
+  {
+    id: "builtin-subtitle-export-preset-fcpxml-auto",
+    name: "FCPXML · Auto",
+    description: "FCPXML timeline with auto-matched resolution and frame duration.",
+    format: "fcpxml",
+    targetFormat: "fcpxml",
+    mediaStrategy: "auto",
+    config: {
+      fcpxml: {
+        colorSpace: "1-1-1 (Rec. 709)",
+        version: DEFAULT_FCPXML_VERSION,
+        defaultLane: 1,
+        startTimecodeSeconds: DEFAULT_FCPXML_START_TIMECODE_SECONDS,
+      },
+    },
+  },
+  {
+    id: "builtin-subtitle-export-preset-fcpxml-4k60",
+    name: "FCPXML · 4K · 1/60s",
+    description: "FCPXML timeline forced to 3840x2160 at 1/60s frame duration.",
+    format: "fcpxml",
+    targetFormat: "fcpxml",
+    mediaStrategy: "fixed",
+    config: {
+      fcpxml: {
+        frameDuration: "1/60s",
+        width: 3840,
+        height: 2160,
+        colorSpace: "1-1-1 (Rec. 709)",
+        version: DEFAULT_FCPXML_VERSION,
+        defaultLane: 1,
+        startTimecodeSeconds: DEFAULT_FCPXML_START_TIMECODE_SECONDS,
+      },
+    },
+  },
+  {
+    id: "builtin-subtitle-export-preset-fcpxml-4k30",
+    name: "FCPXML · 4K · 1/30s",
+    description: "FCPXML timeline forced to 3840x2160 at 1/30s frame duration.",
+    format: "fcpxml",
+    targetFormat: "fcpxml",
+    mediaStrategy: "fixed",
+    config: {
+      fcpxml: {
+        frameDuration: "1/30s",
+        width: 3840,
+        height: 2160,
+        colorSpace: "1-1-1 (Rec. 709)",
+        version: DEFAULT_FCPXML_VERSION,
+        defaultLane: 1,
+        startTimecodeSeconds: DEFAULT_FCPXML_START_TIMECODE_SECONDS,
+      },
+    },
+  },
+  {
+    id: "builtin-subtitle-export-preset-fcpxml-1080p60",
+    name: "FCPXML · 1080p · 1/60s",
+    description: "FCPXML timeline forced to 1920x1080 at 1/60s frame duration.",
+    format: "fcpxml",
+    targetFormat: "fcpxml",
+    mediaStrategy: "fixed",
+    config: {
+      fcpxml: {
+        frameDuration: "1/60s",
+        width: 1920,
+        height: 1080,
+        colorSpace: "1-1-1 (Rec. 709)",
+        version: DEFAULT_FCPXML_VERSION,
+        defaultLane: 1,
+        startTimecodeSeconds: DEFAULT_FCPXML_START_TIMECODE_SECONDS,
+      },
+    },
+  },
+  {
+    id: "builtin-subtitle-export-preset-fcpxml-1080p30",
+    name: "FCPXML · 1080p · 1/30s",
+    description: "FCPXML timeline forced to 1920x1080 at 1/30s frame duration.",
+    format: "fcpxml",
+    targetFormat: "fcpxml",
+    mediaStrategy: "fixed",
+    config: {
+      fcpxml: {
+        frameDuration: "1/30s",
+        width: 1920,
+        height: 1080,
+        colorSpace: "1-1-1 (Rec. 709)",
+        version: DEFAULT_FCPXML_VERSION,
+        defaultLane: 1,
+        startTimecodeSeconds: DEFAULT_FCPXML_START_TIMECODE_SECONDS,
+      },
+    },
+  },
 ]
 
 function pad(value: number, size = 2) {
@@ -188,7 +469,9 @@ export function resolveSubtitleStyleDefaults(config?: LibraryModuleConfigDTO) {
   return {
     monoStyleId: config?.subtitleStyles?.defaults?.monoStyleId ?? "",
     bilingualStyleId: config?.subtitleStyles?.defaults?.bilingualStyleId ?? "",
-    subtitleExportPresetId: config?.subtitleStyles?.defaults?.subtitleExportPresetId ?? "",
+    subtitleExportPresetId: normalizeLegacySubtitleExportPresetId(
+      config?.subtitleStyles?.defaults?.subtitleExportPresetId ?? "",
+    ),
   }
 }
 
@@ -211,7 +494,10 @@ export function resolveDefaultBilingualStyle(config?: LibraryModuleConfigDTO): L
 }
 
 export function resolveSubtitleExportPresets(config?: LibraryModuleConfigDTO) {
-  return config?.subtitleStyles?.subtitleExportPresets ?? []
+  return normalizeSubtitleExportPresets(
+    (config?.subtitleStyles?.subtitleExportPresets ??
+      []) as LibrarySubtitleExportPresetWithDescription[],
+  )
 }
 
 export function buildSubtitleStyleDocumentSummary(document: LibrarySubtitleStyleDocumentDTO) {
@@ -365,6 +651,100 @@ export function normalizeSubtitleExportMediaStrategy(value: string) {
   return value.trim().toLowerCase() === "fixed" ? "fixed" : "auto"
 }
 
+function normalizeLegacySubtitleExportPresetId(value: string) {
+  const normalized = value.trim()
+  switch (normalized) {
+    case "builtin-subtitle-export-preset-ass-4k60":
+    case "builtin-subtitle-export-preset-ass-4k30":
+      return "builtin-subtitle-export-preset-ass-4k"
+    case "builtin-subtitle-export-preset-ass-1080p60":
+    case "builtin-subtitle-export-preset-ass-1080p30":
+      return "builtin-subtitle-export-preset-ass-1080p"
+    default:
+      return normalized
+  }
+}
+
+function cloneSubtitleExportConfig(config?: SubtitleExportConfig): SubtitleExportConfig | undefined {
+  if (!config) {
+    return undefined
+  }
+  return {
+    srt: config.srt ? { ...config.srt } : undefined,
+    vtt: config.vtt ? { ...config.vtt } : undefined,
+    ass: config.ass ? { ...config.ass } : undefined,
+    itt: config.itt ? { ...config.itt } : undefined,
+    fcpxml: config.fcpxml ? { ...config.fcpxml } : undefined,
+  }
+}
+
+function cloneSubtitleExportPreset(
+  preset: LibrarySubtitleExportPresetWithDescription,
+): LibrarySubtitleExportPresetWithDescription {
+  return {
+    ...preset,
+    config: cloneSubtitleExportConfig(preset.config),
+  }
+}
+
+function normalizeSubtitleExportPresets(
+  values: LibrarySubtitleExportPresetWithDescription[],
+) {
+  const fallback = DEFAULT_BUILTIN_SUBTITLE_EXPORT_PRESETS.map(
+    cloneSubtitleExportPreset,
+  )
+  const result: LibrarySubtitleExportPresetWithDescription[] = []
+  const normalizedById = new Map<string, LibrarySubtitleExportPresetWithDescription>()
+  const seen = new Set<string>()
+  const source = values.length > 0 ? values : fallback
+
+  source.forEach((preset, index) => {
+    const id = normalizeLegacySubtitleExportPresetId(
+      (preset.id ?? "").trim() || `subtitle-export-preset-${index + 1}`,
+    )
+    if (!id || seen.has(id)) {
+      return
+    }
+    seen.add(id)
+    const normalizedFormat = normalizeSubtitleExportFormat(
+      preset.targetFormat ?? preset.format ?? "srt",
+    )
+    const normalizedPreset: LibrarySubtitleExportPresetWithDescription = {
+      ...preset,
+      id,
+      name: (preset.name ?? "").trim() || `Subtitle Export Preset ${index + 1}`,
+      format: normalizedFormat,
+      targetFormat: normalizedFormat,
+      mediaStrategy: normalizeSubtitleExportMediaStrategy(
+        preset.mediaStrategy ?? "",
+      ),
+      config: cloneSubtitleExportConfig(preset.config),
+    }
+    normalizedById.set(id, normalizedPreset)
+    result.push(normalizedPreset)
+  })
+
+  fallback.forEach((builtIn) => {
+    const existing = normalizedById.get(builtIn.id)
+    if (existing) {
+      normalizedById.set(builtIn.id, {
+        ...existing,
+        name: builtIn.name,
+        description: builtIn.description,
+        format: builtIn.format,
+        targetFormat: builtIn.targetFormat,
+        mediaStrategy: builtIn.mediaStrategy,
+        config: cloneSubtitleExportConfig(builtIn.config),
+      })
+      return
+    }
+    normalizedById.set(builtIn.id, builtIn)
+    result.push(builtIn)
+  })
+
+  return result.map((preset) => normalizedById.get(preset.id) ?? preset)
+}
+
 export function normalizeFCPXMLFrameDuration(value: string | undefined) {
   const normalized = (value ?? "").trim()
   if (!normalized) {
@@ -378,6 +758,30 @@ export function normalizeFCPXMLFrameDuration(value: string | undefined) {
     return normalized
   }
   return DEFAULT_FCPXML_FRAME_DURATION
+}
+
+export function normalizeFCPXMLStartTimecodeSeconds(value: number | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_FCPXML_START_TIMECODE_SECONDS
+  }
+  let best = FCPXML_START_TIMECODE_PRESETS[0] ?? {
+    value: DEFAULT_FCPXML_START_TIMECODE_SECONDS,
+  }
+  let bestDelta = Math.abs(best.value - value)
+  for (const preset of FCPXML_START_TIMECODE_PRESETS.slice(1)) {
+    const delta = Math.abs(preset.value - value)
+    if (delta < bestDelta) {
+      best = preset
+      bestDelta = delta
+    }
+  }
+  return best.value
+}
+
+export function normalizeFCPXMLVersion(value: string | undefined) {
+  const normalized = (value ?? "").trim()
+  const preset = FCPXML_VERSION_OPTIONS.find((item) => item.value === normalized)
+  return preset?.value ?? DEFAULT_FCPXML_VERSION
 }
 
 export function resolveFCPXMLFrameDurationFromFrameRate(frameRate: number | undefined) {
@@ -451,16 +855,10 @@ export function resolveITTFrameTimingFromFrameRate(frameRate: number | undefined
   if (typeof frameRate !== "number" || !Number.isFinite(frameRate) || frameRate <= 0) {
     return { frameRate: DEFAULT_ITT_FRAME_RATE, frameRateMultiplier: DEFAULT_ITT_FRAME_RATE_MULTIPLIER }
   }
-  const candidates: ITTFrameTiming[] = [
-    { frameRate: 24, frameRateMultiplier: "1 1" },
-    { frameRate: 24, frameRateMultiplier: "1000 1001" },
-    { frameRate: 25, frameRateMultiplier: "1 1" },
-    { frameRate: 30, frameRateMultiplier: "1 1" },
-    { frameRate: 30, frameRateMultiplier: "1000 1001" },
-    { frameRate: 50, frameRateMultiplier: "1 1" },
-    { frameRate: 60, frameRateMultiplier: "1 1" },
-    { frameRate: 60, frameRateMultiplier: "1000 1001" },
-  ]
+  const candidates: ITTFrameTiming[] = ITT_FRAME_RATE_PRESETS.map((preset) => ({
+    frameRate: preset.frameRate,
+    frameRateMultiplier: preset.frameRateMultiplier,
+  }))
   let best = candidates[0]
   let bestDistance = Math.abs(frameRate - resolveITTEffectiveFrameRate(best.frameRate, best.frameRateMultiplier))
   for (const candidate of candidates.slice(1)) {
@@ -484,6 +882,31 @@ export function resolveITTFrameRateLabel(frameRate: number | undefined, frameRat
     return `${base} fps`
   }
   return `${base} * ${numerator}/${denominator} (${rounded} fps)`
+}
+
+export function resolveITTFrameRatePresetValue(
+  frameRate: number | undefined,
+  frameRateMultiplier: string | undefined,
+) {
+  const effective = resolveITTEffectiveFrameRate(frameRate, frameRateMultiplier)
+  const timing = resolveITTFrameTimingFromFrameRate(effective)
+  const preset = ITT_FRAME_RATE_PRESETS.find(
+    (item) =>
+      item.frameRate === timing.frameRate &&
+      item.frameRateMultiplier === timing.frameRateMultiplier,
+  )
+  return preset?.value ?? ITT_FRAME_RATE_PRESETS[4]?.value ?? "30"
+}
+
+export function resolveITTFrameTimingFromPresetValue(value: string): ITTFrameTiming {
+  const preset = ITT_FRAME_RATE_PRESETS.find((item) => item.value === value.trim())
+  if (preset) {
+    return {
+      frameRate: preset.frameRate,
+      frameRateMultiplier: preset.frameRateMultiplier,
+    }
+  }
+  return resolveITTFrameTimingFromFrameRate(DEFAULT_ITT_FRAME_RATE)
 }
 
 function createDefaultSubtitleExportConfig(): SubtitleExportConfig {
@@ -511,12 +934,12 @@ function createDefaultSubtitleExportConfig(): SubtitleExportConfig {
       width: 1920,
       height: 1080,
       colorSpace: "1-1-1 (Rec. 709)",
-      version: "1.11",
+      version: DEFAULT_FCPXML_VERSION,
       projectName: "DreamCreator Project",
       libraryName: "DreamCreator Project_Library",
       eventName: "DreamCreator Project_Event",
       defaultLane: 1,
-      startTimecodeSeconds: 3600,
+      startTimecodeSeconds: DEFAULT_FCPXML_START_TIMECODE_SECONDS,
     },
   }
 }
@@ -911,7 +1334,7 @@ function resolveTextSubtitleCueText(
   const sourceText = row.sourceText.trim()
   const translationText = row.translationText?.trim() ?? ""
   switch (displayMode) {
-    case "dual":
+    case "bilingual":
       return [sourceText, translationText].filter(Boolean).join("\n")
     default:
       return sourceText
@@ -964,7 +1387,7 @@ export function buildAssSubtitleContent(options: BuildAssSubtitleContentOptions)
     const sourceText = row.sourceText.trim()
     const translationText = row.translationText?.trim() ?? ""
 
-    if (options.displayMode === "single") {
+    if (options.displayMode === "mono") {
       if (sourceText) {
         dialogueLines.push(buildAssDialogue(primaryStyle, row.startMs, row.endMs, sourceText))
       }

@@ -60,7 +60,6 @@ import {
   type WorkspaceQaCheckId,
 } from "../model/workspaceQa";
 import {
-  buildAssSubtitleContent,
   buildTextSubtitleContent,
   normalizeSubtitleExportFormat,
   resolveDefaultBilingualStyle,
@@ -74,10 +73,9 @@ import {
   buildDefaultSubtitleExportConfig,
   buildWorkspaceTaskProgressLabel,
   buildWorkspaceTranslateTaskLabel,
-  cloneWorkspaceLingualStyle,
-  cloneWorkspaceMonoStyle,
+  createWorkspaceLingualStyleDraft,
+  createWorkspaceMonoStyleDraft,
   createWorkspacePromptProfileId,
-  createWorkspaceStyleDocument,
   derivePromptProfileName,
   mergeSubtitleExportConfig,
   parseAssistantModelRef,
@@ -256,11 +254,12 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
     [workspaceProject?.subtitleTracks],
   );
   const workspaceProjectMonoStyle = React.useMemo(
-    () => cloneWorkspaceMonoStyle(workspaceProject?.subtitleMonoStyle),
+    () => createWorkspaceMonoStyleDraft(workspaceProject?.subtitleMonoStyle),
     [workspaceProject?.subtitleMonoStyle],
   );
   const workspaceProjectLingualStyle = React.useMemo(
-    () => cloneWorkspaceLingualStyle(workspaceProject?.subtitleLingualStyle),
+    () =>
+      createWorkspaceLingualStyleDraft(workspaceProject?.subtitleLingualStyle),
     [workspaceProject?.subtitleLingualStyle],
   );
   const videoFiles = React.useMemo(
@@ -440,6 +439,10 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
   const reviewFocusSessionIdRef = React.useRef("");
   const previewVttRequestVersionRef = React.useRef(0);
   const lastPreviewVttRequestKeyRef = React.useRef("");
+  const latestWorkspaceStateRequestRef = React.useRef<{
+    libraryId: string;
+    stateJson: string;
+  } | null>(null);
   const handlePreviewRenderSizeChange = React.useCallback(
     (size: { width: number; height: number }) => {
       setPreviewRenderSize((current) =>
@@ -788,10 +791,10 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
         : allSubtitleTrackOptions,
     [allSubtitleTrackOptions, dualEligibleTrackIDs, workspaceSubtitleTracks.length],
   );
-  const effectiveDisplayMode = canUseDualDisplay ? displayMode : "single";
+  const effectiveDisplayMode = canUseDualDisplay ? displayMode : "mono";
   const subtitleTrackOptions = React.useMemo(
     () =>
-      effectiveDisplayMode === "dual"
+      effectiveDisplayMode === "bilingual"
         ? dualEligibleSubtitleTrackOptions
         : allSubtitleTrackOptions,
     [
@@ -1229,7 +1232,9 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
     () =>
       workspaceSubtitleMonoStyle ??
       workspaceProjectMonoStyle ??
-      cloneWorkspaceMonoStyle(resolveDefaultMonoStyle(props.moduleConfig) ?? undefined) ??
+      createWorkspaceMonoStyleDraft(
+        resolveDefaultMonoStyle(props.moduleConfig) ?? undefined,
+      ) ??
       null,
     [
       props.moduleConfig,
@@ -1241,7 +1246,9 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
     () =>
       workspaceSubtitleLingualStyle ??
       workspaceProjectLingualStyle ??
-      cloneWorkspaceLingualStyle(resolveDefaultBilingualStyle(props.moduleConfig) ?? undefined) ??
+      createWorkspaceLingualStyleDraft(
+        resolveDefaultBilingualStyle(props.moduleConfig) ?? undefined,
+      ) ??
       null,
     [
       props.moduleConfig,
@@ -1264,8 +1271,8 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
     [props.moduleConfig?.subtitleStyles?.fonts],
   );
   const resolveWorkspaceStyleDocumentContent = React.useCallback(
-    async (mode: "single" | "dual") => {
-      if (mode === "dual" && activeWorkspaceLingualStyle) {
+    async (mode: "mono" | "bilingual") => {
+      if (mode === "bilingual" && activeWorkspaceLingualStyle) {
         const result = await generateSubtitleStylePreviewASS.mutateAsync({
           type: "bilingual",
           bilingual: activeWorkspaceLingualStyle,
@@ -1538,10 +1545,13 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
         );
         applyPersistedWorkspaceState(restoredState);
         setWorkspaceSubtitleMonoStyle(
-          cloneWorkspaceMonoStyle(restoredState.subtitleMonoStyle) ?? null,
+          createWorkspaceMonoStyleDraft(restoredState.subtitleMonoStyle) ??
+            null,
         );
         setWorkspaceSubtitleLingualStyle(
-          cloneWorkspaceLingualStyle(restoredState.subtitleLingualStyle) ?? null,
+          createWorkspaceLingualStyleDraft(
+            restoredState.subtitleLingualStyle,
+          ) ?? null,
         );
         setSubtitleStyleSidebarOpen(
           Boolean(restoredState.subtitleStyleSidebarOpen),
@@ -1569,10 +1579,17 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
   ]);
 
   React.useEffect(() => {
-    if (!library?.id || !workspaceStateReady || saveWorkspaceState.isPending) {
+    if (!library?.id || !workspaceStateReady) {
       return;
     }
-    if (lastSavedWorkspaceStateJSONRef.current == persistedWorkspaceStateJSON) {
+    latestWorkspaceStateRequestRef.current = {
+      libraryId: library.id,
+      stateJson: persistedWorkspaceStateJSON,
+    };
+    if (
+      saveWorkspaceState.isPending ||
+      lastSavedWorkspaceStateJSONRef.current == persistedWorkspaceStateJSON
+    ) {
       return;
     }
     const timer = window.setTimeout(() => {
@@ -1593,9 +1610,29 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
   }, [
     library?.id,
     persistedWorkspaceStateJSON,
-    saveWorkspaceState,
+    saveWorkspaceState.isPending,
+    saveWorkspaceState.mutateAsync,
     workspaceStateReady,
   ]);
+
+  React.useEffect(() => {
+    return () => {
+      const latestRequest = latestWorkspaceStateRequestRef.current;
+      const currentLibraryID = library?.id ?? "";
+      if (!latestRequest || latestRequest.libraryId !== currentLibraryID) {
+        return;
+      }
+      if (latestRequest.stateJson === lastSavedWorkspaceStateJSONRef.current) {
+        return;
+      }
+      void saveWorkspaceState
+        .mutateAsync(latestRequest)
+        .then(() => {
+          lastSavedWorkspaceStateJSONRef.current = latestRequest.stateJson;
+        })
+        .catch(() => {});
+    };
+  }, [library?.id, saveWorkspaceState.mutateAsync]);
 
   React.useEffect(() => {
     if (!selectedRowId && resolvedRows[0]?.id) {
@@ -1641,7 +1678,9 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
     }
     const fallback =
       workspaceProjectMonoStyle ??
-      cloneWorkspaceMonoStyle(resolveDefaultMonoStyle(props.moduleConfig) ?? undefined);
+      createWorkspaceMonoStyleDraft(
+        resolveDefaultMonoStyle(props.moduleConfig) ?? undefined,
+      );
     if (fallback) {
       setWorkspaceSubtitleMonoStyle(fallback);
     }
@@ -1657,7 +1696,9 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
     }
     const fallback =
       workspaceProjectLingualStyle ??
-      cloneWorkspaceLingualStyle(resolveDefaultBilingualStyle(props.moduleConfig) ?? undefined);
+      createWorkspaceLingualStyleDraft(
+        resolveDefaultBilingualStyle(props.moduleConfig) ?? undefined,
+      );
     if (fallback) {
       setWorkspaceSubtitleLingualStyle(fallback);
     }
@@ -1695,8 +1736,8 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
     }
     if (translatedFile.id != activeSubtitleFile?.id) {
       setComparisonSubtitleFileId(translatedFile.id);
-      if (displayMode == "single") {
-        setDisplayMode("dual");
+      if (displayMode == "mono") {
+        setDisplayMode("bilingual");
       }
     }
     setPendingTranslateOperationId("");
@@ -1854,10 +1895,10 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
   }, [durationMs, isPlaying, playheadMs]);
 
   React.useEffect(() => {
-    if (displayMode !== "dual" || canUseDualDisplay) {
+    if (displayMode !== "bilingual" || canUseDualDisplay) {
       return;
     }
-    setDisplayMode("single");
+    setDisplayMode("mono");
   }, [canUseDualDisplay, displayMode, setDisplayMode]);
 
   const filteredVideoRows = React.useMemo(
@@ -2513,7 +2554,7 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
           ? ""
           : await resolveWorkspaceStyleDocumentContent(effectiveDisplayMode);
       const exportDocumentRows =
-        effectiveDisplayMode === "dual"
+        effectiveDisplayMode === "bilingual"
           ? resolvedRows.map((row) => ({
               ...row,
               sourceText: [row.sourceText, row.translationText]
@@ -2522,6 +2563,19 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
                 .join("\n"),
             }))
           : resolvedRows;
+      const exportDocument = buildSubtitleDocument(
+        exportDocumentRows,
+        subtitleFormat,
+        activeSubtitleDocument,
+      );
+      if (effectiveDisplayMode === "bilingual") {
+        exportDocument.metadata = {
+          ...(exportDocument.metadata ?? {}),
+          dreamcreatorExportDisplayMode: "bilingual",
+          dreamcreatorExportPrimaryTexts: resolvedRows.map((row) => row.sourceText),
+          dreamcreatorExportSecondaryTexts: resolvedRows.map((row) => row.translationText),
+        };
+      }
       const result = await exportSubtitle.mutateAsync({
         exportPath,
         fileId: activeSubtitleFile.id,
@@ -2530,11 +2584,7 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
         targetFormat: exportSubtitleFormat,
         styleDocumentContent,
         exportConfig: exportSubtitleConfig,
-        document: buildSubtitleDocument(
-          exportDocumentRows,
-          subtitleFormat,
-          activeSubtitleDocument,
-        ),
+        document: exportDocument,
       });
       setExportSubtitleDialogOpen(false);
       messageBus.publishToast({
@@ -2661,21 +2711,33 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
       : exportVideoSubtitleHandling === "burnin"
         ? "ass"
         : exportEmbeddedSubtitleRoute.format;
+    let generatedSubtitleStyleDocumentContent: string | undefined;
+    let generatedSubtitleDocument: SubtitleDocument | undefined;
     let generatedSubtitleContent = "";
     if (subtitlesEnabled) {
       if (
         exportVideoSubtitleHandling === "burnin" ||
         exportEmbeddedSubtitleRoute.format === "ass"
       ) {
-        const styleDocumentContent = await resolveWorkspaceStyleDocumentContent(
-          effectiveDisplayMode,
+        generatedSubtitleStyleDocumentContent =
+          await resolveWorkspaceStyleDocumentContent(effectiveDisplayMode);
+        generatedSubtitleDocument = buildSubtitleDocument(
+          resolvedRows,
+          subtitleFormat,
+          activeSubtitleDocument,
         );
-        generatedSubtitleContent = buildAssSubtitleContent({
-          rows: resolvedRows,
-          displayMode: effectiveDisplayMode,
-          document: createWorkspaceStyleDocument(styleDocumentContent),
-          title: resourceName,
-        });
+        if (effectiveDisplayMode === "bilingual") {
+          generatedSubtitleDocument.metadata = {
+            ...(generatedSubtitleDocument.metadata ?? {}),
+            dreamcreatorExportDisplayMode: "bilingual",
+            dreamcreatorExportPrimaryTexts: resolvedRows.map(
+              (row) => row.sourceText,
+            ),
+            dreamcreatorExportSecondaryTexts: resolvedRows.map(
+              (row) => row.translationText,
+            ),
+          };
+        }
       } else {
         generatedSubtitleContent = buildTextSubtitleContent({
           rows: resolvedRows,
@@ -2685,7 +2747,15 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
         });
       }
     }
-    if (subtitlesEnabled && !generatedSubtitleContent.trim()) {
+    const hasStructuredASSPayload =
+      generatedSubtitleFormat === "ass" &&
+      generatedSubtitleDocument != null &&
+      generatedSubtitleDocument.cues.length > 0;
+    if (
+      subtitlesEnabled &&
+      !hasStructuredASSPayload &&
+      !generatedSubtitleContent.trim()
+    ) {
       messageBus.publishToast({
         intent: "warning",
         title: t("library.workspace.notifications.emptySubtitleOutputTitle"),
@@ -2711,7 +2781,14 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
         generatedSubtitleName: subtitlesEnabled
           ? `${resourceName || activeVideoFile.name} subtitles`
           : undefined,
-        generatedSubtitleContent: subtitlesEnabled
+        generatedSubtitleStyleDocumentContent: hasStructuredASSPayload
+          ? generatedSubtitleStyleDocumentContent
+          : undefined,
+        generatedSubtitleDocument: hasStructuredASSPayload
+          ? generatedSubtitleDocument
+          : undefined,
+        generatedSubtitleContent:
+          subtitlesEnabled && generatedSubtitleContent.trim()
           ? generatedSubtitleContent
           : undefined,
       });
@@ -2732,6 +2809,7 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
       });
     }
   }, [
+    activeSubtitleDocument,
     activeSubtitleFile?.id,
     activeVideoFile,
     comparisonSubtitleFileId,
@@ -2745,6 +2823,7 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
     resolveWorkspaceStyleDocumentContent,
     resolvedRows,
     resourceName,
+    subtitleFormat,
     t,
   ]);
 
@@ -3263,6 +3342,100 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
     );
   }
 
+  const workspaceSubtitleStyleSidebar = (
+    <WorkspaceSubtitleStyleCard
+      displayMode={effectiveDisplayMode}
+      monoStyle={activeWorkspaceMonoStyle}
+      lingualStyle={activeWorkspaceLingualStyle}
+      fontMappings={workspaceFontMappings}
+      monoStyles={props.moduleConfig?.subtitleStyles?.monoStyles ?? []}
+      lingualStyles={props.moduleConfig?.subtitleStyles?.bilingualStyles ?? []}
+      monoStyleOptions={monoStyleOptions}
+      lingualStyleOptions={lingualStyleOptions}
+      onMonoStyleChange={(next) =>
+        setWorkspaceSubtitleMonoStyle(
+          createWorkspaceMonoStyleDraft(next) ?? null,
+        )
+      }
+      onLingualStyleChange={(next) =>
+        setWorkspaceSubtitleLingualStyle(
+          createWorkspaceLingualStyleDraft(next) ?? null,
+        )
+      }
+      onApplyTemplate={(kind, styleId) => {
+        if (kind === "mono") {
+          const next = props.moduleConfig?.subtitleStyles?.monoStyles?.find(
+            (item) => item.id === styleId,
+          );
+          if (next) {
+            setWorkspaceSubtitleMonoStyle(
+              createWorkspaceMonoStyleDraft(next) ?? null,
+            );
+          }
+          return;
+        }
+        const next =
+          props.moduleConfig?.subtitleStyles?.bilingualStyles?.find(
+            (item) => item.id === styleId,
+          );
+        if (next) {
+          setWorkspaceSubtitleLingualStyle(
+            createWorkspaceLingualStyleDraft(next) ?? null,
+          );
+        }
+      }}
+      onSaveAs={(kind, name) => {
+        const safeName = name.trim();
+        if (!props.moduleConfig) {
+          return;
+        }
+        if (!safeName) {
+          return;
+        }
+        if (kind === "mono" && activeWorkspaceMonoStyle) {
+          const current = props.moduleConfig.subtitleStyles.monoStyles ?? [];
+          const nextStyle = {
+            ...activeWorkspaceMonoStyle,
+            id: createSubtitleStylePresetID("mono"),
+            name: safeName,
+          };
+          const nextConfig = {
+            ...props.moduleConfig,
+            subtitleStyles: {
+              ...props.moduleConfig.subtitleStyles,
+              monoStyles: [...current, nextStyle],
+            },
+          };
+          props.onModuleConfigChange?.(nextConfig);
+          void updateModuleConfig.mutateAsync({ config: nextConfig }).then((saved) => {
+            props.onModuleConfigChange?.(saved);
+          });
+          return;
+        }
+        if (kind === "lingual" && activeWorkspaceLingualStyle) {
+          const current =
+            props.moduleConfig.subtitleStyles.bilingualStyles ?? [];
+          const nextStyle = {
+            ...activeWorkspaceLingualStyle,
+            id: createSubtitleStylePresetID("bilingual"),
+            name: safeName,
+          };
+          const nextConfig = {
+            ...props.moduleConfig,
+            subtitleStyles: {
+              ...props.moduleConfig.subtitleStyles,
+              bilingualStyles: [...current, nextStyle],
+            },
+          };
+          props.onModuleConfigChange?.(nextConfig);
+          void updateModuleConfig.mutateAsync({ config: nextConfig }).then((saved) => {
+            props.onModuleConfigChange?.(saved);
+          });
+        }
+      }}
+    />
+  );
+
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--background)))] shadow-[0_20px_65px_-42px_rgba(15,23,42,0.38)]">
       <WorkspaceHeader
@@ -3364,89 +3537,7 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
             previewFontMappings={workspaceFontMappings}
             onPreviewRenderSizeChange={handlePreviewRenderSizeChange}
             showStyleSidebar={subtitleStyleSidebarOpen}
-            styleSidebarContent={
-              <WorkspaceSubtitleStyleCard
-                displayMode={effectiveDisplayMode}
-                monoStyle={activeWorkspaceMonoStyle}
-                lingualStyle={activeWorkspaceLingualStyle}
-                monoStyles={props.moduleConfig?.subtitleStyles?.monoStyles ?? []}
-                monoStyleOptions={monoStyleOptions}
-                lingualStyleOptions={lingualStyleOptions}
-                onMonoStyleChange={(next) => setWorkspaceSubtitleMonoStyle(next)}
-                onLingualStyleChange={(next) =>
-                  setWorkspaceSubtitleLingualStyle(next)
-                }
-                onApplyTemplate={(kind, styleId) => {
-                  if (kind === "mono") {
-                    const next = props.moduleConfig?.subtitleStyles?.monoStyles?.find(
-                      (item) => item.id === styleId,
-                    );
-                    if (next) {
-                      setWorkspaceSubtitleMonoStyle(cloneWorkspaceMonoStyle(next) ?? null);
-                    }
-                    return;
-                  }
-                  const next =
-                    props.moduleConfig?.subtitleStyles?.bilingualStyles?.find(
-                      (item) => item.id === styleId,
-                    );
-                  if (next) {
-                    setWorkspaceSubtitleLingualStyle(
-                      cloneWorkspaceLingualStyle(next) ?? null,
-                    );
-                  }
-                }}
-                onSaveAs={(kind, name) => {
-                  const safeName = name.trim();
-                  if (!props.moduleConfig) {
-                    return;
-                  }
-                  if (!safeName) {
-                    return;
-                  }
-                  if (kind === "mono" && activeWorkspaceMonoStyle) {
-                    const current = props.moduleConfig.subtitleStyles.monoStyles ?? [];
-                    const nextStyle = {
-                      ...activeWorkspaceMonoStyle,
-                      id: createSubtitleStylePresetID("mono"),
-                      name: safeName,
-                    };
-                    const nextConfig = {
-                      ...props.moduleConfig,
-                      subtitleStyles: {
-                        ...props.moduleConfig.subtitleStyles,
-                        monoStyles: [...current, nextStyle],
-                      },
-                    };
-                    props.onModuleConfigChange?.(nextConfig);
-                    void updateModuleConfig.mutateAsync({ config: nextConfig }).then((saved) => {
-                      props.onModuleConfigChange?.(saved);
-                    });
-                    return;
-                  }
-                  if (kind === "lingual" && activeWorkspaceLingualStyle) {
-                    const current =
-                      props.moduleConfig.subtitleStyles.bilingualStyles ?? [];
-                    const nextStyle = {
-                      ...activeWorkspaceLingualStyle,
-                      id: createSubtitleStylePresetID("bilingual"),
-                      name: safeName,
-                    };
-                    const nextConfig = {
-                      ...props.moduleConfig,
-                      subtitleStyles: {
-                        ...props.moduleConfig.subtitleStyles,
-                        bilingualStyles: [...current, nextStyle],
-                      },
-                    };
-                    props.onModuleConfigChange?.(nextConfig);
-                    void updateModuleConfig.mutateAsync({ config: nextConfig }).then((saved) => {
-                      props.onModuleConfigChange?.(saved);
-                    });
-                  }
-                }}
-              />
-            }
+            styleSidebarContent={workspaceSubtitleStyleSidebar}
             isLoading={subtitleLoading}
             errorMessage={subtitleError}
             onDensityChange={setVideoDensity}
@@ -3481,6 +3572,8 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
             qaFilter={subtitleQaFilter}
             isLoading={subtitleLoading}
             errorMessage={subtitleError}
+            showStyleSidebar={subtitleStyleSidebarOpen}
+            styleSidebarContent={workspaceSubtitleStyleSidebar}
             editingEnabled={!subtitleReviewBlocked}
             qaCheckSettings={qaCheckSettings}
             onSearchChange={setSubtitleSearch}
@@ -3639,6 +3732,9 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
         }
         cueCount={resolvedRows.length}
         currentFormat={subtitleFormat}
+        displayMode={effectiveDisplayMode}
+        monoStyle={activeWorkspaceMonoStyle}
+        lingualStyle={activeWorkspaceLingualStyle}
         targetFormat={exportSubtitleFormat}
         onTargetFormatChange={handleChangeExportSubtitleFormat}
         presetOptions={subtitleExportPresets}

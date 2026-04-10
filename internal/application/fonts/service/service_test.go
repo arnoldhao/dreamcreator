@@ -34,6 +34,67 @@ func TestFontNamesFromFontDataIncludesPostScriptAlias(t *testing.T) {
 	if entry.faceIndex != -1 {
 		t.Fatalf("expected standalone font face index -1, got %d", entry.faceIndex)
 	}
+	if entry.face != "Regular" {
+		t.Fatalf("expected regular font face, got %q", entry.face)
+	}
+	if entry.weight != 400 {
+		t.Fatalf("expected regular font weight 400, got %d", entry.weight)
+	}
+	if entry.italic {
+		t.Fatalf("expected regular face to not be italic")
+	}
+}
+
+func TestListFontCatalogReturnsFamilyFaces(t *testing.T) {
+	service := NewFontService()
+	service.loaded = true
+	service.catalog = fontCatalog{
+		familyCatalog: []FontCatalogFamily{{
+			Family: "PingFang SC",
+			Faces: []FontCatalogFace{
+				{
+					Name:           "Regular",
+					FullName:       "PingFang SC Regular",
+					PostScriptName: "PingFangSC-Regular",
+					Weight:         400,
+					Italic:         false,
+				},
+				{
+					Name:           "Semibold",
+					FullName:       "PingFang SC Semibold",
+					PostScriptName: "PingFangSC-Semibold",
+					Weight:         600,
+					Italic:         false,
+				},
+			},
+		}},
+	}
+
+	result, err := service.ListFontCatalog(context.Background())
+	if err != nil {
+		t.Fatalf("ListFontCatalog returned error: %v", err)
+	}
+	if len(result) != 1 {
+		t.Fatalf("expected one font family, got %#v", result)
+	}
+	if result[0].Family != "PingFang SC" {
+		t.Fatalf("expected PingFang SC family, got %#v", result[0])
+	}
+	if len(result[0].Faces) != 2 {
+		t.Fatalf("expected two faces, got %#v", result[0].Faces)
+	}
+	if result[0].Faces[1].Name != "Semibold" || result[0].Faces[1].Weight != 600 || result[0].Faces[1].PostScriptName != "PingFangSC-Semibold" {
+		t.Fatalf("expected semibold face metadata, got %#v", result[0].Faces[1])
+	}
+
+	result[0].Faces[0].Name = "Mutated"
+	again, err := service.ListFontCatalog(context.Background())
+	if err != nil {
+		t.Fatalf("ListFontCatalog second call returned error: %v", err)
+	}
+	if again[0].Faces[0].Name != "Regular" {
+		t.Fatalf("expected ListFontCatalog to return a defensive copy, got %#v", again[0].Faces[0])
+	}
 }
 
 func TestExportFontFamilyMatchesHyphenatedAlias(t *testing.T) {
@@ -117,6 +178,20 @@ func TestResolveCatalogFontFamilySuppressesHiddenSystemFamilies(t *testing.T) {
 	got := resolveCatalogFontFamily("New York", "", ".New York", ".New York Regular", ".NewYork-Regular")
 	if got != "" {
 		t.Fatalf("expected hidden system family to be suppressed, got %q", got)
+	}
+}
+
+func TestResolveCatalogFontFacePrefersPostScriptSuffixOverLocalizedSubfamily(t *testing.T) {
+	got := resolveCatalogFontFace(
+		"半粗體",
+		"",
+		"半粗體",
+		"蘋方-繁 半粗體",
+		"PingFang TC",
+		"PingFangTC-Semibold",
+	)
+	if got != "Semibold" {
+		t.Fatalf("expected postscript-derived face Semibold, got %q", got)
 	}
 }
 

@@ -12,8 +12,19 @@ import {
 } from "lucide-react"
 
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/shared/ui/empty"
-import { useFontFamilies } from "@/hooks/useFontFamilies"
+import { useFontCatalog } from "@/hooks/useFontCatalog"
 import { cn } from "@/lib/utils"
+import {
+  applyFontCatalogFaceToStyle,
+  applyFontFamilyToStyle,
+  resolveAssStyleFontFace,
+  resolveAssStyleFontItalic,
+  resolveAssStyleFontWeight,
+  resolveFontCatalogFaces,
+  resolveFontCatalogFamily,
+  toggleAssStyleBold,
+  toggleAssStyleItalic,
+} from "@/shared/fonts/fontCatalog"
 import { useI18n } from "@/shared/i18n"
 import { messageBus } from "@/shared/message"
 import { useSelectDirectory } from "@/shared/query/settings"
@@ -24,6 +35,7 @@ import type {
   LibraryBilingualStyleDTO,
   LibraryModuleConfigDTO,
   LibraryMonoStyleDTO,
+  LibrarySubtitleStyleFontDTO,
   ParseSubtitleStyleImportRequest,
   ParseSubtitleStyleImportResult,
 } from "@/shared/contracts/library"
@@ -60,6 +72,7 @@ import {
   type SubtitleStylePresetKind,
   type SubtitleStylePresetSelection,
 } from "../utils/subtitleStylePresets"
+import { buildSubtitleStyleNamePreviewStyle } from "../utils/subtitleStyleNamePreview"
 import { resolveSubtitleStyleDefaults } from "../utils/subtitleStyles"
 
 type SubtitleStylePresetManagerProps = {
@@ -177,6 +190,10 @@ export function SubtitleStylePresetManager({
 
   const monoStyles = React.useMemo(() => resolveMonoStyles(value), [value])
   const bilingualStyles = React.useMemo(() => resolveBilingualStyles(value), [value])
+  const fontMappings = React.useMemo(
+    () => value.subtitleStyles.fonts ?? [],
+    [value.subtitleStyles.fonts],
+  )
   const subtitleStyleDefaults = React.useMemo(
     () => resolveSubtitleStyleDefaults(value),
     [value],
@@ -765,6 +782,7 @@ export function SubtitleStylePresetManager({
           <AllStyleCardsPane
             monoStyles={monoStyles}
             bilingualStyles={bilingualStyles}
+            fontMappings={fontMappings}
             defaults={subtitleStyleDefaults}
             selection={selection}
             onSelect={(next) => selectStyle(next)}
@@ -801,6 +819,7 @@ export function SubtitleStylePresetManager({
             selection={selection}
             monoStyles={monoStyles}
             bilingualStyles={bilingualStyles}
+            fontMappings={fontMappings}
             defaults={subtitleStyleDefaults}
             onSelect={(next) => selectStyle(next)}
             onShowAll={() => {
@@ -998,12 +1017,19 @@ function PreviewPane(props: {
 function AllStyleCardsPane(props: {
   monoStyles: LibraryMonoStyleDTO[]
   bilingualStyles: LibraryBilingualStyleDTO[]
+  fontMappings: LibrarySubtitleStyleFontDTO[]
   defaults: { monoStyleId?: string; bilingualStyleId?: string }
   selection: SubtitleStylePresetSelection
   onSelect: (selection: SubtitleStylePresetSelection) => void
 }) {
   const { t } = useI18n()
   const totalCount = props.monoStyles.length + props.bilingualStyles.length
+  const adaptiveGridStyle = React.useMemo(
+    () => ({
+      gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 15.5rem), 1fr))",
+    }),
+    [],
+  )
 
   return (
     <div className={cn("flex h-full min-h-0 w-full flex-col overflow-hidden p-4", DASHBOARD_DIALOG_SOFT_SURFACE_CLASS)}>
@@ -1030,43 +1056,26 @@ function AllStyleCardsPane(props: {
                 <div className="text-xs font-semibold text-foreground/80">
                   {t("library.config.subtitleStyles.monoSection")}
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-3" style={adaptiveGridStyle}>
                   {props.monoStyles.map((style) => {
                     const selected = props.selection?.kind === "mono" && props.selection.id === style.id
                     const isDefault = isDefaultMonoStyle(props.defaults, style)
                     const styleSpec = resolveStyleForRendering("mono", style)
                     return (
-                      <button
+                      <PresetSummaryCard
                         key={`mono-${style.id}`}
-                        type="button"
+                        name={style.name}
+                        selected={selected}
+                        styleSpec={styleSpec}
+                        fontMappings={props.fontMappings}
+                        kindLabel={t("library.config.subtitleStyles.monoSection")}
+                        builtIn={style.builtIn === true}
+                        isDefault={isDefault}
+                        aspectRatio={style.baseAspectRatio}
+                        builtInLabel={t("library.config.subtitleStyles.builtinBadge")}
+                        defaultLabel={t("library.config.subtitleStyles.defaultBadge")}
                         onClick={() => props.onSelect({ kind: "mono", id: style.id })}
-                        className={cn(
-                          "h-[72px] rounded-xl border p-3 text-left transition-colors",
-                          selected
-                            ? "border-border/80 bg-background/95 shadow-sm"
-                            : "border-border/40 bg-background/70 hover:border-border/70 hover:bg-background/90",
-                        )}
-                      >
-                        <div className="truncate text-sm" style={resolvePresetNameTextStyle(styleSpec)} title={style.name}>
-                          {style.name || "-"}
-                        </div>
-                        <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
-                          <Badge variant="outline" className="text-[10px]">
-                            {t("library.config.subtitleStyles.monoSection")}
-                          </Badge>
-                          {style.builtIn ? (
-                            <Badge variant="secondary" className="text-[10px]">
-                              {t("library.config.subtitleStyles.builtinBadge")}
-                            </Badge>
-                          ) : null}
-                          {isDefault ? (
-                            <Badge className="text-[10px]">
-                              {t("library.config.subtitleStyles.defaultBadge")}
-                            </Badge>
-                          ) : null}
-                          <span>{style.baseAspectRatio || "-"}</span>
-                        </div>
-                      </button>
+                      />
                     )
                   })}
                 </div>
@@ -1078,43 +1087,26 @@ function AllStyleCardsPane(props: {
                 <div className="text-xs font-semibold text-foreground/80">
                   {t("library.config.subtitleStyles.bilingualSection")}
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-3" style={adaptiveGridStyle}>
                   {props.bilingualStyles.map((style) => {
                     const selected = props.selection?.kind === "bilingual" && props.selection.id === style.id
                     const isDefault = isDefaultBilingualStyle(props.defaults, style)
                     const styleSpec = resolveStyleForRendering("bilingual", style)
                     return (
-                      <button
+                      <PresetSummaryCard
                         key={`bilingual-${style.id}`}
-                        type="button"
+                        name={style.name}
+                        selected={selected}
+                        styleSpec={styleSpec}
+                        fontMappings={props.fontMappings}
+                        kindLabel={t("library.config.subtitleStyles.bilingualSection")}
+                        builtIn={style.builtIn === true}
+                        isDefault={isDefault}
+                        aspectRatio={style.baseAspectRatio}
+                        builtInLabel={t("library.config.subtitleStyles.builtinBadge")}
+                        defaultLabel={t("library.config.subtitleStyles.defaultBadge")}
                         onClick={() => props.onSelect({ kind: "bilingual", id: style.id })}
-                        className={cn(
-                          "h-[72px] rounded-xl border p-3 text-left transition-colors",
-                          selected
-                            ? "border-border/80 bg-background/95 shadow-sm"
-                            : "border-border/40 bg-background/70 hover:border-border/70 hover:bg-background/90",
-                        )}
-                      >
-                        <div className="truncate text-sm" style={resolvePresetNameTextStyle(styleSpec)} title={style.name}>
-                          {style.name || "-"}
-                        </div>
-                        <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
-                          <Badge variant="outline" className="text-[10px]">
-                            {t("library.config.subtitleStyles.bilingualSection")}
-                          </Badge>
-                          {style.builtIn ? (
-                            <Badge variant="secondary" className="text-[10px]">
-                              {t("library.config.subtitleStyles.builtinBadge")}
-                            </Badge>
-                          ) : null}
-                          {isDefault ? (
-                            <Badge className="text-[10px]">
-                              {t("library.config.subtitleStyles.defaultBadge")}
-                            </Badge>
-                          ) : null}
-                          <span>{style.baseAspectRatio || "-"}</span>
-                        </div>
-                      </button>
+                      />
                     )
                   })}
                 </div>
@@ -1125,6 +1117,56 @@ function AllStyleCardsPane(props: {
       )}
     </div>
   )
+}
+
+function PresetSummaryCard(props: {
+  name: string
+  selected: boolean
+  styleSpec: AssStyleSpecDTO
+  fontMappings: LibrarySubtitleStyleFontDTO[]
+  kindLabel: string
+  builtIn: boolean
+  isDefault: boolean
+  aspectRatio?: string
+  builtInLabel: string
+  defaultLabel: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={props.onClick}
+      className={cn(
+        "flex min-h-[84px] w-full min-w-0 flex-col rounded-xl border p-3 text-left transition-colors",
+        props.selected
+          ? "border-border/80 bg-background/95 shadow-sm"
+          : "border-border/40 bg-background/70 hover:border-border/70 hover:bg-background/90",
+      )}
+    >
+      <div
+        className="truncate text-sm"
+        style={buildSubtitleStyleNamePreviewStyle(props.styleSpec, props.fontMappings)}
+        title={props.name}
+      >
+        {props.name || "-"}
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+        <PresetMetaBadge variant="outline">{props.kindLabel}</PresetMetaBadge>
+        {props.builtIn ? (
+          <PresetMetaBadge variant="secondary">{props.builtInLabel}</PresetMetaBadge>
+        ) : null}
+        {props.isDefault ? <PresetMetaBadge>{props.defaultLabel}</PresetMetaBadge> : null}
+        <span className="shrink-0 whitespace-nowrap rounded-md border border-border/60 bg-background/55 px-2 py-0.5 font-mono text-[10px] leading-4 text-muted-foreground">
+          {props.aspectRatio || "-"}
+        </span>
+      </div>
+    </button>
+  )
+}
+
+function PresetMetaBadge(props: React.ComponentProps<typeof Badge>) {
+  const { className, ...rest } = props
+  return <Badge className={cn("shrink-0 whitespace-nowrap text-[10px]", className)} {...rest} />
 }
 
 function CreateStylePane(props: {
@@ -1405,6 +1447,7 @@ function PresetCompositeHeader(props: {
   selection: SubtitleStylePresetSelection
   monoStyles: LibraryMonoStyleDTO[]
   bilingualStyles: LibraryBilingualStyleDTO[]
+  fontMappings: LibrarySubtitleStyleFontDTO[]
   defaults: { monoStyleId?: string; bilingualStyleId?: string }
   onSelect: (selection: SubtitleStylePresetSelection) => void
   onShowAll: () => void
@@ -1435,7 +1478,7 @@ function PresetCompositeHeader(props: {
           <div className="min-w-0 flex-1 overflow-hidden">
             <div
               className="truncate text-sm"
-              style={resolvePresetNameTextStyle(selectedStyle)}
+              style={buildSubtitleStyleNamePreviewStyle(selectedStyle, props.fontMappings)}
               title={(selectedItem as LibraryMonoStyleDTO | LibraryBilingualStyleDTO | null)?.name || ""}
             >
               {(selectedItem as LibraryMonoStyleDTO | LibraryBilingualStyleDTO | null)?.name ||
@@ -1466,7 +1509,11 @@ function PresetCompositeHeader(props: {
           ) : (
             props.monoStyles.map((style) => (
               <DropdownMenuItem key={style.id} onClick={() => props.onSelect({ kind: "mono", id: style.id })}>
-                <span className="truncate" style={resolvePresetNameTextStyle(style.style)} title={style.name}>
+                <span
+                  className="block min-w-0 truncate"
+                  style={buildSubtitleStyleNamePreviewStyle(style.style, props.fontMappings)}
+                  title={style.name}
+                >
                   {style.name}
                 </span>
               </DropdownMenuItem>
@@ -1482,7 +1529,11 @@ function PresetCompositeHeader(props: {
           ) : (
             props.bilingualStyles.map((style) => (
               <DropdownMenuItem key={style.id} onClick={() => props.onSelect({ kind: "bilingual", id: style.id })}>
-                <span className="truncate" style={resolvePresetNameTextStyle(style.primary.style)} title={style.name}>
+                <span
+                  className="block min-w-0 truncate"
+                  style={buildSubtitleStyleNamePreviewStyle(style.primary.style, props.fontMappings)}
+                  title={style.name}
+                >
                   {style.name}
                 </span>
               </DropdownMenuItem>
@@ -1662,29 +1713,46 @@ function AssStyleEditor(props: {
   onChange: (value: AssStyleSpecDTO) => void
 }) {
   const { t } = useI18n()
-  const { data: fontFamilies = [], isLoading: fontFamiliesLoading } = useFontFamilies()
+  const { data: fontCatalog = [], isLoading: fontCatalogLoading } = useFontCatalog()
   const alignmentOptions = React.useMemo(() => resolveAlignmentOptions(t), [t])
   const borderStyleOptions = React.useMemo(() => resolveBorderStyleOptions(t), [t])
+  const selectedFontFamily = React.useMemo(
+    () => resolveFontCatalogFamily(fontCatalog, props.style.fontname),
+    [fontCatalog, props.style.fontname],
+  )
 
   const fontOptions = React.useMemo(() => {
-    const options = new Set(fontFamilies.map((family) => family.trim()).filter(Boolean))
+    const options = new Set(fontCatalog.map((family) => family.family.trim()).filter(Boolean))
     if (props.style.fontname.trim()) {
       options.add(props.style.fontname.trim())
     }
     return [...options].sort((left, right) => left.localeCompare(right))
-  }, [fontFamilies, props.style.fontname])
+  }, [fontCatalog, props.style.fontname])
 
-  const updateStyle = React.useCallback(
-    (patch: Partial<AssStyleSpecDTO>) => {
-      props.onChange(
-        normalizeAssStyleForEditor({
-          ...props.style,
-          ...patch,
-        }),
-      )
+  const fontFaceOptions = React.useMemo(
+    () => resolveFontCatalogFaces(fontCatalog, props.style.fontname, props.style),
+    [fontCatalog, props.style],
+  )
+
+  const commitStyle = React.useCallback(
+    (nextStyle: AssStyleSpecDTO) => {
+      props.onChange(normalizeAssStyleForEditor(nextStyle))
     },
     [props],
   )
+
+  const updateStyle = React.useCallback(
+    (patch: Partial<AssStyleSpecDTO>) => {
+      commitStyle({
+        ...props.style,
+        ...patch,
+      })
+    },
+    [commitStyle, props.style],
+  )
+
+  const selectedFontFaceValue =
+    props.style.fontPostScriptName?.trim() || resolveAssStyleFontFace(props.style)
 
   return (
     <div className="space-y-3">
@@ -1692,12 +1760,49 @@ function AssStyleEditor(props: {
         <EditorRow label={t("library.config.subtitleStyles.fontFamily")}> 
           <NativeSelect
             value={props.style.fontname}
-            disabled={fontFamiliesLoading}
-            onChange={(event) => updateStyle({ fontname: event.target.value })}
+            disabled={fontCatalogLoading}
+            onChange={(event) =>
+              commitStyle(
+                applyFontFamilyToStyle(
+                  props.style,
+                  resolveFontCatalogFamily(fontCatalog, event.target.value),
+                  event.target.value,
+                ),
+              )
+            }
           >
             {fontOptions.map((family) => (
               <option key={family} value={family}>
                 {family}
+              </option>
+            ))}
+          </NativeSelect>
+        </EditorRow>
+
+        <EditorRow label={t("library.config.subtitleStyles.fontFace")}>
+          <NativeSelect
+            value={selectedFontFaceValue}
+            disabled={fontCatalogLoading || fontFaceOptions.length === 0}
+            onChange={(event) => {
+              const nextFace =
+                fontFaceOptions.find(
+                  (face) => (face.postScriptName?.trim() || face.name) === event.target.value,
+                ) ?? fontFaceOptions[0]
+              if (!nextFace) {
+                return
+              }
+              commitStyle(
+                applyFontCatalogFaceToStyle(
+                  props.style,
+                  selectedFontFamily?.family ?? props.style.fontname,
+                  nextFace,
+                ),
+              )
+            }}
+          >
+            {fontFaceOptions.map((face) => (
+              <option key={face.postScriptName?.trim() || face.name} value={face.postScriptName?.trim() || face.name}>
+                {face.name}
               </option>
             ))}
           </NativeSelect>
@@ -1714,7 +1819,17 @@ function AssStyleEditor(props: {
         <EditorRow label={t("library.config.subtitleStyles.styleFlagsLabel")}> 
           <InlineTypographyButtons
             value={props.style}
-            onChange={(patch) => updateStyle(patch)}
+            onChange={(patch) => {
+              if ("bold" in patch) {
+                commitStyle(toggleAssStyleBold(props.style, selectedFontFamily))
+                return
+              }
+              if ("italic" in patch) {
+                commitStyle(toggleAssStyleItalic(props.style, selectedFontFamily))
+                return
+              }
+              updateStyle(patch)
+            }}
           />
         </EditorRow>
       </EditorGroupCard>
@@ -1987,24 +2102,16 @@ function resolveStyleForRendering(
   return (item as LibraryBilingualStyleDTO).primary.style
 }
 
-function resolvePresetNameTextStyle(style: AssStyleSpecDTO | null | undefined): React.CSSProperties {
-  if (!style) {
-    return {}
-  }
-  const decoration = [style.underline ? "underline" : "", style.strikeOut ? "line-through" : ""]
-    .filter(Boolean)
-    .join(" ")
-  return {
-    fontFamily: style.fontname || "inherit",
-    fontWeight: style.bold ? 700 : 500,
-    fontStyle: style.italic ? "italic" : "normal",
-    textDecoration: decoration || "none",
-  }
-}
-
 function normalizeAssStyleForEditor(style: AssStyleSpecDTO): AssStyleSpecDTO {
+  const fontWeight = resolveAssStyleFontWeight(style)
   return {
     ...style,
+    fontname: style.fontname?.trim() || "Arial",
+    fontFace: resolveAssStyleFontFace(style),
+    fontWeight,
+    fontPostScriptName: style.fontPostScriptName?.trim() || "",
+    bold: fontWeight >= 700,
+    italic: resolveAssStyleFontItalic(style),
     fontsize: Math.max(1, Math.round(style.fontsize || 0)),
     marginL: Math.round(style.marginL || 0),
     marginR: Math.round(style.marginR || 0),

@@ -215,28 +215,31 @@ var defaultBuiltInMonoStyles = []MonoStyle{
 		BaseAspectRatio:    SubtitleStyleAspectRatio16By9,
 		SourceAssStyleName: "Primary",
 		Style: AssStyleSpec{
-			Fontname:        "Arial",
-			Fontsize:        56,
-			PrimaryColour:   "&H00FFFFFF",
-			SecondaryColour: "&H00FFFFFF",
-			OutlineColour:   "&H00101010",
-			BackColour:      "&H80000000",
-			Bold:            false,
-			Italic:          false,
-			Underline:       false,
-			StrikeOut:       false,
-			ScaleX:          100,
-			ScaleY:          100,
-			Spacing:         0,
-			Angle:           0,
-			BorderStyle:     1,
-			Outline:         2.6,
-			Shadow:          0.8,
-			Alignment:       2,
-			MarginL:         72,
-			MarginR:         72,
-			MarginV:         56,
-			Encoding:        1,
+			Fontname:           "PingFang SC",
+			FontFace:           "Semibold",
+			FontWeight:         600,
+			FontPostScriptName: "PingFangSC-Semibold",
+			Fontsize:           52,
+			PrimaryColour:      "&H00FFFFFF",
+			SecondaryColour:    "&H00FFFFFF",
+			OutlineColour:      "&H00101010",
+			BackColour:         "&H80000000",
+			Bold:               false,
+			Italic:             false,
+			Underline:          false,
+			StrikeOut:          false,
+			ScaleX:             100,
+			ScaleY:             100,
+			Spacing:            0,
+			Angle:              0,
+			BorderStyle:        1,
+			Outline:            0,
+			Shadow:             5,
+			Alignment:          2,
+			MarginL:            72,
+			MarginR:            72,
+			MarginV:            72,
+			Encoding:           1,
 		},
 	},
 	{
@@ -248,28 +251,31 @@ var defaultBuiltInMonoStyles = []MonoStyle{
 		BaseAspectRatio:    SubtitleStyleAspectRatio16By9,
 		SourceAssStyleName: "Secondary",
 		Style: AssStyleSpec{
-			Fontname:        "Arial",
-			Fontsize:        40,
-			PrimaryColour:   "&H00E8E8E8",
-			SecondaryColour: "&H00E8E8E8",
-			OutlineColour:   "&H00101010",
-			BackColour:      "&H80000000",
-			Bold:            false,
-			Italic:          false,
-			Underline:       false,
-			StrikeOut:       false,
-			ScaleX:          100,
-			ScaleY:          100,
-			Spacing:         0,
-			Angle:           0,
-			BorderStyle:     1,
-			Outline:         2.2,
-			Shadow:          0.6,
-			Alignment:       2,
-			MarginL:         72,
-			MarginR:         72,
-			MarginV:         56,
-			Encoding:        1,
+			Fontname:           "PingFang SC",
+			FontFace:           "Regular",
+			FontWeight:         400,
+			FontPostScriptName: "PingFangSC-Regular",
+			Fontsize:           40,
+			PrimaryColour:      "&H00E8E8E8",
+			SecondaryColour:    "&H00E8E8E8",
+			OutlineColour:      "&H00101010",
+			BackColour:         "&H80000000",
+			Bold:               false,
+			Italic:             false,
+			Underline:          false,
+			StrikeOut:          false,
+			ScaleX:             100,
+			ScaleY:             100,
+			Spacing:            0,
+			Angle:              0,
+			BorderStyle:        1,
+			Outline:            0,
+			Shadow:             5,
+			Alignment:          2,
+			MarginL:            72,
+			MarginR:            72,
+			MarginV:            72,
+			Encoding:           1,
 		},
 	},
 }
@@ -290,28 +296,31 @@ var defaultBuiltInBilingualStyles = []BilingualStyle{
 			BasePlayResY:        1080,
 			BaseAspectRatio:     SubtitleStyleAspectRatio16By9,
 			Style: AssStyleSpec{
-				Fontname:        "Arial",
-				Fontsize:        56,
-				PrimaryColour:   "&H00FFFFFF",
-				SecondaryColour: "&H00FFFFFF",
-				OutlineColour:   "&H00101010",
-				BackColour:      "&H80000000",
-				Bold:            false,
-				Italic:          false,
-				Underline:       false,
-				StrikeOut:       false,
-				ScaleX:          100,
-				ScaleY:          100,
-				Spacing:         0,
-				Angle:           0,
-				BorderStyle:     1,
-				Outline:         2.6,
-				Shadow:          0.8,
-				Alignment:       2,
-				MarginL:         72,
-				MarginR:         72,
-				MarginV:         56,
-				Encoding:        1,
+				Fontname:           "PingFang SC",
+				FontFace:           "Semibold",
+				FontWeight:         600,
+				FontPostScriptName: "PingFangSC-Semibold",
+				Fontsize:           52,
+				PrimaryColour:      "&H00FFFFFF",
+				SecondaryColour:    "&H00FFFFFF",
+				OutlineColour:      "&H00101010",
+				BackColour:         "&H80000000",
+				Bold:               false,
+				Italic:             false,
+				Underline:          false,
+				StrikeOut:          false,
+				ScaleX:             100,
+				ScaleY:             100,
+				Spacing:            0,
+				Angle:              0,
+				BorderStyle:        1,
+				Outline:            0,
+				Shadow:             5,
+				Alignment:          2,
+				MarginL:            72,
+				MarginR:            72,
+				MarginV:            72,
+				Encoding:           1,
 			},
 		},
 		Secondary: MonoStyleSnapshot{
@@ -322,28 +331,31 @@ var defaultBuiltInBilingualStyles = []BilingualStyle{
 			BasePlayResY:        1080,
 			BaseAspectRatio:     SubtitleStyleAspectRatio16By9,
 			Style: AssStyleSpec{
-				Fontname:        "Arial",
-				Fontsize:        40,
-				PrimaryColour:   "&H00E8E8E8",
-				SecondaryColour: "&H00E8E8E8",
-				OutlineColour:   "&H00101010",
-				BackColour:      "&H80000000",
-				Bold:            false,
-				Italic:          false,
-				Underline:       false,
-				StrikeOut:       false,
-				ScaleX:          100,
-				ScaleY:          100,
-				Spacing:         0,
-				Angle:           0,
-				BorderStyle:     1,
-				Outline:         2.2,
-				Shadow:          0.6,
-				Alignment:       2,
-				MarginL:         72,
-				MarginR:         72,
-				MarginV:         56,
-				Encoding:        1,
+				Fontname:           "PingFang SC",
+				FontFace:           "Regular",
+				FontWeight:         400,
+				FontPostScriptName: "PingFangSC-Regular",
+				Fontsize:           40,
+				PrimaryColour:      "&H00E8E8E8",
+				SecondaryColour:    "&H00E8E8E8",
+				OutlineColour:      "&H00101010",
+				BackColour:         "&H80000000",
+				Bold:               false,
+				Italic:             false,
+				Underline:          false,
+				StrikeOut:          false,
+				ScaleX:             100,
+				ScaleY:             100,
+				Spacing:            0,
+				Angle:              0,
+				BorderStyle:        1,
+				Outline:            0,
+				Shadow:             5,
+				Alignment:          2,
+				MarginL:            72,
+				MarginR:            72,
+				MarginV:            72,
+				Encoding:           1,
 			},
 		},
 		Layout: BilingualLayout{
@@ -351,6 +363,15 @@ var defaultBuiltInBilingualStyles = []BilingualStyle{
 			BlockAnchor: 2,
 		},
 	},
+}
+
+var builtInSubtitleMonoStyleIDs = map[string]struct{}{
+	"builtin-subtitle-mono-primary-1080p":   {},
+	"builtin-subtitle-mono-secondary-1080p": {},
+}
+
+var builtInSubtitleBilingualStyleIDs = map[string]struct{}{
+	"builtin-subtitle-bilingual-1080p": {},
 }
 
 var defaultBuiltInSubtitleExportPresets = []SubtitleExportPreset{
@@ -392,9 +413,9 @@ var defaultBuiltInSubtitleExportPresets = []SubtitleExportPreset{
 		},
 	},
 	{
-		ID:            "builtin-subtitle-export-preset-ass-4k60",
-		Name:          "ASS · 4K · 60fps",
-		Description:   "ASS output forced to 3840x2160 for 60fps delivery.",
+		ID:            "builtin-subtitle-export-preset-ass-4k",
+		Name:          "ASS · 4K",
+		Description:   "ASS output forced to 3840x2160 delivery.",
 		TargetFormat:  "ass",
 		MediaStrategy: subtitleExportPresetMediaStrategyFixed,
 		Config: SubtitleExportConfig{
@@ -406,37 +427,9 @@ var defaultBuiltInSubtitleExportPresets = []SubtitleExportPreset{
 		},
 	},
 	{
-		ID:            "builtin-subtitle-export-preset-ass-4k30",
-		Name:          "ASS · 4K · 30fps",
-		Description:   "ASS output forced to 3840x2160 for 30fps delivery.",
-		TargetFormat:  "ass",
-		MediaStrategy: subtitleExportPresetMediaStrategyFixed,
-		Config: SubtitleExportConfig{
-			ASS: &SubtitleASSExportConfig{
-				PlayResX: 3840,
-				PlayResY: 2160,
-				Title:    "DreamCreator Export",
-			},
-		},
-	},
-	{
-		ID:            "builtin-subtitle-export-preset-ass-1080p60",
-		Name:          "ASS · 1080p · 60fps",
-		Description:   "ASS output forced to 1920x1080 for 60fps delivery.",
-		TargetFormat:  "ass",
-		MediaStrategy: subtitleExportPresetMediaStrategyFixed,
-		Config: SubtitleExportConfig{
-			ASS: &SubtitleASSExportConfig{
-				PlayResX: 1920,
-				PlayResY: 1080,
-				Title:    "DreamCreator Export",
-			},
-		},
-	},
-	{
-		ID:            "builtin-subtitle-export-preset-ass-1080p30",
-		Name:          "ASS · 1080p · 30fps",
-		Description:   "ASS output forced to 1920x1080 for 30fps delivery.",
+		ID:            "builtin-subtitle-export-preset-ass-1080p",
+		Name:          "ASS · 1080p",
+		Description:   "ASS output forced to 1920x1080 delivery.",
 		TargetFormat:  "ass",
 		MediaStrategy: subtitleExportPresetMediaStrategyFixed,
 		Config: SubtitleExportConfig{
@@ -528,7 +521,7 @@ var defaultBuiltInSubtitleExportPresets = []SubtitleExportPreset{
 				ColorSpace:           "1-1-1 (Rec. 709)",
 				Version:              "1.11",
 				DefaultLane:          1,
-				StartTimecodeSeconds: 3600,
+				StartTimecodeSeconds: 0,
 			},
 		},
 	},
@@ -546,7 +539,7 @@ var defaultBuiltInSubtitleExportPresets = []SubtitleExportPreset{
 				ColorSpace:           "1-1-1 (Rec. 709)",
 				Version:              "1.11",
 				DefaultLane:          1,
-				StartTimecodeSeconds: 3600,
+				StartTimecodeSeconds: 0,
 			},
 		},
 	},
@@ -564,7 +557,7 @@ var defaultBuiltInSubtitleExportPresets = []SubtitleExportPreset{
 				ColorSpace:           "1-1-1 (Rec. 709)",
 				Version:              "1.11",
 				DefaultLane:          1,
-				StartTimecodeSeconds: 3600,
+				StartTimecodeSeconds: 0,
 			},
 		},
 	},
@@ -582,7 +575,7 @@ var defaultBuiltInSubtitleExportPresets = []SubtitleExportPreset{
 				ColorSpace:           "1-1-1 (Rec. 709)",
 				Version:              "1.11",
 				DefaultLane:          1,
-				StartTimecodeSeconds: 3600,
+				StartTimecodeSeconds: 0,
 			},
 		},
 	},
@@ -600,7 +593,7 @@ var defaultBuiltInSubtitleExportPresets = []SubtitleExportPreset{
 				ColorSpace:           "1-1-1 (Rec. 709)",
 				Version:              "1.11",
 				DefaultLane:          1,
-				StartTimecodeSeconds: 3600,
+				StartTimecodeSeconds: 0,
 			},
 		},
 	},
@@ -647,11 +640,11 @@ func defaultSubtitleExportPresets() []SubtitleExportPreset {
 
 func normalizeSubtitleStyleConfig(config SubtitleStyleConfig) SubtitleStyleConfig {
 	defaults := defaultSubtitleStyleConfig()
-	monoStyles := normalizeMonoStyles(config.MonoStyles)
+	monoStyles := normalizeSubtitleMonoStyles(config.MonoStyles, defaults.MonoStyles)
 	if len(monoStyles) == 0 {
 		monoStyles = defaults.MonoStyles
 	}
-	bilingualStyles := normalizeBilingualStyles(config.BilingualStyles)
+	bilingualStyles := normalizeSubtitleBilingualStyles(config.BilingualStyles, defaults.BilingualStyles)
 	if len(bilingualStyles) == 0 {
 		bilingualStyles = defaults.BilingualStyles
 	}
@@ -683,6 +676,88 @@ func normalizeSubtitleStyleConfig(config SubtitleStyleConfig) SubtitleStyleConfi
 			SubtitleExportPresetID: subtitleExportPresetID,
 		},
 	}
+}
+
+func normalizeSubtitleMonoStyles(values []MonoStyle, fallback []MonoStyle) []MonoStyle {
+	result := make([]MonoStyle, 0, len(values))
+	normalizedByID := make(map[string]MonoStyle, len(values))
+	order := make([]string, 0, len(values))
+
+	source := normalizeMonoStyles(values)
+	if len(source) == 0 {
+		source = fallback
+	}
+
+	for _, value := range source {
+		if _, exists := normalizedByID[value.ID]; exists {
+			continue
+		}
+		normalizedByID[value.ID] = value
+		order = append(order, value.ID)
+	}
+
+	for _, builtIn := range fallback {
+		if _, exists := normalizedByID[builtIn.ID]; exists {
+			normalizedByID[builtIn.ID] = builtIn
+		}
+	}
+
+	for _, id := range order {
+		value, exists := normalizedByID[id]
+		if !exists {
+			continue
+		}
+		if _, isBuiltIn := builtInSubtitleMonoStyleIDs[id]; isBuiltIn {
+			result = append(result, normalizedByID[id])
+			continue
+		}
+		result = append(result, value)
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func normalizeSubtitleBilingualStyles(values []BilingualStyle, fallback []BilingualStyle) []BilingualStyle {
+	result := make([]BilingualStyle, 0, len(values))
+	normalizedByID := make(map[string]BilingualStyle, len(values))
+	order := make([]string, 0, len(values))
+
+	source := normalizeBilingualStyles(values)
+	if len(source) == 0 {
+		source = fallback
+	}
+
+	for _, value := range source {
+		if _, exists := normalizedByID[value.ID]; exists {
+			continue
+		}
+		normalizedByID[value.ID] = value
+		order = append(order, value.ID)
+	}
+
+	for _, builtIn := range fallback {
+		if _, exists := normalizedByID[builtIn.ID]; exists {
+			normalizedByID[builtIn.ID] = builtIn
+		}
+	}
+
+	for _, id := range order {
+		value, exists := normalizedByID[id]
+		if !exists {
+			continue
+		}
+		if _, isBuiltIn := builtInSubtitleBilingualStyleIDs[id]; isBuiltIn {
+			result = append(result, normalizedByID[id])
+			continue
+		}
+		result = append(result, value)
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }
 
 func normalizeSubtitleStyleDefaultMonoStyleID(
@@ -924,6 +999,7 @@ func normalizeSubtitleExportPresets(
 
 	for index, value := range source {
 		id := normalizeAssetID(value.ID, value.Name, fmt.Sprintf("subtitle-export-preset-%d", index+1))
+		id = normalizeLegacySubtitleExportPresetID(id)
 		if id == "" {
 			continue
 		}
@@ -959,9 +1035,7 @@ func normalizeSubtitleExportPresets(
 			existing.Description = builtIn.Description
 			existing.TargetFormat = builtIn.TargetFormat
 			existing.MediaStrategy = builtIn.MediaStrategy
-			if existing.Config == (SubtitleExportConfig{}) {
-				existing.Config = builtIn.Config
-			}
+			existing.Config = builtIn.Config
 			normalizedByID[builtIn.ID] = existing
 			continue
 		}
@@ -975,11 +1049,24 @@ func normalizeSubtitleExportPresets(
 	return result
 }
 
+func normalizeLegacySubtitleExportPresetID(value string) string {
+	switch strings.TrimSpace(value) {
+	case "builtin-subtitle-export-preset-ass-4k60", "builtin-subtitle-export-preset-ass-4k30":
+		return "builtin-subtitle-export-preset-ass-4k"
+	case "builtin-subtitle-export-preset-ass-1080p60", "builtin-subtitle-export-preset-ass-1080p30":
+		return "builtin-subtitle-export-preset-ass-1080p"
+	default:
+		return strings.TrimSpace(value)
+	}
+}
+
 func normalizeSubtitleStyleDefaultSubtitleExportPresetID(
 	selectedID string,
 	fallbackID string,
 	profiles []SubtitleExportPreset,
 ) string {
+	selectedID = normalizeLegacySubtitleExportPresetID(selectedID)
+	fallbackID = normalizeLegacySubtitleExportPresetID(fallbackID)
 	idSet := make(map[string]struct{}, len(profiles))
 	for _, profile := range profiles {
 		idSet[profile.ID] = struct{}{}

@@ -38,7 +38,7 @@ type VideoPreviewPaneProps = {
   playheadMs: number
   isPlaying: boolean
   previewVttContent: string
-  displayMode: "single" | "dual"
+  displayMode: "mono" | "bilingual"
   monoStyle: LibraryMonoStyleDTO | null
   lingualStyle: LibraryBilingualStyleDTO | null
   fontMappings?: LibrarySubtitleStyleFontDTO[]
@@ -272,7 +272,7 @@ export function VideoPreviewPane({
   )
 
   const previewBaseResolution = React.useMemo(() => {
-    if (displayMode === "dual") {
+    if (displayMode === "bilingual") {
       return normalizeBaseResolution(effectiveLingualStyle.basePlayResX, effectiveLingualStyle.basePlayResY)
     }
     return normalizeBaseResolution(effectiveMonoStyle.basePlayResX, effectiveMonoStyle.basePlayResY)
@@ -312,7 +312,7 @@ export function VideoPreviewPane({
     () =>
       buildRenderedPreviewCues({
         cues: parsedCues,
-        kind: displayMode === "dual" ? "bilingual" : "mono",
+        kind: displayMode === "bilingual" ? "bilingual" : "mono",
         mono: effectiveMonoStyle,
         bilingual: effectiveLingualStyle,
         currentTimeSeconds: localPlayheadMs / 1000,
@@ -720,6 +720,9 @@ function buildWorkspacePreviewDefaultMonoStyle(): LibraryMonoStyleDTO {
     baseAspectRatio: "16:9",
     style: {
       fontname: "Arial",
+      fontFace: "Regular",
+      fontWeight: 400,
+      fontPostScriptName: "",
       fontsize: 48,
       primaryColour: "&H00FFFFFF",
       secondaryColour: "&H00FFFFFF",

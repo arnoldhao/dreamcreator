@@ -48,6 +48,9 @@ export function resolveBilingualStyles(config?: LibraryModuleConfigDTO) {
 export function createEmptyAssStyleSpec(): AssStyleSpecDTO {
   return {
     fontname: "Arial",
+    fontFace: "Regular",
+    fontWeight: 400,
+    fontPostScriptName: "",
     fontsize: 48,
     primaryColour: "&H00FFFFFF",
     secondaryColour: "&H00FFFFFF",

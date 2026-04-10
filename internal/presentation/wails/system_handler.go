@@ -36,6 +36,47 @@ func (handler *SystemHandler) ListFontFamilies(ctx context.Context) ([]string, e
 	return families, nil
 }
 
+type FontCatalogFace struct {
+	Name           string `json:"name"`
+	FullName       string `json:"fullName,omitempty"`
+	PostScriptName string `json:"postScriptName,omitempty"`
+	Weight         int    `json:"weight,omitempty"`
+	Italic         bool   `json:"italic,omitempty"`
+}
+
+type FontCatalogFamily struct {
+	Family string            `json:"family"`
+	Faces  []FontCatalogFace `json:"faces"`
+}
+
+func (handler *SystemHandler) ListFontCatalog(ctx context.Context) ([]FontCatalogFamily, error) {
+	catalog, err := handler.fonts.ListFontCatalog(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]FontCatalogFamily, 0, len(catalog))
+	for _, family := range catalog {
+		faces := make([]FontCatalogFace, 0, len(family.Faces))
+		for _, face := range family.Faces {
+			faces = append(faces, FontCatalogFace{
+				Name:           face.Name,
+				FullName:       face.FullName,
+				PostScriptName: face.PostScriptName,
+				Weight:         face.Weight,
+				Italic:         face.Italic,
+			})
+		}
+		result = append(result, FontCatalogFamily{
+			Family: family.Family,
+			Faces:  faces,
+		})
+	}
+	if result == nil {
+		return []FontCatalogFamily{}, nil
+	}
+	return result, nil
+}
+
 type CurrentUserProfile struct {
 	Username     string `json:"username"`
 	DisplayName  string `json:"displayName"`

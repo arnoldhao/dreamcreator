@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 
 import { useFontFamilies } from "@/hooks/useFontFamilies";
+import { FONT_CATALOG_QUERY_KEY } from "@/hooks/useFontCatalog";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/shared/i18n";
 import { messageBus } from "@/shared/message";
@@ -135,19 +136,23 @@ import {
   resolvePresetName,
 } from "../utils/transcodePresets";
 import {
+  FCPXML_VERSION_OPTIONS,
   FCPXML_FRAME_DURATION_PRESETS,
-  ITT_FRAME_RATE_MULTIPLIER_PRESETS,
+  ITT_FRAME_RATE_PRESETS,
   createEmptySubtitleExportPreset,
   createEmptySubtitleStyleSource,
   duplicateSubtitleExportPreset,
   duplicateSubtitleStyleDocument,
   ensureBuiltInSubtitleStyleFontSources,
+  FCPXML_START_TIMECODE_PRESETS,
   formatSubtitleStyleDocumentFeatureFlag,
   normalizeFCPXMLFrameDuration,
-  normalizeITTFrameRate,
-  normalizeITTFrameRateMultiplier,
+  normalizeFCPXMLStartTimecodeSeconds,
+  normalizeFCPXMLVersion,
   normalizeSubtitleExportFormat,
   normalizeSubtitleExportMediaStrategy,
+  resolveITTFrameRatePresetValue,
+  resolveITTFrameTimingFromPresetValue,
   resolveDefaultBilingualStyle,
   resolveDefaultMonoStyle,
   resolveAssDocumentSummary,
@@ -950,6 +955,7 @@ export function LibraryConfigPage({
   React.useEffect(() => {
     return registerTopic(REALTIME_TOPICS.system.fonts, () => {
       queryClient.invalidateQueries({ queryKey: FONT_FAMILIES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: FONT_CATALOG_QUERY_KEY });
     });
   }, [queryClient]);
 
@@ -4548,36 +4554,11 @@ export function LibraryConfigPage({
 
                         {selectedProfileTargetFormat === "itt" ? (
                           <>
-                            <ConfigInputField
+                            <ConfigSelectField
                               label={t("library.workspace.dialogs.exportSubtitle.frameRate")}
                               inline
-                              value={String(
-                                normalizeITTFrameRate(
-                                  selectedProfileConfig.itt?.frameRate,
-                                ),
-                              )}
-                              placeholder="30"
-                              onChange={(nextValue) =>
-                                handleUpdateSubtitleExportPreset(
-                                  selectedProfile.id,
-                                  {
-                                    config: {
-                                      ...selectedProfileConfig,
-                                      itt: {
-                                        ...(selectedProfileConfig.itt ?? {}),
-                                        frameRate: normalizeITTFrameRate(
-                                          Number.parseFloat(nextValue),
-                                        ),
-                                      },
-                                    },
-                                  },
-                                )
-                              }
-                            />
-                            <ConfigSelectField
-                              label={t("library.workspace.dialogs.exportSubtitle.frameRateMultiplier")}
-                              inline
-                              value={normalizeITTFrameRateMultiplier(
+                              value={resolveITTFrameRatePresetValue(
+                                selectedProfileConfig.itt?.frameRate,
                                 selectedProfileConfig.itt?.frameRateMultiplier,
                               )}
                               onChange={(nextValue) =>
@@ -4588,42 +4569,19 @@ export function LibraryConfigPage({
                                       ...selectedProfileConfig,
                                       itt: {
                                         ...(selectedProfileConfig.itt ?? {}),
-                                        frameRateMultiplier:
-                                          normalizeITTFrameRateMultiplier(
-                                            nextValue,
-                                          ),
+                                        ...resolveITTFrameTimingFromPresetValue(
+                                          nextValue,
+                                        ),
                                       },
                                     },
                                   },
                                 )
                               }
-                              options={ITT_FRAME_RATE_MULTIPLIER_PRESETS.map(
+                              options={ITT_FRAME_RATE_PRESETS.map(
                                 (preset) => ({
                                   value: preset.value,
                                   label: preset.label,
                                 }),
-                              ).concat(
-                                ITT_FRAME_RATE_MULTIPLIER_PRESETS.some(
-                                  (preset) =>
-                                    preset.value ===
-                                    normalizeITTFrameRateMultiplier(
-                                      selectedProfileConfig.itt
-                                        ?.frameRateMultiplier,
-                                    ),
-                                )
-                                  ? []
-                                  : [
-                                      {
-                                        value: normalizeITTFrameRateMultiplier(
-                                          selectedProfileConfig.itt
-                                            ?.frameRateMultiplier,
-                                        ),
-                                        label: normalizeITTFrameRateMultiplier(
-                                          selectedProfileConfig.itt
-                                            ?.frameRateMultiplier,
-                                        ).replace(" ", "/"),
-                                      },
-                                    ],
                               )}
                             />
                             <ConfigSelectField
@@ -4797,10 +4755,11 @@ export function LibraryConfigPage({
                                 <div className="text-xs font-medium text-foreground">
                                   {t("library.workspace.dialogs.exportSubtitle.version")}
                                 </div>
-                                <Input
+                                <Select
                                   value={
-                                    selectedProfileConfig.fcpxml?.version ??
-                                    "1.11"
+                                    normalizeFCPXMLVersion(
+                                      selectedProfileConfig.fcpxml?.version,
+                                    )
                                   }
                                   onChange={(event) =>
                                     handleUpdateSubtitleExportPreset(
@@ -4811,14 +4770,25 @@ export function LibraryConfigPage({
                                           fcpxml: {
                                             ...(selectedProfileConfig.fcpxml ??
                                               {}),
-                                            version: event.target.value,
+                                            version: normalizeFCPXMLVersion(
+                                              event.target.value,
+                                            ),
                                           },
                                         },
                                       },
                                     )
                                   }
-                                  className="h-8 border-border/70 bg-background/80"
-                                />
+                                  className="h-8 w-full border-border/70 bg-background/80"
+                                >
+                                  {FCPXML_VERSION_OPTIONS.map((option) => (
+                                    <option
+                                      key={option.value}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </Select>
                               </div>
                               <div className="space-y-1">
                                 <div className="text-xs font-medium text-foreground">
@@ -4853,12 +4823,14 @@ export function LibraryConfigPage({
                                 />
                               </div>
                             </div>
-                            <ConfigInputField
+                            <ConfigSelectField
                               label={t("library.workspace.dialogs.exportSubtitle.startTimecodeSeconds")}
                               inline
                               value={String(
-                                selectedProfileConfig.fcpxml
-                                  ?.startTimecodeSeconds ?? 3600,
+                                normalizeFCPXMLStartTimecodeSeconds(
+                                  selectedProfileConfig.fcpxml
+                                    ?.startTimecodeSeconds,
+                                ),
                               )}
                               onChange={(nextValue) =>
                                 handleUpdateSubtitleExportPreset(
@@ -4869,14 +4841,20 @@ export function LibraryConfigPage({
                                       fcpxml: {
                                         ...(selectedProfileConfig.fcpxml ?? {}),
                                         startTimecodeSeconds:
-                                          Number.parseInt(nextValue, 10) > 0
-                                            ? Number.parseInt(nextValue, 10)
-                                            : 3600,
+                                          normalizeFCPXMLStartTimecodeSeconds(
+                                            Number.parseInt(nextValue, 10),
+                                          ),
                                       },
                                     },
                                   },
                                 )
                               }
+                              options={FCPXML_START_TIMECODE_PRESETS.map(
+                                (preset) => ({
+                                  value: String(preset.value),
+                                  label: preset.label,
+                                }),
+                              )}
                             />
                           </>
                         ) : null}

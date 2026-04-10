@@ -1,9 +1,8 @@
-import { Rows2, Rows3, Search, Sparkles } from "lucide-react"
+import { Search, Sparkles } from "lucide-react"
 import * as React from "react"
 import type { ReactNode } from "react"
 
 import { useI18n } from "@/shared/i18n"
-import { Button } from "@/shared/ui/button"
 import { Input } from "@/shared/ui/input"
 import { Select } from "@/shared/ui/select"
 import type {
@@ -21,9 +20,10 @@ import { WORKSPACE_CONTROL_STANDARD_WIDTH_CLASS } from "./controlStyles"
 import { SubtitleTablePane } from "./SubtitleTablePane"
 import { VideoPreviewPane } from "./VideoPreviewPane"
 import { WaveformFooter } from "./WaveformFooter"
+import { WorkspaceDensityToggle } from "./WorkspaceDensityToggle"
+import { WorkspaceMetaItem } from "./WorkspaceMetaBar"
 import {
   DASHBOARD_WORKSPACE_META_BAR_CLASS,
-  DASHBOARD_CONTROL_GROUP_CLASS,
   DASHBOARD_WORKSPACE_SHELL_SURFACE_CLASS,
 } from "@/shared/ui/dashboard"
 import { DASHBOARD_DIALOG_SOFT_SURFACE_CLASS } from "@/shared/ui/dashboard-dialog"
@@ -101,7 +101,7 @@ export function VideoEditorLayout({
   const reviewCount = rows.filter((row) => row.qaIssues.length > 0).length
   const timelineHeaderRef = React.useRef<HTMLDivElement | null>(null)
   const [timelineHeaderWidth, setTimelineHeaderWidth] = React.useState(0)
-  const showDensityToggle = timelineHeaderWidth >= 560
+  const showDensityToggle = !timelineCompressed && timelineHeaderWidth >= 560
   const showQaFilter = timelineHeaderWidth >= 470
 
   React.useEffect(() => {
@@ -199,32 +199,6 @@ export function VideoEditorLayout({
                     </div>
                   ) : null}
                 </div>
-                {showDensityToggle ? (
-                  <div className={cn(DASHBOARD_CONTROL_GROUP_CLASS, "shrink-0")}>
-                    <Button
-                      type="button"
-                      variant={density === "comfortable" ? "secondary" : "ghost"}
-                      size="compactIcon"
-                      aria-label={t("library.workspace.toolbar.densityComfortable")}
-                      title={t("library.workspace.toolbar.densityComfortable")}
-                      className="rounded-none border-0"
-                      onClick={() => onDensityChange("comfortable")}
-                    >
-                      <Rows2 className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={density === "compact" ? "secondary" : "ghost"}
-                      size="compactIcon"
-                      aria-label={t("library.workspace.toolbar.densityCompact")}
-                      title={t("library.workspace.toolbar.densityCompact")}
-                      className="rounded-none border-0 border-l border-border/70"
-                      onClick={() => onDensityChange("compact")}
-                    >
-                      <Rows3 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                ) : null}
               </div>
             ) : null}
             <div className="min-h-0 flex-1 overflow-hidden">
@@ -246,16 +220,28 @@ export function VideoEditorLayout({
                 onHoverRow={onHoverRow}
               />
             </div>
-            <div className={`flex shrink-0 items-center justify-between gap-3 px-3 py-2 ${DASHBOARD_WORKSPACE_META_BAR_CLASS}`}>
-              <div className="flex items-center gap-3">
-                <span className="font-medium text-foreground">{t("library.workspace.table.timelineTitle")}</span>
-                <span>{t("library.workspace.table.visibleCount").replace("{count}", String(rows.length))}</span>
+            <div className={`grid shrink-0 gap-2 px-3 py-2 ${DASHBOARD_WORKSPACE_META_BAR_CLASS} md:grid-cols-[auto_minmax(0,1fr)] md:items-center`}>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <WorkspaceMetaItem
+                  value={t("library.workspace.table.visibleCount").replace("{count}", String(rows.length))}
+                />
                 {timelineCompressed ? null : (
-                  <span>{t("library.workspace.table.needReviewCount").replace("{count}", String(reviewCount))}</span>
+                  <WorkspaceMetaItem
+                    value={t("library.workspace.table.needReviewCount").replace("{count}", String(reviewCount))}
+                  />
                 )}
               </div>
-              <div className="flex min-w-0 items-center gap-3">
-                <span>{t("library.workspace.table.current")} {currentRowId ? currentRowId.replace("cue-", "") : "-"}</span>
+              <div className="flex min-w-0 flex-wrap items-center gap-2 md:justify-end">
+                <WorkspaceMetaItem
+                  value={`${t("library.workspace.table.current")} ${currentRowId ? currentRowId.replace("cue-", "") : "-"}`}
+                />
+                {showDensityToggle ? (
+                  <WorkspaceDensityToggle
+                    density={density}
+                    onDensityChange={onDensityChange}
+                    className="shrink-0"
+                  />
+                ) : null}
               </div>
             </div>
           </div>

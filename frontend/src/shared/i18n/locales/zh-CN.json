@@ -2947,6 +2947,7 @@
         "customDocument": "自定义字幕样式",
         "githubSource": "GitHub 样式源",
         "fontFamily": "字体",
+        "fontFace": "字重/字形",
         "fontSize": "字号",
         "outlineWidth": "描边",
         "outlineColor": "描边",
@@ -3010,6 +3011,7 @@
         "previewInfoTitle": "实时预览信息",
         "previewPrimaryText": "DreamCreator 追创作 0214",
         "previewSecondaryText": "DreamCreator 追创作 0214",
+        "fontPreviewFallback": "默认无衬线",
         "resolutionLabel": "分辨率",
         "currentResolutionLabel": "当前分辨率",
         "monoStyleSectionTitle": "字体样式",
@@ -3335,8 +3337,8 @@
       "header": {
         "videoEditing": "视频编辑",
         "subtitleEditing": "字幕编辑",
-        "displaySingle": "单语",
-        "displayDual": "双语",
+        "displayMono": "单语",
+        "displayBilingual": "双语",
         "video": "视频",
         "track": "轨道",
         "secondary": "副轨道",
@@ -3356,7 +3358,8 @@
         "translateRunningCount": "翻译中 · {count}",
         "translateRunning": "翻译中",
         "proofreadRunning": "校对中",
-        "existingSubtitleLane": "现有字幕轨道"
+        "existingSubtitleLane": "现有字幕轨道",
+        "speechToSubtitle": "语音转字幕"
       },
       "track": {
         "translation": "译文",
@@ -3397,8 +3400,8 @@
         "primaryTrack": "主轨",
         "secondaryTrack": "副轨",
         "notSelected": "未选择",
-        "modeSingle": "单语",
-        "modeDual": "双语",
+        "modeMono": "单语",
+        "modeBilingual": "双语",
         "columnTime": "时间",
         "columnStart": "开始",
         "columnEnd": "结束",
@@ -3412,6 +3415,7 @@
       "dialogs": {
         "required": "必填",
         "exportVideo": {
+          "dialogDescription": "配置视频导出预设、字幕处理方式、显示模式与轨道映射，然后将当前工作台内容加入导出队列。",
           "inputSection": "输入",
           "outputSection": "输出",
           "currentVideoFallback": "当前视频",
@@ -3444,6 +3448,7 @@
           }
         },
         "exportSubtitle": {
+          "dialogDescription": "配置字幕导出格式与样式参数，然后将当前工作台字幕导出到目标文件。",
           "inputSection": "输入",
           "outputSection": "输出",
           "fileFallback": "当前字幕",
@@ -3451,6 +3456,9 @@
           "track": "轨道",
           "trackEmpty": "未选择",
           "trackRequired": "请先选择一个字幕轨道，再导出当前草稿。",
+          "style": "字幕导出样式",
+          "styleUnsupported": "当前格式不支持字幕样式",
+          "styleUnsupportedDescription": "将按纯文本字幕导出，不会写入字体、字号或对齐方式。",
           "currentFormat": "当前格式",
           "encoding": "编码",
           "kind": "类型",
@@ -3836,6 +3844,7 @@
   },
   "common": {
     "cancel": "取消",
+    "confirm": "确认",
     "save": "保存",
     "undo": "撤销",
     "done": "完成",

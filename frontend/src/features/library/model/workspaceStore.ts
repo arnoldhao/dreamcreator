@@ -11,7 +11,7 @@ import {
 } from "./workspaceQa"
 
 export type LibraryWorkspaceEditor = "video" | "subtitle"
-export type LibraryWorkspaceDisplayMode = "single" | "dual"
+export type LibraryWorkspaceDisplayMode = "mono" | "bilingual"
 export type LibraryWorkspaceGuidelineProfileId = "netflix" | "bbc" | "ade"
 export type LibraryWorkspacePersistedState = {
   libraryId: string
@@ -63,9 +63,9 @@ function normalizeWorkspaceFileType(value: string) {
 
 function normalizeWorkspaceDisplayMode(value: unknown): LibraryWorkspaceDisplayMode {
   if (value === "dual" || value === "bilingual") {
-    return "dual"
+    return "bilingual"
   }
-  return "single"
+  return "mono"
 }
 
 function normalizeWorkspaceGuidelineProfileId(value: unknown): LibraryWorkspaceGuidelineProfileId {
@@ -85,7 +85,7 @@ export const useLibraryWorkspaceStore = create<LibraryWorkspaceState>()(
       activeEditor: "video",
       activeVideoFileId: "",
       activeSubtitleFileId: "",
-      displayMode: "single",
+      displayMode: "mono",
       comparisonSubtitleFileId: "",
       guidelineProfileId: "netflix",
       qaCheckSettings: DEFAULT_WORKSPACE_QA_CHECK_SETTINGS,
@@ -136,7 +136,7 @@ export const useLibraryWorkspaceStore = create<LibraryWorkspaceState>()(
           activeEditor: "video",
           activeVideoFileId: "",
           activeSubtitleFileId: "",
-          displayMode: "single",
+          displayMode: "mono",
           comparisonSubtitleFileId: "",
           guidelineProfileId: "netflix",
           qaCheckSettings: DEFAULT_WORKSPACE_QA_CHECK_SETTINGS,

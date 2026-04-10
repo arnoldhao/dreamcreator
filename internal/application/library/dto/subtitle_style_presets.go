@@ -3,28 +3,31 @@ package dto
 import "encoding/json"
 
 type AssStyleSpecDTO struct {
-	Fontname        string  `json:"fontname"`
-	Fontsize        float64 `json:"fontsize"`
-	PrimaryColour   string  `json:"primaryColour"`
-	SecondaryColour string  `json:"secondaryColour"`
-	OutlineColour   string  `json:"outlineColour"`
-	BackColour      string  `json:"backColour"`
-	Bold            bool    `json:"bold"`
-	Italic          bool    `json:"italic"`
-	Underline       bool    `json:"underline"`
-	StrikeOut       bool    `json:"strikeOut"`
-	ScaleX          float64 `json:"scaleX"`
-	ScaleY          float64 `json:"scaleY"`
-	Spacing         float64 `json:"spacing"`
-	Angle           float64 `json:"angle"`
-	BorderStyle     int     `json:"borderStyle"`
-	Outline         float64 `json:"outline"`
-	Shadow          float64 `json:"shadow"`
-	Alignment       int     `json:"alignment"`
-	MarginL         int     `json:"marginL"`
-	MarginR         int     `json:"marginR"`
-	MarginV         int     `json:"marginV"`
-	Encoding        int     `json:"encoding"`
+	Fontname           string  `json:"fontname"`
+	FontFace           string  `json:"fontFace,omitempty"`
+	FontWeight         int     `json:"fontWeight,omitempty"`
+	FontPostScriptName string  `json:"fontPostScriptName,omitempty"`
+	Fontsize           float64 `json:"fontsize"`
+	PrimaryColour      string  `json:"primaryColour"`
+	SecondaryColour    string  `json:"secondaryColour"`
+	OutlineColour      string  `json:"outlineColour"`
+	BackColour         string  `json:"backColour"`
+	Bold               bool    `json:"bold"`
+	Italic             bool    `json:"italic"`
+	Underline          bool    `json:"underline"`
+	StrikeOut          bool    `json:"strikeOut"`
+	ScaleX             float64 `json:"scaleX"`
+	ScaleY             float64 `json:"scaleY"`
+	Spacing            float64 `json:"spacing"`
+	Angle              float64 `json:"angle"`
+	BorderStyle        int     `json:"borderStyle"`
+	Outline            float64 `json:"outline"`
+	Shadow             float64 `json:"shadow"`
+	Alignment          int     `json:"alignment"`
+	MarginL            int     `json:"marginL"`
+	MarginR            int     `json:"marginR"`
+	MarginV            int     `json:"marginV"`
+	Encoding           int     `json:"encoding"`
 }
 
 type LibraryMonoStyleDTO struct {

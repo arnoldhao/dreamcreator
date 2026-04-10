@@ -24,7 +24,7 @@ func (service *LibraryService) GenerateWorkspacePreviewVTT(
 		PreviewHeight: request.PreviewHeight,
 	}
 
-	if displayMode == "dual" {
+	if displayMode == "bilingual" {
 		style, err := resolveWorkspacePreviewLingualStyle(request.Lingual, request.Mono)
 		if err != nil {
 			return dto.GenerateWorkspacePreviewVTTResult{}, err
@@ -48,9 +48,9 @@ func (service *LibraryService) GenerateWorkspacePreviewVTT(
 func normalizeWorkspacePreviewDisplayMode(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "dual", "bilingual":
-		return "dual"
+		return "bilingual"
 	default:
-		return "single"
+		return "mono"
 	}
 }
 
@@ -111,6 +111,8 @@ func defaultWorkspaceMonoStyleDTO() dto.LibraryMonoStyleDTO {
 		BaseAspectRatio: "16:9",
 		Style: dto.AssStyleSpecDTO{
 			Fontname:        "Arial",
+			FontFace:        "Regular",
+			FontWeight:      400,
 			Fontsize:        48,
 			PrimaryColour:   "&H00FFFFFF",
 			SecondaryColour: "&H00FFFFFF",

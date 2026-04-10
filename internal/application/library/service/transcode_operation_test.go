@@ -52,6 +52,7 @@ func TestBuildFFmpegTranscodeArgsBurnInEscapesASSPathAndForcesCodec(t *testing.T
 			AudioCodec: "copy",
 			Preset:     "medium",
 			CRF:        23,
+			Scale:      "1080p",
 		},
 		outputType: library.TranscodeOutputVideo,
 	}
@@ -70,7 +71,7 @@ func TestBuildFFmpegTranscodeArgsBurnInEscapesASSPathAndForcesCodec(t *testing.T
 	}
 
 	joined := strings.Join(args, " ")
-	if !strings.Contains(joined, "-vf ass=filename='/tmp/subtitles\\:demo\\,track\\[1\\]\\'s.ass'") {
+	if !strings.Contains(joined, "-vf ass=filename='/tmp/subtitles\\:demo\\,track\\[1\\]\\'s.ass',scale=w=1920:h=1080:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=1920:1080:(ow-iw)/2:(oh-ih)/2") {
 		t.Fatalf("expected escaped ass filter in args, got %q", joined)
 	}
 	if !strings.Contains(joined, "-c:v libx264") {
@@ -323,6 +324,225 @@ func TestNormalizeBurninASSFontForChineseLeavesNonChineseUntouched(t *testing.T)
 	got := normalizeBurninASSFontForChinese(content)
 	if got != content {
 		t.Fatalf("expected non-Chinese subtitles to remain unchanged")
+	}
+}
+
+func TestResolveSourceVideoSubtitlePlayResUsesSourceCanvas(t *testing.T) {
+	probe := mediaProbe{Width: 3840, Height: 2160}
+
+	width, height := resolveSourceVideoSubtitlePlayRes(probe)
+	if width != 3840 || height != 2160 {
+		t.Fatalf("expected subtitle playres to use source probe dimensions, got %dx%d", width, height)
+	}
+}
+
+func TestNormalizeGeneratedASSPlayResForTranscodeOverridesScriptInfo(t *testing.T) {
+	content := strings.Join([]string{
+		"[Script Info]",
+		"Title: Workspace subtitles",
+		"ScriptType: v4.00+",
+		"PlayResX: 1920",
+		"PlayResY: 1080",
+		"",
+		"[V4+ Styles]",
+		"Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+		"Style: Primary,PingFang SC,52,&H00FFFFFF,&H00FFFFFF,&H00101010,&H80000000,-1,0,0,0,100,100,0,0,1,0,5,2,72,72,72,1",
+		"",
+		"[Events]",
+		"Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+		"Dialogue: 0,0:00:00.00,0:00:01.00,Primary,,0,0,0,,Hello",
+		"",
+	}, "\n")
+
+	got := normalizeGeneratedASSPlayResForTranscode(content, 3840, 2160)
+
+	if !strings.Contains(got, "PlayResX: 3840") {
+		t.Fatalf("expected PlayResX override, got %q", got)
+	}
+	if !strings.Contains(got, "PlayResY: 2160") {
+		t.Fatalf("expected PlayResY override, got %q", got)
+	}
+	if strings.Contains(got, "PlayResX: 1920") || strings.Contains(got, "PlayResY: 1080") {
+		t.Fatalf("expected original playres to be replaced, got %q", got)
+	}
+	if !strings.Contains(got, "Style: Primary,PingFang SC,104,") {
+		t.Fatalf("expected style fontsize to scale with playres, got %q", got)
+	}
+	if !strings.Contains(got, ",1,0,10,2,144,144,144,1") {
+		t.Fatalf("expected outline, shadow, and margins to scale with playres, got %q", got)
+	}
+	if !strings.Contains(got, "Dialogue: 0,0:00:00.00,0:00:01.00,Primary,,0,0,0,,Hello") {
+		t.Fatalf("expected events to remain intact, got %q", got)
+	}
+}
+
+func TestResolveGeneratedSubtitleContentForTranscodeRendersASSFromDocumentUsingSourceCanvas(t *testing.T) {
+	styleDocument := strings.Join([]string{
+		"[Script Info]",
+		"Title: Workspace subtitles",
+		"ScriptType: v4.00+",
+		"PlayResX: 1920",
+		"PlayResY: 1080",
+		"",
+		"[V4+ Styles]",
+		"Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+		"Style: Primary,PingFang SC,52,&H00FFFFFF,&H00FFFFFF,&H00101010,&H80000000,-1,0,0,0,100,100,0,0,1,0,5,2,72,72,72,1",
+		"",
+		"[Events]",
+		"Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+		"",
+	}, "\n")
+	request := dto.CreateTranscodeJobRequest{
+		Title:                                 "Workspace export",
+		GeneratedSubtitleFormat:               "ass",
+		GeneratedSubtitleName:                 "Workspace subtitles",
+		GeneratedSubtitleStyleDocumentContent: styleDocument,
+		GeneratedSubtitleDocument: &dto.SubtitleDocument{
+			Format: "srt",
+			Cues: []dto.SubtitleCue{
+				{
+					Index: 1,
+					Start: "00:00:00,000",
+					End:   "00:00:01,000",
+					Text:  "Hello",
+				},
+			},
+		},
+	}
+
+	got := resolveGeneratedSubtitleContentForTranscode(request, mediaProbe{Width: 3840, Height: 2160}, "ass")
+	if !strings.Contains(got, "PlayResX: 3840") || !strings.Contains(got, "PlayResY: 2160") {
+		t.Fatalf("expected generated ass to use source video canvas, got %q", got)
+	}
+	if !strings.Contains(got, "Style: Primary,PingFang SC,104,") {
+		t.Fatalf("expected generated ass to scale style fontsize to 104, got %q", got)
+	}
+	if !strings.Contains(got, "Dialogue: 0,0:00:00.00,0:00:01.00,Primary,,0,0,0,,Hello") {
+		t.Fatalf("expected generated ass to render dialogue from subtitle document, got %q", got)
+	}
+}
+
+func TestResolveGeneratedSubtitleContentForTranscodeMatchesExportSubtitleASSAtSourceCanvas(t *testing.T) {
+	t.Parallel()
+
+	styleDocument := strings.Join([]string{
+		"[Script Info]",
+		"Title: Workspace subtitles",
+		"ScriptType: v4.00+",
+		"PlayResX: 1920",
+		"PlayResY: 1080",
+		"",
+		"[V4+ Styles]",
+		"Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+		"Style: Primary,PingFang SC,52,&H00FFFFFF,&H00FFFFFF,&H00101010,&H80000000,-1,0,0,0,100,100,0,0,1,0,5,2,72,72,72,1",
+		"",
+		"[Events]",
+		"Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+		"",
+	}, "\n")
+	document := dto.SubtitleDocument{
+		Format: "srt",
+		Cues: []dto.SubtitleCue{
+			{
+				Index: 1,
+				Start: "00:00:00,000",
+				End:   "00:00:01,000",
+				Text:  "Hello 4K",
+			},
+		},
+	}
+	request := dto.CreateTranscodeJobRequest{
+		Title:                                 "Workspace export",
+		GeneratedSubtitleFormat:               "ass",
+		GeneratedSubtitleName:                 "Workspace subtitles",
+		GeneratedSubtitleStyleDocumentContent: styleDocument,
+		GeneratedSubtitleDocument:             &document,
+	}
+
+	exportedASS := renderSubtitleContentWithConfig(document, "ass", &dto.SubtitleExportConfig{
+		ASS: &dto.SubtitleASSExportConfig{
+			PlayResX: 3840,
+			PlayResY: 2160,
+			Title:    "Workspace subtitles",
+		},
+	}, styleDocument)
+	renderedASS := resolveGeneratedSubtitleContentForTranscode(
+		request,
+		mediaProbe{Width: 3840, Height: 2160},
+		"ass",
+	)
+
+	if exportedASS != renderedASS {
+		t.Fatalf("expected burn-in ass to match exported ass\nexported=%s\nrendered=%s", exportedASS, renderedASS)
+	}
+	if got := requireASSSectionValue(t, renderedASS, "[Script Info]", "PlayResX"); got != "3840" {
+		t.Fatalf("expected 4k playres x, got %q", got)
+	}
+	if got := requireASSSectionValue(t, renderedASS, "[Script Info]", "PlayResY"); got != "2160" {
+		t.Fatalf("expected 4k playres y, got %q", got)
+	}
+	if got := requireASSStyleField(t, renderedASS, "[V4+ Styles]", "fontsize"); got != "104" {
+		t.Fatalf("expected 1080p 52px style to scale to 104px at 4k, got %q", got)
+	}
+}
+
+func TestBurninASSTranscodeUsesSourceCanvasAndScalesAfterSubtitles(t *testing.T) {
+	content := strings.Join([]string{
+		"[Script Info]",
+		"Title: Workspace subtitles",
+		"ScriptType: v4.00+",
+		"PlayResX: 1920",
+		"PlayResY: 1080",
+		"",
+		"[V4+ Styles]",
+		"Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+		"Style: Primary,PingFang SC,52,&H00FFFFFF,&H00FFFFFF,&H00101010,&H80000000,-1,0,0,0,100,100,0,0,1,0,5,2,72,72,72,1",
+		"",
+		"[Events]",
+		"Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+		"Dialogue: 0,0:00:00.00,0:00:01.00,Primary,,0,0,0,,Hello",
+		"",
+	}, "\n")
+
+	normalized := normalizeGeneratedASSPlayResForTranscode(content, 3840, 2160)
+	if !strings.Contains(normalized, "PlayResX: 3840") || !strings.Contains(normalized, "PlayResY: 2160") {
+		t.Fatalf("expected generated ass to be normalized against source video canvas, got %q", normalized)
+	}
+	if !strings.Contains(normalized, "Style: Primary,PingFang SC,104,") {
+		t.Fatalf("expected source-video normalization to scale fontsize to 104, got %q", normalized)
+	}
+
+	args, err := buildFFmpegTranscodeArgs(
+		transcodePlan{
+			request: dto.CreateTranscodeJobRequest{
+				Format:     "mp4",
+				VideoCodec: "h264",
+				AudioCodec: "aac",
+				Preset:     "medium",
+				CRF:        23,
+				Scale:      "1080p",
+			},
+			outputType: library.TranscodeOutputVideo,
+		},
+		"/tmp/input.mp4",
+		"/tmp/output.mp4",
+		"/tmp/subtitles.ass",
+		"",
+		"",
+		"burnin",
+	)
+	if err != nil {
+		t.Fatalf("buildFFmpegTranscodeArgs returned error: %v", err)
+	}
+
+	joined := strings.Join(args, " ")
+	assIndex := strings.Index(joined, "ass=filename='/tmp/subtitles.ass'")
+	scaleIndex := strings.Index(joined, "scale=w=1920:h=1080:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=1920:1080:(ow-iw)/2:(oh-ih)/2")
+	if assIndex < 0 || scaleIndex < 0 {
+		t.Fatalf("expected burnin args to include ass and scale filters, got %q", joined)
+	}
+	if assIndex > scaleIndex {
+		t.Fatalf("expected burnin args to apply subtitles before scaling, got %q", joined)
 	}
 }
 

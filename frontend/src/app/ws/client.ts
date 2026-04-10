@@ -175,7 +175,7 @@ export class WebSocketClient {
     if (this.reconnectTimer || !this.shouldReconnect) {
       return;
     }
-    this.onMetric?.("reconnect");
+    this.emitMetric("reconnect");
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();
@@ -235,27 +235,33 @@ export class WebSocketClient {
     if (seq > 0) {
       const lastSeq = this.topicSeq.get(realtimeEvent.topic) ?? 0;
       if (seq <= lastSeq) {
-        this.onMetric?.("duplicate-drop");
+        this.emitMetric("duplicate-drop");
         return;
       }
       this.topicSeq.set(realtimeEvent.topic, seq);
     }
 
     if (realtimeEvent.replay) {
-      this.onMetric?.("replay");
+      this.emitMetric("replay");
     }
     if ((realtimeEvent.type ?? "").trim().toLowerCase() === "resync-required") {
-      this.onMetric?.("resync-required");
+      this.emitMetric("resync-required");
     }
 
-    this.onMessage?.(realtimeEvent);
+    this.emitMessage(realtimeEvent);
 
     const handlers = this.subscriptions.get(realtimeEvent.topic);
     if (!handlers || handlers.size === 0) {
       return;
     }
 
-    handlers.forEach((handler) => handler(realtimeEvent));
+    handlers.forEach((handler) => {
+      try {
+        handler(realtimeEvent);
+      } catch (error) {
+        console.error("[ws] subscription handler failed", error);
+      }
+    });
   }
 
   private setStatus(status: ConnectionStatus) {
@@ -263,7 +269,11 @@ export class WebSocketClient {
       return;
     }
     this.status = status;
-    this.onStatusChange?.(status);
+    try {
+      this.onStatusChange?.(status);
+    } catch (error) {
+      console.error("[ws] status handler failed", error);
+    }
   }
 
   private clearPending(reason: Error) {
@@ -272,5 +282,21 @@ export class WebSocketClient {
       entry.reject(reason);
     });
     this.pending.clear();
+  }
+
+  private emitMetric(kind: "reconnect" | "replay" | "resync-required" | "duplicate-drop") {
+    try {
+      this.onMetric?.(kind);
+    } catch (error) {
+      console.error("[ws] metric handler failed", error);
+    }
+  }
+
+  private emitMessage(event: RealtimeEvent) {
+    try {
+      this.onMessage?.(event);
+    } catch (error) {
+      console.error("[ws] message handler failed", error);
+    }
   }
 }

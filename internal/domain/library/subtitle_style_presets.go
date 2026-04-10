@@ -15,28 +15,31 @@ const (
 )
 
 type AssStyleSpec struct {
-	Fontname        string
-	Fontsize        float64
-	PrimaryColour   string
-	SecondaryColour string
-	OutlineColour   string
-	BackColour      string
-	Bold            bool
-	Italic          bool
-	Underline       bool
-	StrikeOut       bool
-	ScaleX          float64
-	ScaleY          float64
-	Spacing         float64
-	Angle           float64
-	BorderStyle     int
-	Outline         float64
-	Shadow          float64
-	Alignment       int
-	MarginL         int
-	MarginR         int
-	MarginV         int
-	Encoding        int
+	Fontname           string
+	FontFace           string
+	FontWeight         int
+	FontPostScriptName string
+	Fontsize           float64
+	PrimaryColour      string
+	SecondaryColour    string
+	OutlineColour      string
+	BackColour         string
+	Bold               bool
+	Italic             bool
+	Underline          bool
+	StrikeOut          bool
+	ScaleX             float64
+	ScaleY             float64
+	Spacing            float64
+	Angle              float64
+	BorderStyle        int
+	Outline            float64
+	Shadow             float64
+	Alignment          int
+	MarginL            int
+	MarginR            int
+	MarginV            int
+	Encoding           int
 }
 
 type MonoStyle struct {
@@ -138,6 +141,8 @@ func ResolveSubtitleStyleBaseResolution(aspectRatio string) (int, int) {
 func normalizeAssStyleSpec(value AssStyleSpec) AssStyleSpec {
 	defaults := AssStyleSpec{
 		Fontname:        "Arial",
+		FontFace:        "Regular",
+		FontWeight:      400,
 		Fontsize:        48,
 		PrimaryColour:   "&H00FFFFFF",
 		SecondaryColour: "&H00FFFFFF",
@@ -155,6 +160,23 @@ func normalizeAssStyleSpec(value AssStyleSpec) AssStyleSpec {
 	result := value
 	if strings.TrimSpace(result.Fontname) == "" {
 		result.Fontname = defaults.Fontname
+	}
+	result.FontPostScriptName = strings.TrimSpace(result.FontPostScriptName)
+	if result.FontPostScriptName == "" && strings.Contains(result.Fontname, "-") {
+		result.FontPostScriptName = strings.TrimSpace(result.Fontname)
+	}
+	result.FontFace = normalizeSubtitleStyleFontFace(
+		firstNonEmpty(
+			strings.TrimSpace(result.FontFace),
+			deriveSubtitleStyleFontFace(result.FontWeight, result.Bold, result.Italic, result.FontPostScriptName),
+		),
+	)
+	result.FontWeight = normalizeSubtitleStyleFontWeight(result.FontWeight, result.FontFace, result.FontPostScriptName, result.Bold)
+	if !result.Bold && result.FontWeight >= 700 {
+		result.Bold = true
+	}
+	if !result.Italic && subtitleStyleFontFaceImpliesItalic(result.FontFace) {
+		result.Italic = true
 	}
 	if !isFinitePositive(result.Fontsize) {
 		result.Fontsize = defaults.Fontsize
@@ -328,6 +350,15 @@ func mergeAssStyleSpec(base AssStyleSpec, override AssStyleSpec) AssStyleSpec {
 	if strings.TrimSpace(override.Fontname) != "" {
 		result.Fontname = override.Fontname
 	}
+	fontIdentityChanged := strings.TrimSpace(override.Fontname) != "" ||
+		strings.TrimSpace(override.FontFace) != "" ||
+		strings.TrimSpace(override.FontPostScriptName) != "" ||
+		override.FontWeight > 0
+	if fontIdentityChanged {
+		result.FontFace = strings.TrimSpace(override.FontFace)
+		result.FontPostScriptName = strings.TrimSpace(override.FontPostScriptName)
+		result.FontWeight = override.FontWeight
+	}
 	if isFinitePositive(override.Fontsize) {
 		result.Fontsize = override.Fontsize
 	}
@@ -396,4 +427,88 @@ func isFinitePositive(value float64) bool {
 
 func isFiniteNonNegative(value float64) bool {
 	return isFiniteNumber(value) && value >= 0
+}
+
+func normalizeSubtitleStyleFontFace(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "Regular"
+	}
+	return trimmed
+}
+
+func normalizeSubtitleStyleFontWeight(value int, face string, postScriptName string, bold bool) int {
+	if value > 0 {
+		return value
+	}
+	if derived := deriveSubtitleStyleFontWeightFromFace(face); derived > 0 {
+		return derived
+	}
+	if derived := deriveSubtitleStyleFontWeightFromFace(deriveSubtitleStyleFontFaceFromPostScriptName(postScriptName)); derived > 0 {
+		return derived
+	}
+	if bold {
+		return 700
+	}
+	return 400
+}
+
+func deriveSubtitleStyleFontFace(weight int, bold bool, italic bool, postScriptName string) string {
+	if derived := deriveSubtitleStyleFontFaceFromPostScriptName(postScriptName); derived != "" {
+		return derived
+	}
+	switch {
+	case italic && weight >= 700:
+		return "Bold Italic"
+	case italic:
+		return "Italic"
+	case weight >= 700 || bold:
+		return "Bold"
+	default:
+		return "Regular"
+	}
+}
+
+func subtitleStyleFontFaceImpliesItalic(face string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(face))
+	return strings.Contains(normalized, "italic") || strings.Contains(normalized, "oblique")
+}
+
+func deriveSubtitleStyleFontWeightFromFace(face string) int {
+	normalized := strings.ToLower(strings.TrimSpace(face))
+	switch {
+	case normalized == "":
+		return 0
+	case strings.Contains(normalized, "thin"), strings.Contains(normalized, "hairline"):
+		return 100
+	case strings.Contains(normalized, "ultralight"), strings.Contains(normalized, "extra light"), strings.Contains(normalized, "extralight"):
+		return 200
+	case strings.Contains(normalized, "light"):
+		return 300
+	case strings.Contains(normalized, "semibold"), strings.Contains(normalized, "demibold"), strings.Contains(normalized, "demi bold"), strings.Contains(normalized, "demi"):
+		return 600
+	case strings.Contains(normalized, "extrabold"), strings.Contains(normalized, "extra bold"), strings.Contains(normalized, "ultrabold"), strings.Contains(normalized, "ultra bold"):
+		return 800
+	case strings.Contains(normalized, "black"), strings.Contains(normalized, "heavy"):
+		return 900
+	case strings.Contains(normalized, "medium"):
+		return 500
+	case strings.Contains(normalized, "bold"):
+		return 700
+	case strings.Contains(normalized, "regular"), strings.Contains(normalized, "normal"), strings.Contains(normalized, "roman"), strings.Contains(normalized, "book"):
+		return 400
+	default:
+		return 400
+	}
+}
+
+func deriveSubtitleStyleFontFaceFromPostScriptName(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	if separatorIndex := strings.LastIndex(trimmed, "-"); separatorIndex >= 0 && separatorIndex < len(trimmed)-1 {
+		return strings.TrimSpace(trimmed[separatorIndex+1:])
+	}
+	return ""
 }

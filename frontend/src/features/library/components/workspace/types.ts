@@ -1,6 +1,6 @@
 import type { WorkspaceQaCheckId } from "../../model/workspaceQa"
 
-export type WorkspaceDisplayMode = "single" | "dual"
+export type WorkspaceDisplayMode = "mono" | "bilingual"
 export type WorkspaceDensity = "comfortable" | "compact"
 export type WorkspaceFilter = "all" | "needs-review" | "edited" | "current-window"
 export type WorkspaceQaFilter = "all" | "issues" | "warnings" | "errors" | "clean"

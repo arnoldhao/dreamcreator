@@ -97,6 +97,51 @@ func TestParseSubtitleStyleImportRoundsScaledFontSize(t *testing.T) {
 	}
 }
 
+func TestParseSubtitleStyleImportPreservesFontFaceMetadata(t *testing.T) {
+	service := &LibraryService{}
+	content := strings.Join([]string{
+		"[Script Info]",
+		"ScriptType: v4.00+",
+		"PlayResX: 1920",
+		"PlayResY: 1080",
+		"; DCStyle.Primary.FontFamily: PingFang SC",
+		"; DCStyle.Primary.FontFace: Semibold",
+		"; DCStyle.Primary.FontWeight: 600",
+		"; DCStyle.Primary.FontPostScriptName: PingFangSC-Semibold",
+		"",
+		"[V4+ Styles]",
+		"Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+		"Style: Primary,PingFang SC,58,&H00FFFFFF,&H00FFFFFF,&H00101010,&H80000000,0,0,0,0,100,100,0,0,1,2,1,2,72,72,56,1",
+		"",
+		"[Events]",
+		"Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+	}, "\n")
+
+	result, err := service.ParseSubtitleStyleImport(context.Background(), dto.ParseSubtitleStyleImportRequest{
+		Content: content,
+		Format:  "ass",
+	})
+	if err != nil {
+		t.Fatalf("ParseSubtitleStyleImport returned error: %v", err)
+	}
+	if len(result.MonoStyles) != 1 {
+		t.Fatalf("expected one mono style, got %#v", result.MonoStyles)
+	}
+	style := result.MonoStyles[0].Style
+	if style.Fontname != "PingFang SC" {
+		t.Fatalf("expected imported font family PingFang SC, got %#v", style)
+	}
+	if style.FontFace != "Semibold" || style.FontWeight != 600 {
+		t.Fatalf("expected imported font face metadata, got %#v", style)
+	}
+	if style.FontPostScriptName != "PingFangSC-Semibold" {
+		t.Fatalf("expected imported postscript name, got %#v", style)
+	}
+	if style.Bold {
+		t.Fatalf("expected semibold import to keep bold=false, got %#v", style)
+	}
+}
+
 func TestGenerateSubtitleStylePreviewASSBuildsBilingualDocument(t *testing.T) {
 	service := &LibraryService{}
 	result, err := service.GenerateSubtitleStylePreviewASS(context.Background(), dto.GenerateSubtitleStylePreviewASSRequest{
@@ -380,6 +425,58 @@ func TestGenerateSubtitleStylePreviewASSAppliesFontMappings(t *testing.T) {
 	}
 	if strings.Contains(result.ASSContent, "Style: Primary,Source Han Sans,48,") {
 		t.Fatalf("expected preview ASS to replace original font family, got %q", result.ASSContent)
+	}
+}
+
+func TestGenerateSubtitleStylePreviewASSWritesFontFaceMetadata(t *testing.T) {
+	service := &LibraryService{}
+	result, err := service.GenerateSubtitleStylePreviewASS(context.Background(), dto.GenerateSubtitleStylePreviewASSRequest{
+		Type: "mono",
+		Mono: &dto.LibraryMonoStyleDTO{
+			ID:              "mono-font-face",
+			Name:            "Mono Font Face",
+			BasePlayResX:    1920,
+			BasePlayResY:    1080,
+			BaseAspectRatio: "16:9",
+			Style: dto.AssStyleSpecDTO{
+				Fontname:           "PingFang SC",
+				FontFace:           "Semibold",
+				FontWeight:         600,
+				FontPostScriptName: "PingFangSC-Semibold",
+				Fontsize:           58,
+				PrimaryColour:      "&H00FFFFFF",
+				OutlineColour:      "&H00101010",
+				BackColour:         "&H80000000",
+				ScaleX:             100,
+				ScaleY:             100,
+				BorderStyle:        1,
+				Outline:            2.6,
+				Shadow:             0.8,
+				Alignment:          2,
+				MarginL:            72,
+				MarginR:            72,
+				MarginV:            56,
+				Encoding:           1,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("GenerateSubtitleStylePreviewASS returned error: %v", err)
+	}
+	if !strings.Contains(result.ASSContent, "; DCStyle.Primary.FontFamily: PingFang SC") {
+		t.Fatalf("expected preview ASS to include font family metadata, got %q", result.ASSContent)
+	}
+	if !strings.Contains(result.ASSContent, "; DCStyle.Primary.FontFace: Semibold") {
+		t.Fatalf("expected preview ASS to include font face metadata, got %q", result.ASSContent)
+	}
+	if !strings.Contains(result.ASSContent, "; DCStyle.Primary.FontWeight: 600") {
+		t.Fatalf("expected preview ASS to include font weight metadata, got %q", result.ASSContent)
+	}
+	if !strings.Contains(result.ASSContent, "; DCStyle.Primary.FontPostScriptName: PingFangSC-Semibold") {
+		t.Fatalf("expected preview ASS to include postscript metadata, got %q", result.ASSContent)
+	}
+	if !strings.Contains(result.ASSContent, "Style: Primary,PingFang SC,58,") {
+		t.Fatalf("expected preview ASS style line to use font family name, got %q", result.ASSContent)
 	}
 }
 

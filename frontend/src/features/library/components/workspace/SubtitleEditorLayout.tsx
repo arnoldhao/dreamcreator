@@ -15,7 +15,13 @@ import {
   DASHBOARD_WORKSPACE_META_BAR_CLASS,
   DASHBOARD_WORKSPACE_SHELL_SURFACE_CLASS,
 } from "@/shared/ui/dashboard"
+import { DASHBOARD_DIALOG_SOFT_SURFACE_CLASS } from "@/shared/ui/dashboard-dialog"
 import { cn } from "@/lib/utils"
+import { WorkspaceDensityToggle } from "./WorkspaceDensityToggle"
+import {
+  WorkspaceMetaFlag,
+  WorkspaceMetaItem,
+} from "./WorkspaceMetaBar"
 import { SubtitleTablePane } from "./SubtitleTablePane"
 import { WorkspaceToolbar } from "./WorkspaceToolbar"
 
@@ -39,6 +45,8 @@ type SubtitleEditorLayoutProps = {
   qaFilter: WorkspaceQaFilter
   isLoading: boolean
   errorMessage?: string
+  showStyleSidebar?: boolean
+  styleSidebarContent?: React.ReactNode
   editingEnabled?: boolean
   qaCheckSettings: WorkspaceQaCheckSettings
   onReviewDecisionChange?: (cueIndex: number, decision: WorkspaceReviewDecision) => void
@@ -74,6 +82,8 @@ export function SubtitleEditorLayout({
   qaFilter,
   isLoading,
   errorMessage,
+  showStyleSidebar = false,
+  styleSidebarContent,
   editingEnabled = true,
   qaCheckSettings,
   onReviewDecisionChange,
@@ -90,11 +100,14 @@ export function SubtitleEditorLayout({
 }: SubtitleEditorLayoutProps) {
   const { t } = useI18n()
   const rootRef = React.useRef<HTMLDivElement | null>(null)
+  const [editorShellWidth, setEditorShellWidth] = React.useState(0)
   const reviewCount = rows.filter((row) => row.qaIssues.length > 0).length
+  const densityToggleMinWidth = displayMode === "bilingual" ? 1180 : 960
+  const showDensityToggle = !showStyleSidebar && editorShellWidth >= densityToggleMinWidth
   const displayModeLabel =
-    displayMode === "dual"
-      ? t("library.workspace.table.modeDual")
-      : t("library.workspace.table.modeSingle")
+    displayMode === "bilingual"
+      ? t("library.workspace.table.modeBilingual")
+      : t("library.workspace.table.modeMono")
   const draftStatusLabel =
     saveState === "saving"
       ? t("library.workspace.table.draftSaving")
@@ -171,88 +184,144 @@ export function SubtitleEditorLayout({
     }
   }, [editingEnabled, editingRowId, onEditingRowChange, onSelectRow])
 
+  React.useEffect(() => {
+    const root = rootRef.current
+    if (!root) {
+      return
+    }
+
+    const updateWidth = () => {
+      setEditorShellWidth(root.clientWidth)
+    }
+
+    updateWidth()
+    window.addEventListener("resize", updateWidth)
+    if (typeof ResizeObserver === "undefined") {
+      return () => window.removeEventListener("resize", updateWidth)
+    }
+
+    const observer = new ResizeObserver(() => updateWidth())
+    observer.observe(root)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("resize", updateWidth)
+    }
+  }, [showStyleSidebar])
+
   return (
-    <div
-      ref={rootRef}
-      className={`flex h-full min-h-0 flex-1 flex-col overflow-hidden ${DASHBOARD_WORKSPACE_SHELL_SURFACE_CLASS}`}
-    >
-      <WorkspaceToolbar
-        mode="subtitle"
-        searchValue={searchValue}
-        onSearchChange={onSearchChange}
-        replaceValue={replaceValue}
-        onReplaceValueChange={onReplaceValueChange}
-        onApplyReplace={onApplyReplace}
-        filterValue={filterValue}
-        onFilterChange={onFilterChange}
-        qaFilter={qaFilter}
-        onQaFilterChange={onQaFilterChange}
-        density={density}
-        onDensityChange={onDensityChange}
-        replaceDisabled={!editingEnabled}
-      />
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <SubtitleTablePane
+    <div className={cn("grid h-full min-h-0 flex-1 gap-3 overflow-hidden", showStyleSidebar && "grid-cols-[minmax(0,1fr)_320px]")}>
+      <div
+        ref={rootRef}
+        className={`flex h-full min-h-0 flex-1 flex-col overflow-hidden ${DASHBOARD_WORKSPACE_SHELL_SURFACE_CLASS}`}
+      >
+        <WorkspaceToolbar
           mode="subtitle"
-          title={t("library.workspace.table.editorTitle")}
-          chrome="plain"
-          rows={rows}
-          selectedRowId={selectedRowId}
-          editingRowId={editingRowId}
-          currentRowId={currentRowId}
-          hoveredRowId={hoveredRowId}
-          displayMode={displayMode}
-          density={density}
-          autoFollow={false}
-          isLoading={isLoading}
-          errorMessage={errorMessage}
-          qaCheckSettings={qaCheckSettings}
-          reviewPending={reviewPending}
-          reviewApplying={reviewApplying}
-          onSelectRow={onSelectRow}
-          onEditingRowChange={onEditingRowChange}
-          onHoverRow={onHoverRow}
-          onEditSourceText={editingEnabled ? onEditSourceText : undefined}
-          onReviewDecisionChange={onReviewDecisionChange}
+          searchValue={searchValue}
+          onSearchChange={onSearchChange}
+          replaceValue={replaceValue}
+          onReplaceValueChange={onReplaceValueChange}
+          onApplyReplace={onApplyReplace}
+          filterValue={filterValue}
+          onFilterChange={onFilterChange}
+          qaFilter={qaFilter}
+          onQaFilterChange={onQaFilterChange}
+          replaceDisabled={!editingEnabled}
         />
-      </div>
-      <div className={`flex shrink-0 items-center justify-between gap-3 px-3 py-2 ${DASHBOARD_WORKSPACE_META_BAR_CLASS}`}>
-        <div className="flex items-center gap-3">
-          <span className="font-medium text-foreground">{t("library.workspace.table.editorTitle")}</span>
-          <span>{t("library.workspace.table.visibleCount").replace("{count}", String(rows.length))}</span>
-          <span>{t("library.workspace.table.needReviewCount").replace("{count}", String(reviewCount))}</span>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <SubtitleTablePane
+            mode="subtitle"
+            title={t("library.workspace.table.editorTitle")}
+            chrome="plain"
+            rows={rows}
+            selectedRowId={selectedRowId}
+            editingRowId={editingRowId}
+            currentRowId={currentRowId}
+            hoveredRowId={hoveredRowId}
+            displayMode={displayMode}
+            density={density}
+            autoFollow={false}
+            isLoading={isLoading}
+            errorMessage={errorMessage}
+            qaCheckSettings={qaCheckSettings}
+            reviewPending={reviewPending}
+            reviewApplying={reviewApplying}
+            onSelectRow={onSelectRow}
+            onEditingRowChange={onEditingRowChange}
+            onHoverRow={onHoverRow}
+            onEditSourceText={editingEnabled ? onEditSourceText : undefined}
+            onReviewDecisionChange={onReviewDecisionChange}
+          />
         </div>
-        <div className="flex min-w-0 items-center gap-3">
-          <span>{t("library.workspace.table.current")} {currentRowId ? currentRowId.replace("cue-", "") : "-"}</span>
-          <span>{t("library.workspace.table.editing")} {editingRowId ? editingRowId.replace("cue-", "") : "-"}</span>
-          <span>{displayModeLabel}</span>
-          {reviewPending ? (
-            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-800">
-              {t("library.workspace.table.pendingReview")}
-            </span>
-          ) : null}
-          {displayMode === "dual" ? (
-            <>
-              <span className="max-w-[220px] truncate">{t("library.workspace.table.primaryTrack")}: {primaryTrackLabel}</span>
-              <span className="max-w-[220px] truncate">
-                {t("library.workspace.table.secondaryTrack")}:{" "}
-                {secondaryTrackLabel || t("library.workspace.table.notSelected")}
-              </span>
-            </>
-          ) : (
-            <span className="max-w-[220px] truncate">{t("library.workspace.table.track")}: {primaryTrackLabel}</span>
-          )}
-          <span
-            className={cn(
-              "rounded-full border px-2 py-0.5 text-[11px] font-medium",
-              draftStatusClassName,
+        <div className={`grid shrink-0 gap-2 px-3 py-2 ${DASHBOARD_WORKSPACE_META_BAR_CLASS} md:grid-cols-[auto_minmax(0,1fr)] md:items-center`}>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <WorkspaceMetaItem
+              value={t("library.workspace.table.visibleCount").replace("{count}", String(rows.length))}
+            />
+            <WorkspaceMetaItem
+              value={t("library.workspace.table.needReviewCount").replace("{count}", String(reviewCount))}
+            />
+          </div>
+          <div className="flex min-w-0 flex-wrap items-center gap-2 md:justify-end">
+            <WorkspaceMetaItem
+              value={`${t("library.workspace.table.current")} ${currentRowId ? currentRowId.replace("cue-", "") : "-"}`}
+            />
+            <WorkspaceMetaItem
+              value={`${t("library.workspace.table.editing")} ${editingRowId ? editingRowId.replace("cue-", "") : "-"}`}
+            />
+            <WorkspaceMetaItem value={displayModeLabel} />
+            {reviewPending ? (
+              <WorkspaceMetaFlag className="border-amber-500/30 bg-amber-500/10 text-amber-800">
+                {t("library.workspace.table.pendingReview")}
+              </WorkspaceMetaFlag>
+            ) : null}
+            {displayMode === "bilingual" ? (
+              <>
+                <WorkspaceMetaItem
+                  value={primaryTrackLabel}
+                  label={t("library.workspace.table.primaryTrack")}
+                  className="max-w-[240px]"
+                  title={primaryTrackLabel}
+                />
+                <WorkspaceMetaItem
+                  value={secondaryTrackLabel || t("library.workspace.table.notSelected")}
+                  label={t("library.workspace.table.secondaryTrack")}
+                  className="max-w-[240px]"
+                  title={secondaryTrackLabel || t("library.workspace.table.notSelected")}
+                />
+              </>
+            ) : (
+              <WorkspaceMetaItem
+                value={primaryTrackLabel}
+                label={t("library.workspace.table.track")}
+                className="max-w-[240px]"
+                title={primaryTrackLabel}
+              />
             )}
-            title={saveState === "error" && saveErrorMessage ? saveErrorMessage : undefined}
-          >
-            {t("library.workspace.table.draftStatus")} {draftStatusLabel}
-          </span>
+            <WorkspaceMetaFlag
+              className={cn(
+                "border px-2 py-0",
+                draftStatusClassName,
+              )}
+              title={saveState === "error" && saveErrorMessage ? saveErrorMessage : undefined}
+            >
+              {t("library.workspace.table.draftStatus")} {draftStatusLabel}
+            </WorkspaceMetaFlag>
+            {showDensityToggle ? (
+              <WorkspaceDensityToggle
+                density={density}
+                onDensityChange={onDensityChange}
+                className="shrink-0"
+              />
+            ) : null}
+          </div>
         </div>
       </div>
+
+      {showStyleSidebar ? (
+        <aside className={`min-h-0 overflow-hidden ${DASHBOARD_DIALOG_SOFT_SURFACE_CLASS}`}>
+          {styleSidebarContent}
+        </aside>
+      ) : null}
     </div>
   )
 }

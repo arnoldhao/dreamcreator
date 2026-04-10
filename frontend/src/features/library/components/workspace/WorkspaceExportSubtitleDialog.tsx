@@ -5,7 +5,7 @@ import { Captions } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/shared/i18n";
 import { Button } from "@/shared/ui/button";
-import { Dialog, DialogTitle } from "@/shared/ui/dialog";
+import { Dialog, DialogDescription, DialogTitle } from "@/shared/ui/dialog";
 import {
   DASHBOARD_DIALOG_FIELD_SURFACE_CLASS,
   DASHBOARD_DIALOG_SOFT_SURFACE_CLASS,
@@ -19,6 +19,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
 import type {
+  AssStyleSpecDTO,
+  LibraryBilingualStyleDTO,
+  LibraryMonoStyleDTO,
   LibrarySubtitleExportPresetDTO,
   SubtitleExportConfig,
 } from "@/shared/contracts/library";
@@ -27,13 +30,17 @@ import {
   DEFAULT_SUBTITLE_EXPORT_EVENT_NAME,
   DEFAULT_SUBTITLE_EXPORT_LIBRARY_NAME,
   DEFAULT_SUBTITLE_EXPORT_PROJECT_NAME,
+  FCPXML_VERSION_OPTIONS,
   FCPXML_FRAME_DURATION_PRESETS,
-  ITT_FRAME_RATE_MULTIPLIER_PRESETS,
+  FCPXML_START_TIMECODE_PRESETS,
   normalizeFCPXMLFrameDuration,
-  normalizeITTFrameRate,
-  normalizeITTFrameRateMultiplier,
+  normalizeFCPXMLStartTimecodeSeconds,
+  normalizeFCPXMLVersion,
+  ITT_FRAME_RATE_PRESETS,
   resolveFCPXMLFrameDurationLabel,
   resolveITTFrameRateLabel,
+  resolveITTFrameRatePresetValue,
+  resolveITTFrameTimingFromPresetValue,
 } from "../../utils/subtitleStyles";
 
 const FORMAT_OPTIONS = ["srt", "vtt", "ass", "ssa", "itt", "fcpxml"] as const;
@@ -45,6 +52,9 @@ type WorkspaceExportSubtitleDialogProps = {
   trackLabel: string;
   cueCount: number;
   currentFormat: string;
+  displayMode: "mono" | "bilingual";
+  monoStyle?: LibraryMonoStyleDTO | null;
+  lingualStyle?: LibraryBilingualStyleDTO | null;
   targetFormat: string;
   onTargetFormatChange: (value: string) => void;
   presetOptions: LibrarySubtitleExportPresetDTO[];
@@ -222,6 +232,168 @@ function buildResolvedOutputSummary(
   }
 }
 
+function resolveAssAlignmentLabel(
+  value: number,
+  t: (key: string) => string,
+) {
+  switch (value) {
+    case 1:
+      return t("library.config.subtitleStyles.alignmentBottomLeft");
+    case 2:
+      return t("library.config.subtitleStyles.alignmentBottomCenter");
+    case 3:
+      return t("library.config.subtitleStyles.alignmentBottomRight");
+    case 4:
+      return t("library.config.subtitleStyles.alignmentMiddleLeft");
+    case 5:
+      return t("library.config.subtitleStyles.alignmentMiddleCenter");
+    case 6:
+      return t("library.config.subtitleStyles.alignmentMiddleRight");
+    case 7:
+      return t("library.config.subtitleStyles.alignmentTopLeft");
+    case 8:
+      return t("library.config.subtitleStyles.alignmentTopCenter");
+    case 9:
+      return t("library.config.subtitleStyles.alignmentTopRight");
+    default:
+      return t("library.config.subtitleStyles.alignmentBottomCenter");
+  }
+}
+
+function buildMonoStyleSummary(
+  style: LibraryMonoStyleDTO | null | undefined,
+  t: (key: string) => string,
+) {
+  if (!style) {
+    return "-";
+  }
+  const assStyle = style.style;
+  return [
+    assStyle.fontname?.trim() || "Arial",
+    `${Math.round(assStyle.fontsize || 0)}px`,
+    resolveAssAlignmentLabel(assStyle.alignment, t),
+  ].join(" · ");
+}
+
+function buildStyleFlagsSummary(
+  style: AssStyleSpecDTO,
+  t: (key: string) => string,
+) {
+  const flags = [
+    style.bold ? t("library.config.subtitleStyles.bold") : "",
+    style.italic ? t("library.config.subtitleStyles.italic") : "",
+    style.underline ? t("library.config.subtitleStyles.underline") : "",
+    style.strikeOut ? t("library.config.subtitleStyles.strikeOut") : "",
+  ].filter(Boolean);
+
+  return flags.length > 0
+    ? flags.join(" / ")
+    : t("library.config.subtitleStyles.styleFlagsNormal");
+}
+
+function resolveBorderStyleLabel(
+  value: number,
+  t: (key: string) => string,
+) {
+  return value === 3
+    ? t("library.config.subtitleStyles.borderStyleBox")
+    : t("library.config.subtitleStyles.borderStyleOutline");
+}
+
+function buildMonoStyleDetailSummary(
+  style: LibraryMonoStyleDTO | null | undefined,
+  t: (key: string) => string,
+) {
+  if (!style) {
+    return "-";
+  }
+  const assStyle = style.style;
+  return [
+    buildStyleFlagsSummary(assStyle, t),
+    `${t("library.config.subtitleStyles.borderStyleLabel")} ${resolveBorderStyleLabel(assStyle.borderStyle, t)}`,
+    `${t("library.config.subtitleStyles.outlineWidth")} ${assStyle.outline ?? 0}`,
+    `${t("library.config.subtitleStyles.shadowLabel")} ${assStyle.shadow ?? 0}`,
+  ].join(" · ");
+}
+
+function buildBilingualStyleSummary(
+  style: LibraryBilingualStyleDTO | null | undefined,
+  t: (key: string) => string,
+) {
+  if (!style) {
+    return "-";
+  }
+  const primaryStyle = style.primary.style;
+  const secondaryStyle = style.secondary.style;
+  const primarySummary = [
+    primaryStyle.fontname?.trim() || "Arial",
+    `${Math.round(primaryStyle.fontsize || 0)}px`,
+    resolveAssAlignmentLabel(primaryStyle.alignment, t),
+  ].join(" · ");
+  const secondarySummary = [
+    secondaryStyle.fontname?.trim() || "Arial",
+    `${Math.round(secondaryStyle.fontsize || 0)}px`,
+    resolveAssAlignmentLabel(secondaryStyle.alignment, t),
+  ].join(" · ");
+  return `${t("library.config.subtitleStyles.primaryTabLabel")}: ${primarySummary} / ${t("library.config.subtitleStyles.secondaryTabLabel")}: ${secondarySummary}`;
+}
+
+function buildBilingualStyleDetailSummary(
+  style: LibraryBilingualStyleDTO | null | undefined,
+  t: (key: string) => string,
+) {
+  if (!style) {
+    return "-";
+  }
+
+  return [
+    `${t("library.config.subtitleStyles.gapLabel")} ${Math.round(style.layout.gap || 0)}px`,
+    `${t("library.config.subtitleStyles.blockAnchorLabel")} ${resolveAssAlignmentLabel(style.layout.blockAnchor, t)}`,
+    `${t("library.config.subtitleStyles.primaryTabLabel")} ${buildStyleFlagsSummary(style.primary.style, t)}`,
+    `${t("library.config.subtitleStyles.secondaryTabLabel")} ${buildStyleFlagsSummary(style.secondary.style, t)}`,
+  ].join(" · ");
+}
+
+type ExportSubtitleStyleSummary = {
+  headline: string;
+  detail: string;
+  supported: boolean;
+};
+
+function resolveExportSubtitleStyleSummary(
+  format: string,
+  displayMode: "mono" | "bilingual",
+  monoStyle: LibraryMonoStyleDTO | null | undefined,
+  lingualStyle: LibraryBilingualStyleDTO | null | undefined,
+  t: (key: string) => string,
+): ExportSubtitleStyleSummary {
+  if (resolvePresetFormatKey(format) === "srt") {
+    return {
+      headline: t("library.workspace.dialogs.exportSubtitle.styleUnsupported"),
+      detail: t("library.workspace.dialogs.exportSubtitle.styleUnsupportedDescription"),
+      supported: false,
+    };
+  }
+  if (displayMode === "bilingual") {
+    return {
+      headline: [
+        t("library.workspace.header.displayBilingual"),
+        buildBilingualStyleSummary(lingualStyle, t),
+      ].join(" · "),
+      detail: buildBilingualStyleDetailSummary(lingualStyle, t),
+      supported: true,
+    };
+  }
+  return {
+    headline: [
+      t("library.workspace.header.displayMono"),
+      buildMonoStyleSummary(monoStyle, t),
+    ].join(" · "),
+    detail: buildMonoStyleDetailSummary(monoStyle, t),
+    supported: true,
+  };
+}
+
 export function WorkspaceExportSubtitleDialog({
   open,
   onOpenChange,
@@ -229,6 +401,9 @@ export function WorkspaceExportSubtitleDialog({
   trackLabel,
   cueCount,
   currentFormat,
+  displayMode,
+  monoStyle,
+  lingualStyle,
   targetFormat,
   onTargetFormatChange,
   presetOptions,
@@ -311,22 +486,10 @@ export function WorkspaceExportSubtitleDialog({
     }
     return options;
   }, [defaultEnglishUSLabel, ittLanguageOptions, vttConfig.language]);
-  const effectiveITTFrameRate = normalizeITTFrameRate(ittConfig.frameRate);
-  const effectiveITTFrameRateMultiplier = normalizeITTFrameRateMultiplier(
+  const effectiveITTFrameRatePresetValue = resolveITTFrameRatePresetValue(
+    ittConfig.frameRate,
     ittConfig.frameRateMultiplier,
   );
-  const effectiveITTFrameRateMultiplierOptions = React.useMemo(() => {
-    const options = [...ITT_FRAME_RATE_MULTIPLIER_PRESETS];
-    if (
-      !options.some((item) => item.value === effectiveITTFrameRateMultiplier)
-    ) {
-      options.push({
-        value: effectiveITTFrameRateMultiplier,
-        label: effectiveITTFrameRateMultiplier.replace(" ", "/"),
-      });
-    }
-    return options;
-  }, [effectiveITTFrameRateMultiplier]);
   const effectiveITTLanguageOptions = React.useMemo(() => {
     const seen = new Set<string>();
     const options: Array<{ value: string; label: string }> = [];
@@ -358,6 +521,17 @@ export function WorkspaceExportSubtitleDialog({
     exportConfig,
     t,
   );
+  const exportStyleSummary = React.useMemo(
+    () =>
+      resolveExportSubtitleStyleSummary(
+        normalizedTargetFormat,
+        displayMode,
+        monoStyle,
+        lingualStyle,
+        t,
+      ),
+    [displayMode, lingualStyle, monoStyle, normalizedTargetFormat, t],
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -369,6 +543,9 @@ export function WorkspaceExportSubtitleDialog({
           <DialogTitle>
             {t("library.workspace.exportSubtitle")}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {t("library.workspace.dialogs.exportSubtitle.dialogDescription")}
+          </DialogDescription>
         </DashboardDialogHeader>
 
         <div className="space-y-2">
@@ -426,7 +603,7 @@ export function WorkspaceExportSubtitleDialog({
           onValueChange={onTargetFormatChange}
           className="flex min-h-0 flex-1 flex-col gap-3"
         >
-          <TabsList className="grid w-full grid-cols-3 gap-1.5 sm:grid-cols-6">
+          <TabsList className="flex h-auto w-full flex-wrap gap-1.5">
             {FORMAT_OPTIONS.map((format) => (
               <TabsTrigger
                 key={format}
@@ -448,6 +625,30 @@ export function WorkspaceExportSubtitleDialog({
             >
               <div className="space-y-2">
                 <div className="grid gap-2">
+                  <CompactInlineField
+                    label={t("library.workspace.dialogs.exportSubtitle.style")}
+                    control={
+                      <div className="min-w-0 space-y-0.5 text-right">
+                        <div
+                          className={cn(
+                            "truncate text-[11px] font-medium",
+                            exportStyleSummary.supported
+                              ? "text-foreground"
+                              : "text-muted-foreground",
+                          )}
+                          title={exportStyleSummary.headline}
+                        >
+                          {exportStyleSummary.headline}
+                        </div>
+                        <div
+                          className="truncate text-[11px] text-muted-foreground"
+                          title={exportStyleSummary.detail}
+                        >
+                          {exportStyleSummary.detail}
+                        </div>
+                      </div>
+                    }
+                  />
                   <CompactInlineField
                     label={t("library.config.subtitleStyles.subtitleExportPresets")}
                     control={
@@ -644,49 +845,23 @@ export function WorkspaceExportSubtitleDialog({
                     <CompactFieldPanel
                       label={t("library.workspace.dialogs.exportSubtitle.frameRate")}
                     >
-                      <input
-                        type="number"
-                        min={1}
-                        step="1"
-                        value={effectiveITTFrameRate}
-                        onChange={(event) =>
-                          onExportConfigChange({
-                            ...exportConfig,
-                            itt: {
-                              ...(exportConfig.itt ?? {}),
-                              frameRate: normalizeITTFrameRate(
-                                Number(event.target.value),
-                              ),
-                            },
-                          })
-                        }
-                        disabled={isSubmitting}
-                        className="h-8 w-full rounded-md border border-border/70 bg-background/80 px-2 text-xs"
-                        placeholder="30"
-                      />
-                    </CompactFieldPanel>
-
-                    <CompactFieldPanel
-                      label={t("library.workspace.dialogs.exportSubtitle.frameRateMultiplier")}
-                    >
                       <Select
-                        value={effectiveITTFrameRateMultiplier}
+                        value={effectiveITTFrameRatePresetValue}
                         onChange={(event) =>
                           onExportConfigChange({
                             ...exportConfig,
                             itt: {
                               ...(exportConfig.itt ?? {}),
-                              frameRateMultiplier:
-                                normalizeITTFrameRateMultiplier(
-                                  event.target.value,
-                                ),
+                              ...resolveITTFrameTimingFromPresetValue(
+                                event.target.value,
+                              ),
                             },
                           })
                         }
                         disabled={isSubmitting}
                         className="h-8 w-full border-border/70 bg-background/80"
                       >
-                        {effectiveITTFrameRateMultiplierOptions.map(
+                        {ITT_FRAME_RATE_PRESETS.map(
                           (preset) => (
                             <option key={preset.value} value={preset.value}>
                               {preset.label}
@@ -893,20 +1068,26 @@ export function WorkspaceExportSubtitleDialog({
                     <CompactFieldPanel
                       label={t("library.workspace.dialogs.exportSubtitle.version")}
                     >
-                      <input
-                        value={fcpxmlConfig.version ?? "1.11"}
+                      <Select
+                        value={normalizeFCPXMLVersion(fcpxmlConfig.version)}
                         onChange={(event) =>
                           onExportConfigChange({
                             ...exportConfig,
                             fcpxml: {
                               ...(exportConfig.fcpxml ?? {}),
-                              version: event.target.value,
+                              version: normalizeFCPXMLVersion(event.target.value),
                             },
                           })
                         }
                         disabled={isSubmitting}
-                        className="h-8 w-full rounded-md border border-border/70 bg-background/80 px-2 text-xs"
-                      />
+                        className="h-8 w-full border-border/70 bg-background/80"
+                      >
+                        {FCPXML_VERSION_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </Select>
                     </CompactFieldPanel>
 
                     <CompactFieldPanel
@@ -935,9 +1116,11 @@ export function WorkspaceExportSubtitleDialog({
                     <CompactFieldPanel
                       label={t("library.workspace.dialogs.exportSubtitle.startTimecodeSeconds")}
                     >
-                      <input
+                      <Select
                         value={String(
-                          fcpxmlConfig.startTimecodeSeconds ?? 3600,
+                          normalizeFCPXMLStartTimecodeSeconds(
+                            fcpxmlConfig.startTimecodeSeconds,
+                          ),
                         )}
                         onChange={(event) =>
                           onExportConfigChange({
@@ -945,15 +1128,24 @@ export function WorkspaceExportSubtitleDialog({
                             fcpxml: {
                               ...(exportConfig.fcpxml ?? {}),
                               startTimecodeSeconds:
-                                Number(event.target.value) > 0
-                                  ? Number(event.target.value)
-                                  : 3600,
+                                normalizeFCPXMLStartTimecodeSeconds(
+                                  Number(event.target.value),
+                                ),
                             },
                           })
                         }
                         disabled={isSubmitting}
-                        className="h-8 w-full rounded-md border border-border/70 bg-background/80 px-2 text-xs"
-                      />
+                        className="h-8 w-full border-border/70 bg-background/80"
+                      >
+                        {FCPXML_START_TIMECODE_PRESETS.map((preset) => (
+                          <option
+                            key={preset.value}
+                            value={String(preset.value)}
+                          >
+                            {preset.label}
+                          </option>
+                        ))}
+                      </Select>
                     </CompactFieldPanel>
                   </div>
                 </TabsContent>

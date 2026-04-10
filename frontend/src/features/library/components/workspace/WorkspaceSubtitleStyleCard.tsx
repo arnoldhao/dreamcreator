@@ -1,11 +1,28 @@
 import * as React from "react"
 import { ChevronDown } from "lucide-react"
 
-import { useFontFamilies } from "@/hooks/useFontFamilies"
+import { useFontCatalog } from "@/hooks/useFontCatalog"
 import { cn } from "@/lib/utils"
+import {
+  applyFontCatalogFaceToStyle,
+  applyFontFamilyToStyle,
+  resolveAssStyleFontFace,
+  resolveAssStyleFontItalic,
+  resolveAssStyleFontWeight,
+  resolveFontCatalogFaces,
+  resolveFontCatalogFamily,
+  toggleAssStyleBold,
+  toggleAssStyleItalic,
+} from "@/shared/fonts/fontCatalog"
 import { useI18n } from "@/shared/i18n"
-import type { AssStyleSpecDTO, LibraryBilingualStyleDTO, LibraryMonoStyleDTO } from "@/shared/contracts/library"
+import type {
+  AssStyleSpecDTO,
+  LibraryBilingualStyleDTO,
+  LibraryMonoStyleDTO,
+  LibrarySubtitleStyleFontDTO,
+} from "@/shared/contracts/library"
 import { Button } from "@/shared/ui/button"
+import { Badge } from "@/shared/ui/badge"
 import { DASHBOARD_DIALOG_FIELD_SURFACE_CLASS } from "@/shared/ui/dashboard-dialog"
 import {
   DropdownMenu,
@@ -14,17 +31,28 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu"
 import { Input } from "@/shared/ui/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group"
 
 import { createMonoSnapshotFromStyle } from "../../utils/subtitleStylePresets"
+import { buildSubtitleStyleNamePreviewStyle } from "../../utils/subtitleStyleNamePreview"
 import type { WorkspaceDisplayMode, WorkspaceSelectOption } from "./types"
 
 type WorkspaceSubtitleStyleCardProps = {
   displayMode: WorkspaceDisplayMode
   monoStyle: LibraryMonoStyleDTO | null
   lingualStyle: LibraryBilingualStyleDTO | null
+  fontMappings?: LibrarySubtitleStyleFontDTO[]
   monoStyles: LibraryMonoStyleDTO[]
+  lingualStyles: LibraryBilingualStyleDTO[]
   monoStyleOptions: WorkspaceSelectOption[]
   lingualStyleOptions: WorkspaceSelectOption[]
   onMonoStyleChange: (style: LibraryMonoStyleDTO) => void
@@ -33,11 +61,21 @@ type WorkspaceSubtitleStyleCardProps = {
   onSaveAs: (kind: "mono" | "lingual", name: string) => void
 }
 
+const WORKSPACE_FONT_PREVIEW_SAMPLE_TEXT = "追 创 作"
+
+type PendingTemplateSelection = {
+  kind: "mono" | "lingual"
+  styleId: string
+  label: string
+}
+
 export function WorkspaceSubtitleStyleCard({
   displayMode,
   monoStyle,
   lingualStyle,
+  fontMappings = [],
   monoStyles,
+  lingualStyles,
   monoStyleOptions,
   lingualStyleOptions,
   onMonoStyleChange,
@@ -47,38 +85,55 @@ export function WorkspaceSubtitleStyleCard({
 }: WorkspaceSubtitleStyleCardProps) {
   const { t } = useI18n()
   const [saveAsName, setSaveAsName] = React.useState("")
-  const activeKind = displayMode === "dual" ? "lingual" : "mono"
+  const [pendingTemplateSelection, setPendingTemplateSelection] =
+    React.useState<PendingTemplateSelection | null>(null)
+  const activeKind = displayMode === "bilingual" ? "lingual" : "mono"
   const activeOptions = activeKind === "mono" ? monoStyleOptions : lingualStyleOptions
+  const activeOptionPreviewStyles = React.useMemo(() => {
+    if (activeKind === "mono") {
+      return new Map(
+        monoStyles.map((style) => [style.id, style.style] satisfies [string, AssStyleSpecDTO]),
+      )
+    }
+    return new Map(
+      lingualStyles.map((style) => [style.id, style.primary.style] satisfies [string, AssStyleSpecDTO]),
+    )
+  }, [activeKind, lingualStyles, monoStyles])
 
   const handleApplyTemplate = React.useCallback(
-    (kind: "mono" | "lingual", styleId: string) => {
+    (kind: "mono" | "lingual", styleId: string, label: string) => {
       if (!styleId.trim()) {
         return
       }
-      const confirmed = window.confirm(
-        t("library.config.subtitleStyles.applyTemplateConfirm"),
-      )
-      if (!confirmed) {
-        return
-      }
-      onApplyTemplate(kind, styleId)
+      setPendingTemplateSelection({
+        kind,
+        styleId,
+        label,
+      })
     },
-    [onApplyTemplate, t],
+    [],
   )
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-hidden border-y border-border/60">
+      <WorkspaceStylePreviewHeader
+        displayMode={displayMode}
+        monoStyle={monoStyle}
+        lingualStyle={lingualStyle}
+        fontMappings={fontMappings}
+      />
+
+      <div className="min-h-0 flex-1 overflow-hidden border-b border-border/60">
         <div className="h-full min-h-0 overflow-y-auto px-3 py-3">
           <div className="space-y-3">
-            {displayMode === "dual" && lingualStyle ? (
+            {displayMode === "bilingual" && lingualStyle ? (
               <WorkspaceBilingualStyleEditor
                 draft={lingualStyle}
                 monoStyles={monoStyles}
                 onChange={onLingualStyleChange}
               />
             ) : null}
-            {displayMode !== "dual" && monoStyle ? (
+            {displayMode !== "bilingual" && monoStyle ? (
               <WorkspaceAssStyleEditor
                 title={t("library.config.subtitleStyles.monoStyleSectionTitle")}
                 style={monoStyle.style}
@@ -102,8 +157,19 @@ export function WorkspaceSubtitleStyleCard({
               <DropdownMenuItem disabled>{t("library.config.subtitleStyles.emptyStateTitle")}</DropdownMenuItem>
             ) : (
               activeOptions.map((option) => (
-                <DropdownMenuItem key={`${activeKind}-${option.value}`} onClick={() => handleApplyTemplate(activeKind, option.value)}>
-                  {option.label}
+                <DropdownMenuItem
+                  key={`${activeKind}-${option.value}`}
+                  onSelect={() =>
+                    handleApplyTemplate(activeKind, option.value, option.label)
+                  }
+                >
+                  <span
+                    className="block min-w-0 truncate"
+                    style={buildSubtitleStyleNamePreviewStyle(activeOptionPreviewStyles.get(option.value), fontMappings)}
+                    title={option.label}
+                  >
+                    {option.label}
+                  </span>
                 </DropdownMenuItem>
               ))
             )}
@@ -148,6 +214,154 @@ export function WorkspaceSubtitleStyleCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <Dialog
+        open={pendingTemplateSelection !== null}
+        onOpenChange={(open) =>
+          !open ? setPendingTemplateSelection(null) : undefined
+        }
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("library.config.subtitleStyles.switchStyle")}</DialogTitle>
+            <DialogDescription>
+              {pendingTemplateSelection
+                ? `${t("library.config.subtitleStyles.applyTemplateConfirm")} ${pendingTemplateSelection.label}`
+                : t("library.config.subtitleStyles.applyTemplateConfirm")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="compact"
+              onClick={() => setPendingTemplateSelection(null)}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="compact"
+              onClick={() => {
+                if (!pendingTemplateSelection) {
+                  return
+                }
+                onApplyTemplate(
+                  pendingTemplateSelection.kind,
+                  pendingTemplateSelection.styleId,
+                )
+                setPendingTemplateSelection(null)
+              }}
+            >
+              {t("common.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+function WorkspaceStylePreviewHeader(props: {
+  displayMode: WorkspaceDisplayMode
+  monoStyle: LibraryMonoStyleDTO | null
+  lingualStyle: LibraryBilingualStyleDTO | null
+  fontMappings: LibrarySubtitleStyleFontDTO[]
+}) {
+  const { t } = useI18n()
+  const previewItems = React.useMemo(() => {
+    if (props.displayMode === "bilingual" && props.lingualStyle) {
+      return [
+        {
+          key: "primary",
+          badgeLabel: t("library.config.subtitleStyles.primaryTabLabel"),
+          sampleText: buildWorkspaceFontPreviewText(
+            props.lingualStyle.primary.style.fontname,
+            t("library.config.subtitleStyles.fontPreviewFallback"),
+          ),
+          style: props.lingualStyle.primary.style,
+        },
+        {
+          key: "secondary",
+          badgeLabel: t("library.config.subtitleStyles.secondaryTabLabel"),
+          sampleText: buildWorkspaceFontPreviewText(
+            props.lingualStyle.secondary.style.fontname,
+            t("library.config.subtitleStyles.fontPreviewFallback"),
+          ),
+          style: props.lingualStyle.secondary.style,
+        },
+      ]
+    }
+
+    if (!props.monoStyle) {
+      return []
+    }
+
+    return [
+      {
+        key: "mono",
+        sampleText: buildWorkspaceFontPreviewText(
+          props.monoStyle.style.fontname,
+          t("library.config.subtitleStyles.fontPreviewFallback"),
+        ),
+        style: props.monoStyle.style,
+      },
+    ]
+  }, [props.displayMode, props.lingualStyle, props.monoStyle, t])
+
+  return (
+    <div className="shrink-0 border-b border-border/60 px-3 py-3">
+      <div className="space-y-0.5">
+        {previewItems.map((item) => (
+          <WorkspaceStyleFontPreview
+            key={item.key}
+            badgeLabel={item.badgeLabel}
+            sampleText={item.sampleText}
+            style={item.style}
+            fontMappings={props.fontMappings}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function buildWorkspaceFontPreviewText(fontName: string | undefined, fallbackText: string) {
+  const resolvedFontName = fontName?.trim() || fallbackText
+  return `${WORKSPACE_FONT_PREVIEW_SAMPLE_TEXT} ${resolvedFontName}`
+}
+
+function WorkspaceStyleFontPreview(props: {
+  badgeLabel?: string
+  sampleText: string
+  style: AssStyleSpecDTO
+  fontMappings: LibrarySubtitleStyleFontDTO[]
+}) {
+  const previewStyle = React.useMemo(
+    () => buildSubtitleStyleNamePreviewStyle(props.style, props.fontMappings),
+    [props.fontMappings, props.style],
+  )
+
+  return (
+    <div
+      className="flex min-w-0 items-center gap-2"
+      title={props.badgeLabel ? `${props.badgeLabel} ${props.sampleText}` : props.sampleText}
+    >
+      {props.badgeLabel ? (
+        <Badge
+          variant="subtle"
+          className="h-4 shrink-0 rounded-md border-border/70 px-1.5 text-[10px] font-medium leading-none tracking-[0.06em] text-muted-foreground"
+        >
+          {props.badgeLabel}
+        </Badge>
+      ) : null}
+      <span
+        className="block min-w-0 truncate pb-[0.08em] text-foreground"
+        style={previewStyle}
+      >
+        {props.sampleText}
+      </span>
     </div>
   )
 }
@@ -293,29 +507,46 @@ function WorkspaceAssStyleEditor(props: {
   onChange: (value: AssStyleSpecDTO) => void
 }) {
   const { t } = useI18n()
-  const { data: fontFamilies = [], isLoading: fontFamiliesLoading } = useFontFamilies()
+  const { data: fontCatalog = [], isLoading: fontCatalogLoading } = useFontCatalog()
   const alignmentOptions = React.useMemo(() => resolveAlignmentOptions(t), [t])
   const borderStyleOptions = React.useMemo(() => resolveBorderStyleOptions(t), [t])
+  const selectedFontFamily = React.useMemo(
+    () => resolveFontCatalogFamily(fontCatalog, props.style.fontname),
+    [fontCatalog, props.style.fontname],
+  )
 
   const fontOptions = React.useMemo(() => {
-    const options = new Set(fontFamilies.map((family) => family.trim()).filter(Boolean))
+    const options = new Set(fontCatalog.map((family) => family.family.trim()).filter(Boolean))
     if (props.style.fontname.trim()) {
       options.add(props.style.fontname.trim())
     }
     return [...options].sort((left, right) => left.localeCompare(right))
-  }, [fontFamilies, props.style.fontname])
+  }, [fontCatalog, props.style.fontname])
 
-  const updateStyle = React.useCallback(
-    (patch: Partial<AssStyleSpecDTO>) => {
-      props.onChange(
-        normalizeAssStyleForEditor({
-          ...props.style,
-          ...patch,
-        }),
-      )
+  const fontFaceOptions = React.useMemo(
+    () => resolveFontCatalogFaces(fontCatalog, props.style.fontname, props.style),
+    [fontCatalog, props.style],
+  )
+
+  const commitStyle = React.useCallback(
+    (nextStyle: AssStyleSpecDTO) => {
+      props.onChange(normalizeAssStyleForEditor(nextStyle))
     },
     [props],
   )
+
+  const updateStyle = React.useCallback(
+    (patch: Partial<AssStyleSpecDTO>) => {
+      commitStyle({
+        ...props.style,
+        ...patch,
+      })
+    },
+    [commitStyle, props.style],
+  )
+
+  const selectedFontFaceValue =
+    props.style.fontPostScriptName?.trim() || resolveAssStyleFontFace(props.style)
 
   return (
     <div className="space-y-3">
@@ -323,12 +554,49 @@ function WorkspaceAssStyleEditor(props: {
         <EditorRow label={t("library.config.subtitleStyles.fontFamily")}>
           <NativeSelect
             value={props.style.fontname}
-            disabled={fontFamiliesLoading}
-            onChange={(event) => updateStyle({ fontname: event.target.value })}
+            disabled={fontCatalogLoading}
+            onChange={(event) =>
+              commitStyle(
+                applyFontFamilyToStyle(
+                  props.style,
+                  resolveFontCatalogFamily(fontCatalog, event.target.value),
+                  event.target.value,
+                ),
+              )
+            }
           >
             {fontOptions.map((family) => (
               <option key={family} value={family}>
                 {family}
+              </option>
+            ))}
+          </NativeSelect>
+        </EditorRow>
+
+        <EditorRow label={t("library.config.subtitleStyles.fontFace")}>
+          <NativeSelect
+            value={selectedFontFaceValue}
+            disabled={fontCatalogLoading || fontFaceOptions.length === 0}
+            onChange={(event) => {
+              const nextFace =
+                fontFaceOptions.find(
+                  (face) => (face.postScriptName?.trim() || face.name) === event.target.value,
+                ) ?? fontFaceOptions[0]
+              if (!nextFace) {
+                return
+              }
+              commitStyle(
+                applyFontCatalogFaceToStyle(
+                  props.style,
+                  selectedFontFamily?.family ?? props.style.fontname,
+                  nextFace,
+                ),
+              )
+            }}
+          >
+            {fontFaceOptions.map((face) => (
+              <option key={face.postScriptName?.trim() || face.name} value={face.postScriptName?.trim() || face.name}>
+                {face.name}
               </option>
             ))}
           </NativeSelect>
@@ -345,7 +613,17 @@ function WorkspaceAssStyleEditor(props: {
         <EditorRow label={t("library.config.subtitleStyles.styleFlagsLabel")}>
           <InlineTypographyButtons
             value={props.style}
-            onChange={(patch) => updateStyle(patch)}
+            onChange={(patch) => {
+              if ("bold" in patch) {
+                commitStyle(toggleAssStyleBold(props.style, selectedFontFamily))
+                return
+              }
+              if ("italic" in patch) {
+                commitStyle(toggleAssStyleItalic(props.style, selectedFontFamily))
+                return
+              }
+              updateStyle(patch)
+            }}
           />
         </EditorRow>
       </EditorGroupCard>
@@ -587,8 +865,15 @@ function AssColorCompactField(props: {
 }
 
 function normalizeAssStyleForEditor(style: AssStyleSpecDTO): AssStyleSpecDTO {
+  const fontWeight = resolveAssStyleFontWeight(style)
   return {
     ...style,
+    fontname: style.fontname?.trim() || "Arial",
+    fontFace: resolveAssStyleFontFace(style),
+    fontWeight,
+    fontPostScriptName: style.fontPostScriptName?.trim() || "",
+    bold: fontWeight >= 700,
+    italic: resolveAssStyleFontItalic(style),
     fontsize: Math.max(1, Math.round(style.fontsize || 0)),
     marginL: Math.round(style.marginL || 0),
     marginR: Math.round(style.marginR || 0),

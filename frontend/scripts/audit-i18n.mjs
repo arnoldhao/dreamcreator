@@ -9,7 +9,14 @@ const pruneUnused = process.argv.includes("--prune-unused");
 
 const localeDir = path.join(rootDir, "src", "shared", "i18n", "locales");
 const sourceDir = path.join(rootDir, "src");
-const englishStyleSkipKeys = new Set(["app.name"]);
+const englishStyleSkipKeys = new Set([
+  "app.name",
+  "library.config.subtitleStyles.exportProfileStyleDocument",
+  "library.workspace.header.videoEditing",
+  "library.workspace.header.subtitleEditing",
+  "library.workspace.header.speechToSubtitle",
+  "library.workspace.dialogs.exportSubtitle.style",
+]);
 const englishStylePreservePhrases = [
   "Dream Creator",
   "Apple",
