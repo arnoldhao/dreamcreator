@@ -6,6 +6,7 @@ const rootDir = process.cwd();
 const strict = process.argv.includes("--strict");
 const jsonOnly = process.argv.includes("--json");
 const pruneUnused = process.argv.includes("--prune-unused");
+const fixEnglishStyle = process.argv.includes("--fix-english-style");
 
 const localeDir = path.join(rootDir, "src", "shared", "i18n", "locales");
 const sourceDir = path.join(rootDir, "src");
@@ -155,19 +156,12 @@ const englishTitleCaseLowerWords = new Set([
   "via",
 ]);
 const englishSentenceBoundaryChars = new Set([".", "!", "?"]);
+// Apple HIG defines title-style capitalization for compact actionable controls like
+// buttons and menu items, but uses sentence-style capitalization for labels and most prose.
 const englishTitleStyleExplicitPatterns = [
   /^app\.settings\.title\./,
-  /^settings\.gateway\.detailsPanel\.sections\./,
-  /^settings\.gateway\.detailsPanel\.(contextTabs|httpTabs|talkTabs|heartbeatTabs)\./,
-  /^settings\.gateway\.detailsPanel\.(gateway\.controlPlane|runtime\.(maxSteps|toolLoop\.(enabled|warn|critical|global|history|detectorGeneric|detectorPoll|detectorPingPong)|contextWarn|contextHard|compactionMode|compactionReserveTokens|compactionKeepRecent|compactionReserveFloor|compactionMaxHistoryShare|compactionMemoryFlushEnabled|compactionMemoryFlushSoft|compactionMemoryFlushPrompt|compactionMemoryFlushSystem)|queue\.(globalConcurrency|sessionConcurrency|laneMain|laneSubagent|laneCron)|cron\.(enabled|maxConcurrentRuns|sessionRetention|runLogMaxBytes|runLogKeepLines)|heartbeat\.(enabled|periodicEnabled|runSession|notificationCenter|openNotifications|triggerLabel|lastStatus\.label|lastNotice\.label|promptAppend|includeReasoning|suppressToolErrorWarnings|activeStart|activeEnd|activeTimezone|trigger|spec\.items|spec\.updatedAt)|subagents\.(maxDepth|maxChildren|maxConcurrent|model)|http\.(maxBodyBytes|maxUrlParts|files\.(urlAllowlist|allowedMimes|maxBytes|maxChars|maxRedirects|pdfMaxPages|pdfMaxPixels|pdfMinTextChars)|images\.(urlAllowlist|allowedMimes|maxBytes|maxRedirects))|channelHealth\.minutes|voice\.(enabled)|voiceWake\.(enabled)|talk\.(voiceAliases|outputFormat|apiKey|interruptOnSpeech)|tts\.(status|provider|voiceId|modelId|format)|voiceWakeTriggers\.label)$/,
-  /^settings\.gateway\.(change3davatar\.pickTitle|change3dmotion\.pickTitle|changeName\.title|readiness\.(readyTitle|incompleteTitle)|model\.(agentTitle|embeddingTitle|imageTitle))$/,
-  /^settings\.(memory\.summary\.title|usage\.overview\.title|general\.download\.dialogTitle|general\.proxy\.dialogTitle|general\.advanced\.menuBarVisibility\.label|calls\.skills\.sources\.emptyTitle|calls\.skills\.security\.groups\.(package_write|deps_write|config_write|source_write)\.label|tools\.browserControl\.ssrfSection|skills\.listTitle|connectors\.loginTitle|externalTools\.releaseNotesTitle|provider\.models\.manage\.title|provider\.models\.manage\.invalidTitle|provider\.custom\.title|provider\.delete\.title|about\.advanced\.unlockedTitle)$/,
-  /^settings\.integration\.channels\.(config\.groups\.columns\.requireMention|reset\.button)$/,
-  /^cron\.(runs\.detailTitle|dialog\.(deleteTitle|bulkDeleteTitle|editTitle|viewTitle|newTitle)|columns\.|overview\.chart\.title$)/,
-  /^library\.(columns\.|tools\.optionalTitle|resources\.(libraryInfoTitle|fileInfoTitle|recordInfoTitle|currentRecordsTitle|deleteLibraryTitle)|download\.(title|inputTitle)|task\.(deleteFilesTitle|deleteSuccessTitle|deleteFailedTitle|bulkDeleteSuccessTitle|bulkDeleteFailedTitle|failedCheckTitle)|file\.(deleteFilesTitle|deleteSuccessTitle|deleteFailedTitle|bulkDeleteSuccessTitle|bulkDeleteFailedTitle)|rowMenu\.renameTitle|overview\.chart\.title|preview\.imageTitle|import\.(videoPickerTitle|subtitlePickerTitle|unsupportedTitle|dialog\.targetTitle)|config\.(saveFailedTitle|taskRuntime\.(translateTitle|proofreadTitle)|videoExportPresets\.(savedTitle|saveFailedTitle|deletedTitle|deleteFailedTitle)|subtitleStyles\.(allStylesTitle|createFormTitle|unsavedTitle|importFailedTitle|importGuideTitle|exportSucceededTitle|exportFailedTitle|previewInfoTitle|monoStyleSectionTitle|bilingualMetaSectionTitle|primarySourceTitle|secondarySourceTitle|primaryStyleTitle|secondaryStyleTitle|overviewTitle|defaultsTitle|deliveryReadinessTitle|fontManagementTitle|referencedFontsTitle|styleSourcesTitle|browseSourceFailedTitle|fontSourcesTitle|syncFontSourceSuccessTitle|syncFontSourceFailedTitle|installUserFontSuccessTitle|installUserFontFailedTitle|installMachineFontSuccessTitle|installMachineFontFailedTitle|importSourceItemSuccessTitle|importSourceItemFailedTitle))|workspace\.(emptyTitle|table\.(timelineTitle|editorTitle)|dialogs\.(exportVideo\.(subtitleHandlingTitle|trackMappingTitle)|languageTask\.(title|qaRealtimeTitle|issueBreakdownTitle|restoreOriginalTitle)|importSubtitle\.(title|normalizationTitle|guidelineInheritanceTitle))|preview\.placeholderTitle|waveform\.title|review\.(lockedTitle|applySuccessTitle|applyFailedTitle|discardSuccessTitle|discardFailedTitle)|notifications\.(translationReadyTitle|proofreadReadyTitle|qaReviewReadyTitle|saveFailedTitle|noSubtitleTrackTitle|originalRestoredTitle|restoreFailedTitle|noFileSelectedTitle|openFileFailedTitle|noVideoSelectedTitle|noPresetSelectedTitle|exportQueuedTitle|exportFailedTitle|moduleConfigUnavailableTitle|promptProfileSavedTitle|savePromptProfileFailedTitle|translationQueuedTitle|translationFailedTitle|proofreadQueuedTitle|proofreadFailedTitle|importProfileReadyTitle)))$/,
-  /^(gateway\.logs\.title|debug\.(status\.title|channels\.title|message\.frontend\.(toastTitle|notificationTitle|dialogTitle)|message\.realtime\.notifyTitle)|chat\.composer\.attachDialogTitle|chat\.welcome\.entry\.items\.(assistant|providers|model|generic)\.action|chat\.tools\.approvalTool\.title|productMode\.options\.(full|download)\.(title|action)|notifications\.footer\.codes\.(appUpdate|externalToolsUpdate)\.title|notifications\.empty\.title)$/,
 ];
-const englishTitleStyleHeuristicPattern = /(\.title$|Title$|\.label$|\.button$|\.action$|columns\.|Tabs\.|sections\.|Section$|dialogTitle$)/;
+const englishTitleStyleHeuristicPattern = /(\.button$|\.action$|columns\.|Tabs\.|sections\.|Section$|dialogTitle$|pickTitle$)/;
 const englishTitleStyleSentencePattern = /\?|\.{1,3}$|\b(is|are|was|were|am|can't|cannot|need|needs|shows?\s+up|please)\b/i;
 const zhGlossaryReplacements = [
   ["External Tools", "外部工具"],
@@ -340,9 +334,6 @@ function shouldUseEnglishTitleCase(key, value) {
   if (englishTitleStyleSentencePattern.test(value)) {
     return false;
   }
-  if (/^chat\.welcome\.entry\./.test(key) || /^notifications\.center\.codes\./.test(key) || /^productMode\.title$/.test(key)) {
-    return false;
-  }
   return true;
 }
 
@@ -478,7 +469,24 @@ function filterLocaleTree(input, usedSet, prefix = "") {
   return output;
 }
 
-const enSource = JSON.parse(fs.readFileSync(path.join(localeDir, "en.json"), "utf8"));
+function mapLocaleTree(input, mapper, prefix = "") {
+  const output = {};
+  for (const [key, value] of Object.entries(input)) {
+    const nextKey = prefix ? `${prefix}.${key}` : key;
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      output[key] = mapLocaleTree(value, mapper, nextKey);
+      continue;
+    }
+    output[key] = mapper(nextKey, String(value));
+  }
+  return output;
+}
+
+let enSource = JSON.parse(fs.readFileSync(path.join(localeDir, "en.json"), "utf8"));
+if (fixEnglishStyle) {
+  enSource = mapLocaleTree(enSource, normalizeEnglishLocaleValue);
+  fs.writeFileSync(path.join(localeDir, "en.json"), `${JSON.stringify(enSource, null, 2)}\n`);
+}
 const zhSource = JSON.parse(fs.readFileSync(path.join(localeDir, "zh-CN.json"), "utf8"));
 const en = flatten(enSource);
 const zh = flatten(zhSource);

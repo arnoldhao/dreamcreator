@@ -61,8 +61,6 @@ type WorkspaceSubtitleStyleCardProps = {
   onSaveAs: (kind: "mono" | "lingual", name: string) => void
 }
 
-const WORKSPACE_FONT_PREVIEW_SAMPLE_TEXT = "追 创 作"
-
 type PendingTemplateSelection = {
   kind: "mono" | "lingual"
   styleId: string
@@ -270,6 +268,7 @@ function WorkspaceStylePreviewHeader(props: {
   fontMappings: LibrarySubtitleStyleFontDTO[]
 }) {
   const { t } = useI18n()
+  const fontPreviewSample = t("library.config.subtitleStyles.fontPreviewSample")
   const previewItems = React.useMemo(() => {
     if (props.displayMode === "bilingual" && props.lingualStyle) {
       return [
@@ -277,6 +276,7 @@ function WorkspaceStylePreviewHeader(props: {
           key: "primary",
           badgeLabel: t("library.config.subtitleStyles.primaryTabLabel"),
           sampleText: buildWorkspaceFontPreviewText(
+            fontPreviewSample,
             props.lingualStyle.primary.style.fontname,
             t("library.config.subtitleStyles.fontPreviewFallback"),
           ),
@@ -286,6 +286,7 @@ function WorkspaceStylePreviewHeader(props: {
           key: "secondary",
           badgeLabel: t("library.config.subtitleStyles.secondaryTabLabel"),
           sampleText: buildWorkspaceFontPreviewText(
+            fontPreviewSample,
             props.lingualStyle.secondary.style.fontname,
             t("library.config.subtitleStyles.fontPreviewFallback"),
           ),
@@ -302,13 +303,14 @@ function WorkspaceStylePreviewHeader(props: {
       {
         key: "mono",
         sampleText: buildWorkspaceFontPreviewText(
+          fontPreviewSample,
           props.monoStyle.style.fontname,
           t("library.config.subtitleStyles.fontPreviewFallback"),
         ),
         style: props.monoStyle.style,
       },
     ]
-  }, [props.displayMode, props.lingualStyle, props.monoStyle, t])
+  }, [fontPreviewSample, props.displayMode, props.lingualStyle, props.monoStyle, t])
 
   return (
     <div className="shrink-0 border-b border-border/60 px-3 py-3">
@@ -327,9 +329,9 @@ function WorkspaceStylePreviewHeader(props: {
   )
 }
 
-function buildWorkspaceFontPreviewText(fontName: string | undefined, fallbackText: string) {
+function buildWorkspaceFontPreviewText(sampleText: string, fontName: string | undefined, fallbackText: string) {
   const resolvedFontName = fontName?.trim() || fallbackText
-  return `${WORKSPACE_FONT_PREVIEW_SAMPLE_TEXT} ${resolvedFontName}`
+  return `${sampleText} ${resolvedFontName}`
 }
 
 function WorkspaceStyleFontPreview(props: {
