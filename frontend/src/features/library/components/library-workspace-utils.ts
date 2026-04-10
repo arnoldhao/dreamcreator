@@ -3,7 +3,6 @@ import type {
   LibraryFileDTO,
   LibraryMonoStyleDTO,
   LibrarySubtitleExportPresetDTO,
-  LibrarySubtitleStyleDocumentDTO,
   SubtitleExportConfig,
   WorkspaceSubtitleTrackDTO,
   WorkspaceTaskSummaryDTO,
@@ -89,7 +88,7 @@ function resolvePersistedComparisonSubtitleFileID(
   return files.find((file) => file.id != activeSubtitleFileId)?.id ?? "";
 }
 
-export function cloneWorkspaceMonoStyle(
+function cloneWorkspaceMonoStyle(
   style: LibraryMonoStyleDTO | null | undefined,
 ): LibraryMonoStyleDTO | undefined {
   if (!style) {
@@ -98,7 +97,7 @@ export function cloneWorkspaceMonoStyle(
   return JSON.parse(JSON.stringify(style)) as LibraryMonoStyleDTO;
 }
 
-export function cloneWorkspaceLingualStyle(
+function cloneWorkspaceLingualStyle(
   style: LibraryBilingualStyleDTO | null | undefined,
 ): LibraryBilingualStyleDTO | undefined {
   if (!style) {
@@ -413,24 +412,6 @@ type SubtitleExportPresetSelection = {
   preset: LibrarySubtitleExportPresetDTO;
   reason: string;
 };
-
-export function createWorkspaceStyleDocument(
-  styleDocumentContent: string,
-): LibrarySubtitleStyleDocumentDTO | null {
-  const normalized = styleDocumentContent.trim();
-  if (!normalized) {
-    return null;
-  }
-  return {
-    id: "workspace-style",
-    name: "Workspace Style",
-    source: "library",
-    version: "workspace",
-    enabled: true,
-    format: "ass",
-    content: `${normalized}\n`,
-  };
-}
 
 function resolveExportMediaFromFile(file: LibraryFileDTO | null | undefined) {
   if (!file?.media) {
