@@ -106,6 +106,9 @@ export interface LibrarySubtitleStyleDocumentDTO {
 
 export interface AssStyleSpecDTO {
   fontname: string
+  fontFace?: string
+  fontWeight?: number
+  fontPostScriptName?: string
   fontsize: number
   primaryColour: string
   secondaryColour: string
@@ -610,7 +613,7 @@ export interface WorkspacePreviewCueDTO {
 }
 
 export interface GenerateWorkspacePreviewVTTRequest {
-  displayMode?: "single" | "dual" | string
+  displayMode?: "mono" | "bilingual" | "single" | "dual" | string
   mono?: LibraryMonoStyleDTO
   lingual?: LibraryBilingualStyleDTO
   rows?: WorkspacePreviewCueDTO[]
@@ -976,6 +979,8 @@ export interface CreateTranscodeJobRequest {
   subtitleDocumentId?: string
   generatedSubtitleFormat?: string
   generatedSubtitleName?: string
+  generatedSubtitleStyleDocumentContent?: string
+  generatedSubtitleDocument?: SubtitleDocument
   generatedSubtitleContent?: string
   deleteSourceFileAfterTranscode?: boolean
 }

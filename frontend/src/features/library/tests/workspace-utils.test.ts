@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import type { WorkspaceResolvedSubtitleRow } from "../components/workspace/types"
-import { resolveCurrentRow } from "../components/workspace/utils"
+import { buildSubtitleRows, parseCueTime, resolveCurrentRow } from "../components/workspace/utils"
 
 function buildRow(id: string, startMs: number, endMs: number, index: number): WorkspaceResolvedSubtitleRow {
   return {
@@ -45,5 +45,29 @@ describe("resolveCurrentRow", () => {
 
   test("returns null when there are no rows", () => {
     expect(resolveCurrentRow([], 500)).toBeNull()
+  })
+})
+
+describe("subtitle time parsing", () => {
+  test("parses SMPTE-style ITT cue times well enough for workspace duration math", () => {
+    expect(parseCueTime("00:00:30:22")).toBe(30_733)
+    expect(parseCueTime("00:00:34:22")).toBe(34_733)
+  })
+
+  test("buildSubtitleRows computes duration from normalized or SMPTE-like cue times", () => {
+    const rows = buildSubtitleRows({
+      format: "itt",
+      cues: [
+        {
+          index: 1,
+          start: "00:00:30:22",
+          end: "00:00:34:22",
+          text: "Hello",
+        },
+      ],
+    })
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.durationMs).toBe(4000)
   })
 })

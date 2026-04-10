@@ -8,6 +8,10 @@ import type {
   LibraryMonoStyleDTO,
   LibrarySubtitleStyleFontDTO,
 } from "@/shared/contracts/library"
+import {
+  resolveAssStyleFontItalic,
+  resolveAssStyleFontWeight,
+} from "@/shared/fonts/fontCatalog"
 
 export type PreviewSize = {
   width: number
@@ -176,8 +180,8 @@ export function buildCueTextStyle(
     fontFamily,
     fontSize: formatPreviewLength(fontSize),
     lineHeight: formatPreviewLength(fontSize * 1.2),
-    fontWeight: style.bold ? 700 : 400,
-    fontStyle: style.italic ? "italic" : "normal",
+    fontWeight: resolveAssStyleFontWeight(style),
+    fontStyle: resolveAssStyleFontItalic(style) ? "italic" : "normal",
     textAlign: "inherit",
     textDecoration: resolveTextDecoration(style),
     letterSpacing: formatPreviewLength((style.spacing || 0) * scale.x),
@@ -261,7 +265,7 @@ function resolveBilingualPreviewCueStylePair(bilingual: LibraryBilingualStyleDTO
   return { primary, secondary }
 }
 
-function resolvePreviewFontFamily(fontName: string, mappings: LibrarySubtitleStyleFontDTO[]) {
+export function resolvePreviewFontFamily(fontName: string, mappings: LibrarySubtitleStyleFontDTO[]) {
   const normalized = normalizePreviewFontFamilyKey(fontName)
   for (const item of mappings) {
     if (item.enabled === false) {
@@ -282,7 +286,7 @@ function normalizePreviewFontFamilyKey(value: string) {
   return value.trim().toLowerCase().replace(/_/gu, "").replace(/-/gu, "")
 }
 
-function formatPreviewFontFamily(value: string) {
+export function formatPreviewFontFamily(value: string) {
   const safe = value.trim()
   if (!safe) {
     return "sans-serif"

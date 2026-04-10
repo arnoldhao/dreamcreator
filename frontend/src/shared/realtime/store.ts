@@ -24,6 +24,14 @@ export interface RealtimeState {
   clearMessages: (topic?: string) => void;
 }
 
+const defaultRealtimeMetrics = () => ({
+  reconnects: 0,
+  replayEvents: 0,
+  resyncRequired: 0,
+  duplicateDrops: 0,
+  lastStatusChangeAt: 0,
+});
+
 export const useRealtimeStore = create<RealtimeState>()(
   persist(
     (set, get) => ({
@@ -31,13 +39,7 @@ export const useRealtimeStore = create<RealtimeState>()(
       url: "",
       topics: [],
       messages: {},
-      metrics: {
-        reconnects: 0,
-        replayEvents: 0,
-        resyncRequired: 0,
-        duplicateDrops: 0,
-        lastStatusChangeAt: 0,
-      },
+      metrics: defaultRealtimeMetrics(),
       setStatus: (status, url) =>
         set((state) => ({
           status,
@@ -91,12 +93,25 @@ export const useRealtimeStore = create<RealtimeState>()(
     }),
     {
       name: "realtime-messages",
+      version: 2,
       partialize: (state) => ({
-        messages: state.messages,
         topics: state.topics,
         url: state.url,
         metrics: state.metrics,
       }),
+      migrate: (persistedState) => {
+        const state = (persistedState ?? {}) as Partial<RealtimeState>;
+        return {
+          status: "disconnected" as const,
+          url: typeof state.url === "string" ? state.url : "",
+          topics: Array.isArray(state.topics) ? state.topics.filter((topic): topic is string => typeof topic === "string") : [],
+          messages: {},
+          metrics: {
+            ...defaultRealtimeMetrics(),
+            ...(state.metrics ?? {}),
+          },
+        };
+      },
     }
   )
 );

@@ -238,6 +238,9 @@ const assistantSelectLabel = (assistant: Assistant, fallback: string) => {
   return emoji ? `${emoji} ${name}` : name;
 };
 
+const assistantSelectEmoji = (assistant: Assistant | null | undefined) =>
+  assistant?.identity?.emoji?.trim() || "";
+
 function ThemedProviderIcon({ icon, className }: { icon: string; className?: string }) {
   return (
     <span
@@ -532,6 +535,8 @@ function AssistantModelDropdown({
     const selectedAssistantLabel = selectedAssistant
       ? assistantSelectLabel(selectedAssistant, t("chat.composer.untitledAssistant"))
       : t("chat.composer.selectAssistant");
+    const selectedAssistantEmoji = assistantSelectEmoji(selectedAssistant);
+    const selectedAssistantTriggerText = selectedAssistantEmoji || selectedAssistantLabel;
     return (
       <AuiSelectRoot
         value={assistantId}
@@ -542,10 +547,18 @@ function AssistantModelDropdown({
           variant="ghost"
           size="sm"
           title={selectedAssistantLabel}
-          className="w-fit min-w-0 max-w-full focus-visible:ring-0 focus-visible:ring-offset-0"
+          aria-label={selectedAssistantLabel}
+          className="w-fit min-w-0 max-w-full focus-visible:ring-0 focus-visible:ring-offset-0 [&>svg]:hidden"
           style={ASSISTANT_TRIGGER_MAX_WIDTH_STYLE}
         >
-          <span className="min-w-0 truncate">{selectedAssistantLabel}</span>
+          <span
+            className={cn(
+              "min-w-0 truncate",
+              selectedAssistantEmoji ? "text-base leading-none" : undefined
+            )}
+          >
+            {selectedAssistantTriggerText}
+          </span>
         </AuiSelectTrigger>
         <AuiSelectContent align="center" className="max-w-[320px]">
           {assistants.length === 0 ? (
@@ -577,7 +590,7 @@ function AssistantModelDropdown({
         variant="ghost"
         size="sm"
         title={selectedModelLabel}
-        className="w-fit min-w-0 max-w-full focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="w-fit min-w-0 max-w-full focus-visible:ring-0 focus-visible:ring-offset-0 [&>svg]:hidden"
         style={MODEL_TRIGGER_MAX_WIDTH_STYLE}
         disabled={disabled || !selectedAssistant || updateAssistant.isPending}
       >
@@ -623,13 +636,13 @@ function PermissionModeSelector({
         variant="ghost"
         size="sm"
         title={title}
-        className="w-fit min-w-0"
+        aria-label={title}
+        className="w-fit min-w-0 [&>svg]:hidden"
         style={PERMISSION_TRIGGER_MAX_WIDTH_STYLE}
       >
-        <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+        <span className="inline-flex items-center justify-center">
           <selected.Icon className="size-3.5 text-muted-foreground" />
-          <span className="truncate">{selected.label}</span>
-        </div>
+        </span>
       </AuiSelectTrigger>
       <AuiSelectContent align="center" className="max-w-[260px]">
         {options.map((option) => (
@@ -976,17 +989,6 @@ export function ComposerBar({
               disabled={isRunning}
               mode="assistant"
             />
-            <AssistantModelDropdown
-              assistants={assistants}
-              assistantId={assistantId}
-              selectedAssistant={selectedAssistant}
-              setAssistantId={setAssistantId}
-              modelGroups={modelGroups}
-              agentProviderId={agentProviderId}
-              agentModelName={agentModelName}
-              disabled={isRunning}
-              mode="model"
-            />
             <div className="shrink-0">
               <PermissionModeSelector
                 value={execPermissionMode}
@@ -1029,6 +1031,17 @@ export function ComposerBar({
                 </TooltipProvider>
               </div>
             ) : null}
+            <AssistantModelDropdown
+              assistants={assistants}
+              assistantId={assistantId}
+              selectedAssistant={selectedAssistant}
+              setAssistantId={setAssistantId}
+              modelGroups={modelGroups}
+              agentProviderId={agentProviderId}
+              agentModelName={agentModelName}
+              disabled={isRunning}
+              mode="model"
+            />
           </div>
 
           <div className="flex shrink-0 items-center gap-2">

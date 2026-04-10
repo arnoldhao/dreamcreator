@@ -7,7 +7,7 @@ import { useI18n } from "@/shared/i18n";
 import type { TranscodePreset } from "@/shared/contracts/library";
 import { Button } from "@/shared/ui/button";
 import { DASHBOARD_CONTROL_GROUP_CLASS } from "@/shared/ui/dashboard";
-import { Dialog, DialogTitle } from "@/shared/ui/dialog";
+import { Dialog, DialogDescription, DialogTitle } from "@/shared/ui/dialog";
 import {
   DASHBOARD_DIALOG_FIELD_SURFACE_CLASS,
   DASHBOARD_DIALOG_SOFT_SURFACE_CLASS,
@@ -327,22 +327,22 @@ export function WorkspaceExportVideoDialog({
   const selectedHandling =
     HANDLING_OPTIONS.find((option) => option.value === subtitleHandling) ??
     HANDLING_OPTIONS[0];
-  const singleModeLabel = t("library.workspace.table.modeSingle");
-  const dualModeLabel = t("library.workspace.table.modeDual");
+  const monoModeLabel = t("library.workspace.table.modeMono");
+  const bilingualModeLabel = t("library.workspace.table.modeBilingual");
   const displayModeOptions = React.useMemo(
     () => [
       {
-        value: "single" as const,
-        label: singleModeLabel,
+        value: "mono" as const,
+        label: monoModeLabel,
         icon: Languages,
       },
       {
-        value: "dual" as const,
-        label: dualModeLabel,
+        value: "bilingual" as const,
+        label: bilingualModeLabel,
         icon: Columns2,
       },
     ],
-    [dualModeLabel, singleModeLabel],
+    [bilingualModeLabel, monoModeLabel],
   );
   const trackEmptyLabel = t("library.workspace.dialogs.exportVideo.trackEmpty");
   const primaryTrackLabel = React.useMemo(
@@ -424,6 +424,9 @@ export function WorkspaceExportVideoDialog({
           <DialogTitle>
             {t("library.workspace.exportVideo")}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {t("library.workspace.dialogs.exportVideo.dialogDescription")}
+          </DialogDescription>
         </DashboardDialogHeader>
 
         <div className="space-y-2">
@@ -590,7 +593,7 @@ export function WorkspaceExportVideoDialog({
                       const active = option.value === displayMode;
                       const disabled =
                         isSubmitting ||
-                        (option.value === "dual" && !canUseDualDisplay);
+                        (option.value === "bilingual" && !canUseDualDisplay);
                       const button = (
                         <Button
                           key={option.value}
@@ -609,7 +612,7 @@ export function WorkspaceExportVideoDialog({
                           <span className="text-xs">{option.label}</span>
                         </Button>
                       );
-                      if (!(option.value === "dual" && !canUseDualDisplay && !isSubmitting && dualDisplayDisabledReason.trim())) {
+                      if (!(option.value === "bilingual" && !canUseDualDisplay && !isSubmitting && dualDisplayDisabledReason.trim())) {
                         return button;
                       }
                       return (
@@ -635,7 +638,7 @@ export function WorkspaceExportVideoDialog({
                 <div className="text-[11px] font-medium text-foreground">
                   {t("library.workspace.dialogs.exportVideo.trackMappingTitle")}
                 </div>
-                {displayMode === "dual" && canUseDualDisplay ? (
+                {displayMode === "bilingual" && canUseDualDisplay ? (
                   <div className="space-y-2">
                     <div className={TRACK_MAPPING_ROW_CLASS}>
                       <div className="truncate text-[11px] text-muted-foreground">

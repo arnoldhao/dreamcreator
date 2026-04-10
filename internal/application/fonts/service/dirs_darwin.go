@@ -2,12 +2,40 @@
 
 package service
 
-import "path/filepath"
+import (
+	"os"
+	"path/filepath"
+	"sort"
+)
 
 func platformFontDirectories(home string) []string {
-	return []string{
+	dirs := []string{
 		"/System/Library/Fonts",
+	}
+	// Modern macOS ships a number of built-in CJK fonts, including PingFang,
+	// from the system font asset catalog instead of the legacy Fonts folder.
+	dirs = append(dirs, darwinSystemFontAssetDirectories("/System/Library/AssetsV2")...)
+	dirs = append(dirs,
 		"/Library/Fonts",
 		filepath.Join(home, "Library", "Fonts"),
+	)
+	return dirs
+}
+
+func darwinSystemFontAssetDirectories(base string) []string {
+	matches, err := filepath.Glob(filepath.Join(base, "com_apple_MobileAsset_Font*"))
+	if err != nil {
+		return nil
 	}
+
+	dirs := make([]string, 0, len(matches))
+	for _, match := range matches {
+		info, err := os.Stat(match)
+		if err != nil || !info.IsDir() {
+			continue
+		}
+		dirs = append(dirs, match)
+	}
+	sort.Strings(dirs)
+	return dirs
 }

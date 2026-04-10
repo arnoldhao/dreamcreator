@@ -268,7 +268,7 @@ function TextCell({
     mode === "video"
       ? "line-clamp-1 break-words text-2xs leading-5 text-muted-foreground"
       : "whitespace-pre-wrap break-words text-2xs leading-5 text-muted-foreground"
-  const showSecondaryTrack = mode === "video" && displayMode === "dual" && row.translationText.trim().length > 0
+  const showSecondaryTrack = mode === "video" && displayMode === "bilingual" && row.translationText.trim().length > 0
 
   return (
     <div
@@ -403,7 +403,7 @@ export function SubtitleTablePane({
     }
     return rows.reduce((maxLength, row) => {
       const visibleParts: string[] = [row.sourceText]
-      if (displayMode === "dual") {
+      if (displayMode === "bilingual") {
         visibleParts.push(row.translationText)
       }
       const rowMaxLength = visibleParts.reduce((partMax, part) => {
@@ -433,12 +433,12 @@ export function SubtitleTablePane({
   }, [mode, videoTextColumnWidth])
   const estimatedVideoRowHeight = React.useMemo(() => {
     if (compressed) {
-      return displayMode === "dual" ? 76 : 58
+      return displayMode === "bilingual" ? 76 : 58
     }
     if (density === "compact") {
-      return displayMode === "dual" ? 92 : 74
+      return displayMode === "bilingual" ? 92 : 74
     }
-    return displayMode === "dual" ? 104 : 86
+    return displayMode === "bilingual" ? 104 : 86
   }, [compressed, density, displayMode])
   const showCpsColumn = mode === "subtitle" && hasWorkspaceQaMetricColumn(qaCheckSettings, "cps")
   const showCplColumn = mode === "subtitle" && hasWorkspaceQaMetricColumn(qaCheckSettings, "cpl")
@@ -678,7 +678,7 @@ export function SubtitleTablePane({
           <div className="mt-1 line-clamp-1 whitespace-pre-wrap break-words text-xs leading-5 text-foreground">
             {row.sourceText}
           </div>
-          {displayMode === "dual" ? (
+          {displayMode === "bilingual" ? (
             <div className="line-clamp-1 whitespace-pre-wrap break-words text-2xs leading-5 text-muted-foreground">
               {row.translationText}
             </div>
@@ -948,9 +948,9 @@ export function SubtitleTablePane({
         <div className="flex items-center gap-3">
           <span>{t("library.workspace.table.current")} {currentRowId ? currentRowId.replace("cue-", "") : "-"}</span>
           <span>
-            {displayMode === "dual"
-              ? t("library.workspace.table.modeDual")
-              : t("library.workspace.table.modeSingle")}
+            {displayMode === "bilingual"
+              ? t("library.workspace.table.modeBilingual")
+              : t("library.workspace.table.modeMono")}
           </span>
         </div>
       </div>

@@ -3,7 +3,6 @@ import type {
   LibraryFileDTO,
   LibraryMonoStyleDTO,
   LibrarySubtitleExportPresetDTO,
-  LibrarySubtitleStyleDocumentDTO,
   SubtitleExportConfig,
   WorkspaceSubtitleTrackDTO,
   WorkspaceTaskSummaryDTO,
@@ -20,6 +19,7 @@ import {
   buildDefaultSubtitleExportEventName,
   buildDefaultSubtitleExportLibraryName,
   buildDefaultSubtitleExportProjectName,
+  DEFAULT_FCPXML_START_TIMECODE_SECONDS,
   normalizeFCPXMLFrameDuration,
   normalizeSubtitleExportFormat,
   normalizeSubtitleExportMediaStrategy,
@@ -29,6 +29,9 @@ import {
 } from "../utils/subtitleStyles";
 import type { WorkspaceSubtitleRow } from "./workspace/types";
 
+const WORKSPACE_MONO_STYLE_DRAFT_ID = "workspace-mono-current";
+const WORKSPACE_BILINGUAL_STYLE_DRAFT_ID = "workspace-bilingual-current";
+
 function normalizeWorkspacePersistedEditorValue(
   value: unknown,
 ): LibraryWorkspaceEditor {
@@ -37,9 +40,9 @@ function normalizeWorkspacePersistedEditorValue(
 
 function normalizeWorkspacePersistedDisplayModeValue(value: unknown) {
   if (value === "dual" || value === "bilingual") {
-    return "dual";
+    return "bilingual";
   }
-  return "single";
+  return "mono";
 }
 
 function normalizeWorkspacePersistedGuidelineProfileId(
@@ -85,7 +88,7 @@ function resolvePersistedComparisonSubtitleFileID(
   return files.find((file) => file.id != activeSubtitleFileId)?.id ?? "";
 }
 
-export function cloneWorkspaceMonoStyle(
+function cloneWorkspaceMonoStyle(
   style: LibraryMonoStyleDTO | null | undefined,
 ): LibraryMonoStyleDTO | undefined {
   if (!style) {
@@ -94,7 +97,7 @@ export function cloneWorkspaceMonoStyle(
   return JSON.parse(JSON.stringify(style)) as LibraryMonoStyleDTO;
 }
 
-export function cloneWorkspaceLingualStyle(
+function cloneWorkspaceLingualStyle(
   style: LibraryBilingualStyleDTO | null | undefined,
 ): LibraryBilingualStyleDTO | undefined {
   if (!style) {
@@ -103,13 +106,54 @@ export function cloneWorkspaceLingualStyle(
   return JSON.parse(JSON.stringify(style)) as LibraryBilingualStyleDTO;
 }
 
+export function createWorkspaceMonoStyleDraft(
+  style: LibraryMonoStyleDTO | null | undefined,
+): LibraryMonoStyleDTO | undefined {
+  const draft = cloneWorkspaceMonoStyle(style);
+  if (!draft) {
+    return undefined;
+  }
+  return {
+    ...draft,
+    id: WORKSPACE_MONO_STYLE_DRAFT_ID,
+    name: "",
+    builtIn: false,
+    sourceAssStyleName: undefined,
+  };
+}
+
+export function createWorkspaceLingualStyleDraft(
+  style: LibraryBilingualStyleDTO | null | undefined,
+): LibraryBilingualStyleDTO | undefined {
+  const draft = cloneWorkspaceLingualStyle(style);
+  if (!draft) {
+    return undefined;
+  }
+  return {
+    ...draft,
+    id: WORKSPACE_BILINGUAL_STYLE_DRAFT_ID,
+    name: "",
+    builtIn: false,
+    primary: {
+      ...draft.primary,
+      sourceMonoStyleID: undefined,
+      sourceMonoStyleName: undefined,
+    },
+    secondary: {
+      ...draft.secondary,
+      sourceMonoStyleID: undefined,
+      sourceMonoStyleName: undefined,
+    },
+  };
+}
+
 function normalizeWorkspacePersistedMonoStyle(
   value: unknown,
 ): LibraryMonoStyleDTO | undefined {
   if (!value || typeof value !== "object") {
     return undefined;
   }
-  return cloneWorkspaceMonoStyle(value as LibraryMonoStyleDTO);
+  return createWorkspaceMonoStyleDraft(value as LibraryMonoStyleDTO);
 }
 
 function normalizeWorkspacePersistedLingualStyle(
@@ -118,7 +162,7 @@ function normalizeWorkspacePersistedLingualStyle(
   if (!value || typeof value !== "object") {
     return undefined;
   }
-  return cloneWorkspaceLingualStyle(value as LibraryBilingualStyleDTO);
+  return createWorkspaceLingualStyleDraft(value as LibraryBilingualStyleDTO);
 }
 
 export function parseLibraryWorkspacePersistedState(
@@ -215,11 +259,11 @@ export function resolveLibraryWorkspacePersistedState(
       candidate?.qaCheckSettings,
     ),
     subtitleMonoStyle:
-      cloneWorkspaceMonoStyle(candidate?.subtitleMonoStyle) ??
-      cloneWorkspaceMonoStyle(options.defaultSubtitleMonoStyle),
+      createWorkspaceMonoStyleDraft(candidate?.subtitleMonoStyle) ??
+      createWorkspaceMonoStyleDraft(options.defaultSubtitleMonoStyle),
     subtitleLingualStyle:
-      cloneWorkspaceLingualStyle(candidate?.subtitleLingualStyle) ??
-      cloneWorkspaceLingualStyle(options.defaultSubtitleLingualStyle),
+      createWorkspaceLingualStyleDraft(candidate?.subtitleLingualStyle) ??
+      createWorkspaceLingualStyleDraft(options.defaultSubtitleLingualStyle),
     subtitleStyleSidebarOpen: Boolean(candidate?.subtitleStyleSidebarOpen),
   };
 }
@@ -369,24 +413,6 @@ type SubtitleExportPresetSelection = {
   reason: string;
 };
 
-export function createWorkspaceStyleDocument(
-  styleDocumentContent: string,
-): LibrarySubtitleStyleDocumentDTO | null {
-  const normalized = styleDocumentContent.trim();
-  if (!normalized) {
-    return null;
-  }
-  return {
-    id: "workspace-style",
-    name: "Workspace Style",
-    source: "library",
-    version: "workspace",
-    enabled: true,
-    format: "ass",
-    content: `${normalized}\n`,
-  };
-}
-
 function resolveExportMediaFromFile(file: LibraryFileDTO | null | undefined) {
   if (!file?.media) {
     return null;
@@ -489,7 +515,7 @@ export function buildDefaultSubtitleExportConfig(
       libraryName: fcpxmlLibraryName,
       eventName: fcpxmlEventName,
       defaultLane: 1,
-      startTimecodeSeconds: 3600,
+      startTimecodeSeconds: DEFAULT_FCPXML_START_TIMECODE_SECONDS,
     },
   };
 }
@@ -669,6 +695,15 @@ export function mergeSubtitleExportConfig(
     overrideValue > 0
       ? overrideValue
       : baseValue;
+  const mergeNonNegativeNumber = (
+    baseValue: number | undefined,
+    overrideValue: number | undefined,
+  ) =>
+    typeof overrideValue === "number" &&
+    Number.isFinite(overrideValue) &&
+    overrideValue >= 0
+      ? overrideValue
+      : baseValue;
   return {
     ...base,
     srt: {
@@ -724,7 +759,7 @@ export function mergeSubtitleExportConfig(
         base.fcpxml?.defaultLane,
         override.fcpxml?.defaultLane,
       ),
-      startTimecodeSeconds: mergeNumber(
+      startTimecodeSeconds: mergeNonNegativeNumber(
         base.fcpxml?.startTimecodeSeconds,
         override.fcpxml?.startTimecodeSeconds,
       ),

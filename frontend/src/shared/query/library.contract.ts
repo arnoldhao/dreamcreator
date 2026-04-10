@@ -143,6 +143,9 @@ const libraryTaskRuntimeConfigSchema = z
 const assStyleSpecSchema = z
   .object({
     fontname: z.string(),
+    fontFace: z.string().optional(),
+    fontWeight: z.number().optional(),
+    fontPostScriptName: z.string().optional(),
     fontsize: z.number(),
     primaryColour: z.string(),
     secondaryColour: z.string(),

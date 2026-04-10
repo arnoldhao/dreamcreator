@@ -58,7 +58,8 @@ func (service *LibraryService) GenerateSubtitleStylePreviewASS(_ context.Context
 		if err != nil {
 			return dto.GenerateSubtitleStylePreviewASSResult{}, err
 		}
-		assContent := applyPreviewASSFontMappings(buildBilingualStylePreviewASS(style), request.FontMappings)
+		style = mapPreviewBilingualStyleFontMappings(style, request.FontMappings)
+		assContent := buildBilingualStylePreviewASS(style)
 		zap.L().Info("subtitle style preview ass generated",
 			zap.String("type", "bilingual"),
 			zap.String("name", strings.TrimSpace(style.Name)),
@@ -79,7 +80,8 @@ func (service *LibraryService) GenerateSubtitleStylePreviewASS(_ context.Context
 		if err != nil {
 			return dto.GenerateSubtitleStylePreviewASSResult{}, err
 		}
-		assContent := applyPreviewASSFontMappings(buildMonoStylePreviewASS(style), request.FontMappings)
+		style = mapPreviewMonoStyleFontMappings(style, request.FontMappings)
+		assContent := buildMonoStylePreviewASS(style)
 		zap.L().Info("subtitle style preview ass generated",
 			zap.String("type", "mono"),
 			zap.String("name", strings.TrimSpace(style.Name)),
@@ -209,6 +211,13 @@ func buildMonoStylePreviewASS(style library.MonoStyle) string {
 		"ScaledBorderAndShadow: yes",
 		fmt.Sprintf("PlayResX: %d", style.BasePlayResX),
 		fmt.Sprintf("PlayResY: %d", style.BasePlayResY),
+	}
+	lines = append(lines,
+		buildASSStyleMetadataLines([]previewASSStyleMetadata{
+			{Name: "Primary", Style: style.Style},
+		})...,
+	)
+	lines = append(lines,
 		"",
 		"[V4+ Styles]",
 		"Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
@@ -218,7 +227,7 @@ func buildMonoStylePreviewASS(style library.MonoStyle) string {
 		"Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
 		buildPreviewDialogueLine("Primary", 0, subtitleStylePreviewDurationMS, subtitleStylePreviewPrimaryText),
 		"",
-	}
+	)
 	return strings.Join(lines, "\n")
 }
 
@@ -232,6 +241,14 @@ func buildBilingualStylePreviewASS(style library.BilingualStyle) string {
 		"ScaledBorderAndShadow: yes",
 		fmt.Sprintf("PlayResX: %d", style.BasePlayResX),
 		fmt.Sprintf("PlayResY: %d", style.BasePlayResY),
+	}
+	lines = append(lines,
+		buildASSStyleMetadataLines([]previewASSStyleMetadata{
+			{Name: "Primary", Style: primaryStyle},
+			{Name: "Secondary", Style: secondaryStyle},
+		})...,
+	)
+	lines = append(lines,
 		"",
 		"[V4+ Styles]",
 		"Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
@@ -243,7 +260,7 @@ func buildBilingualStylePreviewASS(style library.BilingualStyle) string {
 		buildPreviewDialogueLine("Primary", 0, subtitleStylePreviewDurationMS, subtitleStylePreviewPrimaryText),
 		buildPreviewDialogueLine("Secondary", 0, subtitleStylePreviewDurationMS, subtitleStylePreviewSecondaryText),
 		"",
-	}
+	)
 	return strings.Join(lines, "\n")
 }
 
@@ -345,7 +362,7 @@ func buildVTTStyleBlock(
 		fmt.Sprintf("  font-family: %s;", formatPreviewVTTFontFamily(fontFamily)),
 		fmt.Sprintf("  font-size: %s;", formatPreviewVTTLength(fontSize)),
 		fmt.Sprintf("  line-height: %s;", formatPreviewVTTLength(fontSize*1.2)),
-		fmt.Sprintf("  font-weight: %s;", boolToString(style.Bold, "700", "400")),
+		fmt.Sprintf("  font-weight: %s;", resolvePreviewVTTFontWeight(style)),
 		fmt.Sprintf("  font-style: %s;", boolToString(style.Italic, "italic", "normal")),
 		fmt.Sprintf("  text-decoration: %s;", textDecoration),
 		fmt.Sprintf("  letter-spacing: %s;", formatPreviewVTTLength(letterSpacing)),
@@ -612,14 +629,14 @@ func formatASSStyleLine(name string, style library.AssStyleSpec) string {
 	return fmt.Sprintf(
 		"Style: %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%s,%s,%d,%d,%d,%d,%d",
 		name,
-		firstNonEmpty(style.Fontname, "Arial"),
+		resolveASSStyleFontName(style),
 		formatSubtitleExportFloat(style.Fontsize),
 		firstNonEmpty(style.PrimaryColour, "&H00FFFFFF"),
 		firstNonEmpty(style.SecondaryColour, "&H00FFFFFF"),
 		firstNonEmpty(style.OutlineColour, "&H00111111"),
 		firstNonEmpty(style.BackColour, "&HFF111111"),
-		formatASSBool(style.Bold),
-		formatASSBool(style.Italic),
+		formatASSBool(resolveASSStyleBold(style)),
+		formatASSBool(resolveASSStyleItalic(style)),
 		formatASSBool(style.Underline),
 		formatASSBool(style.StrikeOut),
 		formatSubtitleExportFloat(style.ScaleX),
@@ -644,59 +661,103 @@ func formatASSBool(value bool) string {
 	return "0"
 }
 
-func applyPreviewASSFontMappings(content string, mappings []dto.LibrarySubtitleStyleFontDTO) string {
-	if strings.TrimSpace(content) == "" || len(mappings) == 0 {
-		return content
-	}
+type previewASSStyleMetadata struct {
+	Name  string
+	Style library.AssStyleSpec
+}
 
-	mappedFamilies := make(map[string]string, len(mappings))
+func buildASSStyleMetadataLines(values []previewASSStyleMetadata) []string {
+	lines := make([]string, 0, len(values)*4)
+	for _, value := range values {
+		styleName := strings.TrimSpace(value.Name)
+		if styleName == "" {
+			continue
+		}
+		fontFamily := strings.TrimSpace(value.Style.Fontname)
+		if fontFamily != "" {
+			lines = append(lines, fmt.Sprintf("; DCStyle.%s.FontFamily: %s", styleName, fontFamily))
+		}
+		fontFace := strings.TrimSpace(value.Style.FontFace)
+		if fontFace != "" {
+			lines = append(lines, fmt.Sprintf("; DCStyle.%s.FontFace: %s", styleName, fontFace))
+		}
+		if value.Style.FontWeight > 0 {
+			lines = append(lines, fmt.Sprintf("; DCStyle.%s.FontWeight: %d", styleName, value.Style.FontWeight))
+		}
+		if postScript := strings.TrimSpace(value.Style.FontPostScriptName); postScript != "" {
+			lines = append(lines, fmt.Sprintf("; DCStyle.%s.FontPostScriptName: %s", styleName, postScript))
+		}
+	}
+	return lines
+}
+
+func mapPreviewMonoStyleFontMappings(style library.MonoStyle, mappings []dto.LibrarySubtitleStyleFontDTO) library.MonoStyle {
+	style.Style = applyPreviewFontMappingsToStyle(style.Style, mappings)
+	return style
+}
+
+func mapPreviewBilingualStyleFontMappings(style library.BilingualStyle, mappings []dto.LibrarySubtitleStyleFontDTO) library.BilingualStyle {
+	style.Primary.Style = applyPreviewFontMappingsToStyle(style.Primary.Style, mappings)
+	style.Secondary.Style = applyPreviewFontMappingsToStyle(style.Secondary.Style, mappings)
+	return style
+}
+
+func applyPreviewFontMappingsToStyle(style library.AssStyleSpec, mappings []dto.LibrarySubtitleStyleFontDTO) library.AssStyleSpec {
+	normalized := normalizePreviewVTTFontFamilyKey(style.Fontname)
+	if normalized == "" {
+		return style
+	}
 	for _, item := range mappings {
 		if !item.Enabled {
 			continue
 		}
-		assFamily := normalizePreviewVTTFontFamilyKey(item.Family)
+		if normalizePreviewVTTFontFamilyKey(item.Family) != normalized {
+			continue
+		}
 		systemFamily := strings.TrimSpace(item.SystemFamily)
-		if assFamily == "" || systemFamily == "" {
-			continue
+		if systemFamily == "" {
+			return style
 		}
-		mappedFamilies[assFamily] = systemFamily
+		style.Fontname = systemFamily
+		style.FontPostScriptName = ""
+		return style
 	}
-	if len(mappedFamilies) == 0 {
-		return content
-	}
+	return style
+}
 
-	lines := strings.Split(content, "\n")
-	inStylesSection := false
-	for index, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
-			normalizedSection := strings.ToLower(trimmed)
-			inStylesSection = normalizedSection == "[v4+ styles]" || normalizedSection == "[v4 styles]"
-			continue
-		}
-		if !inStylesSection || !strings.HasPrefix(strings.ToLower(trimmed), "style:") {
-			continue
-		}
-
-		prefix := "Style: "
-		prefixMatch := strings.Index(strings.ToLower(line), "style:")
-		if prefixMatch >= 0 {
-			prefix = line[:prefixMatch] + line[prefixMatch:prefixMatch+len("Style:")]
-			prefix = prefix + " "
-		}
-		payload := strings.TrimSpace(line[strings.Index(strings.ToLower(line), "style:")+len("style:"):])
-		parts := strings.Split(payload, ",")
-		if len(parts) < 2 {
-			continue
-		}
-		mappedFamily, ok := mappedFamilies[normalizePreviewVTTFontFamilyKey(parts[1])]
-		if !ok {
-			continue
-		}
-		parts[1] = mappedFamily
-		lines[index] = prefix + strings.Join(parts, ",")
+func resolvePreviewVTTFontWeight(style library.AssStyleSpec) string {
+	if style.FontWeight > 0 {
+		return strconv.Itoa(style.FontWeight)
 	}
-	return strings.Join(lines, "\n")
+	if style.Bold {
+		return "700"
+	}
+	return "400"
+}
+
+func resolveASSStyleFontName(style library.AssStyleSpec) string {
+	return resolveASSCompatibleFontName(style.Fontname, "Arial")
+}
+
+func resolveASSStyleBold(style library.AssStyleSpec) bool {
+	if style.Bold {
+		return true
+	}
+	return resolveASSStyleWeight(style) >= 600
+}
+
+func resolveASSStyleItalic(style library.AssStyleSpec) bool {
+	if style.Italic {
+		return true
+	}
+	return assFontFaceImpliesItalic(style.FontFace)
+}
+
+func resolveASSStyleWeight(style library.AssStyleSpec) int {
+	if style.FontWeight > 0 {
+		return style.FontWeight
+	}
+	return deriveSubtitleExportFontWeight(style.FontFace, style.FontPostScriptName, style.Fontname, style.Bold)
 }
 
 func buildPreviewDialogueLine(styleName string, startMS int64, endMS int64, text string) string {
@@ -867,6 +928,7 @@ func parseASSStyleImportDocument(content string) (parsedASSStyleImportDocument, 
 		Format: "ass",
 		Styles: make(map[string]library.AssStyleSpec),
 	}
+	styleMetadata := make(map[string]subtitleStyleFontMetadata)
 	currentSection := ""
 	styleFormat := append([]string(nil), defaultSubtitleExportStyleFormat...)
 	for _, rawLine := range lines {
@@ -886,6 +948,7 @@ func parseASSStyleImportDocument(content string) (parsedASSStyleImportDocument, 
 			if !ok {
 				continue
 			}
+			collectSubtitleStyleFontMetadata(key, value, styleMetadata)
 			switch strings.ToLower(strings.TrimSpace(key)) {
 			case "playresx":
 				result.PlayResX = parseASSImportInt(value)
@@ -923,6 +986,13 @@ func parseASSStyleImportDocument(content string) (parsedASSStyleImportDocument, 
 			result.Styles[lowered] = spec
 		}
 	}
+	for styleName, metadata := range styleMetadata {
+		style, ok := result.Styles[styleName]
+		if !ok {
+			continue
+		}
+		result.Styles[styleName] = applyASSStyleFontMetadata(style, metadata)
+	}
 	return result, nil
 }
 
@@ -954,6 +1024,22 @@ func parseASSImportStyleDefinition(format []string, value string) (string, libra
 		Encoding:        parseASSImportInt(findSubtitleExportStyleField(format, fields, "encoding")),
 	}
 	return strings.TrimSpace(name), spec
+}
+
+func applyASSStyleFontMetadata(style library.AssStyleSpec, metadata subtitleStyleFontMetadata) library.AssStyleSpec {
+	if strings.TrimSpace(metadata.FontFamily) != "" {
+		style.Fontname = strings.TrimSpace(metadata.FontFamily)
+	}
+	if strings.TrimSpace(metadata.FontFace) != "" {
+		style.FontFace = strings.TrimSpace(metadata.FontFace)
+	}
+	if metadata.FontWeight > 0 {
+		style.FontWeight = metadata.FontWeight
+	}
+	if strings.TrimSpace(metadata.FontPostScriptName) != "" {
+		style.FontPostScriptName = strings.TrimSpace(metadata.FontPostScriptName)
+	}
+	return style
 }
 
 func parseASSImportFloat(value string) float64 {

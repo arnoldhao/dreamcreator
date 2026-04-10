@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"dreamcreator/internal/application/library/dto"
@@ -307,8 +308,17 @@ type ittParagraph struct {
 	Text  string
 }
 
+type ittTimingContext struct {
+	TimeBase                 string
+	FrameRate                int64
+	FrameRateMultiplierNum   int64
+	FrameRateMultiplierDenom int64
+	SubFrameRate             int64
+}
+
 func parseITTCueParagraphs(content string) []ittParagraph {
 	decoder := xml.NewDecoder(strings.NewReader(content))
+	context := defaultITTTimingContext()
 	result := make([]ittParagraph, 0, 32)
 	for {
 		token, err := decoder.Token()
@@ -316,7 +326,14 @@ func parseITTCueParagraphs(content string) []ittParagraph {
 			break
 		}
 		startElement, ok := token.(xml.StartElement)
-		if !ok || startElement.Name.Local != "p" {
+		if !ok {
+			continue
+		}
+		if startElement.Name.Local == "tt" {
+			context = parseITTTimingContext(startElement.Attr)
+			continue
+		}
+		if startElement.Name.Local != "p" {
 			continue
 		}
 		var paragraph struct {
@@ -326,45 +343,163 @@ func parseITTCueParagraphs(content string) []ittParagraph {
 		if err := decoder.DecodeElement(&paragraph, &startElement); err != nil {
 			continue
 		}
+		start := xmlAttributeValue(startElement.Attr, "begin")
+		end := xmlAttributeValue(startElement.Attr, "end")
+		if normalized, ok := normalizeITTTimeExpression(start, context); ok {
+			start = normalized
+		}
+		if normalized, ok := normalizeITTTimeExpression(end, context); ok {
+			end = normalized
+		}
 		result = append(result, ittParagraph{
-			Start: xmlAttributeValue(startElement.Attr, "begin"),
-			End:   xmlAttributeValue(startElement.Attr, "end"),
+			Start: start,
+			End:   end,
 			Text:  ttmlInnerXMLToText(paragraph.InnerXML),
 		})
 	}
 	return result
 }
 
+func defaultITTTimingContext() ittTimingContext {
+	return ittTimingContext{
+		TimeBase:                 "media",
+		FrameRate:                30,
+		FrameRateMultiplierNum:   1,
+		FrameRateMultiplierDenom: 1,
+		SubFrameRate:             1,
+	}
+}
+
+func parseITTTimingContext(attrs []xml.Attr) ittTimingContext {
+	context := defaultITTTimingContext()
+	for _, attr := range attrs {
+		switch attr.Name.Local {
+		case "timeBase":
+			if value := strings.ToLower(strings.TrimSpace(attr.Value)); value != "" {
+				context.TimeBase = value
+			}
+		case "frameRate":
+			if value, err := strconv.ParseInt(strings.TrimSpace(attr.Value), 10, 64); err == nil && value > 0 {
+				context.FrameRate = value
+			}
+		case "frameRateMultiplier":
+			numerator, denominator := parseITTRatio(strings.TrimSpace(attr.Value))
+			if numerator > 0 && denominator > 0 {
+				context.FrameRateMultiplierNum = numerator
+				context.FrameRateMultiplierDenom = denominator
+			}
+		case "subFrameRate":
+			if value, err := strconv.ParseInt(strings.TrimSpace(attr.Value), 10, 64); err == nil && value > 0 {
+				context.SubFrameRate = value
+			}
+		}
+	}
+	return context
+}
+
+func parseITTRatio(value string) (int64, int64) {
+	normalized := strings.ReplaceAll(strings.TrimSpace(value), "/", " ")
+	parts := strings.Fields(normalized)
+	if len(parts) != 2 {
+		return 0, 0
+	}
+	numerator, errNum := strconv.ParseInt(parts[0], 10, 64)
+	denominator, errDen := strconv.ParseInt(parts[1], 10, 64)
+	if errNum != nil || errDen != nil || numerator <= 0 || denominator <= 0 {
+		return 0, 0
+	}
+	return numerator, denominator
+}
+
+func normalizeITTTimeExpression(value string, context ittTimingContext) (string, bool) {
+	if milliseconds, ok := parseITTTimeExpressionToMilliseconds(value, context); ok {
+		return formatVTTTimestamp(milliseconds), true
+	}
+	return "", false
+}
+
+func parseITTTimeExpressionToMilliseconds(value string, context ittTimingContext) (int64, bool) {
+	if milliseconds, ok := parseTimestampToMilliseconds(value); ok {
+		return milliseconds, true
+	}
+	if context.TimeBase != "smpte" {
+		return 0, false
+	}
+	parts := strings.Split(strings.TrimSpace(value), ":")
+	if len(parts) != 4 {
+		return 0, false
+	}
+	hours, errHour := strconv.ParseInt(parts[0], 10, 64)
+	minutes, errMinute := strconv.ParseInt(parts[1], 10, 64)
+	seconds, errSecond := strconv.ParseInt(parts[2], 10, 64)
+	if errHour != nil || errMinute != nil || errSecond != nil || hours < 0 || minutes < 0 || seconds < 0 {
+		return 0, false
+	}
+	frameField := strings.TrimSpace(parts[3])
+	frames := int64(0)
+	subframes := int64(0)
+	if strings.Contains(frameField, ".") {
+		frameParts := strings.SplitN(frameField, ".", 2)
+		parsedFrames, errFrames := strconv.ParseInt(strings.TrimSpace(frameParts[0]), 10, 64)
+		parsedSubframes, errSubframes := strconv.ParseInt(strings.TrimSpace(frameParts[1]), 10, 64)
+		if errFrames != nil || errSubframes != nil || parsedFrames < 0 || parsedSubframes < 0 {
+			return 0, false
+		}
+		frames = parsedFrames
+		subframes = parsedSubframes
+	} else {
+		parsedFrames, err := strconv.ParseInt(frameField, 10, 64)
+		if err != nil || parsedFrames < 0 {
+			return 0, false
+		}
+		frames = parsedFrames
+	}
+	if context.FrameRate <= 0 || context.FrameRateMultiplierNum <= 0 || context.FrameRateMultiplierDenom <= 0 {
+		return 0, false
+	}
+	totalFrames := ((hours*3600 + minutes*60 + seconds) * context.FrameRate) + frames
+	totalSubframes := totalFrames * context.SubFrameRate
+	if subframes > 0 && context.SubFrameRate > 0 {
+		totalSubframes += subframes
+	}
+	denominator := context.FrameRate * context.SubFrameRate * context.FrameRateMultiplierNum
+	if denominator <= 0 {
+		return 0, false
+	}
+	numerator := totalSubframes * context.FrameRateMultiplierDenom * 1000
+	return divideAndRoundInt64(numerator, denominator), true
+}
+
 func parseFCPXMLSubtitleCues(content string) []dto.SubtitleCue {
-	decoder := xml.NewDecoder(strings.NewReader(content))
+	var parsed fcpxmlRoot
+	if err := xml.Unmarshal([]byte(content), &parsed); err != nil {
+		return nil
+	}
 	result := make([]dto.SubtitleCue, 0, 32)
-	for {
-		token, err := decoder.Token()
-		if err != nil {
-			break
+	for _, event := range parsed.Library.Events {
+		for _, project := range event.Projects {
+			gap := project.Sequence.Spine.Gap
+			gapStartMS, okGapStart := parseTimestampToMilliseconds(gap.Start)
+			if !okGapStart {
+				gapStartMS = 0
+			}
+			for _, title := range gap.Titles {
+				startMS, okStart := fcpxmlTitleCueStartMS(title, gapStartMS)
+				durationMS, okDuration := parseTimestampToMilliseconds(title.Duration)
+				if !okStart {
+					startMS = 0
+				}
+				if !okDuration || durationMS <= 0 {
+					durationMS = 1000
+				}
+				result = append(result, dto.SubtitleCue{
+					Index: len(result) + 1,
+					Start: formatVTTTimestamp(startMS),
+					End:   formatVTTTimestamp(startMS + durationMS),
+					Text:  fcpxmlTitleText(title),
+				})
+			}
 		}
-		startElement, ok := token.(xml.StartElement)
-		if !ok || startElement.Name.Local != "title" {
-			continue
-		}
-		var title fcpxmlTitle
-		if err := decoder.DecodeElement(&title, &startElement); err != nil {
-			continue
-		}
-		startMS, okStart := parseTimestampToMilliseconds(title.Offset)
-		durationMS, okDuration := parseTimestampToMilliseconds(title.Duration)
-		if !okStart {
-			startMS = 0
-		}
-		if !okDuration || durationMS <= 0 {
-			durationMS = 1000
-		}
-		result = append(result, dto.SubtitleCue{
-			Index: len(result) + 1,
-			Start: formatVTTTimestamp(startMS),
-			End:   formatVTTTimestamp(startMS + durationMS),
-			Text:  fcpxmlTitleText(title),
-		})
 	}
 	return result
 }
@@ -378,6 +513,9 @@ func renderSubtitleContentPreservingSource(
 ) (string, bool) {
 	format := normalizeSubtitleFormat(targetFormat)
 	if strings.TrimSpace(originalContent) == "" {
+		return "", false
+	}
+	if strings.TrimSpace(styleDocumentContent) != "" && subtitleFormatSupportsStyleOverlay(format) {
 		return "", false
 	}
 	switch format {
@@ -399,6 +537,15 @@ func renderSubtitleContentPreservingSource(
 		}
 	}
 	return "", false
+}
+
+func subtitleFormatSupportsStyleOverlay(format string) bool {
+	switch normalizeSubtitleFormat(format) {
+	case "vtt", "ass", "ssa", "itt", "fcpxml":
+		return true
+	default:
+		return false
+	}
 }
 
 func renderVTTFromSource(document dto.SubtitleDocument, source string) string {
@@ -530,24 +677,62 @@ func renderFCPXMLFromSource(document dto.SubtitleDocument, source string) (strin
 	}
 	sequence := &parsed.Library.Events[0].Projects[0].Sequence
 	gap := &sequence.Spine.Gap
+	frameDuration := resolveFCPXMLSequenceFrameDuration(parsed.Resources, sequence.Format)
+	frameGrid := newFCPXMLFrameGrid(frameDuration)
+	normalizedFrameDuration := frameGrid.formatFrames(1)
+	for index := range parsed.Resources.Formats {
+		if strings.TrimSpace(parsed.Resources.Formats[index].ID) != strings.TrimSpace(sequence.Format) {
+			continue
+		}
+		parsed.Resources.Formats[index].FrameDuration = normalizedFrameDuration
+		if strings.TrimSpace(parsed.Resources.Formats[index].Name) != "" {
+			parsed.Resources.Formats[index].Name = fmt.Sprintf(
+				"FFVideoFormat%dx%d_%s",
+				parsed.Resources.Formats[index].Width,
+				parsed.Resources.Formats[index].Height,
+				sanitizeFCPXMLFormatToken(normalizedFrameDuration),
+			)
+		}
+	}
 	existingTitles := gap.Titles
+	localStartValue := resolveFCPXMLLocalStartValue(*sequence, *gap, existingTitles)
+	localStartFrames := resolveFCPXMLLocalStartFrames(localStartValue, frameGrid)
+	absoluteOffsets := fcpxmlUsesAbsoluteOffsets(existingTitles, localStartFrames, frameGrid)
+	titleStartFollowsOffset := fcpxmlTitleStartFollowsOffset(existingTitles, frameGrid)
 	nextTitles := make([]fcpxmlTitle, 0, len(document.Cues))
+	totalDurationFrames := int64(0)
 	for index, cue := range document.Cues {
+		startFrames, durationFrames := frameGrid.roundMillisecondsRangeToFrames(cueStartMS(cue), cueEndMS(cue))
 		base := fcpxmlTitle{
 			Name:     cue.Text,
 			Lane:     1,
 			Ref:      "r2",
-			Duration: formatFCPXMLDuration(maxInt64(1, cueDurationMS(cue))),
+			Duration: frameGrid.formatFrames(durationFrames),
 		}
 		if len(existingTitles) > 0 {
 			base = existingTitles[minInt(index, len(existingTitles)-1)]
 		}
-		base.Offset = formatFCPXMLDuration(cueStartMS(cue))
-		base.Duration = formatFCPXMLDuration(maxInt64(1, cueDurationMS(cue)))
-		if strings.TrimSpace(base.Start) == "" {
-			base.Start = "3600s"
+		if absoluteOffsets {
+			base.Offset = frameGrid.formatFrames(localStartFrames + startFrames)
+		} else {
+			base.Offset = frameGrid.formatFrames(startFrames)
+		}
+		base.Duration = frameGrid.formatFrames(durationFrames)
+		if titleStartFollowsOffset {
+			base.Start = base.Offset
+		} else {
+			base.Start = firstNonEmpty(strings.TrimSpace(base.Start), localStartValue)
+		}
+		if strings.TrimSpace(base.Ref) == "" {
+			base.Ref = "r2"
+		}
+		if base.Lane == 0 {
+			base.Lane = 1
 		}
 		base.Name = cue.Text
+		if len(base.Params) == 0 {
+			base.Params = resolveFCPXMLBasicTitleParamsFromAlignment(resolveFCPXMLTitleAlignment(base))
+		}
 		if strings.TrimSpace(fcpxmlTitleText(base)) != strings.TrimSpace(cue.Text) {
 			ref := "ts1"
 			if base.Text != nil && len(base.Text.TextStyle) > 0 && strings.TrimSpace(base.Text.TextStyle[0].Ref) != "" {
@@ -556,18 +741,118 @@ func renderFCPXMLFromSource(document dto.SubtitleDocument, source string) (strin
 			base.Text = &fcpxmlText{TextStyle: []fcpxmlTextStyle{{Ref: ref, Content: cue.Text}}}
 		}
 		nextTitles = append(nextTitles, base)
+		endFrames := startFrames + durationFrames
+		if endFrames > totalDurationFrames {
+			totalDurationFrames = endFrames
+		}
 	}
 	gap.Titles = nextTitles
+	if strings.TrimSpace(sequence.TCStart) != "" {
+		sequence.TCStart = frameGrid.snapTimeValue(sequence.TCStart, 0)
+	}
+	if strings.TrimSpace(gap.Offset) != "" {
+		gap.Offset = frameGrid.snapTimeValue(gap.Offset, 0)
+	}
+	if strings.TrimSpace(gap.Start) != "" || strings.TrimSpace(localStartValue) != "" {
+		gap.Start = localStartValue
+	}
 	if len(document.Cues) > 0 {
-		totalDuration := cueEndMS(document.Cues[len(document.Cues)-1])
-		sequence.Duration = formatFCPXMLDuration(totalDuration)
-		gap.Duration = formatFCPXMLDuration(totalDuration)
+		sequence.Duration = frameGrid.formatFrames(totalDurationFrames)
+		gap.Duration = frameGrid.formatFrames(totalDurationFrames)
+	} else {
+		if strings.TrimSpace(sequence.Duration) != "" {
+			sequence.Duration = frameGrid.snapTimeValue(sequence.Duration, 0)
+		}
+		if strings.TrimSpace(gap.Duration) != "" {
+			gap.Duration = frameGrid.snapTimeValue(gap.Duration, 0)
+		}
 	}
 	xmlData, err := xml.MarshalIndent(parsed, "", "  ")
 	if err != nil {
 		return "", false
 	}
 	return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE fcpxml>\n\n" + string(xmlData) + "\n", true
+}
+
+func fcpxmlTitleCueStartMS(title fcpxmlTitle, gapStartMS int64) (int64, bool) {
+	offsetMS, okOffset := parseTimestampToMilliseconds(title.Offset)
+	if !okOffset {
+		return 0, false
+	}
+	if gapStartMS > 0 && offsetMS >= gapStartMS {
+		return offsetMS - gapStartMS, true
+	}
+	return offsetMS, true
+}
+
+func resolveFCPXMLSequenceFrameDuration(resources fcpxmlResources, formatID string) string {
+	for _, format := range resources.Formats {
+		if strings.TrimSpace(format.ID) != strings.TrimSpace(formatID) {
+			continue
+		}
+		return normalizeFCPXMLFrameDuration(format.FrameDuration)
+	}
+	return defaultFCPXMLFrameDuration
+}
+
+func resolveFCPXMLLocalStartValue(sequence fcpxmlSequence, gap fcpxmlGap, titles []fcpxmlTitle) string {
+	if value := strings.TrimSpace(gap.Start); value != "" {
+		return value
+	}
+	for _, title := range titles {
+		if value := strings.TrimSpace(title.Start); value != "" {
+			return value
+		}
+	}
+	if value := strings.TrimSpace(sequence.TCStart); value != "" {
+		return value
+	}
+	return "3600s"
+}
+
+func resolveFCPXMLLocalStartFrames(startValue string, frameGrid fcpxmlFrameGrid) int64 {
+	if frames, ok := frameGrid.framesForTimeValue(startValue); ok {
+		return frames
+	}
+	return 0
+}
+
+func fcpxmlUsesAbsoluteOffsets(titles []fcpxmlTitle, localStartFrames int64, frameGrid fcpxmlFrameGrid) bool {
+	if localStartFrames <= 0 {
+		return false
+	}
+	for _, title := range titles {
+		frames, ok := frameGrid.framesForTimeValue(title.Offset)
+		if !ok {
+			continue
+		}
+		return frames >= localStartFrames
+	}
+	return false
+}
+
+func fcpxmlTitleStartFollowsOffset(titles []fcpxmlTitle, frameGrid fcpxmlFrameGrid) bool {
+	for _, title := range titles {
+		startFrames, okStart := frameGrid.framesForTimeValue(title.Start)
+		offsetFrames, okOffset := frameGrid.framesForTimeValue(title.Offset)
+		if !okStart || !okOffset {
+			continue
+		}
+		return startFrames == offsetFrames
+	}
+	return false
+}
+
+func resolveFCPXMLTitleAlignment(title fcpxmlTitle) string {
+	for _, definition := range title.TextStyleDef {
+		if definition.TextStyle == nil {
+			continue
+		}
+		if alignment := strings.TrimSpace(definition.TextStyle.Alignment); alignment != "" {
+			return alignment
+		}
+	}
+	return "center"
 }
 
 func validateSubtitleDocument(document dto.SubtitleDocument) dto.SubtitleValidateResult {

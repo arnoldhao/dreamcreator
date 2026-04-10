@@ -219,8 +219,8 @@ func (service *LibraryService) runTranscodeOperation(ctx context.Context, operat
 	burninSubtitlePath := ""
 	embeddedSubtitlePath := ""
 	if subtitleHandling != "none" {
-		if subtitleContent == "" {
-			service.failTranscodeOperation(ctx, operation, request, fmt.Errorf("subtitle export requires generated subtitle content"))
+		if subtitleContent == "" && !hasGeneratedSubtitleDocumentContent(request.GeneratedSubtitleDocument) {
+			service.failTranscodeOperation(ctx, operation, request, fmt.Errorf("subtitle export requires generated subtitles"))
 			return
 		}
 		switch subtitleHandling {
@@ -240,7 +240,11 @@ func (service *LibraryService) runTranscodeOperation(ctx context.Context, operat
 			tempDir,
 			firstNonEmpty(strings.TrimSpace(request.GeneratedSubtitleName), "workspace-subtitles")+"."+firstNonEmpty(subtitleFormat, "ass"),
 		)
-		resolvedSubtitleContent := subtitleContent
+		resolvedSubtitleContent := resolveGeneratedSubtitleContentForTranscode(request, probe, subtitleFormat)
+		if strings.TrimSpace(resolvedSubtitleContent) == "" {
+			service.failTranscodeOperation(ctx, operation, request, fmt.Errorf("subtitle export produced empty subtitle content"))
+			return
+		}
 		if subtitleHandling == "burnin" && subtitleFormat == "ass" {
 			resolvedSubtitleContent = normalizeBurninASSFontForChinese(resolvedSubtitleContent)
 		}
@@ -639,7 +643,8 @@ func (service *LibraryService) runFFmpegCommandWithProgress(
 	workDir string,
 	durationMs int64,
 ) (string, error) {
-	command := exec.CommandContext(ctx, execPath, withFFmpegProgressArgs(args)...)
+	commandArgs := withFFmpegProgressArgs(args)
+	command := exec.CommandContext(ctx, execPath, commandArgs...)
 	command.Dir = strings.TrimSpace(workDir)
 	configureProcessGroup(command)
 
@@ -881,6 +886,104 @@ func normalizeBurninASSFontForChinese(content string) string {
 	return strings.Join(lines, "\n")
 }
 
+func resolveSourceVideoSubtitlePlayRes(probe mediaProbe) (int, int) {
+	if probe.Width <= 0 || probe.Height <= 0 {
+		return 0, 0
+	}
+	return probe.Width, probe.Height
+}
+
+func hasGeneratedSubtitleDocumentContent(document *dto.SubtitleDocument) bool {
+	return document != nil && len(document.Cues) > 0
+}
+
+func resolveGeneratedSubtitleContentForTranscode(
+	request dto.CreateTranscodeJobRequest,
+	probe mediaProbe,
+	subtitleFormat string,
+) string {
+	subtitleContent := strings.TrimSpace(request.GeneratedSubtitleContent)
+	if !hasGeneratedSubtitleDocumentContent(request.GeneratedSubtitleDocument) {
+		if subtitleFormat == "ass" {
+			playResX, playResY := resolveSourceVideoSubtitlePlayRes(probe)
+			return normalizeGeneratedASSPlayResForTranscode(subtitleContent, playResX, playResY)
+		}
+		return subtitleContent
+	}
+
+	renderFormat := firstNonEmpty(
+		strings.TrimSpace(subtitleFormat),
+		strings.TrimSpace(request.GeneratedSubtitleDocument.Format),
+		"ass",
+	)
+	var exportConfig *dto.SubtitleExportConfig
+	if renderFormat == "ass" {
+		playResX, playResY := resolveSourceVideoSubtitlePlayRes(probe)
+		exportConfig = &dto.SubtitleExportConfig{
+			ASS: &dto.SubtitleASSExportConfig{
+				PlayResX: playResX,
+				PlayResY: playResY,
+				Title: firstNonEmpty(
+					strings.TrimSpace(request.GeneratedSubtitleName),
+					strings.TrimSpace(request.Title),
+					"DreamCreator Export",
+				),
+			},
+		}
+	}
+	rendered := renderSubtitleContentWithConfig(
+		*request.GeneratedSubtitleDocument,
+		renderFormat,
+		exportConfig,
+		request.GeneratedSubtitleStyleDocumentContent,
+	)
+	if strings.TrimSpace(rendered) != "" {
+		return rendered
+	}
+	if renderFormat == "ass" {
+		playResX, playResY := resolveSourceVideoSubtitlePlayRes(probe)
+		return normalizeGeneratedASSPlayResForTranscode(subtitleContent, playResX, playResY)
+	}
+	return subtitleContent
+}
+
+func normalizeGeneratedASSPlayResForTranscode(content string, playResX int, playResY int) string {
+	normalized := normalizeSubtitleExportStyleDocumentContent(content)
+	if normalized == "" || playResX <= 0 || playResY <= 0 {
+		return content
+	}
+	lines := strings.Split(normalized, "\n")
+	styleDocument, hasScriptInfo, _ := parseSubtitleExportStyleDocumentContent(
+		normalized,
+		subtitleExportStyleDocumentOptions{
+			PlayResX: playResX,
+			PlayResY: playResY,
+		},
+	)
+	if !hasScriptInfo {
+		return content
+	}
+
+	eventsStartIndex := -1
+	for index, rawLine := range lines {
+		trimmed := strings.TrimSpace(rawLine)
+		if strings.EqualFold(trimmed, "[events]") {
+			eventsStartIndex = index
+			break
+		}
+	}
+	if eventsStartIndex < 0 {
+		return strings.Join(styleDocument.Lines, "\n")
+	}
+
+	result := append([]string{}, styleDocument.Lines...)
+	if len(result) > 0 && strings.TrimSpace(result[len(result)-1]) != "" {
+		result = append(result, "")
+	}
+	result = append(result, lines[eventsStartIndex:]...)
+	return strings.Join(result, "\n")
+}
+
 func containsHanRune(content string) bool {
 	for _, r := range content {
 		if unicode.Is(unicode.Han, r) {
@@ -925,15 +1028,15 @@ func buildFFmpegTranscodeArgs(
 		args = append(args, "-i", embeddedSubtitlePath)
 	}
 	filters := make([]string, 0, 2)
+	if subtitleHandling == "burnin" && strings.TrimSpace(burninSubtitlePath) != "" {
+		filters = append(filters, "ass="+quoteFFmpegFilterPath(burninSubtitlePath))
+	}
 	scaleFilter, err := buildFFmpegScaleFilter(plan.request)
 	if err != nil {
 		return nil, err
 	}
 	if scaleFilter != "" {
 		filters = append(filters, scaleFilter)
-	}
-	if subtitleHandling == "burnin" && strings.TrimSpace(burninSubtitlePath) != "" {
-		filters = append(filters, "ass="+quoteFFmpegFilterPath(burninSubtitlePath))
 	}
 	if len(filters) > 0 {
 		args = append(args, "-vf", strings.Join(filters, ","))

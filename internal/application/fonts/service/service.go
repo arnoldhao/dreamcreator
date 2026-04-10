@@ -27,6 +27,19 @@ type FontService struct {
 	err     error
 }
 
+type FontCatalogFamily struct {
+	Family string
+	Faces  []FontCatalogFace
+}
+
+type FontCatalogFace struct {
+	Name           string
+	FullName       string
+	PostScriptName string
+	Weight         int
+	Italic         bool
+}
+
 type ExportedFontFamily struct {
 	Family string
 	Assets []ExportedFontAsset
@@ -39,6 +52,7 @@ type ExportedFontAsset struct {
 
 type fontCatalog struct {
 	families      []string
+	familyCatalog []FontCatalogFamily
 	filesByFamily map[string][]fontFileEntry
 }
 
@@ -52,8 +66,11 @@ type fontFileEntry struct {
 
 type fontNameEntry struct {
 	family     string
+	face       string
 	fullName   string
 	postScript string
+	weight     int
+	italic     bool
 	lookupKeys []string
 	faceIndex  int
 }
@@ -70,6 +87,19 @@ func (service *FontService) ListFontFamilies(ctx context.Context) ([]string, err
 	defer service.mu.RUnlock()
 	result := make([]string, 0, len(service.catalog.families))
 	result = append(result, service.catalog.families...)
+	return result, nil
+}
+
+func (service *FontService) ListFontCatalog(ctx context.Context) ([]FontCatalogFamily, error) {
+	if err := service.ensureCatalog(ctx); err != nil {
+		return nil, err
+	}
+	service.mu.RLock()
+	defer service.mu.RUnlock()
+	result := make([]FontCatalogFamily, 0, len(service.catalog.familyCatalog))
+	for _, family := range service.catalog.familyCatalog {
+		result = append(result, cloneFontCatalogFamily(family))
+	}
 	return result, nil
 }
 
@@ -166,8 +196,10 @@ func scanFontCatalog(ctx context.Context) (fontCatalog, error) {
 	}
 
 	filesByFamily := make(map[string][]fontFileEntry, 512)
+	facesByFamily := make(map[string][]FontCatalogFace, 512)
 	displayFamilies := make(map[string]string, 512)
 	seenFamilyPath := make(map[string]struct{}, 1024)
+	seenFacesByFamily := make(map[string]map[string]struct{}, 512)
 
 	for dirIndex, dir := range dirs {
 		if ctx.Err() != nil {
@@ -223,6 +255,24 @@ func scanFontCatalog(ctx context.Context) (fontCatalog, error) {
 				normalizedFamily := normalizeFontFamilyKey(family)
 				if normalizedFamily != "" {
 					displayFamilies[normalizedFamily] = family
+					faceKey := buildFontCatalogFaceKey(names)
+					if faceKey != "" {
+						seenFaces := seenFacesByFamily[normalizedFamily]
+						if seenFaces == nil {
+							seenFaces = make(map[string]struct{}, 8)
+							seenFacesByFamily[normalizedFamily] = seenFaces
+						}
+						if _, exists := seenFaces[faceKey]; !exists {
+							seenFaces[faceKey] = struct{}{}
+							facesByFamily[normalizedFamily] = append(facesByFamily[normalizedFamily], FontCatalogFace{
+								Name:           firstNonEmpty(strings.TrimSpace(names.face), "Regular"),
+								FullName:       strings.TrimSpace(names.fullName),
+								PostScriptName: strings.TrimSpace(names.postScript),
+								Weight:         names.weight,
+								Italic:         names.italic,
+							})
+						}
+					}
 				}
 
 				for _, lookupKey := range names.lookupKeys {
@@ -261,6 +311,7 @@ func scanFontCatalog(ctx context.Context) (fontCatalog, error) {
 	}
 
 	families := make([]string, 0, len(displayFamilies))
+	familyCatalog := make([]FontCatalogFamily, 0, len(displayFamilies))
 	for _, entries := range filesByFamily {
 		if len(entries) == 0 {
 			continue
@@ -279,8 +330,29 @@ func scanFontCatalog(ctx context.Context) (fontCatalog, error) {
 		families = append(families, family)
 	}
 	sort.Strings(families)
+	for _, family := range families {
+		normalizedFamily := normalizeFontFamilyKey(family)
+		faces := append([]FontCatalogFace(nil), facesByFamily[normalizedFamily]...)
+		sort.Slice(faces, func(left, right int) bool {
+			if faces[left].Weight != faces[right].Weight {
+				return faces[left].Weight < faces[right].Weight
+			}
+			if faces[left].Italic != faces[right].Italic {
+				return !faces[left].Italic && faces[right].Italic
+			}
+			return faces[left].Name < faces[right].Name
+		})
+		if len(faces) == 0 {
+			faces = []FontCatalogFace{{Name: "Regular", Weight: 400}}
+		}
+		familyCatalog = append(familyCatalog, FontCatalogFamily{
+			Family: family,
+			Faces:  faces,
+		})
+	}
 	return fontCatalog{
 		families:      families,
+		familyCatalog: familyCatalog,
 		filesByFamily: filesByFamily,
 	}, nil
 }
@@ -332,11 +404,17 @@ func fontNames(font *sfnt.Font, faceIndex int) fontNameEntry {
 	}
 
 	typographicFamily := readFontName(font, &buf, sfnt.NameIDTypographicFamily)
+	typographicSubfamily := readFontName(font, &buf, sfnt.NameIDTypographicSubfamily)
 	wwsFamily := readFontName(font, &buf, sfnt.NameIDWWSFamily)
+	wwsSubfamily := readFontName(font, &buf, sfnt.NameIDWWSSubfamily)
 	legacyFamily := readFontName(font, &buf, sfnt.NameIDFamily)
+	legacySubfamily := readFontName(font, &buf, sfnt.NameIDSubfamily)
 	fullName := readFontName(font, &buf, sfnt.NameIDFull)
 	postScript := readFontName(font, &buf, sfnt.NameIDPostScript)
 	family := resolveCatalogFontFamily(typographicFamily, wwsFamily, legacyFamily, fullName, postScript)
+	face := resolveCatalogFontFace(typographicSubfamily, wwsSubfamily, legacySubfamily, fullName, family, postScript)
+	weight := resolveCatalogFontWeight(face, fullName, postScript)
+	italic := resolveCatalogFontItalic(face, fullName, postScript)
 
 	push(family)
 	push(typographicFamily)
@@ -347,8 +425,11 @@ func fontNames(font *sfnt.Font, faceIndex int) fontNameEntry {
 
 	return fontNameEntry{
 		family:     family,
+		face:       face,
 		fullName:   fullName,
 		postScript: postScript,
+		weight:     weight,
+		italic:     italic,
 		lookupKeys: lookupKeys,
 		faceIndex:  faceIndex,
 	}
@@ -430,6 +511,7 @@ func buildFontAssetFileName(path string, entry fontNameEntry) string {
 	baseName := firstNonEmpty(
 		entry.postScript,
 		entry.fullName,
+		entry.face,
 		entry.family,
 		fmt.Sprintf("face-%d", entry.faceIndex),
 	)
@@ -541,6 +623,99 @@ func alignFontDataLength(length int) int {
 
 func isFontCollectionData(data []byte) bool {
 	return len(data) >= 4 && bytes.Equal(data[:4], []byte("ttcf"))
+}
+
+func cloneFontCatalogFamily(value FontCatalogFamily) FontCatalogFamily {
+	result := FontCatalogFamily{
+		Family: value.Family,
+		Faces:  make([]FontCatalogFace, 0, len(value.Faces)),
+	}
+	result.Faces = append(result.Faces, value.Faces...)
+	return result
+}
+
+func buildFontCatalogFaceKey(entry fontNameEntry) string {
+	return firstNonEmpty(
+		normalizeFontFamilyKey(entry.postScript),
+		normalizeFontFamilyKey(entry.fullName),
+		normalizeFontFamilyKey(entry.face),
+		fmt.Sprintf("face-%d", entry.faceIndex),
+	)
+}
+
+func resolveCatalogFontFace(typographicSubfamily, wwsSubfamily, legacySubfamily, fullName, family, postScript string) string {
+	if derived := deriveCatalogFontFaceFromPostScript(postScript); derived != "" {
+		return derived
+	}
+	for _, value := range []string{typographicSubfamily, wwsSubfamily, legacySubfamily} {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" || strings.EqualFold(trimmed, family) {
+			continue
+		}
+		return trimmed
+	}
+	if derived := deriveCatalogFontFaceFromFullName(fullName, family); derived != "" {
+		return derived
+	}
+	return "Regular"
+}
+
+func deriveCatalogFontFaceFromFullName(fullName string, family string) string {
+	trimmedFullName := strings.TrimSpace(fullName)
+	trimmedFamily := strings.TrimSpace(family)
+	if trimmedFullName == "" {
+		return ""
+	}
+	if trimmedFamily != "" && strings.HasPrefix(strings.ToLower(trimmedFullName), strings.ToLower(trimmedFamily)) {
+		trimmedFullName = strings.TrimSpace(strings.TrimLeft(trimmedFullName[len(trimmedFamily):], " -_"))
+	}
+	if trimmedFullName == "" || strings.EqualFold(trimmedFullName, family) {
+		return ""
+	}
+	return trimmedFullName
+}
+
+func deriveCatalogFontFaceFromPostScript(postScript string) string {
+	trimmed := strings.TrimSpace(postScript)
+	if trimmed == "" {
+		return ""
+	}
+	if separatorIndex := strings.LastIndex(trimmed, "-"); separatorIndex >= 0 && separatorIndex < len(trimmed)-1 {
+		return strings.TrimSpace(trimmed[separatorIndex+1:])
+	}
+	return ""
+}
+
+func resolveCatalogFontWeight(face, fullName, postScript string) int {
+	return deriveCatalogFontWeight(strings.ToLower(strings.TrimSpace(strings.Join([]string{face, fullName, postScript}, " "))))
+}
+
+func resolveCatalogFontItalic(face, fullName, postScript string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(strings.Join([]string{face, fullName, postScript}, " ")))
+	return strings.Contains(normalized, "italic") || strings.Contains(normalized, "oblique")
+}
+
+func deriveCatalogFontWeight(normalized string) int {
+	switch {
+	case strings.Contains(normalized, "thin"), strings.Contains(normalized, "hairline"):
+		return 100
+	case strings.Contains(normalized, "ultralight"), strings.Contains(normalized, "extra light"), strings.Contains(normalized, "extralight"):
+		return 200
+	case strings.Contains(normalized, "light"):
+		return 300
+	case strings.Contains(normalized, "semibold"), strings.Contains(normalized, "demibold"), strings.Contains(normalized, "demi bold"), strings.Contains(normalized, "demi"):
+		return 600
+	case strings.Contains(normalized, "extrabold"), strings.Contains(normalized, "extra bold"), strings.Contains(normalized, "ultrabold"), strings.Contains(normalized, "ultra bold"):
+		return 800
+	case strings.Contains(normalized, "black"), strings.Contains(normalized, "heavy"):
+		return 900
+	case strings.Contains(normalized, "medium"):
+		return 500
+	case strings.Contains(normalized, "bold"):
+		return 700
+	default:
+		return 400
+	}
 }
 
 // platformFontDirectories returns candidate font directories for current OS.

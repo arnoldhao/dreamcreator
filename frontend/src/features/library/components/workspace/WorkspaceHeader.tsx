@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 
 import {
+  AudioLines,
   Columns2,
   Film,
   Languages,
@@ -107,11 +108,11 @@ type WorkspaceHeaderProps = {
 function HeaderMetric({ label, value, truncate = false }: WorkspaceHeaderMetaItem) {
   const resolvedValue = value.trim() || "-"
   return (
-    <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-      <span className="text-xs uppercase tracking-[0.14em] text-muted-foreground/80">{label}</span>
+    <div className="flex min-w-0 max-w-[10rem] shrink items-center gap-1.5 overflow-hidden text-xs text-muted-foreground">
+      <span className="shrink-0 truncate text-xs uppercase tracking-[0.14em] text-muted-foreground/80">{label}</span>
       <span
-        className={cn("font-medium text-foreground/80", truncate && "max-w-[16rem] truncate")}
-        title={truncate ? resolvedValue : undefined}
+        className={cn("min-w-0 truncate font-medium text-foreground/80", truncate && "max-w-[16rem]")}
+        title={resolvedValue}
       >
         {resolvedValue}
       </span>
@@ -157,7 +158,7 @@ function DisplayModeControl({
       {options.map((option, index) => {
         const Icon = option.icon
         const active = option.value === value
-        const disabled = option.value === "dual" && !canUseDualDisplay
+        const disabled = option.value === "bilingual" && !canUseDualDisplay
         const content = (
           <Button
             key={option.value}
@@ -261,27 +262,51 @@ export function WorkspaceHeader({
 }: WorkspaceHeaderProps) {
   const { t } = useI18n()
   const displayOptions: Array<{ value: WorkspaceDisplayMode; label: string; icon: typeof Languages }> = [
-    { value: "single", label: t("library.workspace.header.displaySingle"), icon: Languages },
-    { value: "dual", label: t("library.workspace.header.displayDual"), icon: Columns2 },
+    { value: "mono", label: t("library.workspace.header.displayMono"), icon: Languages },
+    { value: "bilingual", label: t("library.workspace.header.displayBilingual"), icon: Columns2 },
   ]
-  const showSecondaryTrack = displayMode === "dual" && canUseDualDisplay
+  const showSecondaryTrack = displayMode === "bilingual" && canUseDualDisplay
   const reviewSubmitting = reviewApplying || reviewDiscarding
 
   return (
     <header className="sticky top-0 z-20 shrink-0 border-b border-border/70 bg-background/95 px-4 py-2 backdrop-blur">
       <div className="flex flex-col gap-2.5">
-        <div className="grid gap-2.5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-          <div className="min-w-0 space-y-1">
-            <div className="truncate text-xs font-semibold tracking-[0.01em] text-foreground">{libraryName}</div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2.5">
+          <div className="flex min-w-0 w-full flex-col justify-center gap-1">
+            <div className="truncate text-xs font-semibold tracking-[0.01em] text-foreground" title={libraryName}>
+              {libraryName}
+            </div>
+            <div className="flex min-w-0 items-center gap-3 overflow-hidden whitespace-nowrap">
               {metaItems.map((item) => (
                 <HeaderMetric key={`${item.label}-${item.value}`} {...item} />
               ))}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex min-w-0 items-center justify-center self-stretch px-2">
             <ModeSwitcher value={activeEditor} onChange={onEditorChange} />
+          </div>
+
+          <div className="flex min-w-0 w-full items-center justify-end gap-2 self-stretch overflow-hidden">
+            <div className="shrink-0 overflow-hidden">
+              <DisplayModeControl
+                options={displayOptions}
+                value={displayMode}
+                canUseDualDisplay={canUseDualDisplay}
+                dualDisplayDisabledReason={dualDisplayDisabledReason}
+                onChange={onDisplayModeChange}
+              />
+            </div>
+            <Button
+              type="button"
+              variant={subtitleStyleSidebarOpen ? "secondary" : "outline"}
+              size="compact"
+              className="min-w-0 gap-1.5"
+              onClick={() => onSubtitleStyleSidebarOpenChange?.(!subtitleStyleSidebarOpen)}
+            >
+              <PanelRight className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{t("library.config.subtitleStyles.exportProfileStyleDocument")}</span>
+            </Button>
           </div>
         </div>
 
@@ -378,25 +403,18 @@ export function WorkspaceHeader({
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <DisplayModeControl
-              options={displayOptions}
-              value={displayMode}
-              canUseDualDisplay={canUseDualDisplay}
-              dualDisplayDisabledReason={dualDisplayDisabledReason}
-              onChange={onDisplayModeChange}
-            />
-
             {activeEditor === "video" ? (
-              <Button
-                type="button"
-                variant={subtitleStyleSidebarOpen ? "secondary" : "outline"}
-                size="compact"
-                className="gap-1.5"
-                onClick={() => onSubtitleStyleSidebarOpenChange?.(!subtitleStyleSidebarOpen)}
-              >
-                <PanelRight className="h-3.5 w-3.5" />
-                <span>{t("library.config.subtitleStyles.exportProfileStyleDocument")}</span>
-              </Button>
+              <div className={DASHBOARD_CONTROL_GROUP_CLASS}>
+                <Button
+                  variant="ghost"
+                  size="compact"
+                  className="gap-1.5 rounded-none rounded-l-lg rounded-r-lg border-0 bg-transparent"
+                  disabled
+                >
+                  <AudioLines className="h-3.5 w-3.5" />
+                  <span>{t("library.workspace.header.speechToSubtitle")}</span>
+                </Button>
+              </div>
             ) : null}
             {activeEditor === "subtitle" ? (
               <div className={DASHBOARD_CONTROL_GROUP_CLASS}>

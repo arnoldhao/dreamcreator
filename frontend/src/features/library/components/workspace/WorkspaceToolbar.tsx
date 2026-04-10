@@ -1,16 +1,14 @@
 import type { ReactNode } from "react"
-import { Filter, Replace, Rows2, Rows3, Search, Sparkles } from "lucide-react"
+import { Filter, Replace, Search, Sparkles } from "lucide-react"
 
 import { useI18n } from "@/shared/i18n"
 import { Button } from "@/shared/ui/button"
-import { DASHBOARD_CONTROL_GROUP_CLASS } from "@/shared/ui/dashboard"
 import { Input } from "@/shared/ui/input"
 import { Select } from "@/shared/ui/select"
 import { Switch } from "@/shared/ui/switch"
 import { cn } from "@/lib/utils"
 
 import type {
-  WorkspaceDensity,
   WorkspaceFilter,
   WorkspaceQaFilter,
 } from "./types"
@@ -36,8 +34,6 @@ type WorkspaceToolbarProps = {
   onQaFilterChange: (value: WorkspaceQaFilter) => void
   autoFollow?: boolean
   onAutoFollowChange?: (value: boolean) => void
-  density: WorkspaceDensity
-  onDensityChange: (value: WorkspaceDensity) => void
 }
 
 function ToolbarField({
@@ -71,8 +67,6 @@ export function WorkspaceToolbar({
   onQaFilterChange,
   autoFollow = true,
   onAutoFollowChange,
-  density,
-  onDensityChange,
 }: WorkspaceToolbarProps) {
   const { t } = useI18n()
   const filterOptions: Array<{ value: WorkspaceFilter; label: string }> = [
@@ -88,11 +82,6 @@ export function WorkspaceToolbar({
     { value: "errors", label: t("library.workspace.toolbar.qaErrors") },
     { value: "clean", label: t("library.workspace.toolbar.qaClean") },
   ]
-  const densityOptions: Array<{ value: WorkspaceDensity; label: string; icon: typeof Rows2 }> = [
-    { value: "comfortable", label: t("library.workspace.toolbar.densityComfortable"), icon: Rows2 },
-    { value: "compact", label: t("library.workspace.toolbar.densityCompact"), icon: Rows3 },
-  ]
-
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/70 bg-muted/[0.14] px-4 py-2">
       <ToolbarField icon={Search} className={WORKSPACE_CONTROL_STANDARD_WIDTH_CLASS}>
@@ -171,29 +160,6 @@ export function WorkspaceToolbar({
           </Select>
         </ToolbarField>
       ) : null}
-
-      <div className="ml-auto flex items-center gap-2">
-        <div className={DASHBOARD_CONTROL_GROUP_CLASS}>
-          {densityOptions.map((option) => {
-            const active = option.value === density
-            const Icon = option.icon
-            return (
-              <Button
-                key={option.value}
-                type="button"
-                variant={active ? "secondary" : "ghost"}
-                size="compactIcon"
-                aria-label={option.label}
-                title={option.label}
-                className={cn("rounded-none border-0", option.value === "compact" && "border-l border-border/70")}
-                onClick={() => onDensityChange(option.value)}
-              >
-                <Icon className="h-3.5 w-3.5" />
-              </Button>
-            )
-          })}
-        </div>
-      </div>
     </div>
   )
 }

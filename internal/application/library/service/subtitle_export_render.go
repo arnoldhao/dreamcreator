@@ -1,13 +1,11 @@
 package service
 
 import (
-	"encoding/xml"
 	"fmt"
 	"html"
 	"math"
 	"strconv"
 	"strings"
-	"time"
 
 	"dreamcreator/internal/application/library/dto"
 )
@@ -18,16 +16,25 @@ const (
 	defaultITTFrameRate              = 30
 	defaultITTFrameRateMultiplier    = "1 1"
 	defaultFCPXMLFrameDuration       = "1/30s"
+	defaultFCPXMLTimebase            = int64(60000)
 	defaultFCPXMLVersion             = "1.11"
 	defaultFCPXMLColorSpace          = "1-1-1 (Rec. 709)"
-	defaultFCPXMLStartSeconds        = int64(3600)
+	defaultFCPXMLStartSeconds        = int64(0)
+	fcpxmlBasicTitleTemplateHeight   = 1080
+	fcpxmlBasicTitleFontVisualFactor = 0.70
+	subtitleExportDisplayModeKey     = "dreamcreatorExportDisplayMode"
+	subtitleExportPrimaryTextsKey    = "dreamcreatorExportPrimaryTexts"
+	subtitleExportSecondaryTextsKey  = "dreamcreatorExportSecondaryTexts"
 )
 
 type subtitleCueSegment struct {
-	Index   int
-	StartMS int64
-	EndMS   int64
-	Text    string
+	Index         int
+	StartMS       int64
+	EndMS         int64
+	Text          string
+	PrimaryText   string
+	SecondaryText string
+	HasSecondary  bool
 }
 
 func renderSubtitleContentWithConfig(
@@ -42,7 +49,7 @@ func renderSubtitleContentWithConfig(
 	case "txt":
 		return renderTXTFromSegments(segments)
 	case "vtt":
-		return renderVTTFromSegments(segments, config)
+		return renderVTTFromSegments(segments, config, styleDocumentContent)
 	case "ass":
 		return renderASSFromSegments(segments, config, styleDocumentContent)
 	case "ssa":
@@ -64,6 +71,9 @@ func normalizeSubtitleSegments(document dto.SubtitleDocument) []subtitleCueSegme
 	if len(document.Cues) == 0 {
 		return nil
 	}
+	displayMode := normalizeSubtitleExportDisplayMode(subtitleExportMetadataString(document.Metadata, subtitleExportDisplayModeKey))
+	primaryTexts := subtitleExportMetadataStringList(document.Metadata, subtitleExportPrimaryTextsKey)
+	secondaryTexts := subtitleExportMetadataStringList(document.Metadata, subtitleExportSecondaryTextsKey)
 	segments := make([]subtitleCueSegment, 0, len(document.Cues))
 	for index, cue := range document.Cues {
 		startMS, okStart := parseTimestampToMilliseconds(cue.Start)
@@ -74,14 +84,90 @@ func normalizeSubtitleSegments(document dto.SubtitleDocument) []subtitleCueSegme
 		if !okEnd || endMS <= startMS {
 			endMS = startMS + 1000
 		}
+		primaryText := normalizeSubtitleText(cue.Text)
+		secondaryText := ""
+		if displayMode == "bilingual" {
+			if index < len(primaryTexts) && strings.TrimSpace(primaryTexts[index]) != "" {
+				primaryText = normalizeSubtitleText(primaryTexts[index])
+			}
+			if index < len(secondaryTexts) && strings.TrimSpace(secondaryTexts[index]) != "" {
+				secondaryText = normalizeSubtitleText(secondaryTexts[index])
+			}
+		}
+		text := normalizeSubtitleText(cue.Text)
+		if text == "" {
+			text = joinSubtitleExportText(primaryText, secondaryText)
+		}
 		segments = append(segments, subtitleCueSegment{
-			Index:   index + 1,
-			StartMS: startMS,
-			EndMS:   endMS,
-			Text:    strings.TrimSpace(cue.Text),
+			Index:         index + 1,
+			StartMS:       startMS,
+			EndMS:         endMS,
+			Text:          text,
+			PrimaryText:   primaryText,
+			SecondaryText: secondaryText,
+			HasSecondary:  strings.TrimSpace(secondaryText) != "",
 		})
 	}
 	return segments
+}
+
+func subtitleExportMetadataString(metadata map[string]any, key string) string {
+	if len(metadata) == 0 {
+		return ""
+	}
+	value, ok := metadata[key]
+	if !ok {
+		return ""
+	}
+	text, _ := value.(string)
+	return strings.TrimSpace(text)
+}
+
+func subtitleExportMetadataStringList(metadata map[string]any, key string) []string {
+	if len(metadata) == 0 {
+		return nil
+	}
+	value, ok := metadata[key]
+	if !ok {
+		return nil
+	}
+	switch typed := value.(type) {
+	case []string:
+		result := make([]string, 0, len(typed))
+		for _, item := range typed {
+			result = append(result, normalizeSubtitleText(item))
+		}
+		return result
+	case []any:
+		result := make([]string, 0, len(typed))
+		for _, item := range typed {
+			text, _ := item.(string)
+			result = append(result, normalizeSubtitleText(text))
+		}
+		return result
+	default:
+		return nil
+	}
+}
+
+func joinSubtitleExportText(primary string, secondary string) string {
+	parts := make([]string, 0, 2)
+	if strings.TrimSpace(primary) != "" {
+		parts = append(parts, normalizeSubtitleText(primary))
+	}
+	if strings.TrimSpace(secondary) != "" {
+		parts = append(parts, normalizeSubtitleText(secondary))
+	}
+	return strings.Join(parts, "\n")
+}
+
+func normalizeSubtitleExportDisplayMode(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "dual", "bilingual":
+		return "bilingual"
+	default:
+		return "mono"
+	}
 }
 
 func renderTXTFromSegments(segments []subtitleCueSegment) string {
@@ -111,10 +197,7 @@ func renderSRTFromSegments(segments []subtitleCueSegment) string {
 	return strings.Join(blocks, "\n\n")
 }
 
-func renderVTTFromSegments(segments []subtitleCueSegment, config *dto.SubtitleExportConfig) string {
-	if len(segments) == 0 {
-		return "WEBVTT\n"
-	}
+func renderVTTFromSegments(segments []subtitleCueSegment, config *dto.SubtitleExportConfig, styleDocumentContent string) string {
 	var builder strings.Builder
 	builder.WriteString("WEBVTT\n")
 	if config != nil && config.VTT != nil {
@@ -133,17 +216,55 @@ func renderVTTFromSegments(segments []subtitleCueSegment, config *dto.SubtitleEx
 			builder.WriteString("\n")
 		}
 	}
-	builder.WriteString("\n")
-	for index, segment := range segments {
-		if index > 0 {
+	styleDocument := resolveSubtitleExportStyleDocument(styleDocumentContent, subtitleExportStyleDocumentOptions{})
+	primaryStyle, secondaryStyle, hasSecondaryStyle := resolveSubtitleExportStylePair(styleDocument)
+	hasStyleDocument := strings.TrimSpace(styleDocumentContent) != ""
+	if hasStyleDocument {
+		builder.WriteString("\nSTYLE\n::cue {\n  white-space: pre-line;\n}\n")
+		if subtitleSegmentsUseSecondaryStyle(segments) && hasSecondaryStyle {
+			builder.WriteString(strings.Join(buildSubtitleExportVTTStyleBlock("primary", primaryStyle), "\n"))
+			builder.WriteString("\n")
+			builder.WriteString(strings.Join(buildSubtitleExportVTTStyleBlock("secondary", secondaryStyle), "\n"))
+			builder.WriteString("\n")
+		} else {
+			builder.WriteString(strings.Join(buildSubtitleExportVTTStyleBlock("mono", primaryStyle), "\n"))
 			builder.WriteString("\n")
 		}
-		builder.WriteString(fmt.Sprintf(
-			"%s --> %s\n%s\n",
-			formatVTTTimestamp(segment.StartMS),
-			formatVTTTimestamp(segment.EndMS),
-			segment.Text,
-		))
+	}
+	builder.WriteString("\n")
+	firstCueWritten := false
+	for _, segment := range segments {
+		if hasStyleDocument && segment.HasSecondary && hasSecondaryStyle {
+			if strings.TrimSpace(segment.PrimaryText) != "" {
+				if firstCueWritten {
+					builder.WriteString("\n")
+				}
+				writeStyledVTTCue(&builder, segment, "primary", segment.PrimaryText, primaryStyle, styleDocument.PlayResX, styleDocument.PlayResY)
+				firstCueWritten = true
+			}
+			if strings.TrimSpace(segment.SecondaryText) != "" {
+				if firstCueWritten {
+					builder.WriteString("\n")
+				}
+				writeStyledVTTCue(&builder, segment, "secondary", segment.SecondaryText, secondaryStyle, styleDocument.PlayResX, styleDocument.PlayResY)
+				firstCueWritten = true
+			}
+			continue
+		}
+		if firstCueWritten {
+			builder.WriteString("\n")
+		}
+		if hasStyleDocument {
+			writeStyledVTTCue(&builder, segment, "mono", segment.Text, primaryStyle, styleDocument.PlayResX, styleDocument.PlayResY)
+		} else {
+			builder.WriteString(fmt.Sprintf(
+				"%s --> %s\n%s\n",
+				formatVTTTimestamp(segment.StartMS),
+				formatVTTTimestamp(segment.EndMS),
+				segment.Text,
+			))
+		}
+		firstCueWritten = true
 	}
 	return strings.TrimRight(builder.String(), "\n") + "\n"
 }
@@ -173,16 +294,34 @@ func renderASSFromSegments(segments []subtitleCueSegment, config *dto.SubtitleEx
 			PlayResY: playResY,
 		},
 	)
-	primaryStyleName := pickSubtitleExportStyleName(styleDocument.StyleNames, []string{"Primary", "Default"}, 0)
-	if strings.TrimSpace(primaryStyleName) == "" {
-		primaryStyleName = "Default"
-	}
+	primaryStyleName, secondaryStyleName, hasSecondaryStyle := resolveSubtitleExportStyleNames(styleDocument)
 	lines := append([]string{}, styleDocument.Lines...)
 	if len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) != "" {
 		lines = append(lines, "")
 	}
 	lines = append(lines, "[Events]", fmt.Sprintf("Format: %s", styleDocument.EventFormat))
 	for _, segment := range segments {
+		if segment.HasSecondary && hasSecondaryStyle {
+			if strings.TrimSpace(segment.PrimaryText) != "" {
+				lines = append(lines, fmt.Sprintf(
+					"Dialogue: 0,%s,%s,%s,,0,0,0,,%s",
+					formatASSTimestamp(segment.StartMS),
+					formatASSTimestamp(segment.EndMS),
+					primaryStyleName,
+					escapeASSText(segment.PrimaryText),
+				))
+			}
+			if strings.TrimSpace(segment.SecondaryText) != "" {
+				lines = append(lines, fmt.Sprintf(
+					"Dialogue: 0,%s,%s,%s,,0,0,0,,%s",
+					formatASSTimestamp(segment.StartMS),
+					formatASSTimestamp(segment.EndMS),
+					secondaryStyleName,
+					escapeASSText(segment.SecondaryText),
+				))
+			}
+			continue
+		}
 		lines = append(lines, fmt.Sprintf(
 			"Dialogue: 0,%s,%s,%s,,0,0,0,,%s",
 			formatASSTimestamp(segment.StartMS),
@@ -219,11 +358,10 @@ func renderSSAFromSegments(segments []subtitleCueSegment, config *dto.SubtitleEx
 			PlayResY: playResY,
 		},
 	)
-	primaryStyle := resolvePrimarySubtitleExportStyle(styleDocument)
-	styleName := strings.TrimSpace(primaryStyle.Name)
-	if styleName == "" {
-		styleName = "Default"
-	}
+	primaryStyle, secondaryStyle, hasSecondaryStyle := resolveSubtitleExportStylePair(styleDocument)
+	useSecondaryStyle := subtitleSegmentsUseSecondaryStyle(segments) && hasSecondaryStyle
+	styleName := firstNonEmpty(strings.TrimSpace(primaryStyle.Name), "Default")
+	secondaryStyleName := firstNonEmpty(strings.TrimSpace(secondaryStyle.Name), styleName)
 	lines := []string{
 		"[Script Info]",
 		fmt.Sprintf("Title: %s", title),
@@ -233,16 +371,18 @@ func renderSSAFromSegments(segments []subtitleCueSegment, config *dto.SubtitleEx
 		"",
 		"[V4 Styles]",
 		"Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, TertiaryColour, BackColour, Bold, Italic, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, AlphaLevel, Encoding",
+	}
+	lines = append(lines,
 		fmt.Sprintf(
 			"Style: %s,%s,%s,%s,%s,0,%s,%d,%d,%d,%s,%s,%d,%d,%d,%d,0,1",
 			styleName,
-			firstNonEmpty(strings.TrimSpace(primaryStyle.FontName), "Arial"),
+			resolveSubtitleExportASSFontName(primaryStyle),
 			formatSubtitleExportFloat(primaryStyle.FontSize),
 			formatSubtitleExportLegacySSAColor(primaryStyle.PrimaryColor),
 			formatSubtitleExportLegacySSAColor(primaryStyle.PrimaryColor),
 			formatSubtitleExportLegacySSAColor(primaryStyle.BackColor),
-			boolToSSAFlag(primaryStyle.Bold),
-			boolToSSAFlag(primaryStyle.Italic),
+			boolToSSAFlag(resolveSubtitleExportASSBold(primaryStyle)),
+			boolToSSAFlag(resolveSubtitleExportASSItalic(primaryStyle)),
 			maxInt(1, primaryStyle.BorderStyle),
 			formatSubtitleExportFloat(primaryStyle.Outline),
 			formatSubtitleExportFloat(primaryStyle.Shadow),
@@ -251,11 +391,54 @@ func renderSSAFromSegments(segments []subtitleCueSegment, config *dto.SubtitleEx
 			maxInt(0, primaryStyle.MarginR),
 			maxInt(0, primaryStyle.MarginV),
 		),
+	)
+	if useSecondaryStyle {
+		lines = append(lines, fmt.Sprintf(
+			"Style: %s,%s,%s,%s,%s,0,%s,%d,%d,%d,%s,%s,%d,%d,%d,%d,0,1",
+			secondaryStyleName,
+			resolveSubtitleExportASSFontName(secondaryStyle),
+			formatSubtitleExportFloat(secondaryStyle.FontSize),
+			formatSubtitleExportLegacySSAColor(secondaryStyle.PrimaryColor),
+			formatSubtitleExportLegacySSAColor(secondaryStyle.PrimaryColor),
+			formatSubtitleExportLegacySSAColor(secondaryStyle.BackColor),
+			boolToSSAFlag(resolveSubtitleExportASSBold(secondaryStyle)),
+			boolToSSAFlag(resolveSubtitleExportASSItalic(secondaryStyle)),
+			maxInt(1, secondaryStyle.BorderStyle),
+			formatSubtitleExportFloat(secondaryStyle.Outline),
+			formatSubtitleExportFloat(secondaryStyle.Shadow),
+			maxInt(1, secondaryStyle.Alignment),
+			maxInt(0, secondaryStyle.MarginL),
+			maxInt(0, secondaryStyle.MarginR),
+			maxInt(0, secondaryStyle.MarginV),
+		))
+	}
+	lines = append(lines,
 		"",
 		"[Events]",
 		"Format: Marked, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
-	}
+	)
 	for _, segment := range segments {
+		if segment.HasSecondary && useSecondaryStyle {
+			if strings.TrimSpace(segment.PrimaryText) != "" {
+				lines = append(lines, fmt.Sprintf(
+					"Dialogue: Marked=0,%s,%s,%s,,0,0,0,,%s",
+					formatASSTimestamp(segment.StartMS),
+					formatASSTimestamp(segment.EndMS),
+					styleName,
+					escapeASSText(segment.PrimaryText),
+				))
+			}
+			if strings.TrimSpace(segment.SecondaryText) != "" {
+				lines = append(lines, fmt.Sprintf(
+					"Dialogue: Marked=0,%s,%s,%s,,0,0,0,,%s",
+					formatASSTimestamp(segment.StartMS),
+					formatASSTimestamp(segment.EndMS),
+					secondaryStyleName,
+					escapeASSText(segment.SecondaryText),
+				))
+			}
+			continue
+		}
 		lines = append(lines, fmt.Sprintf(
 			"Dialogue: Marked=0,%s,%s,%s,,0,0,0,,%s",
 			formatASSTimestamp(segment.StartMS),
@@ -279,7 +462,8 @@ func renderITTFromSegments(segments []subtitleCueSegment, config *dto.SubtitleEx
 		language = "en-US"
 	}
 	styleDocument := resolveSubtitleExportStyleDocument(styleDocumentContent, subtitleExportStyleDocumentOptions{})
-	primaryStyle := resolvePrimarySubtitleExportStyle(styleDocument)
+	primaryStyle, secondaryStyle, hasSecondaryStyle := resolveSubtitleExportStylePair(styleDocument)
+	useSecondaryStyle := subtitleSegmentsUseSecondaryStyle(segments) && hasSecondaryStyle
 	var builder strings.Builder
 	builder.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
 	builder.WriteString(`<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttp="http://www.w3.org/ns/ttml#parameter" xmlns:tts="http://www.w3.org/ns/ttml#styling" xml:lang="`)
@@ -289,195 +473,318 @@ func renderITTFromSegments(segments []subtitleCueSegment, config *dto.SubtitleEx
 	builder.WriteString(`" ttp:frameRateMultiplier="`)
 	builder.WriteString(frameRateMultiplier)
 	builder.WriteString(`">` + "\n")
-	builder.WriteString("  <head>\n    <styling>\n      <style xml:id=\"s1\"")
-	if primaryStyle.FontName != "" {
-		builder.WriteString(` tts:fontFamily="`)
-		builder.WriteString(html.EscapeString(primaryStyle.FontName))
-		builder.WriteString(`"`)
+	builder.WriteString("  <head>\n    <styling>\n")
+	writeITTStyleDefinition(&builder, "s1", primaryStyle)
+	if useSecondaryStyle {
+		writeITTStyleDefinition(&builder, "s2", secondaryStyle)
 	}
-	if primaryStyle.FontSize > 0 {
-		builder.WriteString(` tts:fontSize="`)
-		builder.WriteString(formatSubtitleExportFloat(primaryStyle.FontSize))
-		builder.WriteString(`px"`)
-	}
-	if primaryStyle.Bold {
-		builder.WriteString(` tts:fontWeight="bold"`)
-	}
-	if primaryStyle.Italic {
-		builder.WriteString(` tts:fontStyle="italic"`)
-	}
-	if primaryStyle.PrimaryColor.Alpha > 0 {
-		builder.WriteString(` tts:color="`)
-		builder.WriteString(formatSubtitleExportHexColor(primaryStyle.PrimaryColor))
-		builder.WriteString(`"`)
-	}
-	if primaryStyle.BorderStyle == 3 && primaryStyle.BackColor.Alpha > 0 {
-		builder.WriteString(` tts:backgroundColor="`)
-		builder.WriteString(formatSubtitleExportHexColor(primaryStyle.BackColor))
-		builder.WriteString(`"`)
-	}
-	if textOutline := formatSubtitleExportTTMLTextOutline(primaryStyle); textOutline != "" {
-		builder.WriteString(` tts:textOutline="`)
-		builder.WriteString(html.EscapeString(textOutline))
-		builder.WriteString(`"`)
-	}
-	builder.WriteString(` tts:textAlign="`)
-	builder.WriteString(resolveSubtitleExportTextAlign(primaryStyle.Alignment))
-	builder.WriteString(`" tts:displayAlign="`)
-	builder.WriteString(resolveSubtitleExportDisplayAlign(primaryStyle.Alignment))
-	builder.WriteString(`"/>` + "\n")
 	builder.WriteString("    </styling>\n  </head>\n")
-	builder.WriteString("  <body style=\"s1\">\n    <div>\n")
+	if useSecondaryStyle {
+		builder.WriteString("  <body>\n")
+	} else {
+		builder.WriteString("  <body style=\"s1\">\n")
+	}
+	builder.WriteString("    <div>\n")
 	for _, segment := range segments {
-		builder.WriteString(`      <p begin="`)
-		builder.WriteString(formatVTTTimestamp(segment.StartMS))
-		builder.WriteString(`" end="`)
-		builder.WriteString(formatVTTTimestamp(segment.EndMS))
-		builder.WriteString(`">`)
-		writeTTMLParagraphText(&builder, segment.Text)
-		builder.WriteString("</p>\n")
+		if useSecondaryStyle && segment.HasSecondary {
+			if strings.TrimSpace(segment.PrimaryText) != "" {
+				writeITTParagraph(&builder, "s1", segment.StartMS, segment.EndMS, segment.PrimaryText, true)
+			}
+			if strings.TrimSpace(segment.SecondaryText) != "" {
+				writeITTParagraph(&builder, "s2", segment.StartMS, segment.EndMS, segment.SecondaryText, true)
+			}
+			continue
+		}
+		writeITTParagraph(&builder, "s1", segment.StartMS, segment.EndMS, segment.Text, useSecondaryStyle)
 	}
 	builder.WriteString("    </div>\n  </body>\n</tt>\n")
 	return builder.String()
 }
 
-func renderFCPXMLFromSegments(segments []subtitleCueSegment, config *dto.SubtitleExportConfig, styleDocumentContent string) string {
-	fcpConfig := dto.SubtitleFCPXMLExportConfig{}
-	if config != nil && config.FCPXML != nil {
-		fcpConfig = *config.FCPXML
+func resolveSubtitleExportStylePair(document subtitleExportStyleDocument) (subtitleExportStyle, subtitleExportStyle, bool) {
+	primary := resolvePrimarySubtitleExportStyle(document)
+	secondary, ok := resolveSecondarySubtitleExportStyle(document, primary)
+	if !ok {
+		return primary, subtitleExportStyle{}, false
 	}
-	frameDuration := normalizeFCPXMLFrameDuration(fcpConfig.FrameDuration)
-	width := fcpConfig.Width
-	if width <= 0 {
-		width = defaultSubtitleExportResolutionX
-	}
-	height := fcpConfig.Height
-	if height <= 0 {
-		height = defaultSubtitleExportResolutionY
-	}
-	colorSpace := strings.TrimSpace(fcpConfig.ColorSpace)
-	if colorSpace == "" {
-		colorSpace = defaultFCPXMLColorSpace
-	}
-	projectName := strings.TrimSpace(fcpConfig.ProjectName)
-	if projectName == "" {
-		projectName = "DreamCreator Project"
-	}
-	libraryName := strings.TrimSpace(fcpConfig.LibraryName)
-	if libraryName == "" {
-		libraryName = projectName + "_Library"
-	}
-	eventName := strings.TrimSpace(fcpConfig.EventName)
-	if eventName == "" {
-		eventName = projectName + "_Event"
-	}
-	version := strings.TrimSpace(fcpConfig.Version)
-	if version == "" {
-		version = defaultFCPXMLVersion
-	}
-	defaultLane := fcpConfig.DefaultLane
-	if defaultLane == 0 {
-		defaultLane = 1
-	}
-	startSeconds := fcpConfig.StartTimecodeSeconds
-	if startSeconds <= 0 {
-		startSeconds = defaultFCPXMLStartSeconds
-	}
-	styleDocument := resolveSubtitleExportStyleDocument(styleDocumentContent, subtitleExportStyleDocumentOptions{})
-	primaryStyle := resolvePrimarySubtitleExportStyle(styleDocument)
-	startMS := startSeconds * 1000
-	totalDurationMS := int64(10000)
-	if len(segments) > 0 {
-		last := segments[len(segments)-1]
-		if last.EndMS > 0 {
-			totalDurationMS = last.EndMS
-		}
-	}
-	titles := make([]fcpxmlTitle, 0, len(segments))
+	return primary, secondary, true
+}
+
+func resolveSubtitleExportStyleNames(document subtitleExportStyleDocument) (string, string, bool) {
+	primary, secondary, hasSecondary := resolveSubtitleExportStylePair(document)
+	primaryName := firstNonEmpty(strings.TrimSpace(primary.Name), "Default")
+	secondaryName := firstNonEmpty(strings.TrimSpace(secondary.Name), primaryName)
+	return primaryName, secondaryName, hasSecondary
+}
+
+func subtitleSegmentsUseSecondaryStyle(segments []subtitleCueSegment) bool {
 	for _, segment := range segments {
-		if strings.TrimSpace(segment.Text) == "" {
-			continue
+		if segment.HasSecondary && strings.TrimSpace(segment.SecondaryText) != "" {
+			return true
 		}
-		title := fcpxmlTitle{
-			Name:     segment.Text,
-			Lane:     defaultLane,
-			Offset:   formatFCPXMLDuration(startMS + segment.StartMS),
-			Ref:      "r2",
-			Duration: formatFCPXMLDuration(segment.EndMS - segment.StartMS),
-			Start:    fmt.Sprintf("%ds", startSeconds),
-			Text: &fcpxmlText{
-				TextStyle: []fcpxmlTextStyle{{
-					Ref:     "ts1",
-					Content: segment.Text,
-				}},
-			},
+	}
+	return false
+}
+
+func resolveSubtitleExportPlayRes(document subtitleExportStyleDocument) (int, int) {
+	playResX := document.PlayResX
+	if playResX <= 0 {
+		playResX = defaultSubtitleExportResolutionX
+	}
+	playResY := document.PlayResY
+	if playResY <= 0 {
+		playResY = defaultSubtitleExportResolutionY
+	}
+	return playResX, playResY
+}
+
+func buildSubtitleExportVTTStyleBlock(className string, style subtitleExportStyle) []string {
+	textDecoration := "none"
+	if style.Underline || style.StrikeOut {
+		parts := make([]string, 0, 2)
+		if style.Underline {
+			parts = append(parts, "underline")
 		}
-		if len(titles) == 0 {
-			title.TextStyleDef = []fcpxmlTextStyleDef{{
-				ID: "ts1",
-				TextStyle: &fcpxmlTextStyleAttr{
-					Font:      primaryStyle.FontName,
-					FontSize:  formatSubtitleExportFloat(primaryStyle.FontSize),
-					Alignment: resolveSubtitleExportTextAlign(primaryStyle.Alignment),
-					Bold:      boolToFCPXMLFlag(primaryStyle.Bold),
-					Italic:    boolToFCPXMLFlag(primaryStyle.Italic),
-				},
-			}}
+		if style.StrikeOut {
+			parts = append(parts, "line-through")
 		}
-		titles = append(titles, title)
+		textDecoration = strings.Join(parts, " ")
 	}
-	doc := fcpxmlRoot{
-		Version: version,
-		Resources: fcpxmlResources{
-			Formats: []fcpxmlFormat{{
-				ID:            "r1",
-				Name:          fmt.Sprintf("FFVideoFormat%dx%d_%s", width, height, sanitizeFCPXMLFormatToken(frameDuration)),
-				FrameDuration: frameDuration,
-				Width:         width,
-				Height:        height,
-				ColorSpace:    colorSpace,
-			}},
-			Effects: []fcpxmlEffect{{
-				ID:   "r2",
-				Name: "Basic Title",
-				UID:  ".../Titles.localized/Bumper:Opener.localized/Basic Title.localized/Basic Title.moti",
-			}},
-		},
-		Library: fcpxmlLibrary{
-			Location: fmt.Sprintf("file:///root/Movies/%s.fcpbundle", sanitizeFCPXMLName(libraryName)),
-			Events: []fcpxmlEvent{{
-				Name: eventName,
-				UID:  "event-1",
-				Projects: []fcpxmlProject{{
-					Name:    projectName,
-					UID:     "project-1",
-					ModDate: serviceTimestampNow(),
-					Sequence: fcpxmlSequence{
-						Duration:    formatFCPXMLDuration(totalDurationMS),
-						Format:      "r1",
-						TCStart:     "0s",
-						TCFormat:    "NDF",
-						AudioLayout: "stereo",
-						AudioRate:   "48k",
-						Spine: fcpxmlSpine{
-							Gap: fcpxmlGap{
-								Name:     "Gap",
-								Offset:   "0s",
-								Duration: formatFCPXMLDuration(totalDurationMS),
-								Start:    fmt.Sprintf("%ds", startSeconds),
-								Titles:   titles,
-							},
-						},
-					},
-				}},
-			}},
-		},
+	backgroundColor := "transparent"
+	if style.BorderStyle == 3 && style.BackColor.Alpha > 0 {
+		backgroundColor = formatSubtitleExportVTTRGBA(style.BackColor, "transparent")
 	}
-	xmlData, err := xml.MarshalIndent(doc, "", "  ")
-	if err != nil {
-		return renderSRTFromSegments(segments)
+	paddingX := "0px"
+	paddingY := "0px"
+	if style.BorderStyle == 3 {
+		paddingX = "8px"
+		paddingY = "4px"
 	}
-	return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE fcpxml>\n\n" + string(xmlData) + "\n"
+	return []string{
+		fmt.Sprintf("::cue(.%s) {", className),
+		fmt.Sprintf("  font-family: %s;", formatSubtitleExportVTTFontFamily(style.FontName)),
+		fmt.Sprintf("  font-size: %s;", formatSubtitleExportVTTLength(maxFloat64(1, style.FontSize))),
+		fmt.Sprintf("  line-height: %s;", formatSubtitleExportVTTLength(maxFloat64(1, style.FontSize*1.2))),
+		fmt.Sprintf("  font-weight: %s;", resolveSubtitleExportVTTFontWeight(style)),
+		fmt.Sprintf("  font-style: %s;", boolToString(style.Italic, "italic", "normal")),
+		fmt.Sprintf("  text-decoration: %s;", textDecoration),
+		fmt.Sprintf("  letter-spacing: %s;", formatSubtitleExportVTTLength(style.Spacing)),
+		fmt.Sprintf("  color: %s;", formatSubtitleExportVTTRGBA(style.PrimaryColor, "rgba(255, 255, 255, 1)")),
+		fmt.Sprintf("  background-color: %s;", backgroundColor),
+		fmt.Sprintf("  padding: %s %s;", paddingY, paddingX),
+		fmt.Sprintf("  text-shadow: %s;", buildSubtitleExportVTTTextShadow(style)),
+		"}",
+	}
+}
+
+func writeStyledVTTCue(builder *strings.Builder, segment subtitleCueSegment, className string, text string, style subtitleExportStyle, playResX int, playResY int) {
+	resolvedPlayResX := playResX
+	if resolvedPlayResX <= 0 {
+		resolvedPlayResX = defaultSubtitleExportResolutionX
+	}
+	resolvedPlayResY := playResY
+	if resolvedPlayResY <= 0 {
+		resolvedPlayResY = defaultSubtitleExportResolutionY
+	}
+	builder.WriteString(formatVTTCueTiming(
+		formatVTTTimestamp(segment.StartMS),
+		formatVTTTimestamp(segment.EndMS),
+		buildSubtitleExportVTTCueSettings(style, resolvedPlayResX, resolvedPlayResY),
+	))
+	builder.WriteString("\n")
+	builder.WriteString(fmt.Sprintf("<c.%s>%s</c>\n", className, escapeVTTStyledCueText(text)))
+}
+
+func formatSubtitleExportVTTFontFamily(value string) string {
+	safe := strings.TrimSpace(value)
+	if safe == "" {
+		return "sans-serif"
+	}
+	escaped := strings.ReplaceAll(safe, `"`, `\"`)
+	return fmt.Sprintf("\"%s\", sans-serif", escaped)
+}
+
+func formatSubtitleExportVTTLength(value float64) string {
+	return fmt.Sprintf("%spx", formatSubtitleExportVTTRaw(value))
+}
+
+func formatSubtitleExportVTTRaw(value float64) string {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return "0"
+	}
+	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", value), "0"), ".")
+}
+
+func formatSubtitleExportVTTRGBA(color subtitleExportColor, fallback string) string {
+	if color.Alpha == 0 && color.Red == 0 && color.Green == 0 && color.Blue == 0 {
+		return fallback
+	}
+	alpha := float64(color.Alpha) / 255
+	return fmt.Sprintf(
+		"rgba(%d, %d, %d, %s)",
+		color.Red,
+		color.Green,
+		color.Blue,
+		strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.3f", alpha), "0"), "."),
+	)
+}
+
+func buildSubtitleExportVTTTextShadow(style subtitleExportStyle) string {
+	outline := maxFloat64(0, style.Outline)
+	shadow := maxFloat64(0, style.Shadow)
+	layers := make([]string, 0, 10)
+	if outline > 0 && style.OutlineColor.Alpha > 0 {
+		offsets := [][2]float64{
+			{-outline, 0},
+			{outline, 0},
+			{0, -outline},
+			{0, outline},
+			{-outline, -outline},
+			{outline, -outline},
+			{-outline, outline},
+			{outline, outline},
+		}
+		outlineColor := formatSubtitleExportVTTRGBA(style.OutlineColor, "rgba(0, 0, 0, 0.85)")
+		for _, offset := range offsets {
+			layers = append(layers, fmt.Sprintf("%spx %spx 0 %s", formatSubtitleExportVTTRaw(offset[0]), formatSubtitleExportVTTRaw(offset[1]), outlineColor))
+		}
+	}
+	if shadow > 0 && style.BackColor.Alpha > 0 {
+		blur := maxFloat64(1, shadow*1.6)
+		shadowColor := formatSubtitleExportVTTRGBA(style.BackColor, "rgba(0, 0, 0, 0.45)")
+		layers = append(layers, fmt.Sprintf("%spx %spx %spx %s", formatSubtitleExportVTTRaw(shadow), formatSubtitleExportVTTRaw(shadow), formatSubtitleExportVTTRaw(blur), shadowColor))
+	}
+	if len(layers) == 0 {
+		return "none"
+	}
+	return strings.Join(layers, ", ")
+}
+
+func buildSubtitleExportVTTCueSettings(style subtitleExportStyle, playResX int, playResY int) string {
+	anchorHorizontal := "center"
+	switch style.Alignment {
+	case 1, 4, 7:
+		anchorHorizontal = "start"
+	case 3, 6, 9:
+		anchorHorizontal = "end"
+	}
+	anchorVertical := "bottom"
+	switch style.Alignment {
+	case 7, 8, 9:
+		anchorVertical = "top"
+	case 4, 5, 6:
+		anchorVertical = "middle"
+	}
+	leftPercent := subtitleExportPercent(style.MarginL, playResX)
+	rightPercent := subtitleExportPercent(style.MarginR, playResX)
+	sizePercent := clampSubtitleExportPercent(100-leftPercent-rightPercent, 10, 100)
+	positionPercent := 50.0
+	switch anchorHorizontal {
+	case "start":
+		positionPercent = clampSubtitleExportPercent(leftPercent, 0, 100)
+	case "end":
+		positionPercent = clampSubtitleExportPercent(100-rightPercent, 0, 100)
+	default:
+		positionPercent = clampSubtitleExportPercent(leftPercent+sizePercent/2, 0, 100)
+	}
+	linePercent := 50.0
+	switch anchorVertical {
+	case "top":
+		linePercent = clampSubtitleExportPercent(subtitleExportPercent(style.MarginV, playResY), 0, 100)
+	case "bottom":
+		linePercent = clampSubtitleExportPercent(100-subtitleExportPercent(style.MarginV, playResY), 0, 100)
+	}
+	return fmt.Sprintf(
+		"line:%s position:%s size:%s align:%s",
+		formatSubtitleExportVTTPercent(linePercent),
+		formatSubtitleExportVTTPercent(positionPercent),
+		formatSubtitleExportVTTPercent(sizePercent),
+		anchorHorizontal,
+	)
+}
+
+func subtitleExportPercent(value int, total int) float64 {
+	if total <= 0 {
+		return 0
+	}
+	return (float64(maxInt(0, value)) / float64(total)) * 100
+}
+
+func clampSubtitleExportPercent(value float64, minValue float64, maxValue float64) float64 {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return minValue
+	}
+	return math.Min(maxValue, math.Max(minValue, value))
+}
+
+func formatSubtitleExportVTTPercent(value float64) string {
+	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", value), "0"), ".") + "%"
+}
+
+func escapeVTTStyledCueText(value string) string {
+	normalized := normalizeSubtitleText(value)
+	normalized = strings.ReplaceAll(normalized, "&", "&amp;")
+	normalized = strings.ReplaceAll(normalized, "<", "&lt;")
+	normalized = strings.ReplaceAll(normalized, ">", "&gt;")
+	return normalized
+}
+
+func writeITTStyleDefinition(builder *strings.Builder, id string, style subtitleExportStyle) {
+	builder.WriteString(`      <style xml:id="`)
+	builder.WriteString(html.EscapeString(id))
+	builder.WriteString(`"`)
+	if fontFamily := resolveSubtitleExportTTMLFontFamily(style); fontFamily != "" {
+		builder.WriteString(` tts:fontFamily="`)
+		builder.WriteString(html.EscapeString(fontFamily))
+		builder.WriteString(`"`)
+	}
+	if style.FontSize > 0 {
+		builder.WriteString(` tts:fontSize="`)
+		builder.WriteString(formatSubtitleExportFloat(style.FontSize))
+		builder.WriteString(`px"`)
+	}
+	if resolveSubtitleExportFontWeight(style) >= 700 || style.Bold {
+		builder.WriteString(` tts:fontWeight="bold"`)
+	}
+	if style.Italic {
+		builder.WriteString(` tts:fontStyle="italic"`)
+	}
+	if style.PrimaryColor.Alpha > 0 {
+		builder.WriteString(` tts:color="`)
+		builder.WriteString(formatSubtitleExportHexColor(style.PrimaryColor))
+		builder.WriteString(`"`)
+	}
+	if style.BorderStyle == 3 && style.BackColor.Alpha > 0 {
+		builder.WriteString(` tts:backgroundColor="`)
+		builder.WriteString(formatSubtitleExportHexColor(style.BackColor))
+		builder.WriteString(`"`)
+	}
+	if textOutline := formatSubtitleExportTTMLTextOutline(style); textOutline != "" {
+		builder.WriteString(` tts:textOutline="`)
+		builder.WriteString(html.EscapeString(textOutline))
+		builder.WriteString(`"`)
+	}
+	builder.WriteString(` tts:textAlign="`)
+	builder.WriteString(resolveSubtitleExportTextAlign(style.Alignment))
+	builder.WriteString(`" tts:displayAlign="`)
+	builder.WriteString(resolveSubtitleExportDisplayAlign(style.Alignment))
+	builder.WriteString(`"/>` + "\n")
+}
+
+func writeITTParagraph(builder *strings.Builder, styleID string, startMS int64, endMS int64, text string, includeStyle bool) {
+	builder.WriteString(`      <p`)
+	if includeStyle {
+		builder.WriteString(` style="`)
+		builder.WriteString(html.EscapeString(styleID))
+		builder.WriteString(`"`)
+	}
+	builder.WriteString(` begin="`)
+	builder.WriteString(formatVTTTimestamp(startMS))
+	builder.WriteString(`" end="`)
+	builder.WriteString(formatVTTTimestamp(endMS))
+	builder.WriteString(`">`)
+	writeTTMLParagraphText(builder, text)
+	builder.WriteString("</p>\n")
 }
 
 func writeTTMLParagraphText(builder *strings.Builder, text string) {
@@ -489,13 +796,6 @@ func writeTTMLParagraphText(builder *strings.Builder, text string) {
 		}
 		builder.WriteString(html.EscapeString(line))
 	}
-}
-
-func boolToFCPXMLFlag(value bool) int {
-	if value {
-		return 1
-	}
-	return 0
 }
 
 func boolToSSAFlag(value bool) int {
@@ -618,74 +918,70 @@ func escapeASSText(text string) string {
 	return escaped
 }
 
-func formatFCPXMLDuration(ms int64) string {
-	if ms <= 0 {
-		return "0s"
-	}
-	numerator := ms
-	denominator := int64(1000)
-	divisor := gcdInt64(numerator, denominator)
-	if divisor > 0 {
-		numerator /= divisor
-		denominator /= divisor
-	}
-	if denominator == 1 {
-		return fmt.Sprintf("%ds", numerator)
-	}
-	return fmt.Sprintf("%d/%ds", numerator, denominator)
+func resolveSubtitleExportASSFontName(style subtitleExportStyle) string {
+	return resolveASSCompatibleFontName(style.FontName, "Arial")
 }
 
-func sanitizeFCPXMLName(value string) string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "DreamCreator"
+func resolveSubtitleExportTTMLFontFamily(style subtitleExportStyle) string {
+	if postScript := strings.TrimSpace(style.FontPostScriptName); postScript != "" {
+		return postScript
 	}
-	return strings.ReplaceAll(trimmed, "/", "_")
+	return strings.TrimSpace(style.FontName)
 }
 
-func sanitizeFCPXMLFormatToken(value string) string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "1_30s"
+func resolveSubtitleExportFontWeight(style subtitleExportStyle) int {
+	if style.FontWeight > 0 {
+		return style.FontWeight
 	}
-	replacer := strings.NewReplacer("/", "_", " ", "_", ".", "_")
-	return replacer.Replace(trimmed)
+	if style.Bold {
+		return 700
+	}
+	return 400
 }
 
-func normalizeFCPXMLFrameDuration(value string) string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return defaultFCPXMLFrameDuration
-	}
-	if _, _, ok := parseFCPXMLRationalTime(trimmed); ok {
-		return trimmed
-	}
-	return defaultFCPXMLFrameDuration
+func resolveSubtitleExportVTTFontWeight(style subtitleExportStyle) string {
+	return strconv.Itoa(resolveSubtitleExportFontWeight(style))
 }
 
-func parseFCPXMLRationalTime(value string) (int64, int64, bool) {
-	trimmed := strings.TrimSpace(value)
-	if !strings.HasSuffix(trimmed, "s") {
-		return 0, 0, false
+func resolveSubtitleExportASSBold(style subtitleExportStyle) bool {
+	if style.Bold {
+		return true
 	}
-	core := strings.TrimSpace(strings.TrimSuffix(trimmed, "s"))
-	if core == "" {
-		return 0, 0, false
+	return resolveSubtitleExportASSWeight(style) >= 600
+}
+
+func resolveSubtitleExportASSItalic(style subtitleExportStyle) bool {
+	if style.Italic {
+		return true
 	}
-	if strings.Contains(core, "/") {
-		parts := strings.SplitN(core, "/", 2)
-		numerator, errNum := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
-		denominator, errDen := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
-		if errNum != nil || errDen != nil || numerator <= 0 || denominator <= 0 {
-			return 0, 0, false
-		}
-		return numerator, denominator, true
+	return assFontFaceImpliesItalic(style.FontFace)
+}
+
+func resolveSubtitleExportASSWeight(style subtitleExportStyle) int {
+	if style.FontWeight > 0 {
+		return style.FontWeight
 	}
-	seconds, err := strconv.ParseInt(core, 10, 64)
-	if err != nil || seconds <= 0 {
-		return 0, 0, false
+	return deriveSubtitleExportFontWeight(style.FontFace, style.FontPostScriptName, style.FontName, style.Bold)
+}
+
+func resolveASSCompatibleFontName(fontName string, fallback string) string {
+	trimmedName := strings.TrimSpace(fontName)
+	if trimmedName == "" {
+		return fallback
 	}
-	return seconds, 1, true
+	return trimmedName
+}
+
+func assFontFaceImpliesItalic(fontFace string) bool {
+	normalized := normalizeASSFontIdentityValue(fontFace)
+	return strings.Contains(normalized, "italic") || strings.Contains(normalized, "oblique")
+}
+
+func normalizeASSFontIdentityValue(value string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	normalized = strings.ReplaceAll(normalized, "-", " ")
+	normalized = strings.Join(strings.Fields(normalized), " ")
+	return normalized
 }
 
 func normalizeITTFrameRate(value int) int {
@@ -713,26 +1009,6 @@ func normalizeITTFrameRateMultiplier(value string) string {
 	return fmt.Sprintf("%d %d", numerator, denominator)
 }
 
-func gcdInt64(left int64, right int64) int64 {
-	if left < 0 {
-		left = -left
-	}
-	if right < 0 {
-		right = -right
-	}
-	for right != 0 {
-		left, right = right, left%right
-	}
-	if left == 0 {
-		return 1
-	}
-	return left
-}
-
-func serviceTimestampNow() string {
-	return time.Now().UTC().Format("2006-01-02 15:04:05 -0700")
-}
-
 func maxInt64(left int64, right int64) int64 {
 	if left > right {
 		return left
@@ -745,104 +1021,4 @@ func maxInt(left int, right int) int {
 		return left
 	}
 	return right
-}
-
-type fcpxmlRoot struct {
-	XMLName   xml.Name        `xml:"fcpxml"`
-	Version   string          `xml:"version,attr"`
-	Resources fcpxmlResources `xml:"resources"`
-	Library   fcpxmlLibrary   `xml:"library"`
-}
-
-type fcpxmlResources struct {
-	Formats []fcpxmlFormat `xml:"format"`
-	Effects []fcpxmlEffect `xml:"effect,omitempty"`
-}
-
-type fcpxmlFormat struct {
-	ID            string `xml:"id,attr"`
-	Name          string `xml:"name,attr,omitempty"`
-	FrameDuration string `xml:"frameDuration,attr"`
-	Width         int    `xml:"width,attr,omitempty"`
-	Height        int    `xml:"height,attr,omitempty"`
-	ColorSpace    string `xml:"colorSpace,attr,omitempty"`
-}
-
-type fcpxmlEffect struct {
-	ID   string `xml:"id,attr"`
-	Name string `xml:"name,attr"`
-	UID  string `xml:"uid,attr"`
-}
-
-type fcpxmlLibrary struct {
-	Location string        `xml:"location,attr,omitempty"`
-	Events   []fcpxmlEvent `xml:"event"`
-}
-
-type fcpxmlEvent struct {
-	Name     string          `xml:"name,attr"`
-	UID      string          `xml:"uid,attr,omitempty"`
-	Projects []fcpxmlProject `xml:"project"`
-}
-
-type fcpxmlProject struct {
-	Name     string         `xml:"name,attr"`
-	UID      string         `xml:"uid,attr,omitempty"`
-	ModDate  string         `xml:"modDate,attr,omitempty"`
-	Sequence fcpxmlSequence `xml:"sequence"`
-}
-
-type fcpxmlSequence struct {
-	Duration    string      `xml:"duration,attr"`
-	Format      string      `xml:"format,attr"`
-	TCStart     string      `xml:"tcStart,attr,omitempty"`
-	TCFormat    string      `xml:"tcFormat,attr,omitempty"`
-	AudioLayout string      `xml:"audioLayout,attr,omitempty"`
-	AudioRate   string      `xml:"audioRate,attr,omitempty"`
-	Spine       fcpxmlSpine `xml:"spine"`
-}
-
-type fcpxmlSpine struct {
-	Gap fcpxmlGap `xml:"gap"`
-}
-
-type fcpxmlGap struct {
-	Name     string        `xml:"name,attr,omitempty"`
-	Offset   string        `xml:"offset,attr,omitempty"`
-	Duration string        `xml:"duration,attr,omitempty"`
-	Start    string        `xml:"start,attr,omitempty"`
-	Titles   []fcpxmlTitle `xml:"title,omitempty"`
-}
-
-type fcpxmlTitle struct {
-	Name         string               `xml:"name,attr,omitempty"`
-	Lane         int                  `xml:"lane,attr,omitempty"`
-	Offset       string               `xml:"offset,attr,omitempty"`
-	Ref          string               `xml:"ref,attr,omitempty"`
-	Duration     string               `xml:"duration,attr,omitempty"`
-	Start        string               `xml:"start,attr,omitempty"`
-	Text         *fcpxmlText          `xml:"text,omitempty"`
-	TextStyleDef []fcpxmlTextStyleDef `xml:"text-style-def,omitempty"`
-}
-
-type fcpxmlText struct {
-	TextStyle []fcpxmlTextStyle `xml:"text-style,omitempty"`
-}
-
-type fcpxmlTextStyle struct {
-	Ref     string `xml:"ref,attr,omitempty"`
-	Content string `xml:",chardata"`
-}
-
-type fcpxmlTextStyleDef struct {
-	ID        string               `xml:"id,attr,omitempty"`
-	TextStyle *fcpxmlTextStyleAttr `xml:"text-style,omitempty"`
-}
-
-type fcpxmlTextStyleAttr struct {
-	Font      string `xml:"font,attr,omitempty"`
-	FontSize  string `xml:"fontSize,attr,omitempty"`
-	Alignment string `xml:"alignment,attr,omitempty"`
-	Bold      int    `xml:"bold,attr,omitempty"`
-	Italic    int    `xml:"italic,attr,omitempty"`
 }
