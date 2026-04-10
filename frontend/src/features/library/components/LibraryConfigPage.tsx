@@ -162,6 +162,7 @@ import {
   resolveSubtitleStyleSources,
   sortSubtitleStyleSources,
 } from "../utils/subtitleStyles";
+import { formatTemplate } from "../utils/i18n";
 
 function ConditionalPanel({
   active,
@@ -241,6 +242,10 @@ type SyncRemoteFontSourceResult = {
   syncStatus: string;
   lastSyncedAt?: string;
   lastError?: string;
+};
+
+type RefreshFontCatalogResult = {
+  familyCount?: number;
 };
 
 type LanguageConfigItem = {
@@ -491,6 +496,7 @@ export function LibraryConfigPage({
   const [syncingFontSources, setSyncingFontSources] = React.useState<
     Record<string, true>
   >({});
+  const [refreshingFontList, setRefreshingFontList] = React.useState(false);
   const customLanguageRowIDCounterRef = React.useRef(0);
   const createCustomLanguageRowID = React.useCallback(
     () =>
@@ -2058,6 +2064,48 @@ export function LibraryConfigPage({
     [subtitleStyleFontSources],
   );
 
+  const syncFontCatalogQueries = React.useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: FONT_FAMILIES_QUERY_KEY,
+        refetchType: "all",
+      }),
+      queryClient.invalidateQueries({
+        queryKey: FONT_CATALOG_QUERY_KEY,
+        refetchType: "all",
+      }),
+    ]);
+  }, [queryClient]);
+
+  const handleRefreshFontList = React.useCallback(async () => {
+    setRefreshingFontList(true);
+    try {
+      const result = (await Call.ByName(
+        "dreamcreator/internal/presentation/wails.SystemHandler.RefreshFontCatalog",
+      )) as RefreshFontCatalogResult;
+      await syncFontCatalogQueries();
+      messageBus.publishToast({
+        intent: "success",
+        title: t("library.config.subtitleStyles.refreshFontListSuccessTitle"),
+        description: formatTemplate(
+          t("library.config.subtitleStyles.refreshFontListSuccessDescription"),
+          {
+            count: typeof result?.familyCount === "number" ? result.familyCount : 0,
+          },
+        ),
+      });
+    } catch (error) {
+      messageBus.publishToast({
+        intent: "danger",
+        title: t("library.config.subtitleStyles.refreshFontListFailedTitle"),
+        description:
+          error instanceof Error ? error.message : String(error ?? ""),
+      });
+    } finally {
+      setRefreshingFontList(false);
+    }
+  }, [syncFontCatalogQueries, t]);
+
   const handleRepairSubtitleStyleFont = React.useCallback(
     async (family: string, target: "user" | "machine", sourceId?: string) => {
       const normalizedFamily = family.trim();
@@ -2094,6 +2142,18 @@ export function LibraryConfigPage({
               ? t("library.config.subtitleStyles.installMachineFontSuccessDescription")
               : t("library.config.subtitleStyles.installUserFontSuccessDescription"),
         });
+        try {
+          await syncFontCatalogQueries();
+        } catch (refreshError) {
+          messageBus.publishToast({
+            intent: "danger",
+            title: t("library.config.subtitleStyles.refreshFontListFailedTitle"),
+            description:
+              refreshError instanceof Error
+                ? refreshError.message
+                : String(refreshError ?? ""),
+          });
+        }
       } catch (error) {
         messageBus.publishToast({
           intent: "danger",
@@ -2112,7 +2172,7 @@ export function LibraryConfigPage({
         });
       }
     },
-    [subtitleStyleFontSources, t],
+    [subtitleStyleFontSources, syncFontCatalogQueries, t],
   );
 
   const handleSyncSubtitleStyleFontSource = React.useCallback(
@@ -2324,6 +2384,28 @@ export function LibraryConfigPage({
         return {
           actions: subtitleStyleToolbarActions ?? undefined,
         };
+      case "font-management":
+        return {
+          actions: (
+            <Button
+              type="button"
+              variant="outline"
+              size="compact"
+              className="gap-2"
+              onClick={() => void handleRefreshFontList()}
+              disabled={refreshingFontList}
+            >
+              {refreshingFontList ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Type className="h-3.5 w-3.5" />
+              )}
+              {refreshingFontList
+                ? t("library.config.subtitleStyles.refreshingFontList")
+                : t("library.config.subtitleStyles.refreshFontList")}
+            </Button>
+          ),
+        };
       case "subtitle-export-presets":
         return {
           actions: (
@@ -2472,9 +2554,11 @@ export function LibraryConfigPage({
     handleAddSubtitleExportPreset,
     handleAddSubtitleStyleSource,
     handleCreateVideoExportPreset,
+    handleRefreshFontList,
     handleUpdateSubtitleStyleDefault,
     openCardEditor,
     onRequestPersist,
+    refreshingFontList,
     selectedProfile,
     selectedProfileEditing,
     selectedVideoPresetEditing,

@@ -21,6 +21,20 @@ func NewSystemHandler(fonts *service.FontService, bus events.Bus) *SystemHandler
 	}
 }
 
+func (handler *SystemHandler) publishFontsUpdated(ctx context.Context, payload map[string]interface{}) {
+	if handler.bus == nil {
+		return
+	}
+	if payload == nil {
+		payload = map[string]interface{}{}
+	}
+	_ = handler.bus.Publish(ctx, events.Event{
+		Topic:   "system.fonts",
+		Type:    "updated",
+		Payload: payload,
+	})
+}
+
 func (handler *SystemHandler) ServiceName() string {
 	return "SystemHandler"
 }
@@ -75,6 +89,26 @@ func (handler *SystemHandler) ListFontCatalog(ctx context.Context) ([]FontCatalo
 		return []FontCatalogFamily{}, nil
 	}
 	return result, nil
+}
+
+type RefreshFontCatalogResult struct {
+	FamilyCount int `json:"familyCount"`
+}
+
+func (handler *SystemHandler) RefreshFontCatalog(ctx context.Context) (RefreshFontCatalogResult, error) {
+	if err := handler.fonts.RefreshCatalog(ctx); err != nil {
+		return RefreshFontCatalogResult{}, err
+	}
+	families, err := handler.fonts.ListFontFamilies(ctx)
+	if err != nil {
+		return RefreshFontCatalogResult{}, err
+	}
+	handler.publishFontsUpdated(ctx, map[string]interface{}{
+		"reason": "manual_refresh",
+	})
+	return RefreshFontCatalogResult{
+		FamilyCount: len(families),
+	}, nil
 }
 
 type CurrentUserProfile struct {
@@ -358,16 +392,10 @@ func (handler *SystemHandler) InstallRemoteFontFamily(
 		return InstallRemoteFontFamilyResult{}, err
 	}
 
-	if handler.bus != nil {
-		_ = handler.bus.Publish(ctx, events.Event{
-			Topic: "system.fonts",
-			Type:  "updated",
-			Payload: map[string]interface{}{
-				"family":         installed.Family,
-				"installedFiles": installed.InstalledFiles,
-			},
-		})
-	}
+	handler.publishFontsUpdated(ctx, map[string]interface{}{
+		"family":         installed.Family,
+		"installedFiles": installed.InstalledFiles,
+	})
 
 	return InstallRemoteFontFamilyResult{
 		Family:         installed.Family,
