@@ -161,6 +161,30 @@ const upsertOperationListItem = (
   return updated;
 };
 
+const shouldRefreshOperationListItem = (
+  current: OperationListItemDTO | undefined,
+  operation: LibraryOperationDTO
+) => {
+  if (!current) {
+    return true;
+  }
+  const next = toOperationListItem(operation);
+  return (
+    current.libraryId !== next.libraryId ||
+    current.name !== next.name ||
+    current.kind !== next.kind ||
+    current.status !== next.status ||
+    current.domain !== next.domain ||
+    current.sourceIcon !== next.sourceIcon ||
+    current.platform !== next.platform ||
+    current.uploader !== next.uploader ||
+    current.publishTime !== next.publishTime ||
+    current.startedAt !== next.startedAt ||
+    current.finishedAt !== next.finishedAt ||
+    current.createdAt !== next.createdAt
+  );
+};
+
 const removeOperationListItem = (
   previous: OperationListItemDTO[] | undefined,
   operationId: string
@@ -486,9 +510,16 @@ export function AppProviders({ children }: PropsWithChildren) {
           const operation = payload as LibraryOperationDTO;
           store.upsertOperation(operation);
           queryClient.setQueryData([...LIBRARY_OPERATIONS_QUERY_KEY, "detail", operation.id], operation);
-          queryClient.setQueriesData({ queryKey: LIBRARY_OPERATIONS_QUERY_KEY }, (current) =>
-            Array.isArray(current) ? upsertOperationListItem(current as OperationListItemDTO[], operation) : current
-          );
+          queryClient.setQueriesData({ queryKey: LIBRARY_OPERATIONS_QUERY_KEY }, (current) => {
+            if (!Array.isArray(current)) {
+              return current;
+            }
+            const items = current as OperationListItemDTO[];
+            const existing = items.find((item) => item.operationId === operation.id);
+            return shouldRefreshOperationListItem(existing, operation)
+              ? upsertOperationListItem(items, operation)
+              : current;
+          });
           if (isTerminalOperationStatus(operation.status)) {
             scheduleLibraryResync(operation.libraryId);
           }

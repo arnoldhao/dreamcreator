@@ -207,14 +207,14 @@ function ThreadContextMenu({
   }
 
   const itemClassName =
-    "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground";
+    "app-menu-item app-motion-color flex w-full items-center text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground";
 
   return createPortal(
     <div
       ref={menuRef}
       role="menu"
       className={cn(
-        "fixed z-[120] min-w-[10rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md",
+        "app-menu-content app-motion-surface fixed z-[120] w-max min-w-fit text-sm",
         "animate-in fade-in-0 zoom-in-95"
       )}
       style={{ left: position.x, top: position.y }}
@@ -224,7 +224,7 @@ function ThreadContextMenu({
         <Pencil className="h-4 w-4" />
         <span>{labels.rename}</span>
       </button>
-      <div className="-mx-1 my-1 h-px bg-border" />
+      <div className="app-menu-separator" />
       <button type="button" role="menuitem" className={itemClassName} onClick={onArchiveToggle}>
         {archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
         <span>{archived ? labels.unarchive : labels.archive}</span>

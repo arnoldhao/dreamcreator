@@ -24,7 +24,7 @@ function hashSeed(seed: string, durationMs: number) {
 
 export function useTimeSyncedSpinDelay(seed: string, durationMs = 1200) {
   return React.useMemo(() => {
-    const phase = (Date.now() + hashSeed(seed, durationMs)) % durationMs
+    const phase = hashSeed(seed, durationMs)
     return `-${phase}ms`
   }, [durationMs, seed])
 }

@@ -12,6 +12,8 @@ import type {
 type LibraryRealtimeState = {
   hasLiveUpdates: boolean
   operations: LibraryOperationDTO[]
+  operationIds: string[]
+  operationById: Record<string, LibraryOperationDTO>
   files: LibraryFileDTO[]
   histories: LibraryHistoryRecordDTO[]
   workspaceHeads: Record<string, WorkspaceStateRecordDTO>
@@ -79,11 +81,22 @@ export function toOperationListItem(operation: LibraryOperationDTO): OperationLi
 export const useLibraryRealtimeStore = create<LibraryRealtimeState>((set) => ({
   hasLiveUpdates: false,
   operations: [],
+  operationIds: [],
+  operationById: {},
   files: [],
   histories: [],
   workspaceHeads: {},
   markLiveUpdates: () => set({ hasLiveUpdates: true }),
-  reset: () => set({ hasLiveUpdates: false, operations: [], files: [], histories: [], workspaceHeads: {} }),
+  reset: () =>
+    set({
+      hasLiveUpdates: false,
+      operations: [],
+      operationIds: [],
+      operationById: {},
+      files: [],
+      histories: [],
+      workspaceHeads: {},
+    }),
   replaceLibrary: (library) =>
     set((state) => ({
       hasLiveUpdates: true,
@@ -112,14 +125,29 @@ export const useLibraryRealtimeStore = create<LibraryRealtimeState>((set) => ({
       }
     }),
   upsertOperation: (operation) =>
-    set((state) => ({
-      hasLiveUpdates: true,
-      operations: upsertById(state.operations, operation),
-    })),
+    set((state) => {
+      const existing = state.operationById[operation.id]
+      const nextOperation = existing ? { ...existing, ...operation } : operation
+      return {
+        hasLiveUpdates: true,
+        operations: upsertById(state.operations, operation),
+        operationIds: existing ? state.operationIds : [operation.id, ...state.operationIds],
+        operationById: {
+          ...state.operationById,
+          [operation.id]: nextOperation,
+        },
+      }
+    }),
   deleteOperation: (operationId) =>
-    set((state) => ({
-      operations: state.operations.filter((item) => item.id !== operationId),
-    })),
+    set((state) => {
+      const nextOperationById = { ...state.operationById }
+      delete nextOperationById[operationId]
+      return {
+        operations: state.operations.filter((item) => item.id !== operationId),
+        operationIds: state.operationIds.filter((id) => id !== operationId),
+        operationById: nextOperationById,
+      }
+    }),
   upsertFile: (file) =>
     set((state) => ({
       hasLiveUpdates: true,

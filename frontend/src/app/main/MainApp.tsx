@@ -29,7 +29,6 @@ import { AppShell } from "@/components/layout/AppShell";
 import type { SidebarConfig } from "@/components/layout/AppSidebar";
 import { PageHeader } from "@/shared/ui/PageHeader";
 import { Button } from "@/shared/ui/button";
-import { Separator } from "@/shared/ui/separator";
 import { messageBus } from "@/shared/message";
 import { useI18n } from "@/shared/i18n";
 import { TaskDialog } from "@/features/library/components/TaskDialog";
@@ -354,15 +353,15 @@ export function MainApp() {
               {isChatMenuOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
             {isChatMenuOpen ? (
-              <div className="absolute left-0 top-full z-50 mt-2 w-[220px] rounded-md border bg-popover p-1 text-sm shadow-md">
-                <div className="flex items-center gap-2 px-2 py-1.5 text-muted-foreground">
+              <div className="app-menu-content app-motion-surface absolute left-0 top-full z-50 mt-2 w-max min-w-fit text-sm animate-in fade-in-0 zoom-in-95">
+                <div className="app-menu-label flex items-center gap-2 text-sm text-muted-foreground">
                   <MessageCircle className="h-4 w-4" />
                   <span className="truncate">{resolvedChatSubtitle}</span>
                 </div>
-                <Separator className="my-1" />
+                <div className="app-menu-separator" />
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+                  className="app-menu-item app-motion-color flex w-full items-center text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
                   onClick={() => {
                     handleOpenWorkspace();
                     setIsChatMenuOpen(false);
@@ -374,7 +373,7 @@ export function MainApp() {
                 </button>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-destructive hover:bg-accent/60 hover:text-destructive"
+                  className="app-menu-item app-motion-color flex w-full items-center text-left text-sm text-destructive outline-none hover:bg-accent hover:text-destructive"
                   onClick={() => {
                     handleDeleteThread();
                     setIsChatMenuOpen(false);

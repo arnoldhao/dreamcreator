@@ -7,10 +7,8 @@ import { cn } from "@/lib/utils"
 import type { LibraryFileRow, LibraryWorkspaceTarget } from "../model/types"
 import { useTimeSyncedSpinDelay } from "../utils/progress-display"
 import { formatBytes } from "../utils/format"
-import { formatTemplate } from "../utils/i18n"
 import { formatRelativeTime } from "../utils/time"
 import { resolveFileIcon } from "../utils/fileIcons"
-import { LibraryRowMenu } from "./LibraryRowMenu"
 import { LibraryCellTooltip } from "./LibraryCellTooltip"
 
 type Translator = (key: string) => string
@@ -241,69 +239,6 @@ export function getFileColumns({
         </span>
       ),
     },
-    {
-      id: "actions",
-      header: "",
-      enableHiding: false,
-      cell: ({ row }) => {
-        const file = row.original
-        const isDeleted = file.status === "deleted"
-        const path = file.path
-        const deleteFileItems = [
-          {
-            id: file.id,
-            name: file.name,
-            path: file.path,
-            fileType: file.fileType,
-            format: resolveFileFormat(file),
-          },
-        ].filter((item) => item.name || item.path)
-        if (isDeleted) {
-          return null
-        }
-        return (
-          <div className="flex justify-end">
-            <div className="flex items-center">
-              <LibraryRowMenu
-                itemName={file.name}
-                onCreateTranscode={
-                  onCreateTranscode && canCreateTranscode(file)
-                    ? () => onCreateTranscode(file)
-                    : undefined
-                }
-                onCreateSubtitleTranslate={
-                  onCreateSubtitleTranslate && canCreateSubtitleTranslate(file)
-                    ? () => onCreateSubtitleTranslate(file)
-                    : undefined
-                }
-                deleteFileItems={deleteFileItems}
-                onOpenFolder={path && onOpenPath ? () => onOpenPath(path) : undefined}
-                onRename={onRenameFile ? (name) => onRenameFile(file.id, name) : undefined}
-                showDeleteFilesToggle={Boolean(path)}
-                defaultDeleteFiles={false}
-                deleteTitle={t("library.file.deleteTitle")}
-                deleteDescription={formatTemplate(
-                  t("library.file.deleteDescription"),
-                  { name: file.name || t("library.rowMenu.renameFallback") }
-                )}
-                deleteImpactDescription={
-                  file.taskName
-                    ? formatTemplate(
-                        t("library.file.deleteImpactDescription"),
-                        { task: file.taskName }
-                      )
-                    : t("library.file.deleteKeepTaskDescription")
-                }
-                deleteFilesLabel={t("library.file.deleteFilesLabel")}
-                deleteFilesTitle={t("library.file.deleteFilesTitle")}
-                deleteConfirmLabel={t("library.file.deleteConfirm")}
-                onDelete={onDeleteFile ? ({ deleteFiles }) => onDeleteFile(file.id, deleteFiles) : undefined}
-              />
-            </div>
-          </div>
-        )
-      },
-    },
   ]
 }
 
@@ -338,13 +273,4 @@ function extractExtension(value?: string) {
     return ""
   }
   return baseName.slice(dotIndex + 1).trim()
-}
-
-function canCreateTranscode(file: LibraryFileRow) {
-  const fileType = normalizeFileType(file.fileType)
-  return fileType === "video" || fileType === "audio" || fileType === "transcode"
-}
-
-function canCreateSubtitleTranslate(file: LibraryFileRow) {
-  return normalizeFileType(file.fileType) === "subtitle"
 }

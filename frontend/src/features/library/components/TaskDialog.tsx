@@ -64,6 +64,7 @@ import { useSmoothedProgressSpeed, useTimeSyncedSpinDelay } from "../utils/progr
 import { translateLibraryProgressDetail, translateLibraryProgressLabel } from "../utils/progress"
 import { formatDuration, formatRelativeTime } from "../utils/time"
 import { LibraryCellTooltip } from "./LibraryCellTooltip"
+import { LibraryImagePreviewDialog } from "./LibraryImagePreviewDialog"
 import { LibraryTaskIcon } from "./LibraryTaskIcon"
 
 const STATUS_META: Record<
@@ -1034,27 +1035,23 @@ export function TaskDialog() {
         </DashboardDialogContent>
       </Dialog>
 
-      <Dialog open={imagePreview !== null} onOpenChange={(nextOpen) => (!nextOpen ? setImagePreview(null) : undefined)}>
-        <DashboardDialogContent size="workspace" className="flex max-h-[88vh] w-full flex-col overflow-hidden">
-          <DashboardDialogHeader>
-            <DialogTitle>{imagePreview?.name || t("library.preview.imageTitle")}</DialogTitle>
-            <DialogDescription>{imagePreview?.path || "-"}</DialogDescription>
-          </DashboardDialogHeader>
-          <div className={cn("min-h-0 flex-1 overflow-auto p-3", DASHBOARD_DIALOG_FIELD_SURFACE_CLASS)}>
-            {imagePreviewUrl ? (
-              <img
-                src={imagePreviewUrl}
-                alt={imagePreview?.name ?? ""}
-                className="mx-auto block h-auto max-h-[72vh] w-auto max-w-full object-contain"
-              />
-            ) : (
-              <div className="flex min-h-[240px] items-center justify-center text-xs text-muted-foreground">
-                {t("library.preview.imageUnavailable")}
-              </div>
-            )}
-          </div>
-        </DashboardDialogContent>
-      </Dialog>
+      <LibraryImagePreviewDialog
+        open={imagePreview !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setImagePreview(null)
+          }
+        }}
+        image={imagePreview}
+        imageUrl={imagePreviewUrl}
+        onOpenFolder={
+          imagePreview?.path
+            ? () => {
+                openLibraryPath.mutate({ path: imagePreview.path })
+              }
+            : undefined
+        }
+      />
     </>
   )
 }

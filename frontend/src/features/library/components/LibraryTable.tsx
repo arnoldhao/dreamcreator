@@ -37,6 +37,7 @@ type LibraryTableProps<TData> = {
   rowSelection?: RowSelectionState
   onRowSelectionChange?: OnChangeFn<RowSelectionState>
   enableRowSelection?: boolean | ((row: Row<TData>) => boolean)
+  getRowProps?: (row: Row<TData>) => React.HTMLAttributes<HTMLTableRowElement>
 }
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 30, 50]
@@ -70,6 +71,7 @@ export function LibraryTable<TData>({
   rowSelection,
   onRowSelectionChange,
   enableRowSelection,
+  getRowProps,
 }: LibraryTableProps<TData>) {
   const { t } = useI18n()
   const [pagination, setPagination] = React.useState<PaginationState>({
@@ -150,30 +152,37 @@ export function LibraryTable<TData>({
             </TableHeader>
             {hasRows ? (
               <TableBody>
-                {table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() ? "selected" : undefined}
-                    className="odd:bg-muted/[0.14] transition-colors hover:bg-muted/40"
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className={cn(
-                          cell.column.id === "actions"
-                            ? "text-right"
-                            : cell.column.id === "select"
-                              ? "text-center"
-                              : "text-left",
-                          "whitespace-nowrap overflow-hidden text-ellipsis text-xs",
-                          COLUMN_WIDTHS[cell.column.id]
-                        )}
-                      >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
+                {table.getRowModel().rows.map((row) => {
+                  const rowProps = getRowProps?.(row)
+                  return (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() ? "selected" : undefined}
+                      {...rowProps}
+                      className={cn(
+                        "odd:bg-muted/[0.14] transition-colors hover:bg-muted/40",
+                        rowProps?.className
+                      )}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell
+                          key={cell.id}
+                          className={cn(
+                            cell.column.id === "actions"
+                              ? "text-right"
+                              : cell.column.id === "select"
+                                ? "text-center"
+                                : "text-left",
+                            "whitespace-nowrap overflow-hidden text-ellipsis text-xs",
+                            COLUMN_WIDTHS[cell.column.id]
+                          )}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             ) : null}
           </Table>

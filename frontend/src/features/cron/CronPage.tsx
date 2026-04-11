@@ -1,7 +1,6 @@
 import * as React from "react";
 import {
   CheckCircle2,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -13,12 +12,13 @@ import {
   ListChecks,
   Loader2,
   MinusCircle,
+  Pencil,
   Play,
   Plus,
   RefreshCcw,
-  Search,
   SlidersHorizontal,
   Trash2,
+  Eye,
   XCircle,
 } from "lucide-react";
 
@@ -88,6 +88,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
 
+import {
+  CronContextMenu,
+  CronJobFilterCombobox,
+  CronRunFilterCombobox,
+  CronTableSelectionCheckbox,
+} from "./components/CronPageControls";
 import { type CronTab, useCronViewStore } from "./model/viewStore";
 import { CronOverviewPage } from "./pages/CronOverviewPage";
 import { CronListPage } from "./pages/CronListPage";
@@ -235,7 +241,6 @@ const EMPTY_JOB_DRAFT: JobDraft = {
   deliveryFailureAccountId: "",
 };
 
-const RUN_STATUS_OPTIONS = ["", "running", "completed", "failed", "ok", "error", "skipped"];
 const PAGINATION_PAGE_SIZE_OPTIONS = [10, 20, 30, 50];
 const CRON_SELECT_TEXT_CLASS = "!text-xs [&>option]:text-xs";
 const OVERVIEW_GRANULARITY_MS: Record<string, number> = {
@@ -1272,6 +1277,8 @@ export function CronPage() {
   const [runSearchQuery, setRunSearchQuery] = React.useState("");
   const [jobFilter, setJobFilter] = React.useState<string>("");
   const [runStatusFilter, setRunStatusFilter] = React.useState<string>("");
+  const [jobContextMenu, setJobContextMenu] = React.useState<{ jobId: string; x: number; y: number } | null>(null);
+  const [runContextMenu, setRunContextMenu] = React.useState<{ runId: string; x: number; y: number } | null>(null);
   const [jobsPage, setJobsPage] = React.useState(1);
   const [runsPage, setRunsPage] = React.useState(1);
 
@@ -1621,6 +1628,28 @@ export function CronPage() {
     const start = (jobsPage - 1) * jobsRowsPerPage;
     return filteredJobs.slice(start, start + jobsRowsPerPage);
   }, [filteredJobs, jobsPage, jobsRowsPerPage]);
+  const pagedJobById = React.useMemo(() => {
+    const map = new Map<string, CronJob>();
+    pagedJobs.forEach((job) => {
+      const id = job.id.trim();
+      if (id) {
+        map.set(id, job);
+      }
+    });
+    return map;
+  }, [pagedJobs]);
+  const runById = React.useMemo(() => {
+    const map = new Map<string, CronRunRecord>();
+    runs.forEach((run) => {
+      const id = run.runId.trim();
+      if (id) {
+        map.set(id, run);
+      }
+    });
+    return map;
+  }, [runs]);
+  const jobContextMenuJob = jobContextMenu ? pagedJobById.get(jobContextMenu.jobId) ?? null : null;
+  const runContextMenuRun = runContextMenu ? runById.get(runContextMenu.runId) ?? null : null;
   const selectedJobIDs = React.useMemo(
     () => Object.keys(selectedJobSelection).filter((jobID) => selectedJobSelection[jobID]),
     [selectedJobSelection]
@@ -1714,6 +1743,33 @@ export function CronPage() {
       setSelectedJobSelection({});
     }
   }, [activeTab]);
+
+  React.useEffect(() => {
+    if (activeTab !== "list") {
+      setJobContextMenu(null);
+    }
+    if (activeTab !== "records") {
+      setRunContextMenu(null);
+    }
+  }, [activeTab]);
+
+  React.useEffect(() => {
+    if (jobContextMenu && !jobContextMenuJob) {
+      setJobContextMenu(null);
+    }
+  }, [jobContextMenu, jobContextMenuJob]);
+
+  React.useEffect(() => {
+    if (runContextMenu && !runContextMenuRun) {
+      setRunContextMenu(null);
+    }
+  }, [runContextMenu, runContextMenuRun]);
+
+  React.useEffect(() => {
+    if (jobSelectionMode && jobContextMenu) {
+      setJobContextMenu(null);
+    }
+  }, [jobContextMenu, jobSelectionMode]);
 
   React.useEffect(() => {
     if (!jobSelectionMode) {
@@ -2029,7 +2085,7 @@ export function CronPage() {
       },
     ];
 
-    return base.filter((column) => jobsVisibility[column.id]);
+    return base.filter((column) => column.id !== "ops" && jobsVisibility[column.id]);
   }, [assistantNameByID, jobsVisibility, language, t]);
 
   const visibleRunsColumns = React.useMemo(() => {
@@ -2489,6 +2545,30 @@ export function CronPage() {
     t,
   ]);
 
+  const handleJobRowContextMenu = React.useCallback(
+    (jobId: string, event: React.MouseEvent<HTMLTableRowElement>) => {
+      event.preventDefault();
+      setJobContextMenu({
+        jobId,
+        x: event.clientX,
+        y: event.clientY,
+      });
+    },
+    []
+  );
+
+  const handleRunRowContextMenu = React.useCallback(
+    (runId: string, event: React.MouseEvent<HTMLTableRowElement>) => {
+      event.preventDefault();
+      setRunContextMenu({
+        runId,
+        x: event.clientX,
+        y: event.clientY,
+      });
+    },
+    []
+  );
+
   const renderJobActions = (job: CronJob) => (
     <div className="flex items-center justify-end gap-1">
       <Button
@@ -2564,6 +2644,18 @@ export function CronPage() {
                       "cursor-pointer odd:bg-muted/[0.14] transition-colors hover:bg-muted/40",
                       selected ? "bg-muted/40" : ""
                     )}
+                    onContextMenu={(event) => {
+                      if (jobSelectionMode) {
+                        event.preventDefault();
+                        return;
+                      }
+                      handleJobRowContextMenu(job.id.trim(), event);
+                    }}
+                    onMouseDown={(event) => {
+                      if (event.button === 2) {
+                        event.preventDefault();
+                      }
+                    }}
                     onClick={() => {
                       if (jobSelectionMode) {
                         handleJobSelectionCheckedChange(normalizedJobID, !selected);
@@ -2686,6 +2778,12 @@ export function CronPage() {
                 <TableRow
                   key={run.runId}
                   className="cursor-pointer odd:bg-muted/[0.14] transition-colors hover:bg-muted/40"
+                  onContextMenu={(event) => handleRunRowContextMenu(run.runId.trim(), event)}
+                  onMouseDown={(event) => {
+                    if (event.button === 2) {
+                      event.preventDefault();
+                    }
+                  }}
                   onClick={() => openRunDetailDialog(run.runId)}
                 >
                   {visibleRunsColumns.map((column) => (
@@ -3296,6 +3394,64 @@ export function CronPage() {
             renderRunsPaginationControls={renderRunsPaginationControls}
           />
         ) : null}
+
+        <CronContextMenu
+          anchor={
+            jobContextMenu
+              ? {
+                  x: jobContextMenu.x,
+                  y: jobContextMenu.y,
+                }
+              : null
+          }
+          onClose={() => setJobContextMenu(null)}
+          items={
+            jobContextMenuJob
+              ? [
+                  {
+                    label: t("common.edit"),
+                    Icon: Pencil,
+                    onSelect: () => openEditDialog(jobContextMenuJob),
+                  },
+                  {
+                    label: t("cron.action.run"),
+                    Icon: Play,
+                    onSelect: () => {
+                      void handleRunJob(jobContextMenuJob.id);
+                    },
+                  },
+                  {
+                    label: t("cron.action.delete"),
+                    Icon: Trash2,
+                    destructive: true,
+                    onSelect: () => handleDeleteJob(jobContextMenuJob),
+                  },
+                ]
+              : []
+          }
+        />
+        <CronContextMenu
+          anchor={
+            runContextMenu
+              ? {
+                  x: runContextMenu.x,
+                  y: runContextMenu.y,
+                }
+              : null
+          }
+          onClose={() => setRunContextMenu(null)}
+          items={
+            runContextMenuRun
+              ? [
+                  {
+                    label: t("cron.action.viewDetails"),
+                    Icon: Eye,
+                    onSelect: () => openRunDetailDialog(runContextMenuRun.runId),
+                  },
+                ]
+              : []
+          }
+        />
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
@@ -4095,268 +4251,5 @@ export function CronPage() {
         </Dialog>
       </div>
     </TooltipProvider>
-  );
-}
-
-const CronTableSelectionCheckbox = React.forwardRef<
-  HTMLInputElement,
-  Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> & { indeterminate?: boolean }
->(({ className, indeterminate = false, ...props }, forwardedRef) => {
-  const innerRef = React.useRef<HTMLInputElement | null>(null);
-  const setRefs = React.useCallback(
-    (node: HTMLInputElement | null) => {
-      innerRef.current = node;
-      if (typeof forwardedRef === "function") {
-        forwardedRef(node);
-        return;
-      }
-      if (forwardedRef) {
-        forwardedRef.current = node;
-      }
-    },
-    [forwardedRef]
-  );
-
-  React.useEffect(() => {
-    if (!innerRef.current) {
-      return;
-    }
-    innerRef.current.indeterminate = indeterminate;
-  }, [indeterminate]);
-
-  return (
-    <input
-      {...props}
-      ref={setRefs}
-      type="checkbox"
-      role="checkbox"
-      className={cn(
-        "h-4 w-4 rounded border border-border bg-background align-middle text-primary shadow-sm outline-none",
-        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-        className
-      )}
-      onClick={(event) => event.stopPropagation()}
-    />
-  );
-});
-
-CronTableSelectionCheckbox.displayName = "CronTableSelectionCheckbox";
-
-function CronJobFilterCombobox(props: {
-  searchQuery: string;
-  onSearchQueryChange: (value: string) => void;
-  enabledFilter: JobEnabledFilter;
-  onEnabledFilterChange: (value: JobEnabledFilter) => void;
-  lastRunStatusFilter: string;
-  onLastRunStatusFilterChange: (value: string) => void;
-  onClearAll: () => void;
-  filterCount: number;
-  t: TranslateFn;
-}) {
-  const hasFilters = props.filterCount > 0;
-  const hasSearchQuery = props.searchQuery.trim().length > 0;
-  const triggerLabel = hasSearchQuery ? props.searchQuery : props.t("cron.filter.searchAndFilterJobs");
-  const enabledOptions: Array<{ value: JobEnabledFilter; label: string }> = [
-    { value: "", label: props.t("cron.filter.allEnableStates") },
-    { value: "enabled", label: props.t("cron.filter.enabledOnly") },
-    { value: "disabled", label: props.t("cron.filter.disabledOnly") },
-  ];
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="compact"
-          className="w-fit min-w-[156px] max-w-[220px] justify-between gap-2 px-2.5"
-          title={triggerLabel}
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            <Search className="h-3.5 w-3.5 text-muted-foreground/70" />
-            <span className={cn("min-w-0 truncate text-xs", hasSearchQuery ? "text-foreground" : "text-muted-foreground")}>
-              {triggerLabel}
-            </span>
-          </span>
-          <span className="flex shrink-0 items-center gap-1.5">
-            {hasFilters ? (
-              <Badge variant="subtle" className="h-5 px-1.5 text-[10px] font-medium">
-                {props.filterCount}
-              </Badge>
-            ) : null}
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/70" />
-          </span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="min-w-[var(--radix-dropdown-menu-trigger-width)] max-w-[280px] p-0"
-      >
-        <div className="space-y-2 p-2">
-          <Input
-            size="compact"
-            autoFocus
-            value={props.searchQuery}
-            onChange={(event) => props.onSearchQueryChange(event.target.value)}
-            placeholder={props.t("cron.filter.searchJobsPlaceholder")}
-            className="w-full text-xs placeholder:text-xs"
-            onKeyDown={(event) => event.stopPropagation()}
-          />
-        </div>
-        <DropdownMenuSeparator />
-        <div className="max-h-[320px] overflow-y-auto p-1">
-          <DropdownMenuLabel>{props.t("cron.filter.enableState")}</DropdownMenuLabel>
-          {enabledOptions.map((option) => (
-            <DropdownMenuCheckboxItem
-              key={option.value || "all"}
-              checked={props.enabledFilter === option.value}
-              onSelect={(event) => event.preventDefault()}
-              onCheckedChange={(checked) => {
-                if (checked) {
-                  props.onEnabledFilterChange(option.value);
-                }
-              }}
-            >
-              {option.label}
-            </DropdownMenuCheckboxItem>
-          ))}
-
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>{props.t("cron.filter.lastRunStatus")}</DropdownMenuLabel>
-          {RUN_STATUS_OPTIONS.map((status) => (
-            <DropdownMenuCheckboxItem
-              key={status || "all"}
-              checked={props.lastRunStatusFilter === status}
-              onSelect={(event) => event.preventDefault()}
-              onCheckedChange={(checked) => {
-                if (checked) {
-                  props.onLastRunStatusFilterChange(status);
-                }
-              }}
-            >
-              {status ? props.t(`cron.status.${status}`) : props.t("cron.filter.allStatus")}
-            </DropdownMenuCheckboxItem>
-          ))}
-        </div>
-        <DropdownMenuSeparator />
-        <div className="p-1">
-          <DropdownMenuItem disabled={!hasFilters} onClick={props.onClearAll}>
-            {props.t("cron.filter.clearJobFilters")}
-          </DropdownMenuItem>
-        </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function CronRunFilterCombobox(props: {
-  searchQuery: string;
-  onSearchQueryChange: (value: string) => void;
-  jobFilter: string;
-  onJobFilterChange: (value: string) => void;
-  runStatusFilter: string;
-  onRunStatusFilterChange: (value: string) => void;
-  jobs: CronJob[];
-  onClearAll: () => void;
-  filterCount: number;
-  t: TranslateFn;
-}) {
-  const hasFilters = props.filterCount > 0;
-  const hasSearchQuery = props.searchQuery.trim().length > 0;
-  const triggerLabel = hasSearchQuery ? props.searchQuery : props.t("cron.filter.searchAndFilterRuns");
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="compact"
-          className="w-fit min-w-[156px] max-w-[220px] justify-between gap-2 px-2.5"
-          title={triggerLabel}
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            <Search className="h-3.5 w-3.5 text-muted-foreground/70" />
-            <span className={cn("min-w-0 truncate text-xs", hasSearchQuery ? "text-foreground" : "text-muted-foreground")}>
-              {triggerLabel}
-            </span>
-          </span>
-          <span className="flex shrink-0 items-center gap-1.5">
-            {hasFilters ? (
-              <Badge variant="subtle" className="h-5 px-1.5 text-[10px] font-medium">
-                {props.filterCount}
-              </Badge>
-            ) : null}
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/70" />
-          </span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="min-w-[var(--radix-dropdown-menu-trigger-width)] max-w-[280px] p-0"
-      >
-        <div className="space-y-2 p-2">
-          <Input
-            size="compact"
-            autoFocus
-            value={props.searchQuery}
-            onChange={(event) => props.onSearchQueryChange(event.target.value)}
-            placeholder={props.t("cron.filter.searchRunsPlaceholder")}
-            className="w-full text-xs placeholder:text-xs"
-            onKeyDown={(event) => event.stopPropagation()}
-          />
-        </div>
-        <DropdownMenuSeparator />
-        <div className="max-h-[320px] overflow-y-auto p-1">
-          <DropdownMenuLabel>{props.t("cron.filter.job")}</DropdownMenuLabel>
-          <DropdownMenuCheckboxItem
-            checked={props.jobFilter === ""}
-            onSelect={(event) => event.preventDefault()}
-            onCheckedChange={(checked) => {
-              if (checked) {
-                props.onJobFilterChange("");
-              }
-            }}
-          >
-            {props.t("cron.filter.allJobs")}
-          </DropdownMenuCheckboxItem>
-          {props.jobs.map((job) => (
-            <DropdownMenuCheckboxItem
-              key={job.id}
-              checked={props.jobFilter === job.id}
-              onSelect={(event) => event.preventDefault()}
-              onCheckedChange={(checked) => {
-                if (checked) {
-                  props.onJobFilterChange(job.id);
-                }
-              }}
-            >
-              {job.name.trim() || job.id}
-            </DropdownMenuCheckboxItem>
-          ))}
-
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>{props.t("cron.filter.runStatus")}</DropdownMenuLabel>
-          {RUN_STATUS_OPTIONS.map((status) => (
-            <DropdownMenuCheckboxItem
-              key={status || "all"}
-              checked={props.runStatusFilter === status}
-              onSelect={(event) => event.preventDefault()}
-              onCheckedChange={(checked) => {
-                if (checked) {
-                  props.onRunStatusFilterChange(status);
-                }
-              }}
-            >
-              {status ? props.t(`cron.status.${status}`) : props.t("cron.filter.allStatus")}
-            </DropdownMenuCheckboxItem>
-          ))}
-        </div>
-        <DropdownMenuSeparator />
-        <div className="p-1">
-          <DropdownMenuItem disabled={!hasFilters} onClick={props.onClearAll}>
-            {props.t("cron.filter.clearRunFilters")}
-          </DropdownMenuItem>
-        </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }

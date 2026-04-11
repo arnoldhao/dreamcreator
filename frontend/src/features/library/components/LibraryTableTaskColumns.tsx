@@ -1,7 +1,10 @@
+import * as React from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import { AlertTriangle, Ban, CheckCircle2, Clock, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useLibraryRealtimeStore } from "@/shared/store/libraryRealtime"
+import type { OperationProgressDTO } from "@/shared/contracts/library"
 
 import type { LibraryTaskRow } from "../model/types"
 import { useTimeSyncedSpinDelay } from "../utils/progress-display"
@@ -9,15 +12,12 @@ import { formatBytes } from "../utils/format"
 import { formatTemplate } from "../utils/i18n"
 import { formatRelativeTime } from "../utils/time"
 import { LibraryProgressBadge } from "./LibraryProgressBadge"
-import { LibraryRowMenu } from "./LibraryRowMenu"
 import { LibraryCellTooltip } from "./LibraryCellTooltip"
 import { LibraryTaskIcon } from "./LibraryTaskIcon"
 
 type Translator = (key: string) => string
 
 type TaskColumnOptions = {
-  onRenameTask?: (id: string, name: string) => void | Promise<void>
-  onDeleteTask?: (id: string, deleteFiles: boolean) => void | Promise<void>
   onOpenTaskDialog?: (taskId: string) => void
   onOpenLibrary?: (libraryId: string) => void
   language?: string
@@ -81,9 +81,73 @@ function TaskStatusBadge({ status, t, phaseKey = "" }: { status: string; t: Tran
   )
 }
 
+function useLiveOperation(taskId: string) {
+  return useLibraryRealtimeStore(
+    React.useCallback((state) => state.operationById[taskId], [taskId])
+  )
+}
+
+function toLiveProgress(progress?: OperationProgressDTO | null) {
+  if (!progress) {
+    return null
+  }
+  return {
+    label: progress.stage || progress.message || "In progress",
+    percent: progress.percent,
+    speed: progress.speed,
+    detail: progress.message,
+    updatedAt: progress.updatedAt,
+  }
+}
+
+function TaskNameCell({
+  task,
+  tooltipLabel,
+  onOpenTaskDialog,
+}: {
+  task: LibraryTaskRow
+  tooltipLabel: string
+  onOpenTaskDialog?: (taskId: string) => void
+}) {
+  const liveOperation = useLiveOperation(task.id)
+
+  return (
+    <div className="flex w-full min-w-0 items-center gap-2">
+      <LibraryCellTooltip label={tooltipLabel}>
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-medium text-foreground hover:text-foreground/80"
+          onClick={() => onOpenTaskDialog?.(task.id)}
+        >
+          <LibraryTaskIcon
+            taskType={task.taskType}
+            sourceDomain={liveOperation?.sourceDomain ?? task.sourceDomain}
+            sourceIcon={liveOperation?.sourceIcon ?? task.sourceIcon}
+          />
+          <span className="min-w-0 truncate">{task.name}</span>
+        </button>
+      </LibraryCellTooltip>
+    </div>
+  )
+}
+
+function TaskStatusCell({ task, t }: { task: LibraryTaskRow; t: Translator }) {
+  const liveOperation = useLiveOperation(task.id)
+  return <TaskStatusBadge status={liveOperation?.status ?? task.status} t={t} phaseKey={task.id} />
+}
+
+function TaskProgressCell({ task }: { task: LibraryTaskRow }) {
+  const liveOperation = useLiveOperation(task.id)
+  return (
+    <LibraryProgressBadge
+      progress={toLiveProgress(liveOperation?.progress) ?? task.progress}
+      status={liveOperation?.status ?? task.status}
+      disableTooltip
+    />
+  )
+}
+
 export function getTaskColumns({
-  onRenameTask,
-  onDeleteTask,
   onOpenTaskDialog,
   onOpenLibrary,
   language,
@@ -103,24 +167,7 @@ export function getTaskColumns({
       enableHiding: false,
       cell: ({ row }) => {
         const task = row.original
-        return (
-          <div className="flex w-full min-w-0 items-center gap-2">
-            <LibraryCellTooltip label={tooltips.openTaskDialog}>
-              <button
-                type="button"
-                className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-medium text-foreground hover:text-foreground/80"
-                onClick={() => onOpenTaskDialog?.(task.id)}
-              >
-                <LibraryTaskIcon
-                  taskType={task.taskType}
-                  sourceDomain={task.sourceDomain}
-                  sourceIcon={task.sourceIcon}
-                />
-                <span className="min-w-0 truncate">{task.name}</span>
-              </button>
-            </LibraryCellTooltip>
-          </div>
-        )
+        return <TaskNameCell task={task} tooltipLabel={tooltips.openTaskDialog} onOpenTaskDialog={onOpenTaskDialog} />
       },
     },
     {
@@ -186,16 +233,14 @@ export function getTaskColumns({
       accessorKey: "status",
       header: t("library.columns.status"),
       meta: { label: t("library.columns.status") },
-      cell: ({ row }) => <TaskStatusBadge status={row.original.status} t={t} phaseKey={row.original.id} />,
+      cell: ({ row }) => <TaskStatusCell task={row.original} t={t} />,
     },
     {
       id: "progress",
       accessorKey: "progress",
       header: t("library.columns.progress"),
       meta: { label: t("library.columns.progress") },
-      cell: ({ row }) => (
-        <LibraryProgressBadge progress={row.original.progress} status={row.original.status} disableTooltip />
-      ),
+      cell: ({ row }) => <TaskProgressCell task={row.original} />,
     },
     {
       id: "outputCount",
@@ -282,54 +327,6 @@ export function getTaskColumns({
           {formatRelativeTime(row.original.createdAt, language)}
         </span>
       ),
-    },
-    {
-      id: "actions",
-      header: "",
-      enableHiding: false,
-      cell: ({ row }) => {
-        const task = row.original
-        const candidateFiles = (task.libraryFiles && task.libraryFiles.length > 0 ? task.libraryFiles : task.outputFiles) ?? []
-        const deleteFileItems =
-          candidateFiles
-            ?.filter((file) => !file.deleted)
-            .map((file) => ({
-              id: file.id,
-              name: file.label,
-              path: file.path,
-              fileType: file.fileType,
-              format: undefined,
-            }))
-            .filter((item) => item.name || item.path) ?? []
-        return (
-          <div className="flex justify-end">
-            <LibraryRowMenu
-              itemName={task.name}
-              deleteFileItems={deleteFileItems}
-              onRename={onRenameTask ? (name) => onRenameTask(task.id, name) : undefined}
-              showDeleteFilesToggle={deleteFileItems.length > 0}
-              defaultDeleteFiles={false}
-              deleteTitle={t("library.task.deleteTitle")}
-              deleteDescription={formatTemplate(
-                t("library.task.deleteDescription"),
-                { name: task.name || t("library.rowMenu.renameFallback") }
-              )}
-              deleteImpactDescription={
-                deleteFileItems.length > 0
-                  ? formatTemplate(
-                      t("library.task.deleteImpactDescription"),
-                      { count: deleteFileItems.length }
-                    )
-                  : t("library.task.deleteKeepFilesDescription")
-              }
-              deleteFilesLabel={t("library.task.deleteFilesLabel")}
-              deleteFilesTitle={t("library.task.deleteFilesTitle")}
-              deleteConfirmLabel={t("library.task.deleteConfirm")}
-              onDelete={onDeleteTask ? ({ deleteFiles }) => onDeleteTask(task.id, deleteFiles) : undefined}
-            />
-          </div>
-        )
-      },
     },
   ]
 }
