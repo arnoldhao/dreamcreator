@@ -3468,6 +3468,8 @@
           "style": "字幕导出样式",
           "styleUnsupported": "当前格式不支持字幕样式",
           "styleUnsupportedDescription": "将按纯文本字幕导出，不会写入字体、字号或对齐方式。",
+          "fcpxmlStyleApproximationLabel": "FCPXML 样式换算说明",
+          "fcpxmlStyleApproximationTooltip": "FCPXML 的 `text-style fontSize` 对应的是 point size，不是像素。\n\n当前导出会把字幕样式里的字号按 1:1 从 pixel 写入 `fontSize`；但在 Final Cut Pro 中，最终观感还会受到标题模板、项目分辨率和 macOS 文本渲染影响，某些场景下视觉大小可能接近原像素值的 1.25 倍。\n\n位置同样只是近似换算：当前基于 Basic Title 模板固定的 1920×1080 坐标空间、对齐方式、边距和行数估算；不同 Motion title 模板可发布不同参数，因此 ASS 与 FCPXML 之间没有统一且精确的位置转换公式。",
           "currentFormat": "当前格式",
           "encoding": "编码",
           "kind": "类型",

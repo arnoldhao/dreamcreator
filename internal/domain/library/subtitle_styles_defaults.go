@@ -1,5 +1,7 @@
 package library
 
+import "runtime"
+
 var defaultBuiltInSubtitleStyleFontSources = []SubtitleStyleSource{
 	{
 		ID:       "fontget-google-fonts",
@@ -45,6 +47,17 @@ var builtInSubtitleStyleFontSourceIDs = map[string]struct{}{
 	"fontget-font-squirrel": {},
 }
 
+func PreferredPlatformSubtitleFontFamily() string {
+	switch runtime.GOOS {
+	case "windows":
+		return "Segoe UI"
+	case "darwin":
+		return "Helvetica"
+	default:
+		return "Helvetica"
+	}
+}
+
 var defaultBuiltInMonoStyles = []MonoStyle{
 	{
 		ID:                 "builtin-subtitle-mono-primary-1080p",
@@ -55,10 +68,10 @@ var defaultBuiltInMonoStyles = []MonoStyle{
 		BaseAspectRatio:    SubtitleStyleAspectRatio16By9,
 		SourceAssStyleName: "Primary",
 		Style: AssStyleSpec{
-			Fontname:           "PingFang SC",
+			Fontname:           PreferredPlatformSubtitleFontFamily(),
 			FontFace:           "Semibold",
 			FontWeight:         600,
-			FontPostScriptName: "PingFangSC-Semibold",
+			FontPostScriptName: "",
 			Fontsize:           52,
 			PrimaryColour:      "&H00FFFFFF",
 			SecondaryColour:    "&H00FFFFFF",
@@ -91,10 +104,10 @@ var defaultBuiltInMonoStyles = []MonoStyle{
 		BaseAspectRatio:    SubtitleStyleAspectRatio16By9,
 		SourceAssStyleName: "Secondary",
 		Style: AssStyleSpec{
-			Fontname:           "PingFang SC",
+			Fontname:           PreferredPlatformSubtitleFontFamily(),
 			FontFace:           "Regular",
 			FontWeight:         400,
-			FontPostScriptName: "PingFangSC-Regular",
+			FontPostScriptName: "",
 			Fontsize:           40,
 			PrimaryColour:      "&H00E8E8E8",
 			SecondaryColour:    "&H00E8E8E8",
@@ -136,10 +149,10 @@ var defaultBuiltInBilingualStyles = []BilingualStyle{
 			BasePlayResY:        1080,
 			BaseAspectRatio:     SubtitleStyleAspectRatio16By9,
 			Style: AssStyleSpec{
-				Fontname:           "PingFang SC",
+				Fontname:           PreferredPlatformSubtitleFontFamily(),
 				FontFace:           "Semibold",
 				FontWeight:         600,
-				FontPostScriptName: "PingFangSC-Semibold",
+				FontPostScriptName: "",
 				Fontsize:           52,
 				PrimaryColour:      "&H00FFFFFF",
 				SecondaryColour:    "&H00FFFFFF",
@@ -171,10 +184,10 @@ var defaultBuiltInBilingualStyles = []BilingualStyle{
 			BasePlayResY:        1080,
 			BaseAspectRatio:     SubtitleStyleAspectRatio16By9,
 			Style: AssStyleSpec{
-				Fontname:           "PingFang SC",
+				Fontname:           PreferredPlatformSubtitleFontFamily(),
 				FontFace:           "Regular",
 				FontWeight:         400,
-				FontPostScriptName: "PingFangSC-Regular",
+				FontPostScriptName: "",
 				Fontsize:           40,
 				PrimaryColour:      "&H00E8E8E8",
 				SecondaryColour:    "&H00E8E8E8",

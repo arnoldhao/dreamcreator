@@ -177,7 +177,7 @@ function CompactInlineField({
   control,
   className,
 }: {
-  label: string;
+  label: React.ReactNode;
   control: React.ReactNode;
   className?: string;
 }) {
@@ -189,7 +189,7 @@ function CompactInlineField({
         className,
       )}
     >
-      <div className="truncate text-[11px] font-medium text-foreground">
+      <div className="min-w-0 text-[11px] font-medium text-foreground">
         {label}
       </div>
       <div className="min-w-0 md:justify-self-end">{control}</div>
@@ -532,6 +532,8 @@ export function WorkspaceExportSubtitleDialog({
       ),
     [displayMode, lingualStyle, monoStyle, normalizedTargetFormat, t],
   );
+  const showFCPXMLStyleWarning =
+    presetFormatKey === "fcpxml" && exportStyleSummary.supported;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -626,7 +628,29 @@ export function WorkspaceExportSubtitleDialog({
               <div className="space-y-2">
                 <div className="grid gap-2">
                   <CompactInlineField
-                    label={t("library.workspace.dialogs.exportSubtitle.style")}
+                    label={
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate">
+                          {t("library.workspace.dialogs.exportSubtitle.style")}
+                        </span>
+                        {showFCPXMLStyleWarning ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-destructive/30 bg-destructive/10 text-[10px] font-semibold leading-none text-destructive"
+                                aria-label={t("library.workspace.dialogs.exportSubtitle.fcpxmlStyleApproximationLabel")}
+                              >
+                                !
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[22rem] whitespace-pre-line text-xs leading-5">
+                              {t("library.workspace.dialogs.exportSubtitle.fcpxmlStyleApproximationTooltip")}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : null}
+                      </div>
+                    }
                     control={
                       <div className="min-w-0 space-y-0.5 text-right">
                         <div

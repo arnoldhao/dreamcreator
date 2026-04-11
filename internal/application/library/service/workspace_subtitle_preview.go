@@ -3,45 +3,113 @@ package service
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 
 	"dreamcreator/internal/application/library/dto"
 	"dreamcreator/internal/domain/library"
 )
 
-const workspacePreviewDefaultCueDurationMS = int64(1500)
-
-func (service *LibraryService) GenerateWorkspacePreviewVTT(
-	_ context.Context,
-	request dto.GenerateWorkspacePreviewVTTRequest,
-) (dto.GenerateWorkspacePreviewVTTResult, error) {
-	displayMode := normalizeWorkspacePreviewDisplayMode(request.DisplayMode)
-	rows := normalizeWorkspacePreviewRows(request.Rows)
-	options := previewVTTRenderOptions{
-		FontMappings:  request.FontMappings,
-		PreviewWidth:  request.PreviewWidth,
-		PreviewHeight: request.PreviewHeight,
+func (service *LibraryService) GenerateWorkspacePreviewASS(
+	ctx context.Context,
+	request dto.GenerateWorkspacePreviewASSRequest,
+) (dto.GenerateWorkspacePreviewASSResult, error) {
+	libraryID := strings.TrimSpace(request.LibraryID)
+	if libraryID == "" {
+		return dto.GenerateWorkspacePreviewASSResult{}, fmt.Errorf("library id is required")
 	}
 
-	if displayMode == "bilingual" {
-		style, err := resolveWorkspacePreviewLingualStyle(request.Lingual, request.Mono)
-		if err != nil {
-			return dto.GenerateWorkspacePreviewVTTResult{}, err
+	displayMode := normalizeWorkspacePreviewDisplayMode(request.DisplayMode)
+	moduleConfig, err := service.getModuleConfig(ctx)
+	if err != nil {
+		return dto.GenerateWorkspacePreviewASSResult{}, err
+	}
+
+	var workspaceHead *dto.WorkspaceStateRecordDTO
+	if service.workspace != nil {
+		if head, headErr := service.workspace.GetHeadByLibraryID(ctx, libraryID); headErr == nil {
+			mapped := toWorkspaceDTO(head)
+			workspaceHead = &mapped
+		} else if headErr != nil && headErr != library.ErrWorkspaceStateNotFound {
+			return dto.GenerateWorkspacePreviewASSResult{}, headErr
 		}
-		vttContent := buildWorkspaceLingualPreviewVTT(style, rows, options)
-		return dto.GenerateWorkspacePreviewVTTResult{
-			VTTContent: vttContent,
+	}
+
+	workspaceMonoStyle, workspaceLingualStyle := resolveWorkspaceSubtitleStyles(moduleConfig, workspaceHead)
+	fontMappings := toSubtitleStyleFontDTOs(moduleConfig.SubtitleStyles.Fonts)
+
+	primaryFile, primaryDocument, err := service.resolveWorkspacePreviewTrackDocument(
+		ctx,
+		libraryID,
+		request.PrimarySubtitleTrackID,
+	)
+	if err != nil {
+		return dto.GenerateWorkspacePreviewASSResult{}, err
+	}
+
+	primaryParsed := parseSubtitleDocument(
+		primaryDocument.WorkingContent,
+		detectSubtitleFormat(primaryDocument.Format, primaryFile.Storage.LocalPath, primaryDocument.Format),
+	)
+
+	if displayMode == "bilingual" {
+		secondaryTrackID := strings.TrimSpace(request.SecondarySubtitleTrackID)
+		if secondaryTrackID == "" {
+			return dto.GenerateWorkspacePreviewASSResult{}, fmt.Errorf("secondary subtitle track id is required for bilingual preview")
+		}
+		secondaryFile, secondaryDocument, err := service.resolveWorkspacePreviewTrackDocument(ctx, libraryID, secondaryTrackID)
+		if err != nil {
+			return dto.GenerateWorkspacePreviewASSResult{}, err
+		}
+		secondaryParsed := parseSubtitleDocument(
+			secondaryDocument.WorkingContent,
+			detectSubtitleFormat(secondaryDocument.Format, secondaryFile.Storage.LocalPath, secondaryDocument.Format),
+		)
+		style, err := resolveWorkspacePreviewLingualStyle(workspaceLingualStyle, workspaceMonoStyle)
+		if err != nil {
+			return dto.GenerateWorkspacePreviewASSResult{}, err
+		}
+		style = mapPreviewBilingualStyleFontMappings(style, fontMappings)
+		styleDocumentContent := buildBilingualStylePreviewASS(style)
+		document := buildWorkspacePreviewSubtitleDocument(primaryParsed, secondaryParsed)
+		assContent := renderSubtitleContentWithConfig(
+			document,
+			"ass",
+			&dto.SubtitleExportConfig{
+				ASS: &dto.SubtitleASSExportConfig{
+					PlayResX: style.BasePlayResX,
+					PlayResY: style.BasePlayResY,
+					Title:    firstNonEmpty(strings.TrimSpace(style.Name), "DreamCreator Workspace Preview"),
+				},
+			},
+			styleDocumentContent,
+		)
+		return dto.GenerateWorkspacePreviewASSResult{
+			ASSContent:             assContent,
+			ReferencedFontFamilies: collectWorkspacePreviewFontFamilies(primaryStyleFontSpec(style), secondaryStyleFontSpec(style)),
 		}, nil
 	}
 
-	style, err := resolveWorkspacePreviewMonoStyle(request.Mono)
+	style, err := resolveWorkspacePreviewMonoStyle(workspaceMonoStyle)
 	if err != nil {
-		return dto.GenerateWorkspacePreviewVTTResult{}, err
+		return dto.GenerateWorkspacePreviewASSResult{}, err
 	}
-	vttContent := buildWorkspaceMonoPreviewVTT(style, rows, options)
-	return dto.GenerateWorkspacePreviewVTTResult{
-		VTTContent: vttContent,
+	style = mapPreviewMonoStyleFontMappings(style, fontMappings)
+	styleDocumentContent := buildMonoStylePreviewASS(style)
+	assContent := renderSubtitleContentWithConfig(
+		primaryParsed,
+		"ass",
+		&dto.SubtitleExportConfig{
+			ASS: &dto.SubtitleASSExportConfig{
+				PlayResX: style.BasePlayResX,
+				PlayResY: style.BasePlayResY,
+				Title:    firstNonEmpty(strings.TrimSpace(style.Name), "DreamCreator Workspace Preview"),
+			},
+		},
+		styleDocumentContent,
+	)
+	return dto.GenerateWorkspacePreviewASSResult{
+		ASSContent:             assContent,
+		ReferencedFontFamilies: collectWorkspacePreviewFontFamilies(style.Style),
 	}, nil
 }
 
@@ -52,33 +120,6 @@ func normalizeWorkspacePreviewDisplayMode(value string) string {
 	default:
 		return "mono"
 	}
-}
-
-func normalizeWorkspacePreviewRows(values []dto.WorkspacePreviewCueDTO) []dto.WorkspacePreviewCueDTO {
-	if len(values) == 0 {
-		return nil
-	}
-	result := make([]dto.WorkspacePreviewCueDTO, 0, len(values))
-	for _, value := range values {
-		startMS := maxInt64(0, value.StartMS)
-		endMS := maxInt64(0, value.EndMS)
-		if endMS <= startMS {
-			endMS = startMS + workspacePreviewDefaultCueDurationMS
-		}
-		result = append(result, dto.WorkspacePreviewCueDTO{
-			StartMS:       startMS,
-			EndMS:         endMS,
-			PrimaryText:   value.PrimaryText,
-			SecondaryText: value.SecondaryText,
-		})
-	}
-	sort.SliceStable(result, func(i, j int) bool {
-		if result[i].StartMS == result[j].StartMS {
-			return result[i].EndMS < result[j].EndMS
-		}
-		return result[i].StartMS < result[j].StartMS
-	})
-	return result
 }
 
 func resolveWorkspacePreviewMonoStyle(value *dto.LibraryMonoStyleDTO) (library.MonoStyle, error) {
@@ -163,77 +204,93 @@ func buildFallbackLingualStyleFromMono(mono library.MonoStyle) dto.LibraryBiling
 	}
 }
 
-func buildWorkspaceMonoPreviewVTT(
-	style library.MonoStyle,
-	rows []dto.WorkspacePreviewCueDTO,
-	options previewVTTRenderOptions,
-) string {
-	lines := []string{
-		"WEBVTT",
-		"",
-		"STYLE",
-		"::cue {",
-		"  white-space: pre-line;",
-		"}",
+func (service *LibraryService) resolveWorkspacePreviewTrackDocument(
+	ctx context.Context,
+	libraryID string,
+	trackID string,
+) (library.LibraryFile, library.SubtitleDocument, error) {
+	trimmedTrackID := strings.TrimSpace(trackID)
+	if trimmedTrackID == "" {
+		return library.LibraryFile{}, library.SubtitleDocument{}, fmt.Errorf("subtitle track id is required")
 	}
-	lines = append(lines, buildVTTStyleBlock("mono", style.Style, style.BasePlayResX, style.BasePlayResY, options)...)
-	lines = append(lines, "")
-	cueSettings := buildVTTCueSettings(style.Style, style.BasePlayResX, style.BasePlayResY)
-	for _, row := range rows {
-		text := escapeVTTPreviewText(row.PrimaryText)
-		if strings.TrimSpace(text) == "" {
-			continue
-		}
-		lines = append(lines,
-			fmt.Sprintf("%s --> %s %s", formatVTTTimestamp(row.StartMS), formatVTTTimestamp(row.EndMS), cueSettings),
-			fmt.Sprintf("<c.mono>%s</c>", text),
-			"",
-		)
+	fileItem, document, err := service.resolveSubtitleFileAndDocument(ctx, trimmedTrackID, "", "")
+	if err != nil {
+		return library.LibraryFile{}, library.SubtitleDocument{}, err
 	}
-	return strings.Join(lines, "\n")
+	if fileItem.LibraryID != libraryID || document.LibraryID != libraryID {
+		return library.LibraryFile{}, library.SubtitleDocument{}, fmt.Errorf("subtitle track %q does not belong to library %q", trimmedTrackID, libraryID)
+	}
+	return fileItem, document, nil
 }
 
-func buildWorkspaceLingualPreviewVTT(
-	style library.BilingualStyle,
-	rows []dto.WorkspacePreviewCueDTO,
-	options previewVTTRenderOptions,
-) string {
-	primaryStyle, secondaryStyle := resolveBilingualPreviewStylePair(style)
-	lines := []string{
-		"WEBVTT",
-		"",
-		"STYLE",
-		"::cue {",
-		"  white-space: pre-line;",
-		"}",
+func buildWorkspacePreviewSubtitleDocument(
+	primary dto.SubtitleDocument,
+	secondary dto.SubtitleDocument,
+) dto.SubtitleDocument {
+	cues := make([]dto.SubtitleCue, 0, len(primary.Cues))
+	primaryTexts := make([]string, 0, len(primary.Cues))
+	secondaryTexts := make([]string, 0, len(primary.Cues))
+	for index, cue := range primary.Cues {
+		primaryText := normalizeSubtitleText(cue.Text)
+		secondaryText := ""
+		if index < len(secondary.Cues) {
+			secondaryText = normalizeSubtitleText(secondary.Cues[index].Text)
+		}
+		primaryTexts = append(primaryTexts, primaryText)
+		secondaryTexts = append(secondaryTexts, secondaryText)
+		cues = append(cues, dto.SubtitleCue{
+			Index: cue.Index,
+			Start: cue.Start,
+			End:   cue.End,
+			Text:  joinSubtitleExportText(primaryText, secondaryText),
+		})
 	}
-	lines = append(lines, buildVTTStyleBlock("primary", primaryStyle, style.BasePlayResX, style.BasePlayResY, options)...)
-	lines = append(lines, buildVTTStyleBlock("secondary", secondaryStyle, style.BasePlayResX, style.BasePlayResY, options)...)
-	lines = append(lines, "")
-	primaryCueSettings := buildVTTCueSettings(primaryStyle, style.BasePlayResX, style.BasePlayResY)
-	secondaryCueSettings := buildVTTCueSettings(secondaryStyle, style.BasePlayResX, style.BasePlayResY)
-	for _, row := range rows {
-		primaryText := escapeVTTPreviewText(row.PrimaryText)
-		secondaryText := escapeVTTPreviewText(row.SecondaryText)
-		primaryEmpty := strings.TrimSpace(primaryText) == ""
-		secondaryEmpty := strings.TrimSpace(secondaryText) == ""
-		if primaryEmpty && secondaryEmpty {
+	metadata := cloneSubtitleDocumentMetadata(primary.Metadata)
+	metadata[subtitleExportDisplayModeKey] = "bilingual"
+	metadata[subtitleExportPrimaryTextsKey] = primaryTexts
+	metadata[subtitleExportSecondaryTextsKey] = secondaryTexts
+	return dto.SubtitleDocument{
+		Format:   primary.Format,
+		Cues:     cues,
+		Metadata: metadata,
+	}
+}
+
+func cloneSubtitleDocumentMetadata(source map[string]any) map[string]any {
+	if len(source) == 0 {
+		return map[string]any{}
+	}
+	result := make(map[string]any, len(source)+3)
+	for key, value := range source {
+		result[key] = value
+	}
+	return result
+}
+
+func collectWorkspacePreviewFontFamilies(styles ...library.AssStyleSpec) []string {
+	seen := make(map[string]struct{}, len(styles))
+	result := make([]string, 0, len(styles))
+	for _, style := range styles {
+		fontFamily := strings.TrimSpace(resolveASSStyleFontName(style))
+		if fontFamily == "" {
 			continue
 		}
-		if !primaryEmpty {
-			lines = append(lines,
-				fmt.Sprintf("%s --> %s %s", formatVTTTimestamp(row.StartMS), formatVTTTimestamp(row.EndMS), primaryCueSettings),
-				fmt.Sprintf("<c.primary>%s</c>", primaryText),
-				"",
-			)
+		normalized := strings.ToLower(fontFamily)
+		if _, exists := seen[normalized]; exists {
+			continue
 		}
-		if !secondaryEmpty {
-			lines = append(lines,
-				fmt.Sprintf("%s --> %s %s", formatVTTTimestamp(row.StartMS), formatVTTTimestamp(row.EndMS), secondaryCueSettings),
-				fmt.Sprintf("<c.secondary>%s</c>", secondaryText),
-				"",
-			)
-		}
+		seen[normalized] = struct{}{}
+		result = append(result, fontFamily)
 	}
-	return strings.Join(lines, "\n")
+	return result
+}
+
+func primaryStyleFontSpec(style library.BilingualStyle) library.AssStyleSpec {
+	primary, _ := resolveBilingualPreviewStylePair(style)
+	return primary
+}
+
+func secondaryStyleFontSpec(style library.BilingualStyle) library.AssStyleSpec {
+	_, secondary := resolveBilingualPreviewStylePair(style)
+	return secondary
 }

@@ -75,11 +75,11 @@ func (handler *LibraryHandler) GenerateSubtitleStylePreviewVTT(
 	return handler.service.GenerateSubtitleStylePreviewVTT(ctx, request)
 }
 
-func (handler *LibraryHandler) GenerateWorkspacePreviewVTT(
+func (handler *LibraryHandler) GenerateWorkspacePreviewASS(
 	ctx context.Context,
-	request dto.GenerateWorkspacePreviewVTTRequest,
-) (dto.GenerateWorkspacePreviewVTTResult, error) {
-	return handler.service.GenerateWorkspacePreviewVTT(ctx, request)
+	request dto.GenerateWorkspacePreviewASSRequest,
+) (dto.GenerateWorkspacePreviewASSResult, error) {
+	return handler.service.GenerateWorkspacePreviewASS(ctx, request)
 }
 
 func (handler *LibraryHandler) ParseSubtitleStyleImport(

@@ -156,6 +156,18 @@ func (handler *SystemHandler) ExportFontFamily(ctx context.Context, family strin
 	return result, nil
 }
 
+func (handler *SystemHandler) ExportFontFamilies(ctx context.Context, families []string) ([]ExportedFontFamily, error) {
+	result := make([]ExportedFontFamily, 0, len(families))
+	for _, family := range families {
+		exported, err := handler.ExportFontFamily(ctx, family)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, exported)
+	}
+	return result, nil
+}
+
 type InstallRemoteFontSource struct {
 	ID       string `json:"id,omitempty"`
 	Name     string `json:"name,omitempty"`

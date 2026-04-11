@@ -284,10 +284,13 @@ export interface GenerateSubtitleStylePreviewASSRequest {
   mono?: LibraryMonoStyleDTO
   bilingual?: LibraryBilingualStyleDTO
   fontMappings?: LibrarySubtitleStyleFontDTO[]
+  primaryText?: string
+  secondaryText?: string
 }
 
 export interface GenerateSubtitleStylePreviewASSResult {
   assContent: string
+  referencedFontFamilies?: string[]
 }
 
 export interface GenerateSubtitleStylePreviewVTTRequest {
@@ -605,25 +608,16 @@ export interface WorkspaceProjectDTO {
   subtitleLingualStyle?: LibraryBilingualStyleDTO
 }
 
-export interface WorkspacePreviewCueDTO {
-  startMs: number
-  endMs: number
-  primaryText: string
-  secondaryText?: string
-}
-
-export interface GenerateWorkspacePreviewVTTRequest {
+export interface GenerateWorkspacePreviewASSRequest {
+  libraryId: string
   displayMode?: "mono" | "bilingual" | "single" | "dual" | string
-  mono?: LibraryMonoStyleDTO
-  lingual?: LibraryBilingualStyleDTO
-  rows?: WorkspacePreviewCueDTO[]
-  fontMappings?: LibrarySubtitleStyleFontDTO[]
-  previewWidth?: number
-  previewHeight?: number
+  primarySubtitleTrackId: string
+  secondarySubtitleTrackId?: string
 }
 
-export interface GenerateWorkspacePreviewVTTResult {
-  vttContent: string
+export interface GenerateWorkspacePreviewASSResult {
+  assContent: string
+  referencedFontFamilies?: string[]
 }
 
 export interface FileEventCauseDTO {
