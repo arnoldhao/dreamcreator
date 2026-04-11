@@ -83,6 +83,7 @@ import {
   resolveDirectoryName,
   resolveErrorMessage,
   resolveLibraryWorkspacePersistedState,
+  resolveLibraryWorkspaceStateFromOpenTarget,
   resolveSubtitleExportMediaHint,
   resolveSubtitleExportPresetOverrideConfig,
   resolveSubtitleExportPresetFormat,
@@ -193,8 +194,14 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
   const qaCheckSettings = useLibraryWorkspaceStore(
     (state) => state.qaCheckSettings,
   );
+  const pendingOpenTarget = useLibraryWorkspaceStore(
+    (state) => state.pendingOpenTarget,
+  );
   const applyPersistedWorkspaceState = useLibraryWorkspaceStore(
     (state) => state.applyPersistedState,
+  );
+  const clearPendingOpenTarget = useLibraryWorkspaceStore(
+    (state) => state.clearPendingOpenTarget,
   );
   const setActiveEditor = useLibraryWorkspaceStore(
     (state) => state.setActiveEditor,
@@ -1247,6 +1254,14 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
       workspaceSubtitleLingualStyle,
     ],
   );
+  const currentLibraryPendingOpenTarget = React.useMemo(() => {
+    if (!library?.id) {
+      return null;
+    }
+    return pendingOpenTarget?.libraryId?.trim() == library.id
+      ? pendingOpenTarget
+      : null;
+  }, [library?.id, pendingOpenTarget]);
   const workspaceFontMappings = React.useMemo(
     () => props.moduleConfig?.subtitleStyles?.fonts ?? [],
     [props.moduleConfig?.subtitleStyles?.fonts],
@@ -1534,12 +1549,15 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
       return;
     }
     completedWorkspaceRestoreKeyRef.current = workspaceRestoreKey;
+    let restoredState:
+      | ReturnType<typeof resolveLibraryWorkspacePersistedState>
+      | null = null;
     if (workspaceStateQuery.status == "success") {
       const parsedState = parseLibraryWorkspacePersistedState(
         workspaceStateQuery.data.stateJson,
       );
       if (parsedState) {
-        const restoredState = resolveLibraryWorkspacePersistedState(
+        restoredState = resolveLibraryWorkspacePersistedState(
           parsedState,
           {
             libraryId: library.id,
@@ -1550,7 +1568,6 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
               workspaceProjectLingualStyle ?? undefined,
           },
         );
-        applyPersistedWorkspaceState(restoredState);
         setWorkspaceSubtitleMonoStyle(
           createWorkspaceMonoStyleDraft(restoredState.subtitleMonoStyle) ??
             null,
@@ -1563,17 +1580,46 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
         setSubtitleStyleSidebarOpen(
           Boolean(restoredState.subtitleStyleSidebarOpen),
         );
+      }
+    }
+    const nextState = currentLibraryPendingOpenTarget
+      ? resolveLibraryWorkspaceStateFromOpenTarget(
+          currentLibraryPendingOpenTarget,
+          restoredState ?? persistedWorkspaceState,
+          {
+            libraryId: library.id,
+            libraryFiles: props.files,
+            videoFiles,
+            subtitleFiles,
+            defaultSubtitleMonoStyle: activeWorkspaceMonoStyle ?? undefined,
+            defaultSubtitleLingualStyle:
+              activeWorkspaceLingualStyle ?? undefined,
+          },
+        )
+      : restoredState;
+    if (nextState) {
+      applyPersistedWorkspaceState(nextState);
+      if (restoredState && !currentLibraryPendingOpenTarget) {
         lastSavedWorkspaceStateJSONRef.current = JSON.stringify({
           version: 1,
           ...restoredState,
         });
       }
     }
+    if (currentLibraryPendingOpenTarget) {
+      clearPendingOpenTarget(library.id);
+    }
     setWorkspaceStateReady(true);
   }, [
     applyPersistedWorkspaceState,
+    activeWorkspaceLingualStyle,
+    activeWorkspaceMonoStyle,
+    clearPendingOpenTarget,
+    currentLibraryPendingOpenTarget,
     fastReadLatestStateEnabled,
     library?.id,
+    persistedWorkspaceState,
+    props.files,
     subtitleFiles,
     videoFiles,
     workspaceRestoreKey,
@@ -1583,6 +1629,43 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
     workspaceStateQuery.status,
     workspaceProjectLingualStyle,
     workspaceProjectMonoStyle,
+  ]);
+
+  React.useEffect(() => {
+    if (
+      !library?.id ||
+      !workspaceStateReady ||
+      !currentLibraryPendingOpenTarget
+    ) {
+      return;
+    }
+    const nextState = resolveLibraryWorkspaceStateFromOpenTarget(
+      currentLibraryPendingOpenTarget,
+      persistedWorkspaceState,
+      {
+        libraryId: library.id,
+        libraryFiles: props.files,
+        videoFiles,
+        subtitleFiles,
+        defaultSubtitleMonoStyle: activeWorkspaceMonoStyle ?? undefined,
+        defaultSubtitleLingualStyle:
+          activeWorkspaceLingualStyle ?? undefined,
+      },
+    );
+    applyPersistedWorkspaceState(nextState);
+    clearPendingOpenTarget(library.id);
+  }, [
+    activeWorkspaceLingualStyle,
+    activeWorkspaceMonoStyle,
+    applyPersistedWorkspaceState,
+    clearPendingOpenTarget,
+    currentLibraryPendingOpenTarget,
+    library?.id,
+    persistedWorkspaceState,
+    props.files,
+    subtitleFiles,
+    videoFiles,
+    workspaceStateReady,
   ]);
 
   React.useEffect(() => {

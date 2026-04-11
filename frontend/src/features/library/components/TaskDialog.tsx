@@ -63,6 +63,7 @@ import { formatTemplate } from "../utils/i18n"
 import { useSmoothedProgressSpeed, useTimeSyncedSpinDelay } from "../utils/progress-display"
 import { translateLibraryProgressDetail, translateLibraryProgressLabel } from "../utils/progress"
 import { formatDuration, formatRelativeTime } from "../utils/time"
+import { buildWorkspaceTargetFromLibraryFile } from "../utils/workspaceTargets"
 import { LibraryCellTooltip } from "./LibraryCellTooltip"
 import { LibraryImagePreviewDialog } from "./LibraryImagePreviewDialog"
 import { LibraryTaskIcon } from "./LibraryTaskIcon"
@@ -596,14 +597,18 @@ export function TaskDialog() {
     async (file: OperationFileItem) => {
       const libraryId = operation?.libraryId || libraryQuery.data?.id || ""
       if (isWorkspaceFileType(file.fileType) && libraryId) {
-        openLibraryWorkspace({
-          libraryId,
-          fileId: file.id,
-          name: file.name,
-          fileType: file.fileType,
-          path: file.path,
-          openMode: normalizeWorkspaceMode(file.fileType),
-        })
+        const libraryFiles = libraryQuery.data?.files ?? []
+        const targetFile = libraryFiles.find((item) => item.id === file.id)
+        const target =
+          (targetFile ? buildWorkspaceTargetFromLibraryFile(targetFile, libraryFiles) : null) ?? {
+            libraryId,
+            fileId: file.id,
+            name: file.name,
+            fileType: file.fileType,
+            path: file.path,
+            openMode: normalizeWorkspaceMode(file.fileType),
+          }
+        openLibraryWorkspace(target)
         closeTaskDialog()
         return
       }
@@ -619,7 +624,7 @@ export function TaskDialog() {
         await openLibraryPath.mutateAsync({ path: file.path })
       }
     },
-    [closeTaskDialog, libraryQuery.data?.id, openFileLocation, openLibraryPath, operation?.libraryId],
+    [closeTaskDialog, libraryQuery.data, openFileLocation, openLibraryPath, operation?.libraryId],
   )
 
   const handlePreviewFile = React.useCallback((file: OperationFileItem) => {
