@@ -79,7 +79,7 @@ import type {
   YtdlpFormatOption,
 } from "@/shared/contracts/library"
 import { openTaskDialog } from "@/shared/store/taskDialog"
-import { useLibraryRealtimeStore, toOperationListItem } from "@/shared/store/libraryRealtime"
+import { useLibraryRealtimeStore } from "@/shared/store/libraryRealtime"
 import { Badge } from "@/shared/ui/badge"
 import { Button } from "@/shared/ui/button"
 import { Card } from "@/shared/ui/card"
@@ -124,20 +124,15 @@ import {
   type LibraryConfigPageId,
   type LibraryConfigToolbarState,
 } from "./components/LibraryConfigPage"
+import { LibraryImagePreviewDialog } from "./components/LibraryImagePreviewDialog"
 import { getFileColumns } from "./components/LibraryTableFileColumns"
+import { LibraryFileContextMenu, LibraryFileDeleteDialog } from "./components/LibraryFileActions"
+import { LibraryTaskContextMenu, LibraryTaskDeleteDialog } from "./components/LibraryTaskActions"
 import { getTaskColumns } from "./components/LibraryTableTaskColumns"
 import { LibraryTable } from "./components/LibraryTable"
 import { LibraryTableSelectionCheckbox } from "./components/LibraryTableSelectionCheckbox"
 import { LibraryWorkspacePage, type LibraryWorkspaceToolbarState } from "./components/LibraryWorkspacePage"
-import {
-  WorkspaceDialogFormRow,
-  WorkspaceDialogHeaderCard,
-  WorkspaceDialogItemsCard,
-  WorkspaceDialogMetricsCard,
-  WorkspaceDialogSectionBadge,
-  WorkspaceDialogSectionCard,
-  WorkspaceDialogSummaryRow,
-} from "./components/workspace/WorkspaceDashboardDialog"
+import { LibraryImportDialog } from "./components/LibraryImportDialog"
 import { useLibraryViewStore } from "./model/viewStore"
 import { openLibraryWorkspace, useLibraryWorkspaceStore } from "./model/workspaceStore"
 import type { LibraryFileRow, LibraryProgress, LibraryTaskOutput, LibraryTaskRow, LibraryWorkspaceTarget } from "./model/types"
@@ -205,7 +200,6 @@ export function LibraryPage() {
   const librariesQuery = useListLibraries()
   const selectedLibraryRealtimeFiles = useLibraryRealtimeStore((state) => state.files)
   const selectedLibraryRealtimeHistory = useLibraryRealtimeStore((state) => state.histories)
-  const selectedLibraryRealtimeOperations = useLibraryRealtimeStore((state) => state.operations)
   const workspaceOpenRevision = useLibraryWorkspaceStore((state) => state.openRevision)
   const workspaceTargetLibraryId = useLibraryWorkspaceStore((state) => state.libraryId)
 
@@ -241,6 +235,10 @@ export function LibraryPage() {
   const [taskStatusFilters, setTaskStatusFilters] = React.useState<TaskStatusFilter[]>([])
   const [taskTypeFilters, setTaskTypeFilters] = React.useState<string[]>([])
   const [searchQuery, setSearchQuery] = React.useState("")
+  const [fileContextMenu, setFileContextMenu] = React.useState<{ fileId: string; x: number; y: number } | null>(null)
+  const [fileDeleteTargetId, setFileDeleteTargetId] = React.useState("")
+  const [taskContextMenu, setTaskContextMenu] = React.useState<{ taskId: string; x: number; y: number } | null>(null)
+  const [taskDeleteTargetId, setTaskDeleteTargetId] = React.useState("")
   const [taskSelectionMode, setTaskSelectionMode] = React.useState(false)
   const [taskRowSelection, setTaskRowSelection] = React.useState<RowSelectionState>({})
   const [fileSelectionMode, setFileSelectionMode] = React.useState(false)
@@ -716,10 +714,7 @@ export function LibraryPage() {
     () => mergeHistory(libraryOptions.flatMap((library) => library.records.history ?? []), selectedLibraryRealtimeHistory),
     [libraryOptions, selectedLibraryRealtimeHistory],
   )
-  const displayOperations = React.useMemo(
-    () => mergeOperations(operationsQuery.data ?? [], selectedLibraryRealtimeOperations.map(toOperationListItem)),
-    [operationsQuery.data, selectedLibraryRealtimeOperations],
-  )
+  const displayOperations = operationsQuery.data ?? []
 
   const filesById = React.useMemo(() => {
     const map = new Map<string, LibraryFileDTO>()
@@ -735,26 +730,18 @@ export function LibraryPage() {
     })
     return map
   }, [displayOperations])
-  const liveOperationById = React.useMemo(() => {
-    const map = new Map<string, (typeof selectedLibraryRealtimeOperations)[number]>()
-    selectedLibraryRealtimeOperations.forEach((operation) => {
-      map.set(operation.id, operation)
-    })
-    return map
-  }, [selectedLibraryRealtimeOperations])
 
   const allTaskRows = React.useMemo(() => {
     const rows = displayOperations.map((operation) =>
       toTaskRowFromOperation(
         operation,
         filesById,
-        liveOperationById.get(operation.operationId),
         labels,
         libraryNameByID,
       ),
     )
     return sortByCreatedAtDesc(rows)
-  }, [displayOperations, filesById, labels, libraryNameByID, liveOperationById])
+  }, [displayOperations, filesById, labels, libraryNameByID])
 
   const taskTypeOptions = React.useMemo(() => {
     const map = new Map<string, string>()
@@ -789,6 +776,15 @@ export function LibraryPage() {
       ),
     [allTaskRows, searchQuery, taskStatusFilters, taskTypeFilters],
   )
+  const taskRowById = React.useMemo(() => {
+    const map = new Map<string, LibraryTaskRow>()
+    allTaskRows.forEach((task) => {
+      map.set(task.id, task)
+    })
+    return map
+  }, [allTaskRows])
+  const taskContextMenuTask = taskContextMenu ? taskRowById.get(taskContextMenu.taskId) ?? null : null
+  const taskDeleteTarget = taskDeleteTargetId ? taskRowById.get(taskDeleteTargetId) ?? null : null
 
   const taskFilterCount = taskStatusFilters.length + taskTypeFilters.length + (searchQuery.trim() ? 1 : 0)
   const resourceFileFilterCount =
@@ -823,6 +819,32 @@ export function LibraryPage() {
     })
   }, [pageTab, taskRows, taskSelectionMode])
 
+  React.useEffect(() => {
+    if (pageTab === "tasks") {
+      return
+    }
+    setTaskContextMenu(null)
+  }, [pageTab])
+
+  React.useEffect(() => {
+    if (pageTab === "resources" && resourceViewMode === "file") {
+      return
+    }
+    setFileContextMenu(null)
+  }, [pageTab, resourceViewMode])
+
+  React.useEffect(() => {
+    if (taskContextMenu && !taskContextMenuTask) {
+      setTaskContextMenu(null)
+    }
+  }, [taskContextMenu, taskContextMenuTask])
+
+  React.useEffect(() => {
+    if (taskDeleteTargetId && !taskDeleteTarget) {
+      setTaskDeleteTargetId("")
+    }
+  }, [taskDeleteTarget, taskDeleteTargetId])
+
   const selectedTaskIDs = React.useMemo(
     () => taskRows.filter((task) => taskRowSelection[task.id]).map((task) => task.id),
     [taskRowSelection, taskRows],
@@ -850,6 +872,27 @@ export function LibraryPage() {
     () => filterFilesByResourceTypeAndStatus(fileRows, resourceFileTypeFilter, resourceFileStatusFilter),
     [fileRows, resourceFileStatusFilter, resourceFileTypeFilter],
   )
+  const resourceFileRowById = React.useMemo(() => {
+    const map = new Map<string, LibraryFileRow>()
+    resourceRows.forEach((file) => {
+      map.set(file.id, file)
+    })
+    return map
+  }, [resourceRows])
+  const fileContextMenuFile = fileContextMenu ? resourceFileRowById.get(fileContextMenu.fileId) ?? null : null
+  const fileDeleteTarget = fileDeleteTargetId ? resourceFileRowById.get(fileDeleteTargetId) ?? null : null
+
+  React.useEffect(() => {
+    if (fileContextMenu && !fileContextMenuFile) {
+      setFileContextMenu(null)
+    }
+  }, [fileContextMenu, fileContextMenuFile])
+
+  React.useEffect(() => {
+    if (fileDeleteTargetId && !fileDeleteTarget) {
+      setFileDeleteTargetId("")
+    }
+  }, [fileDeleteTarget, fileDeleteTargetId])
 
   React.useEffect(() => {
     if (pageTab !== "resources" || resourceViewMode !== "file" || !fileSelectionMode) {
@@ -950,28 +993,54 @@ export function LibraryPage() {
     [allTaskRows, chartGranularity],
   )
 
+  const handleDeleteTask = React.useCallback(
+    async (id: string, deleteFiles: boolean) => {
+      try {
+        await deleteOperation.mutateAsync({ operationId: id, cascadeFiles: deleteFiles })
+        messageBus.publishToast({
+          intent: "success",
+          title: t("library.task.deleteSuccessTitle"),
+          description: deleteFiles
+            ? t("library.task.deleteSuccessWithFiles")
+            : t("library.task.deleteSuccess"),
+        })
+      } catch (error) {
+        messageBus.publishToast({
+          intent: "danger",
+          title: t("library.task.deleteFailedTitle"),
+          description: resolveErrorMessage(error, t("library.errors.unknown")),
+        })
+        throw error
+      }
+    },
+    [deleteOperation, t],
+  )
+  const handleDeleteFile = React.useCallback(
+    async (id: string, deleteFiles: boolean) => {
+      try {
+        await deleteFile.mutateAsync({ fileId: id, deleteFiles })
+        messageBus.publishToast({
+          intent: "success",
+          title: t("library.file.deleteSuccessTitle"),
+          description: deleteFiles
+            ? t("library.file.deleteSuccessWithLocal")
+            : t("library.file.deleteSuccess"),
+        })
+      } catch (error) {
+        messageBus.publishToast({
+          intent: "danger",
+          title: t("library.file.deleteFailedTitle"),
+          description: resolveErrorMessage(error, t("library.errors.unknown")),
+        })
+        throw error
+      }
+    },
+    [deleteFile, t],
+  )
+
   const baseTaskColumns = React.useMemo<ColumnDef<LibraryTaskRow>[]>(
     () =>
       getTaskColumns({
-        onDeleteTask: async (id, deleteFiles) => {
-          try {
-            await deleteOperation.mutateAsync({ operationId: id, cascadeFiles: deleteFiles })
-            messageBus.publishToast({
-              intent: "success",
-              title: t("library.task.deleteSuccessTitle"),
-              description: deleteFiles
-                ? t("library.task.deleteSuccessWithFiles")
-                : t("library.task.deleteSuccess"),
-            })
-          } catch (error) {
-            messageBus.publishToast({
-              intent: "danger",
-              title: t("library.task.deleteFailedTitle"),
-              description: resolveErrorMessage(error, t("library.errors.unknown")),
-            })
-            throw error
-          }
-        },
         onOpenTaskDialog: openTaskDialog,
         onOpenLibrary: (libraryId) => {
           const nextLibraryID = libraryId.trim()
@@ -984,7 +1053,7 @@ export function LibraryPage() {
         language,
         t,
       }),
-    [deleteOperation, language, t],
+    [language, t],
   )
 
   const taskSelectionColumn = React.useMemo<ColumnDef<LibraryTaskRow>>(
@@ -1042,23 +1111,7 @@ export function LibraryPage() {
           openLibraryPath.mutate({ path })
         },
         onDeleteFile: async (id, deleteFiles) => {
-          try {
-            await deleteFile.mutateAsync({ fileId: id, deleteFiles })
-            messageBus.publishToast({
-              intent: "success",
-              title: t("library.file.deleteSuccessTitle"),
-              description: deleteFiles
-                ? t("library.file.deleteSuccessWithLocal")
-                : t("library.file.deleteSuccess"),
-            })
-          } catch (error) {
-            messageBus.publishToast({
-              intent: "danger",
-              title: t("library.file.deleteFailedTitle"),
-              description: resolveErrorMessage(error, t("library.errors.unknown")),
-            })
-            throw error
-          }
+          await handleDeleteFile(id, deleteFiles)
         },
         onCreateTranscode: async (file) => {
           const preset = pickDefaultTranscodePreset(file, presetsQuery.data ?? [])
@@ -1117,8 +1170,8 @@ export function LibraryPage() {
     [
       createSubtitleTranslate,
       createTranscode,
-      deleteFile,
       filesById,
+      handleDeleteFile,
       language,
       openLibraryPath,
       presetsQuery.data,
@@ -1750,6 +1803,29 @@ export function LibraryPage() {
     await Promise.all(jobs)
   }, [librariesQuery, moduleConfigQuery, operationsQuery, selectedLibraryId, selectedLibraryQuery])
 
+  const handleTaskRowContextMenu = React.useCallback(
+    (taskId: string, event: React.MouseEvent<HTMLTableRowElement>) => {
+      event.preventDefault()
+      setTaskContextMenu({
+        taskId,
+        x: event.clientX,
+        y: event.clientY,
+      })
+    },
+    [],
+  )
+  const handleFileRowContextMenu = React.useCallback(
+    (fileId: string, event: React.MouseEvent<HTMLTableRowElement>) => {
+      event.preventDefault()
+      setFileContextMenu({
+        fileId,
+        x: event.clientX,
+        y: event.clientY,
+      })
+    },
+    [],
+  )
+
   const showResourcesEmptyState = pageTab === "resources" && !librariesQuery.isLoading && libraryOptions.length === 0
   const showLibraryLoading =
     librariesQuery.isLoading ||
@@ -2318,6 +2394,14 @@ export function LibraryPage() {
                   rowSelection={taskSelectionMode ? taskRowSelection : undefined}
                   onRowSelectionChange={taskSelectionMode ? setTaskRowSelection : undefined}
                   enableRowSelection={taskSelectionMode}
+                  getRowProps={(row) => ({
+                    onContextMenu: (event) => handleTaskRowContextMenu(row.original.id, event),
+                    onMouseDown: (event) => {
+                      if (event.button === 2) {
+                        event.preventDefault()
+                      }
+                    },
+                  })}
                 />
               ) : null}
 
@@ -2372,6 +2456,18 @@ export function LibraryPage() {
                         ? (row) => row.original.status !== "deleted"
                         : false
                     }
+                    getRowProps={(row) =>
+                      row.original.status === "deleted"
+                        ? {}
+                        : {
+                            onContextMenu: (event) => handleFileRowContextMenu(row.original.id, event),
+                            onMouseDown: (event) => {
+                              if (event.button === 2) {
+                                event.preventDefault()
+                              }
+                            },
+                          }
+                    }
                   />
                 )
               ) : null}
@@ -2422,6 +2518,128 @@ export function LibraryPage() {
             </div>
           )}
         </div>
+
+        <LibraryTaskContextMenu
+          anchor={
+            taskContextMenu
+              ? {
+                  x: taskContextMenu.x,
+                  y: taskContextMenu.y,
+                }
+              : null
+          }
+          onClose={() => setTaskContextMenu(null)}
+          onView={() => {
+            if (!taskContextMenuTask) {
+              return
+            }
+            setTaskContextMenu(null)
+            openTaskDialog(taskContextMenuTask.id)
+          }}
+          onDelete={() => {
+            if (!taskContextMenuTask) {
+              return
+            }
+            setTaskDeleteTargetId(taskContextMenuTask.id)
+            setTaskContextMenu(null)
+          }}
+          viewLabel={t("library.rowMenu.viewTask")}
+          deleteLabel={t("library.rowMenu.delete")}
+        />
+        <LibraryTaskDeleteDialog
+          open={Boolean(taskDeleteTarget)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setTaskDeleteTargetId("")
+            }
+          }}
+          itemName={taskDeleteTarget?.name ?? ""}
+          deleteFileItems={taskDeleteTarget ? toTaskDeleteFileItems(taskDeleteTarget) : []}
+          defaultDeleteFiles={false}
+          deleteTitle={t("library.task.deleteTitle")}
+          deleteDescription={taskDeleteTarget
+            ? formatTemplate(t("library.task.deleteDescription"), {
+                name: taskDeleteTarget.name || t("library.rowMenu.renameFallback"),
+              })
+            : t("library.task.deleteDialogDescription")}
+          deleteImpactDescription={
+            taskDeleteTarget
+              ? resolveTaskDeleteImpactDescription(taskDeleteTarget, t)
+              : undefined
+          }
+          deleteFilesLabel={t("library.task.deleteFilesLabel")}
+          deleteFilesTitle={t("library.task.deleteFilesTitle")}
+          deleteConfirmLabel={t("library.task.deleteConfirm")}
+          onDelete={async ({ deleteFiles }) => {
+            if (!taskDeleteTarget) {
+              return
+            }
+            await handleDeleteTask(taskDeleteTarget.id, deleteFiles)
+            setTaskDeleteTargetId("")
+          }}
+        />
+        <LibraryFileContextMenu
+          anchor={
+            fileContextMenu
+              ? {
+                  x: fileContextMenu.x,
+                  y: fileContextMenu.y,
+                }
+              : null
+          }
+          onClose={() => setFileContextMenu(null)}
+          onOpenFolder={
+            fileContextMenuFile?.path
+              ? () => {
+                  setFileContextMenu(null)
+                  openLibraryPath.mutate({ path: fileContextMenuFile.path ?? "" })
+                }
+              : undefined
+          }
+          onDelete={() => {
+            if (!fileContextMenuFile) {
+              return
+            }
+            setFileDeleteTargetId(fileContextMenuFile.id)
+            setFileContextMenu(null)
+          }}
+          openFolderLabel={t("library.rowMenu.openFolder")}
+          deleteLabel={t("library.rowMenu.delete")}
+        />
+        <LibraryFileDeleteDialog
+          open={Boolean(fileDeleteTarget)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setFileDeleteTargetId("")
+            }
+          }}
+          itemName={fileDeleteTarget?.name ?? ""}
+          deleteFileItems={fileDeleteTarget ? toFileDeleteItems(fileDeleteTarget) : []}
+          defaultDeleteFiles={false}
+          deleteTitle={t("library.file.deleteTitle")}
+          deleteDescription={
+            fileDeleteTarget
+              ? formatTemplate(t("library.file.deleteDescription"), {
+                  name: fileDeleteTarget.name || t("library.rowMenu.renameFallback"),
+                })
+              : t("library.file.deleteTitle")
+          }
+          deleteImpactDescription={
+            fileDeleteTarget
+              ? resolveFileDeleteImpactDescription(fileDeleteTarget, t)
+              : undefined
+          }
+          deleteFilesLabel={t("library.file.deleteFilesLabel")}
+          deleteFilesTitle={t("library.file.deleteFilesTitle")}
+          deleteConfirmLabel={t("library.file.deleteConfirm")}
+          onDelete={async ({ deleteFiles }) => {
+            if (!fileDeleteTarget) {
+              return
+            }
+            await handleDeleteFile(fileDeleteTarget.id, deleteFiles)
+            setFileDeleteTargetId("")
+          }}
+        />
 
         <Dialog
           open={activeNewDialog !== null}
@@ -2482,15 +2700,12 @@ export function LibraryPage() {
 
                 {downloadStep === "input" ? (
                   <DashboardDialogSection tone="field" className="space-y-3">
-                    <div className="space-y-2">
-                      <div className="text-xs font-medium text-muted-foreground">
-                        {t("library.download.inputTitle")}
-                      </div>
+                    <div>
                       <div className="flex items-center gap-2">
                         <Input
                           value={downloadUrl}
                           onChange={(event) => setDownloadUrl(event.target.value)}
-                          placeholder={t("library.download.inputPlaceholder")}
+                          placeholder={t("library.download.inputTitle")}
                           onKeyDown={(event) => {
                             if (event.key === "Enter") {
                               event.preventDefault()
@@ -2523,37 +2738,40 @@ export function LibraryPage() {
                           </Badge>
                         ) : null}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <Input value={downloadPrepared?.url ?? downloadUrl} readOnly className="bg-muted pr-9" />
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                size="compactIcon"
-                                variant="ghost"
-                                className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2"
-                                onClick={() => {
-                                  if (downloadPrepared?.url) {
-                                    setDownloadUrl(downloadPrepared.url)
-                                  }
-                                  setDownloadPrepared(null)
-                                  setDownloadStep("input")
-                                  setCustomParseResult(null)
-                                  setCustomParseError("")
-                                  setCustomFormatId("")
-                                  setCustomSubtitleId("")
-                                  setCustomPresetId("")
-                                }}
-                              >
-                                <PencilLine className="h-3.5 w-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>{t("library.download.modifyLink")}</TooltipContent>
-                          </Tooltip>
-                        </div>
+                      <div className={cn(DASHBOARD_CONTROL_GROUP_CLASS, "flex w-full min-w-0 overflow-hidden")}>
+                        <Input
+                          value={downloadPrepared?.url ?? downloadUrl}
+                          readOnly
+                          className="min-w-0 flex-1 truncate rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                        />
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div>
+                            <Button
+                              size="compactIcon"
+                              variant="ghost"
+                              className="shrink-0 rounded-none border-0 border-l border-border/70 bg-transparent"
+                              onClick={() => {
+                                if (downloadPrepared?.url) {
+                                  setDownloadUrl(downloadPrepared.url)
+                                }
+                                setDownloadPrepared(null)
+                                setDownloadStep("input")
+                                setCustomParseResult(null)
+                                setCustomParseError("")
+                                setCustomFormatId("")
+                                setCustomSubtitleId("")
+                                setCustomPresetId("")
+                              }}
+                              aria-label={t("library.download.modifyLink")}
+                            >
+                              <PencilLine className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{t("library.download.modifyLink")}</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex shrink-0 items-center border-l border-border/70 px-2">
                               <Switch
                                 checked={downloadPrepared?.connectorAvailable ? downloadUseConnector : false}
                                 onCheckedChange={(checked) => {
@@ -2562,6 +2780,12 @@ export function LibraryPage() {
                                   }
                                 }}
                                 disabled={!downloadPrepared?.connectorAvailable}
+                                className="focus-visible:ring-0 focus-visible:ring-offset-0"
+                                aria-label={
+                                  downloadPrepared?.connectorAvailable
+                                    ? t("library.download.connectorHint")
+                                    : t("library.download.connectorUnsupportedHint")
+                                }
                               />
                             </div>
                           </TooltipTrigger>
@@ -2727,11 +2951,11 @@ export function LibraryPage() {
             ) : null}
 
             {activeNewDialog === "importSubtitle" ? (
-              <ImportAssetDialog
+              <LibraryImportDialog
                 kind="subtitle"
                 filePath={subtitlePath}
                 importTargetMode={importTargetMode}
-                currentLibrary={selectedLibraryDisplay}
+                currentLibraryLabel={selectedLibraryDisplay?.name?.trim() ?? ""}
                 titleValue={subtitleTitle}
                 onTitleChange={setSubtitleTitle}
                 onModeChange={setImportTargetMode}
@@ -2749,11 +2973,11 @@ export function LibraryPage() {
             ) : null}
 
             {activeNewDialog === "importVideo" ? (
-              <ImportAssetDialog
+              <LibraryImportDialog
                 kind="video"
                 filePath={importVideoPath}
                 importTargetMode={importTargetMode}
-                currentLibrary={selectedLibraryDisplay}
+                currentLibraryLabel={selectedLibraryDisplay?.name?.trim() ?? ""}
                 titleValue={importVideoTitle}
                 onTitleChange={setImportVideoTitle}
                 onModeChange={setImportTargetMode}
@@ -2772,24 +2996,23 @@ export function LibraryPage() {
           </DashboardDialogContent>
         </Dialog>
 
-        <Dialog open={imagePreview !== null} onOpenChange={(open) => (!open ? setImagePreview(null) : undefined)}>
-          <DashboardDialogContent size="workspace" className="flex max-h-[88vh] w-full flex-col overflow-hidden">
-            <DashboardDialogHeader>
-              <DialogTitle>{imagePreview?.name || t("library.preview.imageTitle")}</DialogTitle>
-              <DialogDescription>{imagePreview?.path || "-"}</DialogDescription>
-            </DashboardDialogHeader>
-            <DashboardDialogSection tone="inset" className="min-h-0 flex-1 overflow-auto p-2">
-              {imagePreviewURL ? (
-                <img src={imagePreviewURL} alt={imagePreview?.name ?? ""} className="mx-auto block h-auto max-h-[72vh] w-auto max-w-full object-contain" />
-              ) : (
-                <div className="flex h-full min-h-[240px] items-center justify-center text-xs text-muted-foreground">
-                  <ImageIcon className="mr-2 h-4 w-4" />
-                  {t("library.preview.imageUnavailable")}
-                </div>
-              )}
-            </DashboardDialogSection>
-          </DashboardDialogContent>
-        </Dialog>
+        <LibraryImagePreviewDialog
+          open={imagePreview !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setImagePreview(null)
+            }
+          }}
+          image={imagePreview}
+          imageUrl={imagePreviewURL}
+          onOpenFolder={
+            imagePreview?.path
+              ? () => {
+                  openLibraryPath.mutate({ path: imagePreview.path })
+                }
+              : undefined
+          }
+        />
       </div>
     </TooltipProvider>
   )
@@ -3946,266 +4169,6 @@ function ResourceRecordTimelineItem(props: {
   )
 }
 
-function ImportAssetDialog(props: {
-  kind: "video" | "subtitle"
-  filePath: string
-  importTargetMode: ImportTargetMode
-  currentLibrary?: LibraryDTO
-  titleValue: string
-  onTitleChange: (value: string) => void
-  onModeChange: (value: ImportTargetMode) => void
-  onClose: () => void
-  onSelectFile: () => void
-  onSubmit: () => void
-  submitting: boolean
-  canSubmit: boolean
-  t: Translator
-}) {
-  const Icon = props.kind === "video" ? Video : Captions
-  const hasFile = Boolean(props.filePath.trim())
-  const fileName = getPathBaseName(props.filePath) || "-"
-  const fileFormat = extractExtensionFromPath(props.filePath).toUpperCase() || "-"
-  const libraryLabel = resolveLibraryDialogLabel(props.currentLibrary)
-  const titlePreview = props.titleValue.trim() || stripPathExtension(getPathBaseName(props.filePath))
-  const targetPreview =
-    props.importTargetMode === "existing"
-      ? libraryLabel.primary || props.t("library.import.targetCurrentEmpty")
-      : props.t("library.import.targetNew")
-
-  return (
-    <>
-      <DashboardDialogHeader>
-        <DialogTitle>
-          {props.kind === "video"
-            ? props.t("library.actions.importVideo")
-            : props.t("library.actions.importSubtitle")}
-        </DialogTitle>
-        <DialogDescription>
-          {props.kind === "video"
-            ? props.t("library.import.videoDialogDescription")
-            : props.t("library.import.subtitleDialogDescription")}
-        </DialogDescription>
-      </DashboardDialogHeader>
-
-      <DashboardDialogBody className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-        {!hasFile ? (
-          <div className="flex min-h-[280px] items-center justify-center">
-            <Button size="compact" onClick={props.onSelectFile}>
-              <FilePlus2 className="h-4 w-4" />
-              {props.t("library.import.selectFile")}
-            </Button>
-          </div>
-        ) : (
-          <>
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(220px,248px)]">
-              <WorkspaceDialogHeaderCard
-                title={props.t("library.task.summary")}
-                badge={
-                  <WorkspaceDialogSectionBadge>
-                    <Icon className="h-3.5 w-3.5" />
-                    {props.kind === "video"
-                      ? props.t("library.actions.importVideo")
-                      : props.t("library.actions.importSubtitle")}
-                  </WorkspaceDialogSectionBadge>
-                }
-              >
-                <div className="space-y-2">
-                  <WorkspaceDialogSummaryRow label={props.t("library.import.fileName")} value={fileName} />
-                  <WorkspaceDialogSummaryRow label={props.t("library.import.fileFormat")} value={fileFormat} />
-                  <WorkspaceDialogSummaryRow label={props.t("library.import.targetMode")} value={targetPreview} />
-                </div>
-              </WorkspaceDialogHeaderCard>
-
-              <WorkspaceDialogHeaderCard
-                title={props.t("library.task.overview")}
-                badge={
-                  <WorkspaceDialogSectionBadge>
-                    {props.t("library.import.dialog.ready")}
-                  </WorkspaceDialogSectionBadge>
-                }
-              >
-                <WorkspaceDialogMetricsCard
-                  columns={2}
-                  items={[
-                    {
-                      label: props.t("library.import.dialog.metrics.file"),
-                      value: props.t("library.import.dialog.selected"),
-                    },
-                    {
-                      label: props.t("library.import.dialog.metrics.target"),
-                      value:
-                        props.importTargetMode === "existing"
-                          ? props.t("library.import.targetCurrentLabel")
-                          : props.t("library.import.targetNew"),
-                    },
-                    {
-                      label: props.t("library.import.dialog.metrics.title"),
-                      value: titlePreview || "-",
-                    },
-                    {
-                      label: props.t("library.import.dialog.metrics.naming"),
-                      value: props.titleValue.trim()
-                        ? props.t("library.import.dialog.customTitle")
-                        : props.t("library.import.dialog.autoTitle"),
-                    },
-                  ]}
-                />
-              </WorkspaceDialogHeaderCard>
-            </div>
-
-            <ImportTargetCard
-              importTargetMode={props.importTargetMode}
-              currentLibrary={props.currentLibrary}
-              onModeChange={props.onModeChange}
-              t={props.t}
-            />
-
-            <ImportFileCard
-              kind={props.kind}
-              path={props.filePath}
-              t={props.t}
-            />
-
-            <WorkspaceDialogSectionCard
-              title={props.t("library.import.dialog.namingTitle")}
-              description={props.t("library.import.dialog.namingDescription")}
-            >
-              <WorkspaceDialogFormRow
-                label={props.t("library.tools.optionalTitle")}
-                description={props.t("library.import.dialog.namingHint")}
-                control={
-                  <Input
-                    value={props.titleValue}
-                    onChange={(event) => props.onTitleChange(event.target.value)}
-                    placeholder={props.t("library.tools.optionalTitle")}
-                    className="h-8 text-xs"
-                  />
-                }
-              />
-            </WorkspaceDialogSectionCard>
-
-          </>
-        )}
-      </DashboardDialogBody>
-
-      <DashboardDialogFooter className="sm:justify-end">
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-          <Button variant="outline" size="compact" onClick={props.onClose}>
-            {props.t("common.close")}
-          </Button>
-          {hasFile ? (
-            <Button variant="outline" size="compact" onClick={props.onSelectFile}>
-              <FilePlus2 className="h-4 w-4" />
-              {props.t("library.import.reselect")}
-            </Button>
-          ) : null}
-          <Button size="compact" onClick={props.onSubmit} disabled={props.submitting || !props.canSubmit}>
-            {props.submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
-            {props.t("library.tools.import")}
-          </Button>
-        </div>
-      </DashboardDialogFooter>
-    </>
-  )
-}
-
-function ImportTargetCard(props: {
-  importTargetMode: ImportTargetMode
-  currentLibrary?: LibraryDTO
-  onModeChange: (value: ImportTargetMode) => void
-  t: Translator
-}) {
-  const libraryLabel = resolveLibraryDialogLabel(props.currentLibrary)
-
-  return (
-    <WorkspaceDialogSectionCard
-      title={props.t("library.import.dialog.targetTitle")}
-      description={props.t("library.import.dialog.targetDescription")}
-      badge={<WorkspaceDialogSectionBadge>{props.t("library.workspace.dialogs.required")}</WorkspaceDialogSectionBadge>}
-    >
-      <div className="space-y-3">
-        <WorkspaceDialogFormRow
-          label={props.t("library.import.targetMode")}
-          description={props.t("library.import.dialog.targetHint")}
-          control={
-            <Select
-              value={props.importTargetMode}
-              onChange={(event) => props.onModeChange(event.target.value === "existing" ? "existing" : "new")}
-              className="h-8 w-full border-border/70 bg-background/80"
-            >
-              <option value="new">{props.t("library.import.targetNew")}</option>
-              <option value="existing" disabled={!props.currentLibrary}>
-                {props.t("library.import.targetCurrent")}
-              </option>
-            </Select>
-          }
-        />
-        {props.importTargetMode === "existing" ? (
-          <WorkspaceDialogItemsCard
-            items={[
-              {
-                key: "current-library",
-                label: props.t("library.import.targetCurrentLabel"),
-                value: (
-                  <span
-                    className="block truncate text-xs text-muted-foreground"
-                    title={libraryLabel.primary || props.t("library.import.targetCurrentEmpty")}
-                  >
-                    {libraryLabel.primary || props.t("library.import.targetCurrentEmpty")}
-                  </span>
-                ),
-              },
-            ]}
-          />
-        ) : null}
-      </div>
-    </WorkspaceDialogSectionCard>
-  )
-}
-
-function ImportFileCard(props: { kind: "video" | "subtitle"; path: string; t: Translator }) {
-  const formatLabel = extractExtensionFromPath(props.path).toUpperCase() || "-"
-  const fileName = getPathBaseName(props.path) || "-"
-  return (
-    <WorkspaceDialogSectionCard
-      title={
-        props.kind === "video"
-          ? props.t("library.actions.importVideo")
-          : props.t("library.actions.importSubtitle")
-      }
-      description={props.t("library.import.dialog.fileDescription")}
-    >
-      <WorkspaceDialogItemsCard
-        items={[
-          {
-            key: "file-name",
-            label: props.t("library.import.fileName"),
-            value: <span className="block truncate text-xs text-muted-foreground" title={fileName}>{fileName}</span>,
-          },
-          {
-            key: "file-format",
-            label: props.t("library.import.fileFormat"),
-            value: <span className="text-xs text-muted-foreground">{formatLabel}</span>,
-          },
-          {
-            key: "file-path",
-            label: props.t("library.import.filePath"),
-            value: <span className="block truncate text-xs text-muted-foreground" title={props.path || "-"}>{props.path || "-"}</span>,
-          },
-        ]}
-      />
-    </WorkspaceDialogSectionCard>
-  )
-}
-
-function resolveLibraryDialogLabel(library?: LibraryDTO): { primary: string; secondary?: string } {
-  const rawName = resolveEffectiveLibraryName(library, library?.files)?.trim() ?? ""
-  if (!rawName) {
-    return { primary: "" }
-  }
-  return { primary: rawName }
-}
-
 function buildWorkspaceTrackLabelByFileIdMap(workspaceProject?: WorkspaceProjectDTO) {
   const map = new Map<string, string>()
   for (const track of workspaceProject?.videoTracks ?? []) {
@@ -4492,7 +4455,6 @@ function resolveEffectiveLibraryName(library?: LibraryDTO, files?: LibraryFileDT
 function toTaskRowFromOperation(
   operation: OperationListItemDTO,
   filesById: Map<string, LibraryFileDTO>,
-  liveOperation: { sourceIcon?: string } | undefined,
   labels: LibraryLabelMaps,
   libraryNameByID: Map<string, string>,
 ): LibraryTaskRow {
@@ -4538,8 +4500,53 @@ function toTaskRowFromOperation(
     createdAt: operation.createdAt,
     outputFiles: outputs,
     sourceDomain: operation.domain,
-    sourceIcon: operation.sourceIcon ?? liveOperation?.sourceIcon,
+    sourceIcon: operation.sourceIcon,
   }
+}
+
+function toTaskDeleteFileItems(task: LibraryTaskRow) {
+  const candidateFiles = (task.libraryFiles && task.libraryFiles.length > 0 ? task.libraryFiles : task.outputFiles) ?? []
+  return candidateFiles
+    .filter((file) => !file.deleted)
+    .map((file) => ({
+      id: file.id,
+      name: file.label,
+      path: file.path,
+      fileType: file.fileType,
+      format: undefined,
+    }))
+    .filter((item) => item.name || item.path)
+}
+
+function resolveTaskDeleteImpactDescription(task: LibraryTaskRow, t: Translator) {
+  const deleteFileItems = toTaskDeleteFileItems(task)
+  if (deleteFileItems.length > 0) {
+    return formatTemplate(t("library.task.deleteImpactDescription"), {
+      count: deleteFileItems.length,
+    })
+  }
+  return t("library.task.deleteKeepFilesDescription")
+}
+
+function toFileDeleteItems(file: LibraryFileRow) {
+  return [
+    {
+      id: file.id,
+      name: file.name,
+      path: file.path,
+      fileType: file.fileType,
+      format: file.format,
+    },
+  ].filter((item) => item.name || item.path)
+}
+
+function resolveFileDeleteImpactDescription(file: LibraryFileRow, t: Translator) {
+  if (file.taskName) {
+    return formatTemplate(t("library.file.deleteImpactDescription"), {
+      task: file.taskName,
+    })
+  }
+  return t("library.file.deleteKeepTaskDescription")
 }
 
 function toFileRowFromDTO(file: LibraryFileDTO, operationsById: Map<string, OperationListItemDTO>, labels: LibraryLabelMaps): LibraryFileRow {
@@ -4597,13 +4604,6 @@ function mergeHistory(queryHistory: LibraryHistoryRecordDTO[], liveHistory: Libr
   queryHistory.forEach((item) => map.set(item.recordId, item))
   liveHistory.forEach((item) => map.set(item.recordId, item))
   return Array.from(map.values()).sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
-}
-
-function mergeOperations(queryOperations: OperationListItemDTO[], liveOperations: OperationListItemDTO[]) {
-  const map = new Map<string, OperationListItemDTO>()
-  queryOperations.forEach((item) => map.set(item.operationId, item))
-  liveOperations.forEach((item) => map.set(item.operationId, item))
-  return Array.from(map.values()).sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 }
 
 function createPersistableModuleConfig(config: LibraryModuleConfigDTO): LibraryModuleConfigDTO {

@@ -4,6 +4,39 @@ import { persist } from "zustand/middleware";
 import type { ConnectionStatus, RealtimeEvent } from "./types";
 
 const MAX_PER_TOPIC = 100;
+const MAX_TOTAL_MESSAGES = 400;
+
+function trimMessageBuckets(messages: Record<string, RealtimeEvent[]>) {
+  const entries = Object.entries(messages);
+  let total = entries.reduce((sum, [, events]) => sum + events.length, 0);
+  if (total <= MAX_TOTAL_MESSAGES) {
+    return messages;
+  }
+
+  const flattened = entries
+    .flatMap(([topic, events]) => events.map((event) => ({ topic, ts: event.ts })))
+    .sort((left, right) => left.ts - right.ts);
+  const dropCounts = new Map<string, number>();
+
+  for (let index = 0; index < flattened.length && total > MAX_TOTAL_MESSAGES; index += 1) {
+    const topic = flattened[index]?.topic ?? "";
+    if (!topic) {
+      continue;
+    }
+    dropCounts.set(topic, (dropCounts.get(topic) ?? 0) + 1);
+    total -= 1;
+  }
+
+  const nextMessages: Record<string, RealtimeEvent[]> = {};
+  entries.forEach(([topic, events]) => {
+    const dropCount = dropCounts.get(topic) ?? 0;
+    const nextEvents = dropCount > 0 ? events.slice(dropCount) : events;
+    if (nextEvents.length > 0) {
+      nextMessages[topic] = nextEvents;
+    }
+  });
+  return nextMessages;
+}
 
 export interface RealtimeState {
   status: ConnectionStatus;
@@ -62,10 +95,10 @@ export const useRealtimeStore = create<RealtimeState>()(
           const existing = state.messages[event.topic] ?? [];
           const next = [...existing, event].slice(-MAX_PER_TOPIC);
           return {
-            messages: {
+            messages: trimMessageBuckets({
               ...state.messages,
               [event.topic]: next,
-            },
+            }),
           };
         }),
       recordMetric: (kind) =>

@@ -1,7 +1,8 @@
 import * as React from "react";
 import {
   AlertCircle,
-  Check,
+  ArrowUpCircle,
+  CheckCircle2,
   Download,
   Github,
   Globe,
@@ -17,6 +18,7 @@ import { useI18n } from "@/shared/i18n";
 import { DialogMarkdown } from "@/shared/markdown/dialog-markdown";
 import { type DebugModeLevel, useDebugMode } from "@/shared/store/debug";
 import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { SettingsCompactListCard, SettingsCompactRow, SettingsCompactSeparator } from "@/shared/ui/settings-layout";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
@@ -54,22 +56,27 @@ export function AboutSection() {
   const isReadyToRestart = updateInfo.status === "ready_to_restart";
   const releaseNotes = (updateInfo.changelog ?? "").trim();
   const hasReleaseNotes = releaseNotes.length > 0;
+  const errorMessage = (updateInfo.message ?? "").trim();
+  const hasKnownLatestVersion =
+    updateInfo.latestVersion.trim().length > 0 && updateInfo.latestVersion.trim() !== updateInfo.currentVersion.trim();
+  const showLatestUpdate = hasUpdate || (hasKnownLatestVersion && (isError || updateInfo.status === "available"));
+  const showStatusRow = isDownloading || (isError && errorMessage.length > 0);
 
   const latestLabel = (() => {
+    if (showLatestUpdate) return updateInfo.latestVersion || t("settings.about.update.latestAvailable");
     if (isError) return t("settings.about.update.latestFailed");
-    if (hasUpdate) return updateInfo.latestVersion || t("settings.about.update.latestAvailable");
     return t("settings.about.update.latestOk");
   })();
 
   const latestBadgeClass = (() => {
-    if (isError) return "bg-destructive/15 text-destructive";
-    if (hasUpdate) return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-100";
-    return "bg-primary/10 text-primary";
+    if (showLatestUpdate) return "border-primary/20 bg-primary/10 text-primary";
+    if (isError) return "border-destructive/20 bg-destructive/10 text-destructive";
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700/60 dark:bg-emerald-900/40 dark:text-emerald-100";
   })();
   const latestBadgeIcon = (() => {
+    if (showLatestUpdate) return ArrowUpCircle;
     if (isError) return AlertCircle;
-    if (hasUpdate) return Download;
-    return Check;
+    return CheckCircle2;
   })();
 
   React.useEffect(() => {
@@ -231,23 +238,16 @@ export function AboutSection() {
           <SettingsCompactSeparator />
 
           <SettingsCompactRow label={t("settings.about.update.latest")}>
-            <div className="flex min-w-0 items-center justify-end gap-2">
-              {isError && updateInfo.message ? (
-                <span
-                  className="max-w-[220px] truncate text-right text-sm text-destructive"
-                  title={updateInfo.message}
-                >
-                  {updateInfo.message}
-                </span>
-              ) : null}
-              <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-medium", latestBadgeClass)}>
+            <div className="flex min-w-0 items-center justify-end">
+              <Badge variant="outline" className={cn("gap-1 border text-sm font-medium", latestBadgeClass)}>
                 {React.createElement(latestBadgeIcon, { className: "h-3.5 w-3.5" })}
                 {latestLabel}
-              </span>
+              </Badge>
             </div>
           </SettingsCompactRow>
 
           <SettingsCompactSeparator />
+
           <SettingsCompactRow label={t("settings.about.update.changelog")}>
             {hasReleaseNotes ? (
               <Button variant="outline" size="compact" onClick={() => setReleaseNotesOpen(true)}>
@@ -259,21 +259,6 @@ export function AboutSection() {
               </span>
             )}
           </SettingsCompactRow>
-
-          {isDownloading ? (
-            <>
-              <SettingsCompactSeparator />
-              <div className="space-y-1.5 px-3 py-2">
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full bg-primary transition-[width]"
-                    style={{ width: `${Math.min(Math.max(updateInfo.progress, 0), 100)}%` }}
-                  />
-                </div>
-                <div className="text-right text-sm text-muted-foreground">{Math.round(updateInfo.progress)}%</div>
-              </div>
-            </>
-          ) : null}
 
           <SettingsCompactSeparator />
 
@@ -346,6 +331,36 @@ export function AboutSection() {
               ) : null}
             </div>
           </SettingsCompactRow>
+
+          {showStatusRow ? (
+            <>
+              <SettingsCompactSeparator />
+              <SettingsCompactRow label={t("settings.about.update.status")}>
+                {isDownloading ? (
+                  <div className="w-[220px] max-w-full space-y-1.5">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full bg-primary transition-[width]"
+                        style={{ width: `${Math.min(Math.max(updateInfo.progress, 0), 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>
+                        {updateInfo.status === "installing"
+                          ? t("settings.about.update.installing")
+                          : t("settings.about.update.downloading")}
+                      </span>
+                      <span>{Math.round(updateInfo.progress)}%</span>
+                    </div>
+                  </div>
+                ) : (
+                  <span className="max-w-[280px] whitespace-pre-wrap break-words text-right text-sm text-destructive">
+                    {errorMessage}
+                  </span>
+                )}
+              </SettingsCompactRow>
+            </>
+          ) : null}
         </SettingsCompactListCard>
         <Dialog open={releaseNotesOpen} onOpenChange={setReleaseNotesOpen}>
           <DialogContent className="max-w-2xl">

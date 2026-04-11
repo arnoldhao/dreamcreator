@@ -45,12 +45,15 @@
 
 ### 一、下载安装
 
-1. **获取安装包**：前往 [GitHub Releases](https://github.com/arnoldhao/dreamcreator/releases) 选择对应的安装包。macOS 用户使用 `.dmg`（Apple silicon 请选择 `arm64` 版本，Intel 请选择 `intel` 版本），Windows 用户根据需求选择 `.exe` 安装包或 `.zip` 便携版。
-2. **通过系统安全提示**：
-   - macOS：右键应用选择“打开”，或执行 `sudo xattr -rd com.apple.quarantine /Applications/DreamCreator.app` 移除隔离。
-   - Windows：首次运行若出现 SmartScreen 提示，点击“更多信息 → 仍要运行”。
+1. **下载对应安装包**：点击以下直链即可下载最新版本；如需查看历史版本，可前往 [GitHub Releases](https://github.com/arnoldhao/dreamcreator/releases)：
+   - macOS Apple Silicon：[点击下载](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-macos-arm64-latest.zip)
+   - macOS Intel：[点击下载](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-macos-x64-latest.zip)
+   - Windows 安装版：[点击下载](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-windows-x64-latest-installer.exe)
+   - Windows 便携版：[点击下载](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-windows-x64-latest.zip)
+2. **首次运行 macOS**：解压 `.zip` 后，将 `DreamCreator.app` 移动到“应用程序”目录。若系统提示“无法打开”或“已损坏”，请在终端执行：
 
-> 说明：当前 macOS 安装包可能尚未完成开发者签名与公证，首次运行时需要用户手动放行。
+   `sudo xattr -rd com.apple.quarantine /Applications/DreamCreator.app`
+3. **首次运行 Windows**：安装版双击 `.exe` 按提示安装；便携版解压 `.zip` 后直接运行。若首次启动出现 SmartScreen 提示，点击“更多信息 → 仍要运行”。
 
 
 ### 二、供应商 / Provider

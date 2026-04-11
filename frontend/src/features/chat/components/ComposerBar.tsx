@@ -181,6 +181,11 @@ const toFiniteTokenValue = (value: unknown): number => {
   return Math.max(0, Math.floor(value));
 };
 
+const isCancelledErrorMessage = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return message.toLowerCase().includes("cancel");
+};
+
 const parseThreadContextSnapshot = (payload: unknown): ContextTokenSnapshot | null => {
   if (!payload || typeof payload !== "object") {
     return null;
@@ -641,14 +646,14 @@ function PermissionModeSelector({
         style={PERMISSION_TRIGGER_MAX_WIDTH_STYLE}
       >
         <span className="inline-flex items-center justify-center">
-          <selected.Icon className="size-3.5 text-muted-foreground" />
+          <selected.Icon className="size-4 text-muted-foreground" />
         </span>
       </AuiSelectTrigger>
       <AuiSelectContent align="center" className="max-w-[260px]">
         {options.map((option) => (
           <AuiSelectItem key={option.value} value={option.value}>
             <span className="flex items-center gap-2 whitespace-nowrap">
-              <option.Icon className="size-3.5 text-muted-foreground" />
+              <option.Icon className="size-4 text-muted-foreground" />
               <span className="truncate">{option.label}</span>
             </span>
           </AuiSelectItem>
@@ -837,8 +842,14 @@ export function ComposerBar({
           t("chat.composer.attachDialogTitle")
         );
         const picked = (Array.isArray(selection) ? selection : []) as SelectedAttachmentFile[];
+        if (picked.length === 0) {
+          return;
+        }
         await addSelectedAttachments(picked);
       } catch (error) {
+        if (isCancelledErrorMessage(error)) {
+          return;
+        }
         const message = error instanceof Error ? error.message : String(error);
         messageBus.publishToast({
           title: t("chat.composer.attachError"),
@@ -954,7 +965,7 @@ export function ComposerBar({
     <ComposerPrimitive.AttachmentDropzone className="wails-no-drag">
       <ComposerPrimitive.Root
         data-file-drop-target="chat-composer"
-        className="flex w-full flex-col gap-2 rounded-2xl border border-border/60 bg-card/90 p-3 shadow-sm"
+        className="flex w-full flex-col gap-2 rounded-2xl border border-border/60 bg-card/90 p-[var(--app-sidebar-padding)] shadow-sm"
       >
         <ComposerAttachments />
         <ComposerPrimitive.Input
