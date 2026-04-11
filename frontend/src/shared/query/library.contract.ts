@@ -6,7 +6,7 @@ import type {
   DiscardSubtitleReviewSessionResult,
   FileEventRecordDTO,
   GenerateSubtitleStylePreviewASSResult,
-  GenerateWorkspacePreviewVTTResult,
+  GenerateWorkspacePreviewASSResult,
   GetYtdlpOperationLogResponse,
   LibraryDTO,
   LibraryFileDTO,
@@ -824,15 +824,17 @@ const subtitleReviewSessionDetailSchema = z
   })
   .passthrough()
 
-const generateWorkspacePreviewVttResultSchema = z
-  .object({
-    vttContent: z.string(),
-  })
-  .passthrough()
-
 const generateSubtitleStylePreviewAssResultSchema = z
   .object({
     assContent: z.string(),
+    referencedFontFamilies: stringArraySchema.optional(),
+  })
+  .passthrough()
+
+const generateWorkspacePreviewAssResultSchema = z
+  .object({
+    assContent: z.string(),
+    referencedFontFamilies: stringArraySchema.optional(),
   })
   .passthrough()
 
@@ -1066,11 +1068,11 @@ export function parseWorkspaceProjectPayload(input: unknown): WorkspaceProjectDT
   return parseContract<WorkspaceProjectDTO>(workspaceProjectSchema, input, "workspace project")
 }
 
-export function parseGenerateWorkspacePreviewPayload(input: unknown): GenerateWorkspacePreviewVTTResult {
-  return parseContract<GenerateWorkspacePreviewVTTResult>(
-    generateWorkspacePreviewVttResultSchema,
+export function parseGenerateWorkspacePreviewAssPayload(input: unknown): GenerateWorkspacePreviewASSResult {
+  return parseContract<GenerateWorkspacePreviewASSResult>(
+    generateWorkspacePreviewAssResultSchema,
     input,
-    "workspace preview",
+    "workspace ass preview",
   )
 }
 

@@ -8,7 +8,7 @@ import {
   parseDiscardSubtitleReviewSessionPayload,
   parseFileEventPayload,
   parseGenerateSubtitleStylePreviewPayload,
-  parseGenerateWorkspacePreviewPayload,
+  parseGenerateWorkspacePreviewAssPayload,
   parseGetYtdlpOperationLogPayload,
   parseLibraryFilePayload,
   parseLibraryHistoryPayload,
@@ -70,8 +70,8 @@ import type {
   OpenFileLocationRequest,
   OpenPathRequest,
   OperationListItemDTO,
-  GenerateWorkspacePreviewVTTRequest,
-  GenerateWorkspacePreviewVTTResult,
+  GenerateWorkspacePreviewASSRequest,
+  GenerateWorkspacePreviewASSResult,
   GenerateSubtitleStylePreviewASSRequest,
   GenerateSubtitleStylePreviewASSResult,
   ParseYtdlpDownloadRequest,
@@ -479,16 +479,16 @@ export function useGetWorkspaceProject(libraryId: string, enabled = true) {
   })
 }
 
-export function useGenerateWorkspacePreviewVTT() {
+export function useGenerateWorkspacePreviewASS() {
   return useMutation({
     mutationFn: async (
-      request: GenerateWorkspacePreviewVTTRequest,
-    ): Promise<GenerateWorkspacePreviewVTTResult> => {
+      request: GenerateWorkspacePreviewASSRequest,
+    ): Promise<GenerateWorkspacePreviewASSResult> => {
       return parseGeneratedPayload(
-        await LibraryHandler.GenerateWorkspacePreviewVTT(
-          LibraryBindings.GenerateWorkspacePreviewVTTRequest.createFrom(request),
+        await LibraryHandler.GenerateWorkspacePreviewASS(
+          LibraryBindings.GenerateWorkspacePreviewASSRequest.createFrom(request),
         ),
-        parseGenerateWorkspacePreviewPayload,
+        parseGenerateWorkspacePreviewAssPayload,
       )
     },
   })

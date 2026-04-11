@@ -20,7 +20,7 @@ import {
   useDiscardSubtitleReviewSession,
   useExportSubtitle,
   useGenerateSubtitleStylePreviewASS,
-  useGenerateWorkspacePreviewVTT,
+  useGenerateWorkspacePreviewASS,
   useGetSubtitleReviewSession,
   useGetWorkspaceProject,
   useGetWorkspaceState,
@@ -83,6 +83,7 @@ import {
   resolveDirectoryName,
   resolveErrorMessage,
   resolveLibraryWorkspacePersistedState,
+  resolveLibraryWorkspaceStateFromOpenTarget,
   resolveSubtitleExportMediaHint,
   resolveSubtitleExportPresetOverrideConfig,
   resolveSubtitleExportPresetFormat,
@@ -169,6 +170,8 @@ export type LibraryWorkspaceToolbarState = {
   onOpenCurrentFile: () => void;
 };
 
+const SUBTITLE_AUTOSAVE_DEBOUNCE_MS = 500;
+
 export function LibraryWorkspacePage(props: WorkspacePageProps) {
   const { t, language } = useI18n();
   const library = props.library;
@@ -191,8 +194,14 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
   const qaCheckSettings = useLibraryWorkspaceStore(
     (state) => state.qaCheckSettings,
   );
+  const pendingOpenTarget = useLibraryWorkspaceStore(
+    (state) => state.pendingOpenTarget,
+  );
   const applyPersistedWorkspaceState = useLibraryWorkspaceStore(
     (state) => state.applyPersistedState,
+  );
+  const clearPendingOpenTarget = useLibraryWorkspaceStore(
+    (state) => state.clearPendingOpenTarget,
   );
   const setActiveEditor = useLibraryWorkspaceStore(
     (state) => state.setActiveEditor,
@@ -220,7 +229,7 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
   const parseSubtitle = useParseSubtitle();
   const exportSubtitle = useExportSubtitle();
   const generateSubtitleStylePreviewASS = useGenerateSubtitleStylePreviewASS();
-  const generateWorkspacePreviewVTT = useGenerateWorkspacePreviewVTT();
+  const generateWorkspacePreviewASS = useGenerateWorkspacePreviewASS();
   const workspaceProjectQuery = useGetWorkspaceProject(
     library?.id ?? "",
     Boolean(library?.id),
@@ -325,7 +334,6 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
     React.useState<LibraryMonoStyleDTO | null>(null);
   const [workspaceSubtitleLingualStyle, setWorkspaceSubtitleLingualStyle] =
     React.useState<LibraryBilingualStyleDTO | null>(null);
-  const [previewVttContent, setPreviewVttContent] = React.useState("");
   const [subtitleSearch, setSubtitleSearch] = React.useState("");
   const [subtitleReplaceValue, setSubtitleReplaceValue] = React.useState("");
   const [subtitleFilter, setSubtitleFilter] =
@@ -412,10 +420,10 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
   const [hoveredRowId, setHoveredRowId] = React.useState("");
   const [playheadMs, setPlayheadMs] = React.useState(0);
   const [isPlaying, setIsPlaying] = React.useState(false);
-  const [previewRenderSize, setPreviewRenderSize] = React.useState({
-    width: 0,
-    height: 0,
-  });
+  const [previewASSContent, setPreviewASSContent] = React.useState("");
+  const [previewReferencedFontFamilies, setPreviewReferencedFontFamilies] =
+    React.useState<string[]>([]);
+  const [previewReloadRevision, setPreviewReloadRevision] = React.useState(0);
   const [reloadRevision, setReloadRevision] = React.useState(0);
   const [reviewDecisions, setReviewDecisions] = React.useState<
     Record<number, WorkspaceReviewDecision>
@@ -427,8 +435,8 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
   const rowsRef = React.useRef(rows);
   const baseRowsRef = React.useRef(baseRows);
   const parseSubtitleAsyncRef = React.useRef(parseSubtitle.mutateAsync);
-  const generateWorkspacePreviewVTTAsyncRef = React.useRef(
-    generateWorkspacePreviewVTT.mutateAsync,
+  const generateWorkspacePreviewASSAsyncRef = React.useRef(
+    generateWorkspacePreviewASS.mutateAsync,
   );
   const lastLoadedSubtitleKeyRef = React.useRef("");
   const lastLoadedComparisonSubtitleKeyRef = React.useRef("");
@@ -437,23 +445,12 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
   const reviewReadyToastSessionIdRef = React.useRef("");
   const reviewDecisionSessionIdRef = React.useRef("");
   const reviewFocusSessionIdRef = React.useRef("");
-  const previewVttRequestVersionRef = React.useRef(0);
-  const lastPreviewVttRequestKeyRef = React.useRef("");
+  const previewASSRequestVersionRef = React.useRef(0);
+  const lastPreviewASSRequestKeyRef = React.useRef("");
   const latestWorkspaceStateRequestRef = React.useRef<{
     libraryId: string;
     stateJson: string;
   } | null>(null);
-  const handlePreviewRenderSizeChange = React.useCallback(
-    (size: { width: number; height: number }) => {
-      setPreviewRenderSize((current) =>
-        current.width === size.width && current.height === size.height
-          ? current
-          : size,
-      );
-    },
-    [],
-  );
-
   React.useEffect(() => {
     rowsRef.current = rows;
   }, [rows]);
@@ -467,16 +464,17 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
   }, [parseSubtitle.mutateAsync]);
 
   React.useEffect(() => {
-    generateWorkspacePreviewVTTAsyncRef.current =
-      generateWorkspacePreviewVTT.mutateAsync;
-  }, [generateWorkspacePreviewVTT.mutateAsync]);
+    generateWorkspacePreviewASSAsyncRef.current =
+      generateWorkspacePreviewASS.mutateAsync;
+  }, [generateWorkspacePreviewASS.mutateAsync]);
 
   React.useEffect(() => {
     setWorkspaceSubtitleMonoStyle(null);
     setWorkspaceSubtitleLingualStyle(null);
     setSubtitleStyleSidebarOpen(false);
-    setPreviewVttContent("");
-    lastPreviewVttRequestKeyRef.current = "";
+    setPreviewASSContent("");
+    setPreviewReferencedFontFamilies([]);
+    lastPreviewASSRequestKeyRef.current = "";
   }, [library?.id]);
 
   const workspaceEmptyTexts = React.useMemo(
@@ -1256,16 +1254,14 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
       workspaceSubtitleLingualStyle,
     ],
   );
-  const workspacePreviewRows = React.useMemo(
-    () =>
-      resolvedRows.map((row) => ({
-        startMs: row.startMs,
-        endMs: row.endMs,
-        primaryText: row.sourceText,
-        secondaryText: row.translationText,
-      })),
-    [resolvedRows],
-  );
+  const currentLibraryPendingOpenTarget = React.useMemo(() => {
+    if (!library?.id) {
+      return null;
+    }
+    return pendingOpenTarget?.libraryId?.trim() == library.id
+      ? pendingOpenTarget
+      : null;
+  }, [library?.id, pendingOpenTarget]);
   const workspaceFontMappings = React.useMemo(
     () => props.moduleConfig?.subtitleStyles?.fonts ?? [],
     [props.moduleConfig?.subtitleStyles?.fonts],
@@ -1297,55 +1293,81 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
       workspaceFontMappings,
     ],
   );
-  React.useEffect(() => {
-    const monoStyle = activeWorkspaceMonoStyle;
-    const lingualStyle = activeWorkspaceLingualStyle;
-    const requestPayload = {
+  const workspacePreviewRequest = React.useMemo(
+    () => ({
+      libraryId: library?.id ?? "",
       displayMode: effectiveDisplayMode,
-      mono: monoStyle ?? undefined,
-      lingual: lingualStyle ?? undefined,
-      rows: workspacePreviewRows,
-      fontMappings: workspaceFontMappings,
-      previewWidth:
-        previewRenderSize.width > 0 ? previewRenderSize.width : undefined,
-      previewHeight:
-        previewRenderSize.height > 0 ? previewRenderSize.height : undefined,
-    };
-    const requestKey = JSON.stringify(requestPayload);
-    if (lastPreviewVttRequestKeyRef.current === requestKey) {
+      primarySubtitleTrackId: activeSubtitleFile?.id ?? "",
+      secondarySubtitleTrackId:
+        effectiveDisplayMode === "bilingual"
+          ? comparisonSubtitleFile?.id ?? ""
+          : undefined,
+    }),
+    [
+      activeSubtitleFile?.id,
+      comparisonSubtitleFile?.id,
+      effectiveDisplayMode,
+      library?.id,
+    ],
+  );
+  const workspacePreviewRequestKey = React.useMemo(
+    () =>
+      JSON.stringify({
+        ...workspacePreviewRequest,
+        previewReloadRevision,
+        reloadRevision,
+      }),
+    [previewReloadRevision, reloadRevision, workspacePreviewRequest],
+  );
+  React.useEffect(() => {
+    // Workspace preview intentionally follows persisted backend subtitle/style
+    // state, so this request is keyed by saved-track selection plus reload marks.
+    if (
+      !workspacePreviewRequest.libraryId ||
+      !workspacePreviewRequest.primarySubtitleTrackId ||
+      (workspacePreviewRequest.displayMode === "bilingual" &&
+        !workspacePreviewRequest.secondarySubtitleTrackId)
+    ) {
+      lastPreviewASSRequestKeyRef.current = "";
+      setPreviewASSContent("");
+      setPreviewReferencedFontFamilies([]);
       return;
     }
-    lastPreviewVttRequestKeyRef.current = requestKey;
-    const requestVersion = previewVttRequestVersionRef.current + 1;
-    previewVttRequestVersionRef.current = requestVersion;
+    if (lastPreviewASSRequestKeyRef.current === workspacePreviewRequestKey) {
+      return;
+    }
+    lastPreviewASSRequestKeyRef.current = workspacePreviewRequestKey;
+    const requestVersion = previewASSRequestVersionRef.current + 1;
+    previewASSRequestVersionRef.current = requestVersion;
     const timer = window.setTimeout(() => {
-      void generateWorkspacePreviewVTTAsyncRef
-        .current(requestPayload)
+      void generateWorkspacePreviewASSAsyncRef
+        .current(workspacePreviewRequest)
         .then((result) => {
-          if (previewVttRequestVersionRef.current !== requestVersion) {
+          if (previewASSRequestVersionRef.current !== requestVersion) {
             return;
           }
-          const nextContent = result.vttContent?.trim() ? `${result.vttContent.trim()}\n` : "";
-          setPreviewVttContent(nextContent);
+          const nextContent = result.assContent?.trim() ? `${result.assContent.trim()}\n` : "";
+          setPreviewASSContent(nextContent);
+          setPreviewReferencedFontFamilies(
+            result.referencedFontFamilies ?? [],
+          );
         })
-        .catch(() => {
-          if (previewVttRequestVersionRef.current !== requestVersion) {
+        .catch((error) => {
+          if (previewASSRequestVersionRef.current !== requestVersion) {
             return;
           }
-          setPreviewVttContent("");
+          console.error("[jassub-preview][workspace-video] ASS preview request failed", {
+            error,
+            request: workspacePreviewRequest,
+          });
+          setPreviewASSContent("");
+          setPreviewReferencedFontFamilies([]);
         });
     }, 90);
     return () => {
       window.clearTimeout(timer);
     };
-  }, [
-    activeWorkspaceLingualStyle,
-    activeWorkspaceMonoStyle,
-    effectiveDisplayMode,
-    previewRenderSize,
-    workspaceFontMappings,
-    workspacePreviewRows,
-  ]);
+  }, [workspacePreviewRequest, workspacePreviewRequestKey]);
   const exportEmbeddedSubtitleRoute = React.useMemo(
     () =>
       resolveVideoExportSoftSubtitleRoute(
@@ -1527,12 +1549,15 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
       return;
     }
     completedWorkspaceRestoreKeyRef.current = workspaceRestoreKey;
+    let restoredState:
+      | ReturnType<typeof resolveLibraryWorkspacePersistedState>
+      | null = null;
     if (workspaceStateQuery.status == "success") {
       const parsedState = parseLibraryWorkspacePersistedState(
         workspaceStateQuery.data.stateJson,
       );
       if (parsedState) {
-        const restoredState = resolveLibraryWorkspacePersistedState(
+        restoredState = resolveLibraryWorkspacePersistedState(
           parsedState,
           {
             libraryId: library.id,
@@ -1543,7 +1568,6 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
               workspaceProjectLingualStyle ?? undefined,
           },
         );
-        applyPersistedWorkspaceState(restoredState);
         setWorkspaceSubtitleMonoStyle(
           createWorkspaceMonoStyleDraft(restoredState.subtitleMonoStyle) ??
             null,
@@ -1556,17 +1580,46 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
         setSubtitleStyleSidebarOpen(
           Boolean(restoredState.subtitleStyleSidebarOpen),
         );
+      }
+    }
+    const nextState = currentLibraryPendingOpenTarget
+      ? resolveLibraryWorkspaceStateFromOpenTarget(
+          currentLibraryPendingOpenTarget,
+          restoredState ?? persistedWorkspaceState,
+          {
+            libraryId: library.id,
+            libraryFiles: props.files,
+            videoFiles,
+            subtitleFiles,
+            defaultSubtitleMonoStyle: activeWorkspaceMonoStyle ?? undefined,
+            defaultSubtitleLingualStyle:
+              activeWorkspaceLingualStyle ?? undefined,
+          },
+        )
+      : restoredState;
+    if (nextState) {
+      applyPersistedWorkspaceState(nextState);
+      if (restoredState && !currentLibraryPendingOpenTarget) {
         lastSavedWorkspaceStateJSONRef.current = JSON.stringify({
           version: 1,
           ...restoredState,
         });
       }
     }
+    if (currentLibraryPendingOpenTarget) {
+      clearPendingOpenTarget(library.id);
+    }
     setWorkspaceStateReady(true);
   }, [
     applyPersistedWorkspaceState,
+    activeWorkspaceLingualStyle,
+    activeWorkspaceMonoStyle,
+    clearPendingOpenTarget,
+    currentLibraryPendingOpenTarget,
     fastReadLatestStateEnabled,
     library?.id,
+    persistedWorkspaceState,
+    props.files,
     subtitleFiles,
     videoFiles,
     workspaceRestoreKey,
@@ -1576,6 +1629,43 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
     workspaceStateQuery.status,
     workspaceProjectLingualStyle,
     workspaceProjectMonoStyle,
+  ]);
+
+  React.useEffect(() => {
+    if (
+      !library?.id ||
+      !workspaceStateReady ||
+      !currentLibraryPendingOpenTarget
+    ) {
+      return;
+    }
+    const nextState = resolveLibraryWorkspaceStateFromOpenTarget(
+      currentLibraryPendingOpenTarget,
+      persistedWorkspaceState,
+      {
+        libraryId: library.id,
+        libraryFiles: props.files,
+        videoFiles,
+        subtitleFiles,
+        defaultSubtitleMonoStyle: activeWorkspaceMonoStyle ?? undefined,
+        defaultSubtitleLingualStyle:
+          activeWorkspaceLingualStyle ?? undefined,
+      },
+    );
+    applyPersistedWorkspaceState(nextState);
+    clearPendingOpenTarget(library.id);
+  }, [
+    activeWorkspaceLingualStyle,
+    activeWorkspaceMonoStyle,
+    applyPersistedWorkspaceState,
+    clearPendingOpenTarget,
+    currentLibraryPendingOpenTarget,
+    library?.id,
+    persistedWorkspaceState,
+    props.files,
+    subtitleFiles,
+    videoFiles,
+    workspaceStateReady,
   ]);
 
   React.useEffect(() => {
@@ -1601,6 +1691,7 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
         })
         .then(() => {
           lastSavedWorkspaceStateJSONRef.current = nextStateJSON;
+          setPreviewReloadRevision((value) => value + 1);
         })
         .catch(() => {});
     }, 320);
@@ -1629,6 +1720,7 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
         .mutateAsync(latestRequest)
         .then(() => {
           lastSavedWorkspaceStateJSONRef.current = latestRequest.stateJson;
+          setPreviewReloadRevision((value) => value + 1);
         })
         .catch(() => {});
     };
@@ -1992,29 +2084,25 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
       }
       try {
         setSubtitleSaveError("");
+        const draftRows = rowsRef.current;
+        const draftDocument = buildSubtitleDocument(
+          draftRows,
+          subtitleFormat,
+          activeSubtitleDocument,
+        );
         await saveSubtitle.mutateAsync({
           fileId: activeSubtitleFile.id,
           documentId:
             activeSubtitleFile.storage.documentId?.trim() || undefined,
           path: activeSubtitleFile.storage.localPath?.trim() || undefined,
           format: subtitleFormat,
-          document: buildSubtitleDocument(
-            rowsRef.current,
-            subtitleFormat,
-            activeSubtitleDocument,
-          ),
+          document: draftDocument,
         });
-        setActiveSubtitleDocument(
-          buildSubtitleDocument(
-            rowsRef.current,
-            subtitleFormat,
-            activeSubtitleDocument,
-          ),
-        );
-        const latestRows = rowsRef.current;
-        baseRowsRef.current = latestRows;
-        setBaseRows(latestRows);
+        setActiveSubtitleDocument(draftDocument);
+        baseRowsRef.current = draftRows;
+        setBaseRows(draftRows);
         setSubtitleSaveError("");
+        setPreviewReloadRevision((value) => value + 1);
         if (!silent) {
           messageBus.publishToast({
             intent: "success",
@@ -2050,6 +2138,26 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
       t,
     ],
   );
+
+  React.useEffect(() => {
+    if (!activeSubtitleFile || !rowsDirty || saveSubtitle.isPending) {
+      return;
+    }
+    // Workspace preview is rendered from persisted backend subtitle state,
+    // so keep text edits synced in the background instead of relying on
+    // unsaved local rows.
+    const timer = window.setTimeout(() => {
+      void persistSubtitleDraft(true);
+    }, SUBTITLE_AUTOSAVE_DEBOUNCE_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    activeSubtitleFile,
+    persistSubtitleDraft,
+    rowsDirty,
+    saveSubtitle.isPending,
+  ]);
 
   const handleEditingRowChange = React.useCallback(
     async (nextRowId: string) => {
@@ -3531,11 +3639,8 @@ export function LibraryWorkspacePage(props: WorkspacePageProps) {
             playheadMs={playheadMs}
             durationMs={durationMs}
             isPlaying={isPlaying}
-            previewVttContent={previewVttContent}
-            previewMonoStyle={activeWorkspaceMonoStyle}
-            previewLingualStyle={activeWorkspaceLingualStyle}
-            previewFontMappings={workspaceFontMappings}
-            onPreviewRenderSizeChange={handlePreviewRenderSizeChange}
+            previewASSContent={previewASSContent}
+            previewFontFamilies={previewReferencedFontFamilies}
             showStyleSidebar={subtitleStyleSidebarOpen}
             styleSidebarContent={workspaceSubtitleStyleSidebar}
             isLoading={subtitleLoading}

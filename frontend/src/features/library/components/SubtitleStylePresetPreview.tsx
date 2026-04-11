@@ -1,9 +1,8 @@
 import * as React from "react"
-import { parseText } from "media-captions"
 import { Crosshair } from "lucide-react"
 
-import type { GenerateSubtitleStylePreviewVTTRequest as GenerateSubtitleStylePreviewVTTBindingRequest } from "../../../../bindings/dreamcreator/internal/application/library/dto"
-import { GenerateSubtitleStylePreviewVTT } from "../../../../bindings/dreamcreator/internal/presentation/wails/libraryhandler"
+import type { GenerateSubtitleStylePreviewASSRequest as GenerateSubtitleStylePreviewASSBindingRequest } from "../../../../bindings/dreamcreator/internal/application/library/dto"
+import { GenerateSubtitleStylePreviewASS } from "../../../../bindings/dreamcreator/internal/presentation/wails/libraryhandler"
 import { cn } from "@/lib/utils"
 import type {
   LibraryBilingualStyleDTO,
@@ -19,15 +18,11 @@ import {
 } from "./PreviewReferenceGuides"
 import {
   DEFAULT_PREVIEW_SIZE,
-  buildCueDisplayStyle,
-  buildCueTextStyle,
-  buildRenderedPreviewCues,
   normalizeBaseResolution,
   normalizePreviewFontMappings,
-  resolvePreviewScale,
   type PreviewSize,
-  type RenderedPreviewCue,
 } from "./previewCaptionRenderer"
+import { useJassubPreview } from "./useJassubPreview"
 
 type SubtitleStylePresetPreviewProps = {
   kind: "mono" | "bilingual"
@@ -38,6 +33,7 @@ type SubtitleStylePresetPreviewProps = {
 }
 
 const PREVIEW_REQUEST_DEBOUNCE_MS = 80
+const STATIC_PREVIEW_TIME_SECONDS = 1
 
 export function SubtitleStylePresetPreview({
   kind,
@@ -50,9 +46,10 @@ export function SubtitleStylePresetPreview({
   const frameRef = React.useRef<HTMLDivElement | null>(null)
   const requestVersionRef = React.useRef(0)
   const [previewSize, setPreviewSize] = React.useState<PreviewSize>(DEFAULT_PREVIEW_SIZE)
+  const [canvasElement, setCanvasElement] = React.useState<HTMLCanvasElement | null>(null)
   const [trackContent, setTrackContent] = React.useState("")
-  const [renderedCues, setRenderedCues] = React.useState<RenderedPreviewCue[]>([])
-  const [showReferenceGuides, setShowReferenceGuides] = React.useState(true)
+  const [referencedFontFamilies, setReferencedFontFamilies] = React.useState<string[]>([])
+  const [showReferenceGuides, setShowReferenceGuides] = React.useState(false)
   const previewPrimaryText = t("library.config.subtitleStyles.previewPrimaryText")
   const previewSecondaryText = t("library.config.subtitleStyles.previewSecondaryText")
 
@@ -63,11 +60,6 @@ export function SubtitleStylePresetPreview({
     return normalizeBaseResolution(mono?.basePlayResX ?? 0, mono?.basePlayResY ?? 0)
   }, [bilingual, kind, mono?.basePlayResX, mono?.basePlayResY])
 
-  const previewScale = React.useMemo(
-    () => resolvePreviewScale(baseResolution, previewSize),
-    [baseResolution, previewSize],
-  )
-
   const previewRequest = React.useMemo(
     () =>
       buildPreviewRequest({
@@ -75,11 +67,10 @@ export function SubtitleStylePresetPreview({
         mono: mono ?? null,
         bilingual: bilingual ?? null,
         fontMappings,
-        previewSize,
         previewPrimaryText,
         previewSecondaryText,
       }),
-    [bilingual, fontMappings, kind, mono, previewPrimaryText, previewSecondaryText, previewSize],
+    [bilingual, fontMappings, kind, mono, previewPrimaryText, previewSecondaryText],
   )
   const previewRequestKey = React.useMemo(() => JSON.stringify(previewRequest), [previewRequest])
 
@@ -115,14 +106,15 @@ export function SubtitleStylePresetPreview({
     requestVersionRef.current = requestVersion
 
     const timer = window.setTimeout(() => {
-      void GenerateSubtitleStylePreviewVTT(previewRequest)
+      void GenerateSubtitleStylePreviewASS(previewRequest)
         .then((value) => {
           const nextVersion = requestVersionRef.current
           if (cancelled || requestVersion !== nextVersion) {
             return
           }
-          const vttContent = value.vttContent?.trim()
-          setTrackContent(vttContent ? `${vttContent}\n` : "")
+          const nextContent = value.assContent?.trim()
+          setTrackContent(nextContent ? `${nextContent}\n` : "")
+          setReferencedFontFamilies(value.referencedFontFamilies ?? [])
         })
         .catch(() => {
           const nextVersion = requestVersionRef.current
@@ -130,6 +122,7 @@ export function SubtitleStylePresetPreview({
             return
           }
           setTrackContent("")
+          setReferencedFontFamilies([])
         })
     }, PREVIEW_REQUEST_DEBOUNCE_MS)
 
@@ -137,41 +130,16 @@ export function SubtitleStylePresetPreview({
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [previewRequestKey])
+  }, [previewRequestKey, previewRequest])
 
-  React.useEffect(() => {
-    let disposed = false
-
-    if (!trackContent.trim()) {
-      setRenderedCues([])
-      return
-    }
-
-    void parseText(trackContent, { type: "vtt" })
-      .then((result) => {
-        if (disposed) {
-          return
-        }
-        setRenderedCues(
-          buildRenderedPreviewCues({
-            cues: result.cues,
-            kind,
-            mono: mono ?? null,
-            bilingual: bilingual ?? null,
-          }),
-        )
-      })
-      .catch(() => {
-        if (disposed) {
-          return
-        }
-        setRenderedCues([])
-      })
-
-    return () => {
-      disposed = true
-    }
-  }, [bilingual, kind, mono, trackContent])
+  useJassubPreview({
+    debugLabel: "subtitle-style",
+    assContent: trackContent,
+    referencedFontFamilies,
+    canvas: canvasElement,
+    currentTimeSeconds: STATIC_PREVIEW_TIME_SECONDS,
+    enabled: trackContent.trim().length > 0,
+  })
 
   const referenceGuidesLabel = showReferenceGuides
     ? t("library.workspace.preview.hideReferenceGuides")
@@ -208,20 +176,10 @@ export function SubtitleStylePresetPreview({
           </>
         ) : null}
 
-        <div className="absolute inset-0 overflow-hidden">
-          {renderedCues.map((cue) => (
-            <div
-              key={cue.key}
-              className="pointer-events-none absolute overflow-visible"
-              style={buildCueDisplayStyle(cue.style, previewScale)}
-            >
-              <div
-                style={buildCueTextStyle(cue.style, fontMappings, previewScale)}
-                dangerouslySetInnerHTML={{ __html: cue.html }}
-              />
-            </div>
-          ))}
-        </div>
+        <canvas
+          ref={setCanvasElement}
+          className="pointer-events-none absolute inset-0 z-10 h-full w-full"
+        />
       </div>
     </div>
   )
@@ -255,7 +213,6 @@ function buildPreviewRequest({
   mono,
   bilingual,
   fontMappings,
-  previewSize,
   previewPrimaryText,
   previewSecondaryText,
 }: {
@@ -263,10 +220,9 @@ function buildPreviewRequest({
   mono: LibraryMonoStyleDTO | null
   bilingual: LibraryBilingualStyleDTO | null
   fontMappings: LibrarySubtitleStyleFontDTO[]
-  previewSize: PreviewSize
   previewPrimaryText: string
   previewSecondaryText: string
-}): GenerateSubtitleStylePreviewVTTBindingRequest {
+}): GenerateSubtitleStylePreviewASSBindingRequest {
   if (kind === "bilingual" && bilingual) {
     return {
       type: "bilingual",
@@ -274,8 +230,6 @@ function buildPreviewRequest({
       fontMappings: normalizePreviewFontMappings(fontMappings),
       primaryText: previewPrimaryText,
       secondaryText: previewSecondaryText,
-      previewWidth: previewSize.width,
-      previewHeight: previewSize.height,
     }
   }
 
@@ -284,7 +238,5 @@ function buildPreviewRequest({
     mono: mono ?? undefined,
     fontMappings: normalizePreviewFontMappings(fontMappings),
     primaryText: previewPrimaryText,
-    previewWidth: previewSize.width,
-    previewHeight: previewSize.height,
   }
 }

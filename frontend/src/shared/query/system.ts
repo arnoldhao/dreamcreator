@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Call } from "@wailsio/runtime";
+import { ExportFontFamilies } from "../../../bindings/dreamcreator/internal/presentation/wails/systemhandler";
 
 export interface CurrentUserProfile {
   username: string;
@@ -12,6 +13,16 @@ export interface CurrentUserProfile {
 
 export const CURRENT_USER_PROFILE_QUERY_KEY = ["system", "current-user-profile"];
 
+export interface ExportedFontFamilyAsset {
+  fileName: string;
+  contentBase64: string;
+}
+
+export interface ExportedFontFamily {
+  family: string;
+  assets: ExportedFontFamilyAsset[];
+}
+
 export function useCurrentUserProfile() {
   return useQuery({
     queryKey: CURRENT_USER_PROFILE_QUERY_KEY,
@@ -23,6 +34,25 @@ export function useCurrentUserProfile() {
     refetchInterval: 60 * 60 * 1_000,
     retry: false,
   });
+}
+
+export async function exportFontFamilies(families: string[]): Promise<ExportedFontFamily[]> {
+  const normalizedFamilies = families
+    .map((family) => family.trim())
+    .filter(Boolean);
+  if (normalizedFamilies.length === 0) {
+    return [];
+  }
+  const result = await ExportFontFamilies(normalizedFamilies);
+  return (result ?? []).map((item) => ({
+    family: stringOrEmpty((item as { family?: string }).family),
+    assets: Array.isArray((item as { assets?: unknown[] }).assets)
+      ? ((item as { assets?: Array<{ fileName?: string; contentBase64?: string }> }).assets ?? []).map((asset) => ({
+          fileName: stringOrEmpty(asset?.fileName),
+          contentBase64: stringOrEmpty(asset?.contentBase64),
+        }))
+      : [],
+  }));
 }
 
 function normalizeCurrentUserProfile(raw: Partial<CurrentUserProfile> | null | undefined): CurrentUserProfile {

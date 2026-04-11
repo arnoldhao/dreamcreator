@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -12,7 +13,15 @@ import (
 	"dreamcreator/internal/domain/library"
 )
 
-const defaultFFmpegPreset = "medium"
+const (
+	defaultFFmpegPreset         = "slow"
+	defaultH264VideoCRF         = 18
+	defaultH265VideoCRF         = 20
+	defaultVP9VideoCRF          = 20
+	defaultAACAudioBitrateKbps  = 256
+	defaultMP3AudioBitrateKbps  = 320
+	defaultOpusAudioBitrateKbps = 192
+)
 
 type builtinVideoPresetSeries struct {
 	idPrefix   string
@@ -38,14 +47,14 @@ type builtinAudioPresetSpec struct {
 }
 
 var builtinVideoPresetSeriesSpecs = []builtinVideoPresetSeries{
-	{idPrefix: "builtin-video-h264-mp4", namePrefix: "H.264 MP4", container: "mp4", videoCodec: "h264", audioCodec: "aac", crf: 23},
-	{idPrefix: "builtin-video-h265-mp4", namePrefix: "H.265 MP4", container: "mp4", videoCodec: "h265", audioCodec: "aac", crf: 28},
-	{idPrefix: "builtin-video-h264-mov", namePrefix: "H.264 MOV", container: "mov", videoCodec: "h264", audioCodec: "aac", crf: 23},
-	{idPrefix: "builtin-video-h265-mov", namePrefix: "H.265 MOV", container: "mov", videoCodec: "h265", audioCodec: "aac", crf: 28},
-	{idPrefix: "builtin-video-h264-mkv", namePrefix: "H.264 MKV", container: "mkv", videoCodec: "h264", audioCodec: "aac", crf: 23},
-	{idPrefix: "builtin-video-h265-mkv", namePrefix: "H.265 MKV", container: "mkv", videoCodec: "h265", audioCodec: "aac", crf: 28},
-	{idPrefix: "builtin-video-vp9-mkv", namePrefix: "VP9 MKV", container: "mkv", videoCodec: "vp9", audioCodec: "opus", crf: 32},
-	{idPrefix: "builtin-video-vp9-webm", namePrefix: "VP9 WebM", container: "webm", videoCodec: "vp9", audioCodec: "opus", crf: 32},
+	{idPrefix: "builtin-video-h264-mp4", namePrefix: "H.264 MP4", container: "mp4", videoCodec: "h264", audioCodec: "aac", crf: defaultH264VideoCRF},
+	{idPrefix: "builtin-video-h265-mp4", namePrefix: "H.265 MP4", container: "mp4", videoCodec: "h265", audioCodec: "aac", crf: defaultH265VideoCRF},
+	{idPrefix: "builtin-video-h264-mov", namePrefix: "H.264 MOV", container: "mov", videoCodec: "h264", audioCodec: "aac", crf: defaultH264VideoCRF},
+	{idPrefix: "builtin-video-h265-mov", namePrefix: "H.265 MOV", container: "mov", videoCodec: "h265", audioCodec: "aac", crf: defaultH265VideoCRF},
+	{idPrefix: "builtin-video-h264-mkv", namePrefix: "H.264 MKV", container: "mkv", videoCodec: "h264", audioCodec: "aac", crf: defaultH264VideoCRF},
+	{idPrefix: "builtin-video-h265-mkv", namePrefix: "H.265 MKV", container: "mkv", videoCodec: "h265", audioCodec: "aac", crf: defaultH265VideoCRF},
+	{idPrefix: "builtin-video-vp9-mkv", namePrefix: "VP9 MKV", container: "mkv", videoCodec: "vp9", audioCodec: "opus", crf: defaultVP9VideoCRF},
+	{idPrefix: "builtin-video-vp9-webm", namePrefix: "VP9 WebM", container: "webm", videoCodec: "vp9", audioCodec: "opus", crf: defaultVP9VideoCRF},
 }
 
 var builtinVideoScaleSpecs = []builtinVideoScaleSpec{
@@ -105,15 +114,9 @@ func (service *LibraryService) EnsureDefaultTranscodePresets(ctx context.Context
 }
 
 func (service *LibraryService) ListTranscodePresets(ctx context.Context) ([]dto.TranscodePreset, error) {
-	var presets []library.TranscodePreset
-	if service.presets == nil {
-		presets = defaultTranscodePresets(service.now())
-	} else {
-		items, err := service.presets.List(ctx)
-		if err != nil {
-			return nil, err
-		}
-		presets = items
+	presets, err := service.listTranscodePresetModels(ctx)
+	if err != nil {
+		return nil, err
 	}
 	result := make([]dto.TranscodePreset, 0, len(presets))
 	for _, preset := range presets {
@@ -130,7 +133,7 @@ func (service *LibraryService) SaveTranscodePreset(ctx context.Context, preset d
 	id := strings.TrimSpace(preset.ID)
 	createdAt := time.Time{}
 	if id != "" {
-		existing, err := service.presets.Get(ctx, id)
+		existing, err := service.getTranscodePreset(ctx, id)
 		if err != nil && err != library.ErrPresetNotFound {
 			return dto.TranscodePreset{}, err
 		}
@@ -185,7 +188,7 @@ func (service *LibraryService) DeleteTranscodePreset(ctx context.Context, reques
 	if id == "" {
 		return fmt.Errorf("preset id is required")
 	}
-	preset, err := service.presets.Get(ctx, id)
+	preset, err := service.getTranscodePreset(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -193,6 +196,103 @@ func (service *LibraryService) DeleteTranscodePreset(ctx context.Context, reques
 		return fmt.Errorf("builtin preset cannot be deleted")
 	}
 	return service.presets.Delete(ctx, id)
+}
+
+func (service *LibraryService) listTranscodePresetModels(ctx context.Context) ([]library.TranscodePreset, error) {
+	now := service.now()
+	if service.presets == nil {
+		return normalizeTranscodePresetModels(nil, now), nil
+	}
+	items, err := service.presets.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return normalizeTranscodePresetModels(items, now), nil
+}
+
+func (service *LibraryService) getTranscodePreset(ctx context.Context, id string) (library.TranscodePreset, error) {
+	if preset, ok := builtinTranscodePresetByID(service.now(), id); ok {
+		return preset, nil
+	}
+	if service.presets == nil {
+		return library.TranscodePreset{}, library.ErrPresetNotFound
+	}
+	preset, err := service.presets.Get(ctx, id)
+	if err != nil {
+		return library.TranscodePreset{}, err
+	}
+	preset.IsBuiltin = false
+	return preset, nil
+}
+
+func normalizeTranscodePresetModels(items []library.TranscodePreset, now time.Time) []library.TranscodePreset {
+	defaults := defaultTranscodePresets(now)
+	builtinByID := make(map[string]library.TranscodePreset, len(defaults))
+	for _, preset := range defaults {
+		builtinByID[preset.ID] = preset
+	}
+
+	result := make([]library.TranscodePreset, 0, len(defaults)+len(items))
+	result = append(result, defaults...)
+
+	seenCustom := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		id := strings.TrimSpace(item.ID)
+		if id == "" {
+			continue
+		}
+		if _, isBuiltin := builtinByID[id]; isBuiltin {
+			continue
+		}
+		if strings.HasPrefix(strings.ToLower(id), "builtin-") {
+			continue
+		}
+		if _, exists := seenCustom[id]; exists {
+			continue
+		}
+		seenCustom[id] = struct{}{}
+		item.IsBuiltin = false
+		result = append(result, item)
+	}
+
+	sort.SliceStable(result, func(left, right int) bool {
+		if result[left].IsBuiltin != result[right].IsBuiltin {
+			return result[left].IsBuiltin
+		}
+		leftName := strings.ToLower(strings.TrimSpace(result[left].Name))
+		rightName := strings.ToLower(strings.TrimSpace(result[right].Name))
+		if leftName != rightName {
+			return leftName < rightName
+		}
+		return result[left].ID < result[right].ID
+	})
+	return result
+}
+
+func builtinTranscodePresetByID(now time.Time, id string) (library.TranscodePreset, bool) {
+	trimmedID := strings.TrimSpace(id)
+	if trimmedID == "" {
+		return library.TranscodePreset{}, false
+	}
+	for _, preset := range defaultTranscodePresets(now) {
+		if preset.ID == trimmedID {
+			return preset, true
+		}
+	}
+	return library.TranscodePreset{}, false
+}
+
+func recommendedAudioBitrateKbps(codec string) int {
+	switch normalizeAudioCodecName(codec) {
+	case "aac":
+		return defaultAACAudioBitrateKbps
+	case "mp3":
+		return defaultMP3AudioBitrateKbps
+	case "opus":
+		return defaultOpusAudioBitrateKbps
+	default:
+		return 0
+	}
 }
 
 func defaultTranscodePresets(now time.Time) []library.TranscodePreset {
@@ -217,7 +317,7 @@ func defaultTranscodePresets(now time.Time) []library.TranscodePreset {
 				AudioCodec:       series.audioCodec,
 				QualityMode:      "crf",
 				CRF:              series.crf,
-				AudioBitrateKbps: 128,
+				AudioBitrateKbps: recommendedAudioBitrateKbps(series.audioCodec),
 				Scale:            scale.scale,
 				FFmpegPreset:     defaultFFmpegPreset,
 				RequiresVideo:    true,

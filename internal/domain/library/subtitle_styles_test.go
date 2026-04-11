@@ -396,23 +396,24 @@ func TestNormalizeSubtitleStyleConfigFallsBackToBuiltInStylePresets(t *testing.T
 	primary := config.MonoStyles[0]
 	secondary := config.MonoStyles[1]
 	bilingual := config.BilingualStyles[0]
+	expectedFamily := PreferredPlatformSubtitleFontFamily()
 
 	if primary.BasePlayResX != 1920 || primary.BasePlayResY != 1080 || primary.BaseAspectRatio != SubtitleStyleAspectRatio16By9 {
 		t.Fatalf("expected primary mono style to target 1920x1080 16:9, got %#v", primary)
 	}
-	if primary.Style.Fontname != "PingFang SC" || primary.Style.FontFace != "Semibold" || primary.Style.FontWeight != 600 {
-		t.Fatalf("expected primary mono style to use the bundled PingFang primary preset, got %#v", primary.Style)
+	if primary.Style.Fontname != expectedFamily || primary.Style.FontFace != "Semibold" || primary.Style.FontWeight != 600 {
+		t.Fatalf("expected primary mono style to use the platform primary preset, got %#v", primary.Style)
 	}
-	if primary.Style.FontPostScriptName != "PingFangSC-Semibold" || primary.Style.Fontsize != 52 {
+	if primary.Style.FontPostScriptName != "" || primary.Style.Fontsize != 52 {
 		t.Fatalf("expected primary mono style font metadata to match workspace-derived preset, got %#v", primary.Style)
 	}
 	if primary.Style.Alignment != 2 || primary.Style.MarginV != 72 || primary.Style.Outline != 0 || primary.Style.Shadow != 5 {
 		t.Fatalf("expected primary mono style bottom-center shadow preset, got %#v", primary.Style)
 	}
-	if secondary.Style.Fontname != "PingFang SC" || secondary.Style.FontFace != "Regular" || secondary.Style.FontWeight != 400 {
-		t.Fatalf("expected secondary mono style to use matching PingFang companion preset, got %#v", secondary.Style)
+	if secondary.Style.Fontname != expectedFamily || secondary.Style.FontFace != "Regular" || secondary.Style.FontWeight != 400 {
+		t.Fatalf("expected secondary mono style to use matching platform companion preset, got %#v", secondary.Style)
 	}
-	if secondary.Style.FontPostScriptName != "PingFangSC-Regular" || secondary.Style.Fontsize != 40 {
+	if secondary.Style.FontPostScriptName != "" || secondary.Style.Fontsize != 40 {
 		t.Fatalf("expected secondary mono style to use smaller companion size, got %#v", secondary.Style)
 	}
 	if secondary.Style.MarginV != 72 || secondary.Style.Outline != 0 || secondary.Style.Shadow != 5 {
@@ -537,13 +538,14 @@ func TestNormalizeSubtitleStyleConfigRefreshesPersistedBuiltInStylePresets(t *te
 	secondary := config.MonoStyles[1]
 	bilingual := config.BilingualStyles[0]
 
-	if primary.Style.Fontname != "PingFang SC" || primary.Style.FontPostScriptName != "PingFangSC-Semibold" || primary.Style.Outline != 0 || primary.Style.Shadow != 5 || primary.Style.MarginV != 72 {
+	expectedFamily := PreferredPlatformSubtitleFontFamily()
+	if primary.Style.Fontname != expectedFamily || primary.Style.FontPostScriptName != "" || primary.Style.Outline != 0 || primary.Style.Shadow != 5 || primary.Style.MarginV != 72 {
 		t.Fatalf("expected persisted built-in primary style to refresh to latest preset, got %#v", primary.Style)
 	}
-	if secondary.Style.Fontname != "PingFang SC" || secondary.Style.FontPostScriptName != "PingFangSC-Regular" || secondary.Style.Outline != 0 || secondary.Style.Shadow != 5 || secondary.Style.MarginV != 72 {
+	if secondary.Style.Fontname != expectedFamily || secondary.Style.FontPostScriptName != "" || secondary.Style.Outline != 0 || secondary.Style.Shadow != 5 || secondary.Style.MarginV != 72 {
 		t.Fatalf("expected persisted built-in secondary style to refresh to latest preset, got %#v", secondary.Style)
 	}
-	if bilingual.Primary.Style.FontPostScriptName != "PingFangSC-Semibold" || bilingual.Secondary.Style.FontPostScriptName != "PingFangSC-Regular" {
+	if bilingual.Primary.Style.FontPostScriptName != "" || bilingual.Secondary.Style.FontPostScriptName != "" {
 		t.Fatalf("expected persisted built-in bilingual style to refresh to latest snapshots, got %#v", bilingual)
 	}
 	if bilingual.Primary.Style.MarginV != 72 || bilingual.Secondary.Style.MarginV != 72 {

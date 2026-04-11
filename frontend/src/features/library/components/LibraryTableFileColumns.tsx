@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2, Clock, Loader2 } from "lucide-react"
 import { Badge } from "@/shared/ui/badge"
 import { cn } from "@/lib/utils"
 
-import type { LibraryFileRow, LibraryWorkspaceTarget } from "../model/types"
+import type { LibraryFileRow } from "../model/types"
 import { useTimeSyncedSpinDelay } from "../utils/progress-display"
 import { formatBytes } from "../utils/format"
 import { formatRelativeTime } from "../utils/time"
@@ -14,7 +14,7 @@ import { LibraryCellTooltip } from "./LibraryCellTooltip"
 type Translator = (key: string) => string
 
 type FileColumnOptions = {
-  onOpenWorkspace?: (target: LibraryWorkspaceTarget) => void
+  onOpenWorkspace?: (file: LibraryFileRow) => void
   onPreviewImage?: (file: LibraryFileRow) => void
   onOpenPath?: (path: string) => void
   onCreateTranscode?: (file: LibraryFileRow) => void | Promise<void>
@@ -142,14 +142,7 @@ export function getFileColumns({
                   onPreviewImage?.(file)
                   return
                 }
-                onOpenWorkspace?.({
-                  libraryId: file.libraryId,
-                  openMode: normalizeFileType(file.fileType) === "subtitle" ? "subtitle" : "video",
-                  fileId: file.id,
-                  name: file.name,
-                  fileType: file.fileType,
-                  path: file.path,
-                })
+                onOpenWorkspace?.(file)
               }}
             >
               <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />

@@ -59,7 +59,12 @@ func (service *LibraryService) GenerateSubtitleStylePreviewASS(_ context.Context
 			return dto.GenerateSubtitleStylePreviewASSResult{}, err
 		}
 		style = mapPreviewBilingualStyleFontMappings(style, request.FontMappings)
-		assContent := buildBilingualStylePreviewASS(style)
+		primaryStyle, secondaryStyle := resolveBilingualPreviewStylePair(style)
+		assContent := buildBilingualStylePreviewASSWithText(
+			style,
+			firstNonEmpty(strings.TrimSpace(request.PrimaryText), subtitleStylePreviewPrimaryText),
+			firstNonEmpty(strings.TrimSpace(request.SecondaryText), subtitleStylePreviewSecondaryText),
+		)
 		zap.L().Info("subtitle style preview ass generated",
 			zap.String("type", "bilingual"),
 			zap.String("name", strings.TrimSpace(style.Name)),
@@ -70,7 +75,8 @@ func (service *LibraryService) GenerateSubtitleStylePreviewASS(_ context.Context
 			zap.Int("assLength", len(assContent)),
 		)
 		return dto.GenerateSubtitleStylePreviewASSResult{
-			ASSContent: assContent,
+			ASSContent:             assContent,
+			ReferencedFontFamilies: collectWorkspacePreviewFontFamilies(primaryStyle, secondaryStyle),
 		}, nil
 	default:
 		if request.Mono == nil {
@@ -81,7 +87,10 @@ func (service *LibraryService) GenerateSubtitleStylePreviewASS(_ context.Context
 			return dto.GenerateSubtitleStylePreviewASSResult{}, err
 		}
 		style = mapPreviewMonoStyleFontMappings(style, request.FontMappings)
-		assContent := buildMonoStylePreviewASS(style)
+		assContent := buildMonoStylePreviewASSWithText(
+			style,
+			firstNonEmpty(strings.TrimSpace(request.PrimaryText), subtitleStylePreviewPrimaryText),
+		)
 		zap.L().Info("subtitle style preview ass generated",
 			zap.String("type", "mono"),
 			zap.String("name", strings.TrimSpace(style.Name)),
@@ -92,7 +101,8 @@ func (service *LibraryService) GenerateSubtitleStylePreviewASS(_ context.Context
 			zap.Int("assLength", len(assContent)),
 		)
 		return dto.GenerateSubtitleStylePreviewASSResult{
-			ASSContent: assContent,
+			ASSContent:             assContent,
+			ReferencedFontFamilies: collectWorkspacePreviewFontFamilies(style.Style),
 		}, nil
 	}
 }
@@ -203,6 +213,10 @@ func normalizePreviewBilingualStyle(value dto.LibraryBilingualStyleDTO) (library
 }
 
 func buildMonoStylePreviewASS(style library.MonoStyle) string {
+	return buildMonoStylePreviewASSWithText(style, subtitleStylePreviewPrimaryText)
+}
+
+func buildMonoStylePreviewASSWithText(style library.MonoStyle, primaryText string) string {
 	lines := []string{
 		"[Script Info]",
 		fmt.Sprintf("Title: %s Preview", firstNonEmpty(strings.TrimSpace(style.Name), "Mono Style")),
@@ -225,13 +239,17 @@ func buildMonoStylePreviewASS(style library.MonoStyle) string {
 		"",
 		"[Events]",
 		"Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
-		buildPreviewDialogueLine("Primary", 0, subtitleStylePreviewDurationMS, subtitleStylePreviewPrimaryText),
+		buildPreviewDialogueLine("Primary", 0, subtitleStylePreviewDurationMS, firstNonEmpty(strings.TrimSpace(primaryText), subtitleStylePreviewPrimaryText)),
 		"",
 	)
 	return strings.Join(lines, "\n")
 }
 
 func buildBilingualStylePreviewASS(style library.BilingualStyle) string {
+	return buildBilingualStylePreviewASSWithText(style, subtitleStylePreviewPrimaryText, subtitleStylePreviewSecondaryText)
+}
+
+func buildBilingualStylePreviewASSWithText(style library.BilingualStyle, primaryText string, secondaryText string) string {
 	primaryStyle, secondaryStyle := resolveBilingualPreviewStylePair(style)
 	lines := []string{
 		"[Script Info]",
@@ -257,8 +275,8 @@ func buildBilingualStylePreviewASS(style library.BilingualStyle) string {
 		"",
 		"[Events]",
 		"Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
-		buildPreviewDialogueLine("Primary", 0, subtitleStylePreviewDurationMS, subtitleStylePreviewPrimaryText),
-		buildPreviewDialogueLine("Secondary", 0, subtitleStylePreviewDurationMS, subtitleStylePreviewSecondaryText),
+		buildPreviewDialogueLine("Primary", 0, subtitleStylePreviewDurationMS, firstNonEmpty(strings.TrimSpace(primaryText), subtitleStylePreviewPrimaryText)),
+		buildPreviewDialogueLine("Secondary", 0, subtitleStylePreviewDurationMS, firstNonEmpty(strings.TrimSpace(secondaryText), subtitleStylePreviewSecondaryText)),
 		"",
 	)
 	return strings.Join(lines, "\n")

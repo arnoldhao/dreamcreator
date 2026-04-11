@@ -74,11 +74,17 @@ func TestBuildFFmpegTranscodeArgsBurnInEscapesASSPathAndForcesCodec(t *testing.T
 	if !strings.Contains(joined, "-vf ass=filename='/tmp/subtitles\\:demo\\,track\\[1\\]\\'s.ass',scale=w=1920:h=1080:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=1920:1080:(ow-iw)/2:(oh-ih)/2") {
 		t.Fatalf("expected escaped ass filter in args, got %q", joined)
 	}
+	if !strings.Contains(joined, "-map 0:v:0? -map 0:a:0?") {
+		t.Fatalf("expected explicit primary stream mapping, got %q", joined)
+	}
 	if !strings.Contains(joined, "-c:v libx264") {
 		t.Fatalf("expected filtered copy job to fall back to libx264, got %q", joined)
 	}
 	if !strings.Contains(joined, "-c:a copy") {
 		t.Fatalf("expected audio copy to remain unchanged, got %q", joined)
+	}
+	if !strings.Contains(joined, "-movflags +faststart") {
+		t.Fatalf("expected mp4 output to use faststart, got %q", joined)
 	}
 }
 
@@ -133,7 +139,7 @@ func TestBuildFFmpegTranscodeArgsAudioOutputDisablesVideo(t *testing.T) {
 	}
 
 	joined := strings.Join(args, " ")
-	if !strings.Contains(joined, "-vn") {
+	if !strings.Contains(joined, "-map 0:a:0? -vn") {
 		t.Fatalf("expected audio-only transcode to disable video, got %q", joined)
 	}
 	if !strings.Contains(joined, "-c:a libmp3lame") {
@@ -231,11 +237,69 @@ func TestWithFFmpegProgressArgsInsertsFlagsBeforeOutputPath(t *testing.T) {
 
 	got := withFFmpegProgressArgs(args)
 	joined := strings.Join(got, " ")
-	if !strings.Contains(joined, "-progress pipe:1 -nostats /tmp/output.mp4") {
+	if !strings.Contains(joined, "-nostdin -progress pipe:1 -nostats /tmp/output.mp4") {
 		t.Fatalf("expected progress flags before output path, got %q", joined)
 	}
 	if strings.Count(joined, "-progress") != 1 {
 		t.Fatalf("expected exactly one progress flag, got %q", joined)
+	}
+}
+
+func TestBuildFFmpegTranscodeArgsVP9UsesLibvpxBestPracticeFlags(t *testing.T) {
+	plan := transcodePlan{
+		request: dto.CreateTranscodeJobRequest{
+			Format:      "webm",
+			VideoCodec:  "vp9",
+			AudioCodec:  "opus",
+			QualityMode: "crf",
+			CRF:         defaultVP9VideoCRF,
+		},
+		outputType: library.TranscodeOutputVideo,
+	}
+
+	args, err := buildFFmpegTranscodeArgs(
+		plan,
+		"/tmp/input.mp4",
+		"/tmp/output.webm",
+		"",
+		"",
+		"",
+		"none",
+	)
+	if err != nil {
+		t.Fatalf("buildFFmpegTranscodeArgs returned error: %v", err)
+	}
+
+	joined := strings.Join(args, " ")
+	if strings.Contains(joined, "-preset ") {
+		t.Fatalf("did not expect libvpx-vp9 to receive x264/x265 preset flags, got %q", joined)
+	}
+	if !strings.Contains(joined, "-deadline good -cpu-used 0 -row-mt 1") {
+		t.Fatalf("expected libvpx-vp9 best-practice quality flags, got %q", joined)
+	}
+	if !strings.Contains(joined, "-b:v 0 -crf 20") {
+		t.Fatalf("expected VP9 CRF mode to disable target bitrate, got %q", joined)
+	}
+}
+
+func TestBuildFFmpegTranscodeArgsLosslessAudioSkipsBitrateFlags(t *testing.T) {
+	plan := transcodePlan{
+		request: dto.CreateTranscodeJobRequest{
+			Format:           "flac",
+			AudioCodec:       "flac",
+			AudioBitrateKbps: 320,
+		},
+		outputType: library.TranscodeOutputAudio,
+	}
+
+	args, err := buildFFmpegTranscodeArgs(plan, "/tmp/input.wav", "/tmp/output.flac", "", "", "", "none")
+	if err != nil {
+		t.Fatalf("buildFFmpegTranscodeArgs returned error: %v", err)
+	}
+
+	joined := strings.Join(args, " ")
+	if strings.Contains(joined, "-b:a") {
+		t.Fatalf("did not expect bitrate flags for lossless audio, got %q", joined)
 	}
 }
 

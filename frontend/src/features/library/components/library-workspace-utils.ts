@@ -13,6 +13,7 @@ import type {
   LibraryWorkspaceGuidelineProfileId,
   LibraryWorkspacePersistedState,
 } from "../model/workspaceStore";
+import type { LibraryWorkspaceTarget } from "../model/types";
 import { normalizeWorkspaceQaCheckSettings } from "../model/workspaceQa";
 import {
   buildDefaultSubtitleExportAssTitle,
@@ -59,6 +60,59 @@ function normalizeWorkspacePersistedGuidelineProfileId(
 
 function normalizeWorkspacePersistedString(value: unknown) {
   return typeof value == "string" ? value.trim() : "";
+}
+
+function normalizeWorkspaceTargetEditor(
+  target: LibraryWorkspaceTarget,
+): LibraryWorkspaceEditor {
+  return target.openMode === "subtitle" ||
+    normalizeWorkspacePersistedString(target.fileType) == "subtitle"
+    ? "subtitle"
+    : "video";
+}
+
+function normalizeLibraryFileKind(value: unknown) {
+  return normalizeWorkspacePersistedString(value).toLowerCase();
+}
+
+function resolveWorkspaceTargetLinkedFileIds(
+  target: LibraryWorkspaceTarget,
+  libraryFiles: LibraryFileDTO[],
+) {
+  const fileId = normalizeWorkspacePersistedString(target.fileId);
+  const targetFile = libraryFiles.find((file) => file.id == fileId);
+  const targetLibraryId =
+    targetFile?.libraryId?.trim() ||
+    normalizeWorkspacePersistedString(target.libraryId);
+  const rootFileId = targetFile?.lineage.rootFileId?.trim() || fileId;
+  const siblings = libraryFiles.filter((file) => {
+    if (file.state.deleted) {
+      return false;
+    }
+    if (targetLibraryId && file.libraryId != targetLibraryId) {
+      return false;
+    }
+    const siblingRootId = file.lineage.rootFileId?.trim() || file.id;
+    return siblingRootId == rootFileId;
+  });
+  const derivedVideoFileId =
+    siblings.find((file) => {
+      const kind = normalizeLibraryFileKind(file.kind);
+      return kind == "video" || kind == "audio" || kind == "transcode";
+    })?.id ?? undefined;
+  const derivedSubtitleFileId =
+    siblings.find((file) => normalizeLibraryFileKind(file.kind) == "subtitle")
+      ?.id ?? undefined;
+  return {
+    videoFileId:
+      typeof target.videoAssetId == "string"
+        ? target.videoAssetId.trim()
+        : derivedVideoFileId,
+    subtitleFileId:
+      typeof target.subtitleAssetId == "string"
+        ? target.subtitleAssetId.trim()
+        : derivedSubtitleFileId,
+  };
 }
 
 function resolvePersistedWorkspaceFileID(
@@ -265,6 +319,46 @@ export function resolveLibraryWorkspacePersistedState(
       createWorkspaceLingualStyleDraft(candidate?.subtitleLingualStyle) ??
       createWorkspaceLingualStyleDraft(options.defaultSubtitleLingualStyle),
     subtitleStyleSidebarOpen: Boolean(candidate?.subtitleStyleSidebarOpen),
+  };
+}
+
+export function resolveLibraryWorkspaceStateFromOpenTarget(
+  target: LibraryWorkspaceTarget,
+  candidate: Partial<LibraryWorkspacePersistedState> | null | undefined,
+  options: {
+    libraryId: string;
+    libraryFiles: LibraryFileDTO[];
+    videoFiles: LibraryFileDTO[];
+    subtitleFiles: LibraryFileDTO[];
+    defaultSubtitleMonoStyle?: LibraryMonoStyleDTO;
+    defaultSubtitleLingualStyle?: LibraryBilingualStyleDTO;
+  },
+): LibraryWorkspacePersistedState {
+  const baseState = resolveLibraryWorkspacePersistedState(candidate, options);
+  const targetFileId = normalizeWorkspacePersistedString(target.fileId);
+  const activeEditor = normalizeWorkspaceTargetEditor(target);
+  const linkedFileIds = resolveWorkspaceTargetLinkedFileIds(
+    target,
+    options.libraryFiles,
+  );
+  const activeVideoFileId =
+    activeEditor == "video"
+      ? targetFileId || baseState.activeVideoFileId
+      : linkedFileIds.videoFileId ?? baseState.activeVideoFileId;
+  const activeSubtitleFileId =
+    activeEditor == "subtitle"
+      ? targetFileId || baseState.activeSubtitleFileId
+      : linkedFileIds.subtitleFileId ?? baseState.activeSubtitleFileId;
+  return {
+    ...baseState,
+    activeEditor,
+    activeVideoFileId,
+    activeSubtitleFileId,
+    comparisonSubtitleFileId: resolvePersistedComparisonSubtitleFileID(
+      baseState.comparisonSubtitleFileId,
+      options.subtitleFiles,
+      activeSubtitleFileId,
+    ),
   };
 }
 

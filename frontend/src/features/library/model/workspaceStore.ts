@@ -37,7 +37,9 @@ type LibraryWorkspaceState = {
   guidelineProfileId: LibraryWorkspaceGuidelineProfileId
   qaCheckSettings: WorkspaceQaCheckSettings
   openRevision: number
+  pendingOpenTarget: LibraryWorkspaceTarget | null
   openFile: (target: LibraryWorkspaceTarget) => void
+  clearPendingOpenTarget: (libraryId?: string) => void
   setLibraryId: (libraryId: string) => void
   setActiveEditor: (editor: LibraryWorkspaceEditor) => void
   setActiveVideoFileId: (fileId: string) => void
@@ -59,6 +61,30 @@ function normalizeWorkspaceEditor(target: LibraryWorkspaceTarget): LibraryWorksp
 
 function normalizeWorkspaceFileType(value: string) {
   return value.trim().toLowerCase()
+}
+
+function normalizeOptionalTargetValue(value?: string) {
+  return typeof value === "string" ? value.trim() : undefined
+}
+
+function normalizeWorkspaceTarget(target: LibraryWorkspaceTarget): LibraryWorkspaceTarget {
+  return {
+    ...target,
+    id: normalizeOptionalTargetValue(target.id),
+    recordId: normalizeOptionalTargetValue(target.recordId),
+    libraryId: normalizeOptionalTargetValue(target.libraryId),
+    fileId: target.fileId.trim(),
+    name: target.name.trim(),
+    fileType: target.fileType.trim(),
+    path: normalizeOptionalTargetValue(target.path),
+    taskId: normalizeOptionalTargetValue(target.taskId),
+    videoAssetId: normalizeOptionalTargetValue(target.videoAssetId),
+    subtitleAssetId: normalizeOptionalTargetValue(target.subtitleAssetId),
+    videoPath: normalizeOptionalTargetValue(target.videoPath),
+    subtitlePath: normalizeOptionalTargetValue(target.subtitlePath),
+    videoName: normalizeOptionalTargetValue(target.videoName),
+    subtitleName: normalizeOptionalTargetValue(target.subtitleName),
+  }
 }
 
 function normalizeWorkspaceDisplayMode(value: unknown): LibraryWorkspaceDisplayMode {
@@ -90,20 +116,37 @@ export const useLibraryWorkspaceStore = create<LibraryWorkspaceState>()(
       guidelineProfileId: "netflix",
       qaCheckSettings: DEFAULT_WORKSPACE_QA_CHECK_SETTINGS,
       openRevision: 0,
+      pendingOpenTarget: null,
       openFile: (target) =>
         set((state) => {
-          const editor = normalizeWorkspaceEditor(target)
+          const normalizedTarget = normalizeWorkspaceTarget(target)
+          const editor = normalizeWorkspaceEditor(normalizedTarget)
           return {
-            libraryId: target.libraryId?.trim() ?? state.libraryId,
+            libraryId: normalizedTarget.libraryId ?? state.libraryId,
             activeEditor: editor,
             activeVideoFileId:
-              editor === "video" ? target.fileId : target.videoAssetId?.trim() ?? state.activeVideoFileId,
+              editor === "video"
+                ? normalizedTarget.fileId
+                : normalizedTarget.videoAssetId ?? state.activeVideoFileId,
             activeSubtitleFileId:
               editor === "subtitle"
-                ? target.fileId
-                : target.subtitleAssetId?.trim() ?? state.activeSubtitleFileId,
+                ? normalizedTarget.fileId
+                : normalizedTarget.subtitleAssetId ?? state.activeSubtitleFileId,
+            pendingOpenTarget: normalizedTarget,
             openRevision: state.openRevision + 1,
           }
+        }),
+      clearPendingOpenTarget: (libraryId) =>
+        set((state) => {
+          const normalizedLibraryId = libraryId?.trim() ?? ""
+          const pendingTargetLibraryId = state.pendingOpenTarget?.libraryId?.trim() ?? ""
+          if (!state.pendingOpenTarget) {
+            return {}
+          }
+          if (normalizedLibraryId && pendingTargetLibraryId && pendingTargetLibraryId !== normalizedLibraryId) {
+            return {}
+          }
+          return { pendingOpenTarget: null }
         }),
       setLibraryId: (libraryId) => set({ libraryId: libraryId.trim() }),
       setActiveEditor: (editor) => set({ activeEditor: editor }),
@@ -141,6 +184,7 @@ export const useLibraryWorkspaceStore = create<LibraryWorkspaceState>()(
           guidelineProfileId: "netflix",
           qaCheckSettings: DEFAULT_WORKSPACE_QA_CHECK_SETTINGS,
           openRevision: 0,
+          pendingOpenTarget: null,
         }),
     }),
     {

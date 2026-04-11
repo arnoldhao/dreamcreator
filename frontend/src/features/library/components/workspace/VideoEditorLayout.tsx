@@ -6,11 +6,6 @@ import { useI18n } from "@/shared/i18n"
 import { Input } from "@/shared/ui/input"
 import { Select } from "@/shared/ui/select"
 import type {
-  LibraryBilingualStyleDTO,
-  LibraryMonoStyleDTO,
-  LibrarySubtitleStyleFontDTO,
-} from "@/shared/contracts/library"
-import type {
   WorkspaceDensity,
   WorkspaceDisplayMode,
   WorkspaceQaFilter,
@@ -45,10 +40,8 @@ type VideoEditorLayoutProps = {
   playheadMs: number
   durationMs: number
   isPlaying: boolean
-  previewVttContent: string
-  previewMonoStyle?: LibraryMonoStyleDTO | null
-  previewLingualStyle?: LibraryBilingualStyleDTO | null
-  previewFontMappings?: LibrarySubtitleStyleFontDTO[]
+  previewASSContent: string
+  previewFontFamilies?: string[]
   onPreviewRenderSizeChange?: (size: { width: number; height: number }) => void
   showStyleSidebar: boolean
   styleSidebarContent?: ReactNode
@@ -79,10 +72,8 @@ export function VideoEditorLayout({
   playheadMs,
   durationMs,
   isPlaying,
-  previewVttContent,
-  previewMonoStyle,
-  previewLingualStyle,
-  previewFontMappings = [],
+  previewASSContent,
+  previewFontFamilies = [],
   onPreviewRenderSizeChange,
   showStyleSidebar,
   styleSidebarContent,
@@ -146,11 +137,8 @@ export function VideoEditorLayout({
             durationMs={durationMs}
             playheadMs={playheadMs}
             isPlaying={isPlaying}
-            previewVttContent={previewVttContent}
-            displayMode={displayMode}
-            monoStyle={previewMonoStyle ?? null}
-            lingualStyle={previewLingualStyle ?? null}
-            fontMappings={previewFontMappings}
+            previewASSContent={previewASSContent}
+            previewFontFamilies={previewFontFamilies}
             onRenderedVideoSizeChange={onPreviewRenderSizeChange}
             onPlayheadChange={onSeek}
             onPlayingChange={onPlayingChange}

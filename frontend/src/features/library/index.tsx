@@ -135,7 +135,7 @@ import { LibraryWorkspacePage, type LibraryWorkspaceToolbarState } from "./compo
 import { LibraryImportDialog } from "./components/LibraryImportDialog"
 import { useLibraryViewStore } from "./model/viewStore"
 import { openLibraryWorkspace, useLibraryWorkspaceStore } from "./model/workspaceStore"
-import type { LibraryFileRow, LibraryProgress, LibraryTaskOutput, LibraryTaskRow, LibraryWorkspaceTarget } from "./model/types"
+import type { LibraryFileRow, LibraryProgress, LibraryTaskOutput, LibraryTaskRow } from "./model/types"
 import { formatBytes } from "./utils/format"
 import { formatTemplate } from "./utils/i18n"
 import {
@@ -151,6 +151,7 @@ import {
 } from "./utils/resourceHelpers"
 import { formatDuration, formatRelativeTime } from "./utils/time"
 import { resolvePresetName } from "./utils/transcodePresets"
+import { buildWorkspaceTargetFromLibraryFile, canOpenLibraryWorkspaceFile } from "./utils/workspaceTargets"
 
 type LibraryNewAction = "download" | "importVideo" | "importSubtitle"
 type LibraryPageTab = "overview" | "tasks" | "resources" | "workspace" | "config"
@@ -1094,7 +1095,18 @@ export function LibraryPage() {
   const baseFileColumns = React.useMemo<ColumnDef<LibraryFileRow>[]>(
     () =>
       getFileColumns({
-        onOpenWorkspace: (target) => {
+        onOpenWorkspace: (file) => {
+          const libraryFile = filesById.get(file.id)
+          if (!libraryFile) {
+            return
+          }
+          const target = buildWorkspaceTargetFromLibraryFile(
+            libraryFile,
+            displayFiles.filter((candidate) => candidate.libraryId === libraryFile.libraryId),
+          )
+          if (!target) {
+            return
+          }
           openLibraryWorkspace(target)
         },
         onPreviewImage: (file) => {
@@ -1170,6 +1182,7 @@ export function LibraryPage() {
     [
       createSubtitleTranslate,
       createTranscode,
+      displayFiles,
       filesById,
       handleDeleteFile,
       language,
@@ -4277,48 +4290,6 @@ function resolveLibraryCoverFile(library?: LibraryDTO) {
 
 function resolveLibraryCoverPath(library?: LibraryDTO) {
   return resolveLibraryCoverFile(library)?.storage.localPath?.trim() ?? ""
-}
-
-function canOpenLibraryWorkspaceFile(file?: LibraryFileDTO) {
-  if (!file || file.state.deleted) {
-    return false
-  }
-  const kind = normalizeLibraryKind(file?.kind)
-  return kind === "video" || kind === "audio" || kind === "subtitle" || kind === "transcode"
-}
-
-function buildWorkspaceTargetFromLibraryFile(file: LibraryFileDTO, libraryFiles: LibraryFileDTO[]): LibraryWorkspaceTarget | null {
-  if (!canOpenLibraryWorkspaceFile(file)) {
-    return null
-  }
-  const rootFileId = file.lineage.rootFileId?.trim() || file.id
-  const siblings = libraryFiles.filter((candidate) => {
-    if (candidate.state.deleted) {
-      return false
-    }
-    const candidateRootId = candidate.lineage.rootFileId?.trim() || candidate.id
-    return candidateRootId === rootFileId
-  })
-  const linkedVideo = siblings.find((candidate) => {
-    const kind = normalizeLibraryKind(candidate.kind)
-    return kind === "video" || kind === "audio" || kind === "transcode"
-  })
-  const linkedSubtitle = siblings.find((candidate) => normalizeLibraryKind(candidate.kind) === "subtitle")
-  const kind = normalizeLibraryKind(file.kind)
-  return {
-    libraryId: file.libraryId,
-    fileId: file.id,
-    name: file.name,
-    fileType: file.kind,
-    path: file.storage.localPath,
-    openMode: kind === "subtitle" ? "subtitle" : "video",
-    videoAssetId: kind === "subtitle" ? linkedVideo?.id ?? "" : undefined,
-    videoPath: kind === "subtitle" ? linkedVideo?.storage.localPath ?? "" : undefined,
-    videoName: kind === "subtitle" ? linkedVideo?.name ?? "" : undefined,
-    subtitleAssetId: kind === "subtitle" ? undefined : linkedSubtitle?.id ?? "",
-    subtitlePath: kind === "subtitle" ? undefined : linkedSubtitle?.storage.localPath ?? "",
-    subtitleName: kind === "subtitle" ? undefined : linkedSubtitle?.name ?? "",
-  }
 }
 
 function resolveLibraryKindLabel(kind: string, t: Translator) {

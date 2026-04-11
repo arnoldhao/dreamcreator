@@ -59,11 +59,13 @@ async function collectFilesInDir(root, output = []) {
 
 function buildReferencePattern(stem) {
   const escaped = escapeRegExp(stem);
+  const modulePath = `[^"']*${escaped}[^"']*`;
   return new RegExp(
     [
-      `from\\s+["'][^"']*${escaped}["']`,
-      `import\\(\\s*["'][^"']*${escaped}["']\\s*\\)`,
-      `export\\s+.*\\s+from\\s+["'][^"']*${escaped}["']`,
+      `import\\s+["']${modulePath}["']`,
+      `from\\s+["']${modulePath}["']`,
+      `import\\(\\s*["']${modulePath}["']\\s*\\)`,
+      `export\\s+.*\\s+from\\s+["']${modulePath}["']`,
     ].join("|"),
     "g",
   );

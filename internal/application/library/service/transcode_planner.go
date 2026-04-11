@@ -52,10 +52,7 @@ var scaleTargets = map[string][2]int{
 func (service *LibraryService) resolveTranscodePlan(ctx context.Context, request dto.CreateTranscodeJobRequest, probe mediaProbe) (transcodePlan, error) {
 	presetID := strings.TrimSpace(request.PresetID)
 	if presetID != "" {
-		if service.presets == nil {
-			return transcodePlan{}, fmt.Errorf("transcode preset repository not configured")
-		}
-		preset, err := service.presets.Get(ctx, presetID)
+		preset, err := service.getTranscodePreset(ctx, presetID)
 		if err != nil {
 			return transcodePlan{}, err
 		}
@@ -91,10 +88,7 @@ func (service *LibraryService) resolveTranscodePlan(ctx context.Context, request
 func (service *LibraryService) resolveTranscodePlanWithoutProbe(ctx context.Context, request dto.CreateTranscodeJobRequest, sourcePath string) (transcodePlan, error) {
 	presetID := strings.TrimSpace(request.PresetID)
 	if presetID != "" {
-		if service.presets == nil {
-			return transcodePlan{}, fmt.Errorf("transcode preset repository not configured")
-		}
-		preset, err := service.presets.Get(ctx, presetID)
+		preset, err := service.getTranscodePreset(ctx, presetID)
 		if err != nil {
 			return transcodePlan{}, err
 		}
@@ -113,7 +107,7 @@ func (service *LibraryService) resolveTranscodePlanWithoutProbe(ctx context.Cont
 	defaultID := "builtin-video-h264-mp4-original"
 	format := normalizeTranscodeFormat(request.Format)
 	if isAudioContainer(format) || isAudioContainer(normalizeFileExtension(sourcePath)) {
-		defaultID = "builtin-audio-mp3-192k"
+		defaultID = "builtin-audio-mp3-320k"
 	}
 	preset, err := service.lookupDefaultPreset(ctx, defaultID)
 	if err != nil {
@@ -131,23 +125,13 @@ func (service *LibraryService) selectDefaultPreset(ctx context.Context, probe me
 	}
 	defaultID := "builtin-video-h264-mp4-original"
 	if !hasVideo && hasAudio {
-		defaultID = "builtin-audio-mp3-192k"
+		defaultID = "builtin-audio-mp3-320k"
 	}
 	return service.lookupDefaultPreset(ctx, defaultID)
 }
 
 func (service *LibraryService) lookupDefaultPreset(ctx context.Context, defaultID string) (library.TranscodePreset, error) {
-	if service.presets != nil {
-		if preset, err := service.presets.Get(ctx, defaultID); err == nil {
-			return preset, nil
-		}
-	}
-	for _, preset := range defaultTranscodePresets(service.now()) {
-		if preset.ID == defaultID {
-			return preset, nil
-		}
-	}
-	return library.TranscodePreset{}, fmt.Errorf("default preset not available")
+	return service.getTranscodePreset(ctx, defaultID)
 }
 
 func resolveTranscodeTitle(request dto.CreateTranscodeJobRequest, sourcePath string, preset *library.TranscodePreset) string {

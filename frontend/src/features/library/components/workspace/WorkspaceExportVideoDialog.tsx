@@ -577,149 +577,153 @@ export function WorkspaceExportVideoDialog({
                 }
               />
 
-              <CompactInlineField
-                label={t("library.workspace.dialogs.exportVideo.displayMode")}
-                className="md:grid-cols-[minmax(0,1fr)_max-content]"
-                controlClassName="md:justify-self-end"
-                control={
+              {subtitlesEnabled ? (
+                <>
+                  <CompactInlineField
+                    label={t("library.workspace.dialogs.exportVideo.displayMode")}
+                    className="md:grid-cols-[minmax(0,1fr)_max-content]"
+                    controlClassName="md:justify-self-end"
+                    control={
+                      <div
+                        className={cn(
+                          DASHBOARD_CONTROL_GROUP_CLASS,
+                          "w-auto shrink-0 justify-start overflow-hidden",
+                        )}
+                      >
+                        {displayModeOptions.map((option, index) => {
+                          const Icon = option.icon;
+                          const active = option.value === displayMode;
+                          const disabled =
+                            isSubmitting ||
+                            (option.value === "bilingual" && !canUseDualDisplay);
+                          const button = (
+                            <Button
+                              key={option.value}
+                              type="button"
+                              variant={active ? "secondary" : "ghost"}
+                              size="compact"
+                              disabled={disabled}
+                              className={cn(
+                                "gap-1.5 rounded-none border-0 px-2.5",
+                                index > 0 && "border-l border-border/70",
+                              )}
+                              onClick={() => onDisplayModeChange(option.value)}
+                              aria-label={option.label}
+                            >
+                              <Icon className="h-3.5 w-3.5" />
+                              <span className="text-xs">{option.label}</span>
+                            </Button>
+                          );
+                          if (!(option.value === "bilingual" && !canUseDualDisplay && !isSubmitting && dualDisplayDisabledReason.trim())) {
+                            return button;
+                          }
+                          return (
+                            <Tooltip key={option.value}>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex">{button}</span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-[18rem] text-xs leading-5">
+                                {dualDisplayDisabledReason}
+                              </TooltipContent>
+                            </Tooltip>
+                          );
+                        })}
+                      </div>
+                    }
+                  />
                   <div
                     className={cn(
-                      DASHBOARD_CONTROL_GROUP_CLASS,
-                      "w-auto shrink-0 justify-start overflow-hidden",
+                      "min-w-0 space-y-1.5 px-2.5 py-2",
+                      DASHBOARD_DIALOG_FIELD_SURFACE_CLASS,
                     )}
                   >
-                    {displayModeOptions.map((option, index) => {
-                      const Icon = option.icon;
-                      const active = option.value === displayMode;
-                      const disabled =
-                        isSubmitting ||
-                        (option.value === "bilingual" && !canUseDualDisplay);
-                      const button = (
-                        <Button
-                          key={option.value}
-                          type="button"
-                          variant={active ? "secondary" : "ghost"}
-                          size="compact"
-                          disabled={disabled}
-                          className={cn(
-                            "gap-1.5 rounded-none border-0 px-2.5",
-                            index > 0 && "border-l border-border/70",
-                          )}
-                          onClick={() => onDisplayModeChange(option.value)}
-                          aria-label={option.label}
-                        >
-                          <Icon className="h-3.5 w-3.5" />
-                          <span className="text-xs">{option.label}</span>
-                        </Button>
-                      );
-                      if (!(option.value === "bilingual" && !canUseDualDisplay && !isSubmitting && dualDisplayDisabledReason.trim())) {
-                        return button;
-                      }
-                      return (
-                        <Tooltip key={option.value}>
-                          <TooltipTrigger asChild>
-                            <span className="inline-flex">{button}</span>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-[18rem] text-xs leading-5">
-                            {dualDisplayDisabledReason}
-                          </TooltipContent>
-                        </Tooltip>
-                      );
-                    })}
-                  </div>
-                }
-              />
-              <div
-                className={cn(
-                  "min-w-0 space-y-1.5 px-2.5 py-2",
-                  DASHBOARD_DIALOG_FIELD_SURFACE_CLASS,
-                )}
-              >
-                <div className="text-[11px] font-medium text-foreground">
-                  {t("library.workspace.dialogs.exportVideo.trackMappingTitle")}
-                </div>
-                {displayMode === "bilingual" && canUseDualDisplay ? (
-                  <div className="space-y-2">
-                    <div className={TRACK_MAPPING_ROW_CLASS}>
-                      <div className="truncate text-[11px] text-muted-foreground">
-                        {t("library.workspace.header.track")}
-                      </div>
-                      <div className="min-w-0">
-                        <Select
-                          value={primaryTrackId}
-                          onChange={(event) =>
-                            onPrimaryTrackIdChange(event.target.value)
-                          }
-                          disabled={primaryTrackOptions.length === 0 || isSubmitting}
-                          className={COMPACT_SELECT_CLASS}
-                        >
-                          {primaryTrackOptions.length === 0 ? (
-                            <option value="">
-                              {t("library.workspace.header.noSubtitleTrack")}
-                            </option>
-                          ) : null}
-                          {primaryTrackOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </Select>
-                      </div>
+                    <div className="text-[11px] font-medium text-foreground">
+                      {t("library.workspace.dialogs.exportVideo.trackMappingTitle")}
                     </div>
-                    <div className={TRACK_MAPPING_ROW_CLASS}>
-                      <div className="truncate text-[11px] text-muted-foreground">
-                        {t("library.workspace.header.secondary")}
-                      </div>
-                      <div className="min-w-0">
-                        <Select
-                          value={secondaryTrackId}
-                          onChange={(event) =>
-                            onSecondaryTrackIdChange(event.target.value)
-                          }
-                          disabled={isSubmitting}
-                          className={COMPACT_SELECT_CLASS}
-                        >
-                          {secondaryTrackOptions.map((option) => (
-                            <option
-                              key={option.value || "none"}
-                              value={option.value}
+                    {displayMode === "bilingual" && canUseDualDisplay ? (
+                      <div className="space-y-2">
+                        <div className={TRACK_MAPPING_ROW_CLASS}>
+                          <div className="truncate text-[11px] text-muted-foreground">
+                            {t("library.workspace.header.track")}
+                          </div>
+                          <div className="min-w-0">
+                            <Select
+                              value={primaryTrackId}
+                              onChange={(event) =>
+                                onPrimaryTrackIdChange(event.target.value)
+                              }
+                              disabled={primaryTrackOptions.length === 0 || isSubmitting}
+                              className={COMPACT_SELECT_CLASS}
                             >
-                              {option.label}
-                            </option>
-                          ))}
-                        </Select>
+                              {primaryTrackOptions.length === 0 ? (
+                                <option value="">
+                                  {t("library.workspace.header.noSubtitleTrack")}
+                                </option>
+                              ) : null}
+                              {primaryTrackOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </Select>
+                          </div>
+                        </div>
+                        <div className={TRACK_MAPPING_ROW_CLASS}>
+                          <div className="truncate text-[11px] text-muted-foreground">
+                            {t("library.workspace.header.secondary")}
+                          </div>
+                          <div className="min-w-0">
+                            <Select
+                              value={secondaryTrackId}
+                              onChange={(event) =>
+                                onSecondaryTrackIdChange(event.target.value)
+                              }
+                              disabled={isSubmitting}
+                              className={COMPACT_SELECT_CLASS}
+                            >
+                              {secondaryTrackOptions.map((option) => (
+                                <option
+                                  key={option.value || "none"}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </option>
+                              ))}
+                            </Select>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className={TRACK_MAPPING_ROW_CLASS}>
+                        <div className="truncate text-[11px] text-muted-foreground">
+                          {t("library.workspace.header.track")}
+                        </div>
+                        <div className="min-w-0">
+                          <Select
+                            value={primaryTrackId}
+                            onChange={(event) =>
+                              onPrimaryTrackIdChange(event.target.value)
+                            }
+                            disabled={primaryTrackOptions.length === 0 || isSubmitting}
+                            className={COMPACT_SELECT_CLASS}
+                          >
+                            {primaryTrackOptions.length === 0 ? (
+                              <option value="">
+                                {t("library.workspace.header.noSubtitleTrack")}
+                              </option>
+                            ) : null}
+                            {primaryTrackOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </Select>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className={TRACK_MAPPING_ROW_CLASS}>
-                    <div className="truncate text-[11px] text-muted-foreground">
-                      {t("library.workspace.header.track")}
-                    </div>
-                    <div className="min-w-0">
-                      <Select
-                        value={primaryTrackId}
-                        onChange={(event) =>
-                          onPrimaryTrackIdChange(event.target.value)
-                        }
-                        disabled={primaryTrackOptions.length === 0 || isSubmitting}
-                        className={COMPACT_SELECT_CLASS}
-                      >
-                        {primaryTrackOptions.length === 0 ? (
-                          <option value="">
-                            {t("library.workspace.header.noSubtitleTrack")}
-                          </option>
-                        ) : null}
-                        {primaryTrackOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                  </div>
-                )}
-              </div>
+                </>
+              ) : null}
 
               {subtitlesEnabled && subtitleHandling === "embed" && !embeddedSupportsAss ? (
                 <div

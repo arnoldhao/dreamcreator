@@ -102,14 +102,17 @@ type DCSSPBilingualPayloadDTO struct {
 }
 
 type GenerateSubtitleStylePreviewASSRequest struct {
-	Type         string                        `json:"type"`
-	Mono         *LibraryMonoStyleDTO          `json:"mono,omitempty"`
-	Bilingual    *LibraryBilingualStyleDTO     `json:"bilingual,omitempty"`
-	FontMappings []LibrarySubtitleStyleFontDTO `json:"fontMappings,omitempty"`
+	Type          string                        `json:"type"`
+	Mono          *LibraryMonoStyleDTO          `json:"mono,omitempty"`
+	Bilingual     *LibraryBilingualStyleDTO     `json:"bilingual,omitempty"`
+	FontMappings  []LibrarySubtitleStyleFontDTO `json:"fontMappings,omitempty"`
+	PrimaryText   string                        `json:"primaryText,omitempty"`
+	SecondaryText string                        `json:"secondaryText,omitempty"`
 }
 
 type GenerateSubtitleStylePreviewASSResult struct {
-	ASSContent string `json:"assContent"`
+	ASSContent             string   `json:"assContent"`
+	ReferencedFontFamilies []string `json:"referencedFontFamilies,omitempty"`
 }
 
 type GenerateSubtitleStylePreviewVTTRequest struct {
@@ -127,25 +130,16 @@ type GenerateSubtitleStylePreviewVTTResult struct {
 	VTTContent string `json:"vttContent"`
 }
 
-type WorkspacePreviewCueDTO struct {
-	StartMS       int64  `json:"startMs"`
-	EndMS         int64  `json:"endMs"`
-	PrimaryText   string `json:"primaryText"`
-	SecondaryText string `json:"secondaryText,omitempty"`
+type GenerateWorkspacePreviewASSRequest struct {
+	LibraryID                string `json:"libraryId"`
+	DisplayMode              string `json:"displayMode,omitempty"`
+	PrimarySubtitleTrackID   string `json:"primarySubtitleTrackId"`
+	SecondarySubtitleTrackID string `json:"secondarySubtitleTrackId,omitempty"`
 }
 
-type GenerateWorkspacePreviewVTTRequest struct {
-	DisplayMode   string                        `json:"displayMode,omitempty"`
-	Mono          *LibraryMonoStyleDTO          `json:"mono,omitempty"`
-	Lingual       *LibraryBilingualStyleDTO     `json:"lingual,omitempty"`
-	Rows          []WorkspacePreviewCueDTO      `json:"rows,omitempty"`
-	FontMappings  []LibrarySubtitleStyleFontDTO `json:"fontMappings,omitempty"`
-	PreviewWidth  int                           `json:"previewWidth,omitempty"`
-	PreviewHeight int                           `json:"previewHeight,omitempty"`
-}
-
-type GenerateWorkspacePreviewVTTResult struct {
-	VTTContent string `json:"vttContent"`
+type GenerateWorkspacePreviewASSResult struct {
+	ASSContent             string   `json:"assContent"`
+	ReferencedFontFamilies []string `json:"referencedFontFamilies,omitempty"`
 }
 
 type ParseSubtitleStyleImportRequest struct {
