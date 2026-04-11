@@ -153,6 +153,10 @@ export function SubtitleStylePresetManager({
     [bilingualStyles, monoStyles, selection],
   )
   const canExportSelected = Boolean(selection && selectionItem && !isDirty)
+  const selectedStyleReadOnly = React.useMemo(
+    () => (selectionItem?.builtIn ?? false) === true,
+    [selectionItem],
+  )
   const isSelectedDefault = React.useMemo(() => {
     if (!selection || !selectionItem) {
       return false
@@ -303,7 +307,7 @@ export function SubtitleStylePresetManager({
   }, [beginBilingualEdit, beginMonoEdit, bilingualStyles, clearDraft, monoStyles, selection])
 
   const saveDraft = React.useCallback(() => {
-    if (!currentDraft || !draftKind || !selection) {
+    if (!currentDraft || !draftKind || !selection || selectedStyleReadOnly) {
       return
     }
 
@@ -332,6 +336,7 @@ export function SubtitleStylePresetManager({
     monoStyles,
     onRequestPersist,
     selection,
+    selectedStyleReadOnly,
     updateValue,
   ])
 
@@ -763,6 +768,7 @@ export function SubtitleStylePresetManager({
                       <Input
                         value={currentDraft.name}
                         className="h-8 text-xs md:text-xs"
+                        disabled={selectedStyleReadOnly}
                         onChange={(event) => {
                           const nextName = event.target.value
                           if (draftKind === "mono") {
@@ -778,6 +784,7 @@ export function SubtitleStylePresetManager({
                   {draftKind === "mono" && monoDraft ? (
                     <MonoStyleEditor
                       draft={monoDraft}
+                      disabled={selectedStyleReadOnly}
                       onChange={setMonoDraft}
                     />
                   ) : null}
@@ -786,6 +793,7 @@ export function SubtitleStylePresetManager({
                     <BilingualStyleEditor
                       draft={bilingualDraft}
                       monoStyles={monoStyles}
+                      disabled={selectedStyleReadOnly}
                       onChange={setBilingualDraft}
                     />
                   ) : null}
@@ -803,27 +811,35 @@ export function SubtitleStylePresetManager({
           </div>
 
           <div className="flex items-center gap-2 p-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="compact"
-              className="flex-1 gap-1.5"
-              disabled={!isDirty}
-              onClick={resetDraft}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              {t("common.undo")}
-            </Button>
-            <Button
-              type="button"
-              size="compact"
-              className="flex-1 gap-1.5"
-              disabled={!isDirty || !currentDraft}
-              onClick={saveDraft}
-            >
-              <Save className="h-3.5 w-3.5" />
-              {t("common.save")}
-            </Button>
+            {selectedStyleReadOnly ? (
+              <div className="flex w-full items-center justify-center rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-xs text-muted-foreground">
+                {t("library.config.subtitleStyles.builtinReadonlyHint")}
+              </div>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="compact"
+                  className="flex-1 gap-1.5"
+                  disabled={!isDirty}
+                  onClick={resetDraft}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  {t("common.undo")}
+                </Button>
+                <Button
+                  type="button"
+                  size="compact"
+                  className="flex-1 gap-1.5"
+                  disabled={!isDirty || !currentDraft}
+                  onClick={saveDraft}
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  {t("common.save")}
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </aside>

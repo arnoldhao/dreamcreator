@@ -2998,6 +2998,7 @@
         "emptyStateDescription": "从右上角新建或导入字幕样式后，这里会按单语与双语分组显示。",
         "emptyDetailTitle": "暂无字幕样式",
         "emptyDetailDescription": "从右上角新建或导入字幕样式，保存后即可在这里编辑参数并查看实时预览。",
+        "builtinReadonlyHint": "内置样式",
         "unsavedTitle": "存在未保存更改",
         "unsavedDescription": "请先保存或撤销当前更改，再切换样式。",
         "importFailedTitle": "导入字幕样式失败",

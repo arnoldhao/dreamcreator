@@ -36,6 +36,7 @@ import {
 
 export function MonoStyleEditor(props: {
   draft: LibraryMonoStyleDTO
+  disabled?: boolean
   onChange: React.Dispatch<React.SetStateAction<LibraryMonoStyleDTO | null>>
 }) {
   const { t } = useI18n()
@@ -44,6 +45,7 @@ export function MonoStyleEditor(props: {
     <AssStyleEditor
       title={t("library.config.subtitleStyles.monoStyleSectionTitle")}
       style={props.draft.style}
+      disabled={props.disabled}
       onChange={(nextStyle) =>
         props.onChange((current) => (current ? { ...current, style: nextStyle } : current))
       }
@@ -54,6 +56,7 @@ export function MonoStyleEditor(props: {
 export function BilingualStyleEditor(props: {
   draft: LibraryBilingualStyleDTO
   monoStyles: LibraryMonoStyleDTO[]
+  disabled?: boolean
   onChange: React.Dispatch<React.SetStateAction<LibraryBilingualStyleDTO | null>>
 }) {
   const { t } = useI18n()
@@ -66,6 +69,7 @@ export function BilingualStyleEditor(props: {
         <EditorRow label={t("library.config.subtitleStyles.gapLabel")}>
           <NumberInput
             value={props.draft.layout.gap}
+            disabled={props.disabled}
             onChange={(value) =>
               props.onChange((current) =>
                 current ? { ...current, layout: { ...current.layout, gap: value } } : current,
@@ -77,6 +81,7 @@ export function BilingualStyleEditor(props: {
         <EditorRow label={t("library.config.subtitleStyles.blockAnchorLabel")}>
           <NativeSelect
             value={String(props.draft.layout.blockAnchor)}
+            disabled={props.disabled}
             onChange={(event) =>
               props.onChange((current) =>
                 current
@@ -96,6 +101,7 @@ export function BilingualStyleEditor(props: {
         <EditorRow label={t("library.config.subtitleStyles.primarySourceTitle")}>
           <NativeSelect
             value={props.draft.primary.sourceMonoStyleID ?? ""}
+            disabled={props.disabled}
             onChange={(event) => {
               const source = props.monoStyles.find((item) => item.id === event.target.value)
               if (!source) {
@@ -123,6 +129,7 @@ export function BilingualStyleEditor(props: {
         <EditorRow label={t("library.config.subtitleStyles.secondarySourceTitle")}>
           <NativeSelect
             value={props.draft.secondary.sourceMonoStyleID ?? ""}
+            disabled={props.disabled}
             onChange={(event) => {
               const source = props.monoStyles.find((item) => item.id === event.target.value)
               if (!source) {
@@ -168,6 +175,7 @@ export function BilingualStyleEditor(props: {
           <AssStyleEditor
             title={t("library.config.subtitleStyles.primaryStyleTitle")}
             style={props.draft.primary.style}
+            disabled={props.disabled}
             onChange={(nextStyle) =>
               props.onChange((current) =>
                 current ? { ...current, primary: { ...current.primary, style: nextStyle } } : current,
@@ -180,6 +188,7 @@ export function BilingualStyleEditor(props: {
           <AssStyleEditor
             title={t("library.config.subtitleStyles.secondaryStyleTitle")}
             style={props.draft.secondary.style}
+            disabled={props.disabled}
             onChange={(nextStyle) =>
               props.onChange((current) =>
                 current ? { ...current, secondary: { ...current.secondary, style: nextStyle } } : current,
@@ -195,6 +204,7 @@ export function BilingualStyleEditor(props: {
 function AssStyleEditor(props: {
   title: string
   style: AssStyleSpecDTO
+  disabled?: boolean
   onChange: (value: AssStyleSpecDTO) => void
 }) {
   const { t } = useI18n()
@@ -245,7 +255,7 @@ function AssStyleEditor(props: {
         <EditorRow label={t("library.config.subtitleStyles.fontFamily")}>
           <NativeSelect
             value={props.style.fontname}
-            disabled={fontCatalogLoading}
+            disabled={props.disabled || fontCatalogLoading}
             onChange={(event) =>
               commitStyle(
                 applyFontFamilyToStyle(
@@ -267,7 +277,7 @@ function AssStyleEditor(props: {
         <EditorRow label={t("library.config.subtitleStyles.fontFace")}>
           <NativeSelect
             value={selectedFontFaceValue}
-            disabled={fontCatalogLoading || fontFaceOptions.length === 0}
+            disabled={props.disabled || fontCatalogLoading || fontFaceOptions.length === 0}
             onChange={(event) => {
               const nextFace =
                 fontFaceOptions.find(
@@ -297,6 +307,7 @@ function AssStyleEditor(props: {
           <NumberInput
             value={props.style.fontsize}
             integer
+            disabled={props.disabled}
             onChange={(value) => updateStyle({ fontsize: value })}
           />
         </EditorRow>
@@ -304,6 +315,7 @@ function AssStyleEditor(props: {
         <EditorRow label={t("library.config.subtitleStyles.styleFlagsLabel")}>
           <InlineTypographyButtons
             value={props.style}
+            disabled={props.disabled}
             onChange={(patch) => {
               if ("bold" in patch) {
                 commitStyle(toggleAssStyleBold(props.style, selectedFontFamily))
@@ -321,16 +333,32 @@ function AssStyleEditor(props: {
 
       <EditorGroupCard title={t("library.config.subtitleStyles.sectionColors")}>
         <EditorRow label={t("library.config.subtitleStyles.primaryColorLabel")}>
-          <AssColorCompactField value={props.style.primaryColour} onChange={(value) => updateStyle({ primaryColour: value })} />
+          <AssColorCompactField
+            value={props.style.primaryColour}
+            disabled={props.disabled}
+            onChange={(value) => updateStyle({ primaryColour: value })}
+          />
         </EditorRow>
         <EditorRow label={t("library.config.subtitleStyles.secondaryColorLabel")}>
-          <AssColorCompactField value={props.style.secondaryColour} onChange={(value) => updateStyle({ secondaryColour: value })} />
+          <AssColorCompactField
+            value={props.style.secondaryColour}
+            disabled={props.disabled}
+            onChange={(value) => updateStyle({ secondaryColour: value })}
+          />
         </EditorRow>
         <EditorRow label={t("library.config.subtitleStyles.outlineColor")}>
-          <AssColorCompactField value={props.style.outlineColour} onChange={(value) => updateStyle({ outlineColour: value })} />
+          <AssColorCompactField
+            value={props.style.outlineColour}
+            disabled={props.disabled}
+            onChange={(value) => updateStyle({ outlineColour: value })}
+          />
         </EditorRow>
         <EditorRow label={t("library.config.subtitleStyles.backColorLabel")}>
-          <AssColorCompactField value={props.style.backColour} onChange={(value) => updateStyle({ backColour: value })} />
+          <AssColorCompactField
+            value={props.style.backColour}
+            disabled={props.disabled}
+            onChange={(value) => updateStyle({ backColour: value })}
+          />
         </EditorRow>
       </EditorGroupCard>
 
@@ -338,6 +366,7 @@ function AssStyleEditor(props: {
         <EditorRow label={t("library.config.subtitleStyles.alignment")}>
           <NativeSelect
             value={String(props.style.alignment)}
+            disabled={props.disabled}
             onChange={(event) => updateStyle({ alignment: Number(event.target.value) })}
           >
             {alignmentOptions.map((option) => (
@@ -351,6 +380,7 @@ function AssStyleEditor(props: {
         <EditorRow label={t("library.config.subtitleStyles.borderStyleLabel")}>
           <NativeSelect
             value={String(props.style.borderStyle)}
+            disabled={props.disabled}
             onChange={(event) => updateStyle({ borderStyle: Number(event.target.value) })}
           >
             {borderStyleOptions.map((option) => (
@@ -362,42 +392,86 @@ function AssStyleEditor(props: {
         </EditorRow>
 
         <EditorRow label={t("library.config.subtitleStyles.outlineWidth")}>
-          <NumberInput value={props.style.outline} onChange={(value) => updateStyle({ outline: value })} />
+          <NumberInput
+            value={props.style.outline}
+            disabled={props.disabled}
+            onChange={(value) => updateStyle({ outline: value })}
+          />
         </EditorRow>
 
         <EditorRow label={t("library.config.subtitleStyles.shadowLabel")}>
-          <NumberInput value={props.style.shadow} onChange={(value) => updateStyle({ shadow: value })} />
+          <NumberInput
+            value={props.style.shadow}
+            disabled={props.disabled}
+            onChange={(value) => updateStyle({ shadow: value })}
+          />
         </EditorRow>
 
         <EditorRow label={t("library.config.subtitleStyles.scaleXLabel")}>
-          <NumberInput value={props.style.scaleX} onChange={(value) => updateStyle({ scaleX: value })} />
+          <NumberInput
+            value={props.style.scaleX}
+            disabled={props.disabled}
+            onChange={(value) => updateStyle({ scaleX: value })}
+          />
         </EditorRow>
 
         <EditorRow label={t("library.config.subtitleStyles.scaleYLabel")}>
-          <NumberInput value={props.style.scaleY} onChange={(value) => updateStyle({ scaleY: value })} />
+          <NumberInput
+            value={props.style.scaleY}
+            disabled={props.disabled}
+            onChange={(value) => updateStyle({ scaleY: value })}
+          />
         </EditorRow>
 
         <EditorRow label={t("library.config.subtitleStyles.spacingLabel")}>
-          <NumberInput value={props.style.spacing} onChange={(value) => updateStyle({ spacing: value })} />
+          <NumberInput
+            value={props.style.spacing}
+            disabled={props.disabled}
+            onChange={(value) => updateStyle({ spacing: value })}
+          />
         </EditorRow>
 
         <EditorRow label={t("library.config.subtitleStyles.angleLabel")}>
-          <NumberInput value={props.style.angle} onChange={(value) => updateStyle({ angle: value })} />
+          <NumberInput
+            value={props.style.angle}
+            disabled={props.disabled}
+            onChange={(value) => updateStyle({ angle: value })}
+          />
         </EditorRow>
       </EditorGroupCard>
 
       <EditorGroupCard title={t("library.config.subtitleStyles.sectionSpacing")}>
         <EditorRow label={t("library.config.subtitleStyles.marginLLabel")}>
-          <NumberInput integer value={props.style.marginL} onChange={(value) => updateStyle({ marginL: value })} />
+          <NumberInput
+            integer
+            value={props.style.marginL}
+            disabled={props.disabled}
+            onChange={(value) => updateStyle({ marginL: value })}
+          />
         </EditorRow>
         <EditorRow label={t("library.config.subtitleStyles.marginRLabel")}>
-          <NumberInput integer value={props.style.marginR} onChange={(value) => updateStyle({ marginR: value })} />
+          <NumberInput
+            integer
+            value={props.style.marginR}
+            disabled={props.disabled}
+            onChange={(value) => updateStyle({ marginR: value })}
+          />
         </EditorRow>
         <EditorRow label={t("library.config.subtitleStyles.marginVLabel")}>
-          <NumberInput integer value={props.style.marginV} onChange={(value) => updateStyle({ marginV: value })} />
+          <NumberInput
+            integer
+            value={props.style.marginV}
+            disabled={props.disabled}
+            onChange={(value) => updateStyle({ marginV: value })}
+          />
         </EditorRow>
         <EditorRow label={t("library.config.subtitleStyles.encodingLabel")}>
-          <NumberInput integer value={props.style.encoding} onChange={(value) => updateStyle({ encoding: value })} />
+          <NumberInput
+            integer
+            value={props.style.encoding}
+            disabled={props.disabled}
+            onChange={(value) => updateStyle({ encoding: value })}
+          />
         </EditorRow>
       </EditorGroupCard>
     </div>

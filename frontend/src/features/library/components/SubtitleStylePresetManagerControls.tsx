@@ -14,6 +14,7 @@ import { formatAssColorWithRgb, parseAssColor } from "./SubtitleStylePresetManag
 
 export function InlineTypographyButtons(props: {
   value: AssStyleSpecDTO
+  disabled?: boolean
   onChange: (patch: Partial<AssStyleSpecDTO>) => void
 }) {
   const { t } = useI18n()
@@ -54,6 +55,7 @@ export function InlineTypographyButtons(props: {
           variant="ghost"
           size="compact"
           title={item.title}
+          disabled={props.disabled}
           className={cn(
             "h-8 rounded-none border-0 px-3 font-semibold",
             index > 0 ? "border-l border-border/60" : "",
@@ -139,6 +141,7 @@ export function NativeSelect(props: React.SelectHTMLAttributes<HTMLSelectElement
 export function NumberInput(props: {
   value: number
   integer?: boolean
+  disabled?: boolean
   onChange: (value: number) => void
 }) {
   return (
@@ -147,6 +150,7 @@ export function NumberInput(props: {
       step={props.integer ? 1 : "any"}
       className="h-8 text-xs md:text-xs"
       value={Number.isFinite(props.value) ? props.value : 0}
+      disabled={props.disabled}
       onChange={(event) => {
         const next = Number(event.target.value)
         if (!Number.isFinite(next)) {
@@ -160,6 +164,7 @@ export function NumberInput(props: {
 
 export function AssColorCompactField(props: {
   value: string
+  disabled?: boolean
   onChange: (value: string) => void
 }) {
   const parsed = parseAssColor(props.value)
@@ -172,14 +177,16 @@ export function AssColorCompactField(props: {
       </div>
       <Input
         value={props.value}
+        disabled={props.disabled}
         onChange={(event) => props.onChange(event.target.value)}
         className="h-7 border-0 bg-transparent px-0 font-mono text-xs shadow-none focus-visible:ring-0 md:text-xs"
       />
       <input
         type="color"
         value={swatchColor}
+        disabled={props.disabled}
         onChange={(event) => props.onChange(formatAssColorWithRgb(event.target.value, props.value))}
-        className="h-5 w-5 cursor-pointer rounded-full border border-border/70 bg-transparent p-0"
+        className="h-5 w-5 rounded-full border border-border/70 bg-transparent p-0 disabled:cursor-not-allowed"
       />
     </div>
   )
