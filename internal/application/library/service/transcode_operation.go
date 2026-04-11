@@ -259,17 +259,8 @@ func (service *LibraryService) runTranscodeOperation(ctx context.Context, operat
 		}
 	}
 
-	acceleratedPlan := plan
-	hardwareVideoCodec := resolvePreferredHardwareVideoCodec(ctx, ffmpegExecPath, plan)
-	if hardwareVideoCodec != "" {
-		acceleratedPlan.request.VideoCodec = hardwareVideoCodec
-		// Hardware encoders vary in preset/CRF semantics. Keep CLI conservative and fall back on failure.
-		acceleratedPlan.request.Preset = ""
-		acceleratedPlan.request.CRF = 0
-	}
-
 	ffmpegArgs, err := buildFFmpegTranscodeArgs(
-		acceleratedPlan,
+		plan,
 		sourceFile.Storage.LocalPath,
 		outputPath,
 		burninSubtitlePath,
@@ -302,27 +293,6 @@ func (service *LibraryService) runTranscodeOperation(ctx context.Context, operat
 		filepath.Dir(sourceFile.Storage.LocalPath),
 		probe.DurationMs,
 	)
-	if err != nil && hardwareVideoCodec != "" {
-		fallbackArgs, fallbackBuildErr := buildFFmpegTranscodeArgs(
-			plan,
-			sourceFile.Storage.LocalPath,
-			outputPath,
-			burninSubtitlePath,
-			embeddedSubtitlePath,
-			subtitleFormat,
-			subtitleHandling,
-		)
-		if fallbackBuildErr == nil {
-			outputText, err = service.runFFmpegCommandWithProgress(
-				ctx,
-				&operation,
-				ffmpegExecPath,
-				fallbackArgs,
-				filepath.Dir(sourceFile.Storage.LocalPath),
-				probe.DurationMs,
-			)
-		}
-	}
 	if err != nil {
 		message := strings.TrimSpace(outputText)
 		if message == "" {
@@ -697,7 +667,7 @@ func ensureManagedOutputParentDir(outputPath string) error {
 
 func withFFmpegProgressArgs(args []string) []string {
 	if len(args) == 0 {
-		return []string{"-progress", "pipe:1", "-nostats"}
+		return []string{"-nostdin", "-progress", "pipe:1", "-nostats"}
 	}
 	for index := 0; index < len(args)-1; index++ {
 		if args[index] == "-progress" {
@@ -705,7 +675,7 @@ func withFFmpegProgressArgs(args []string) []string {
 		}
 	}
 	result := append([]string{}, args[:len(args)-1]...)
-	result = append(result, "-progress", "pipe:1", "-nostats", args[len(args)-1])
+	result = append(result, "-nostdin", "-progress", "pipe:1", "-nostats", args[len(args)-1])
 	return result
 }
 
@@ -1045,11 +1015,8 @@ func buildFFmpegTranscodeArgs(
 	outputType := plan.outputType
 	container := normalizeContainer(plan.request.Format)
 	if outputType == library.TranscodeOutputAudio || isAudioContainer(container) {
-		args = append(args, "-vn")
+		args = append(args, "-map", "0:a:0?", "-vn")
 	} else {
-		if subtitleHandling == "embed" && strings.TrimSpace(embeddedSubtitlePath) != "" {
-			args = append(args, "-map", "0:v:0?", "-map", "0:a:0?", "-map", "1:0")
-		}
 		videoCodec := normalizeVideoCodecName(plan.request.VideoCodec)
 		if videoCodec == "" {
 			videoCodec = "h264"
@@ -1057,13 +1024,15 @@ func buildFFmpegTranscodeArgs(
 		if len(filters) > 0 && videoCodec == "copy" {
 			videoCodec = "h264"
 		}
+		args = append(args, "-map", "0:v:0?", "-map", "0:a:0?")
+		if subtitleHandling == "embed" && strings.TrimSpace(embeddedSubtitlePath) != "" {
+			args = append(args, "-map", "1:0")
+		}
 		selectedVideoCodec := ffmpegVideoCodec(videoCodec)
 		args = append(args, "-c:v", selectedVideoCodec)
 		isHardwareVideoCodec := ffmpegIsHardwareVideoCodec(selectedVideoCodec)
 		if videoCodec != "copy" {
-			if preset := strings.TrimSpace(plan.request.Preset); preset != "" && !isHardwareVideoCodec {
-				args = append(args, "-preset", preset)
-			}
+			args = appendVideoCodecQualityArgs(args, videoCodec, plan.request, isHardwareVideoCodec)
 			qualityMode := strings.ToLower(strings.TrimSpace(plan.request.QualityMode))
 			switch qualityMode {
 			case "bitrate":
@@ -1072,6 +1041,9 @@ func buildFFmpegTranscodeArgs(
 				}
 			default:
 				if plan.request.CRF > 0 && !isHardwareVideoCodec {
+					if videoCodec == "vp9" {
+						args = append(args, "-b:v", "0")
+					}
 					args = append(args, "-crf", strconv.Itoa(plan.request.CRF))
 				}
 			}
@@ -1088,7 +1060,7 @@ func buildFFmpegTranscodeArgs(
 	}
 	if audioCodec != "" {
 		args = append(args, "-c:a", ffmpegAudioCodec(audioCodec))
-		if audioCodec != "copy" && plan.request.AudioBitrateKbps > 0 {
+		if ffmpegAudioCodecSupportsBitrate(audioCodec) && plan.request.AudioBitrateKbps > 0 {
 			args = append(args, "-b:a", fmt.Sprintf("%dk", plan.request.AudioBitrateKbps))
 		}
 	}
@@ -1099,9 +1071,33 @@ func buildFFmpegTranscodeArgs(
 		}
 		args = append(args, "-c:s", subtitleCodec)
 	}
+	if container == "mp4" || container == "mov" {
+		args = append(args, "-movflags", "+faststart")
+	}
 
 	args = append(args, outputPath)
 	return args, nil
+}
+
+func appendVideoCodecQualityArgs(
+	args []string,
+	videoCodec string,
+	request dto.CreateTranscodeJobRequest,
+	isHardwareVideoCodec bool,
+) []string {
+	if isHardwareVideoCodec {
+		return args
+	}
+	switch normalizeVideoCodecName(videoCodec) {
+	case "vp9":
+		// Official libvpx docs recommend `deadline=good`; `best` is slower and may produce worse quality.
+		args = append(args, "-deadline", "good", "-cpu-used", "0", "-row-mt", "1")
+	default:
+		if preset := strings.TrimSpace(request.Preset); preset != "" {
+			args = append(args, "-preset", preset)
+		}
+	}
+	return args
 }
 
 func buildFFmpegScaleFilter(request dto.CreateTranscodeJobRequest) (string, error) {
@@ -1174,6 +1170,15 @@ func ffmpegAudioCodec(codec string) string {
 		return "pcm_s16le"
 	default:
 		return firstNonEmpty(codec, "aac")
+	}
+}
+
+func ffmpegAudioCodecSupportsBitrate(codec string) bool {
+	switch normalizeAudioCodecName(codec) {
+	case "aac", "mp3", "opus":
+		return true
+	default:
+		return false
 	}
 }
 

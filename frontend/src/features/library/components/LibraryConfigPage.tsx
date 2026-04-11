@@ -133,6 +133,7 @@ import {
   getSupportedAudioCodecs,
   getSupportedVideoCodecs,
   normalizePresetForOutput,
+  resolveRecommendedAudioBitrateKbps,
   resolvePresetName,
 } from "../utils/transcodePresets";
 import {
@@ -287,10 +288,10 @@ const DEFAULT_VIDEO_EXPORT_PRESET_DRAFT: VideoExportPresetDraft = {
   videoCodec: "h264",
   audioCodec: "aac",
   qualityMode: "crf",
-  crf: 23,
-  audioBitrateKbps: 128,
+  crf: 18,
+  audioBitrateKbps: 256,
   scale: "1080p",
-  ffmpegPreset: "medium",
+  ffmpegPreset: "slow",
   allowUpscale: false,
   requiresVideo: true,
 };
@@ -300,7 +301,7 @@ const DEFAULT_AUDIO_EXPORT_PRESET_DRAFT: VideoExportPresetDraft = {
   outputType: "audio",
   container: "mp3",
   audioCodec: "mp3",
-  audioBitrateKbps: 192,
+  audioBitrateKbps: 320,
   allowUpscale: false,
   requiresAudio: true,
 };
@@ -378,6 +379,17 @@ function resolveDefaultAudioCodecForContainer(container: string) {
       return "pcm";
     default:
       return "mp3";
+  }
+}
+
+function resolveDefaultVideoCRF(videoCodec: string | undefined) {
+  switch ((videoCodec ?? "").trim().toLowerCase()) {
+    case "h265":
+      return 20;
+    case "vp9":
+      return 20;
+    default:
+      return 18;
   }
 }
 
@@ -566,13 +578,10 @@ export function LibraryConfigPage({
     () => resolveSubtitleExportPresets(value),
     [value],
   );
-  const videoExportPresets = React.useMemo(() => {
-    const presets = transcodePresetsQuery.data;
-    if (presets && presets.length > 0) {
-      return presets;
-    }
-    return BUILTIN_PRESETS;
-  }, [transcodePresetsQuery.data]);
+  const videoExportPresets = React.useMemo(
+    () => transcodePresetsQuery.data ?? BUILTIN_PRESETS,
+    [transcodePresetsQuery.data],
+  );
   const transcodePresetCount = videoExportPresets.length;
   const taskRuntimeItems = React.useMemo(
     () => [
@@ -5874,17 +5883,26 @@ export function LibraryConfigPage({
                       return current;
                     }
                     if (current.outputType === "audio") {
+                      const nextAudioCodec =
+                        resolveDefaultAudioCodecForContainer(nextValue);
                       return {
                         ...current,
                         container: nextValue,
-                        audioCodec:
-                          resolveDefaultAudioCodecForContainer(nextValue),
+                        audioCodec: nextAudioCodec,
+                        audioBitrateKbps:
+                          resolveRecommendedAudioBitrateKbps(nextAudioCodec),
                       };
                     }
                     const nextVideoCodec =
                       getSupportedVideoCodecs(nextValue)[0] ?? "h264";
                     const nextAudioCodec =
                       getSupportedAudioCodecs(nextValue)[0] ?? "aac";
+                    const resolvedAudioCodec =
+                      getSupportedAudioCodecs(nextValue).includes(
+                        current.audioCodec ?? "",
+                      )
+                        ? current.audioCodec
+                        : nextAudioCodec;
                     return {
                       ...current,
                       container: nextValue,
@@ -5893,11 +5911,9 @@ export function LibraryConfigPage({
                       )
                         ? current.videoCodec
                         : nextVideoCodec,
-                      audioCodec: getSupportedAudioCodecs(nextValue).includes(
-                        current.audioCodec ?? "",
-                      )
-                        ? current.audioCodec
-                        : nextAudioCodec,
+                      audioCodec: resolvedAudioCodec,
+                      audioBitrateKbps:
+                        resolveRecommendedAudioBitrateKbps(resolvedAudioCodec),
                     };
                   })
                 }
@@ -5917,7 +5933,11 @@ export function LibraryConfigPage({
                     onChange={(nextValue) =>
                       setVideoExportPresetDraft((current) =>
                         current
-                          ? { ...current, videoCodec: nextValue }
+                          ? {
+                              ...current,
+                              videoCodec: nextValue,
+                              crf: resolveDefaultVideoCRF(nextValue),
+                            }
                           : current,
                       )
                     }
@@ -5935,7 +5955,12 @@ export function LibraryConfigPage({
                     onChange={(nextValue) =>
                       setVideoExportPresetDraft((current) =>
                         current
-                          ? { ...current, audioCodec: nextValue }
+                          ? {
+                              ...current,
+                              audioCodec: nextValue,
+                              audioBitrateKbps:
+                                resolveRecommendedAudioBitrateKbps(nextValue),
+                            }
                           : current,
                       )
                     }
@@ -5950,7 +5975,11 @@ export function LibraryConfigPage({
                       label={t("library.config.videoExportPresets.audioBitrate")}
                       inline
                       description={t("library.config.videoExportPresets.audioBitrateDescription")}
-                      value={draft.audioBitrateKbps ?? 128}
+                      value={
+                        draft.audioBitrateKbps ??
+                        resolveRecommendedAudioBitrateKbps(draft.audioCodec) ??
+                        256
+                      }
                       min={1}
                       disabled={!selectedVideoPresetEditing}
                       onChange={(nextValue) =>
@@ -6003,7 +6032,7 @@ export function LibraryConfigPage({
                     value={
                       draft.qualityMode === "bitrate"
                         ? (draft.bitrateKbps ?? 6000)
-                        : (draft.crf ?? 23)
+                        : (draft.crf ?? resolveDefaultVideoCRF(draft.videoCodec))
                     }
                     min={1}
                     disabled={!selectedVideoPresetEditing}
@@ -6075,7 +6104,7 @@ export function LibraryConfigPage({
                   <ConfigSelectField
                     label={t("library.config.videoExportPresets.ffmpegPreset")}
                     inline
-                    value={draft.ffmpegPreset ?? "medium"}
+                    value={draft.ffmpegPreset ?? "slow"}
                     disabled={!selectedVideoPresetEditing}
                     onChange={(nextValue) =>
                       setVideoExportPresetDraft((current) =>
@@ -6118,7 +6147,12 @@ export function LibraryConfigPage({
                     onChange={(nextValue) =>
                       setVideoExportPresetDraft((current) =>
                         current
-                          ? { ...current, audioCodec: nextValue }
+                          ? {
+                              ...current,
+                              audioCodec: nextValue,
+                              audioBitrateKbps:
+                                resolveRecommendedAudioBitrateKbps(nextValue),
+                            }
                           : current,
                       )
                     }
@@ -6128,21 +6162,27 @@ export function LibraryConfigPage({
                     }))}
                   />
 
-                  <ConfigNumberField
-                    label={t("library.config.videoExportPresets.audioBitrate")}
-                    inline
-                    description={t("library.config.videoExportPresets.audioBitrateDescription")}
-                    value={draft.audioBitrateKbps ?? 192}
-                    min={1}
-                    disabled={!selectedVideoPresetEditing}
-                    onChange={(nextValue) =>
-                      setVideoExportPresetDraft((current) =>
-                        current
-                          ? { ...current, audioBitrateKbps: nextValue }
-                          : current,
-                      )
-                    }
-                  />
+                  {resolveRecommendedAudioBitrateKbps(draft.audioCodec) ? (
+                    <ConfigNumberField
+                      label={t("library.config.videoExportPresets.audioBitrate")}
+                      inline
+                      description={t("library.config.videoExportPresets.audioBitrateDescription")}
+                      value={
+                        draft.audioBitrateKbps ??
+                        resolveRecommendedAudioBitrateKbps(draft.audioCodec) ??
+                        320
+                      }
+                      min={1}
+                      disabled={!selectedVideoPresetEditing}
+                      onChange={(nextValue) =>
+                        setVideoExportPresetDraft((current) =>
+                          current
+                            ? { ...current, audioBitrateKbps: nextValue }
+                            : current,
+                        )
+                      }
+                    />
+                  ) : null}
                 </>
               )}
 

@@ -55,7 +55,10 @@ const SCALE_TARGETS: Record<
   "480p": { width: 854, height: 480 },
 };
 
-const DEFAULT_FFMPEG_PRESET = "medium";
+const DEFAULT_FFMPEG_PRESET = "slow";
+const DEFAULT_H264_CRF = 18;
+const DEFAULT_H265_CRF = 20;
+const DEFAULT_VP9_CRF = 20;
 
 type BuiltinVideoPresetSeries = {
   idPrefix: string;
@@ -87,7 +90,7 @@ const BUILTIN_VIDEO_PRESET_SERIES: BuiltinVideoPresetSeries[] = [
     container: "mp4",
     videoCodec: "h264",
     audioCodec: "aac",
-    crf: 23,
+    crf: DEFAULT_H264_CRF,
   },
   {
     idPrefix: "builtin-video-h265-mp4",
@@ -95,7 +98,7 @@ const BUILTIN_VIDEO_PRESET_SERIES: BuiltinVideoPresetSeries[] = [
     container: "mp4",
     videoCodec: "h265",
     audioCodec: "aac",
-    crf: 28,
+    crf: DEFAULT_H265_CRF,
   },
   {
     idPrefix: "builtin-video-h264-mov",
@@ -103,7 +106,7 @@ const BUILTIN_VIDEO_PRESET_SERIES: BuiltinVideoPresetSeries[] = [
     container: "mov",
     videoCodec: "h264",
     audioCodec: "aac",
-    crf: 23,
+    crf: DEFAULT_H264_CRF,
   },
   {
     idPrefix: "builtin-video-h265-mov",
@@ -111,7 +114,7 @@ const BUILTIN_VIDEO_PRESET_SERIES: BuiltinVideoPresetSeries[] = [
     container: "mov",
     videoCodec: "h265",
     audioCodec: "aac",
-    crf: 28,
+    crf: DEFAULT_H265_CRF,
   },
   {
     idPrefix: "builtin-video-h264-mkv",
@@ -119,7 +122,7 @@ const BUILTIN_VIDEO_PRESET_SERIES: BuiltinVideoPresetSeries[] = [
     container: "mkv",
     videoCodec: "h264",
     audioCodec: "aac",
-    crf: 23,
+    crf: DEFAULT_H264_CRF,
   },
   {
     idPrefix: "builtin-video-h265-mkv",
@@ -127,7 +130,7 @@ const BUILTIN_VIDEO_PRESET_SERIES: BuiltinVideoPresetSeries[] = [
     container: "mkv",
     videoCodec: "h265",
     audioCodec: "aac",
-    crf: 28,
+    crf: DEFAULT_H265_CRF,
   },
   {
     idPrefix: "builtin-video-vp9-mkv",
@@ -135,7 +138,7 @@ const BUILTIN_VIDEO_PRESET_SERIES: BuiltinVideoPresetSeries[] = [
     container: "mkv",
     videoCodec: "vp9",
     audioCodec: "opus",
-    crf: 32,
+    crf: DEFAULT_VP9_CRF,
   },
   {
     idPrefix: "builtin-video-vp9-webm",
@@ -143,9 +146,24 @@ const BUILTIN_VIDEO_PRESET_SERIES: BuiltinVideoPresetSeries[] = [
     container: "webm",
     videoCodec: "vp9",
     audioCodec: "opus",
-    crf: 32,
+    crf: DEFAULT_VP9_CRF,
   },
 ];
+
+export function resolveRecommendedAudioBitrateKbps(
+  audioCodec?: string,
+): number | undefined {
+  switch ((audioCodec ?? "").trim().toLowerCase()) {
+    case "aac":
+      return 256;
+    case "mp3":
+      return 320;
+    case "opus":
+      return 192;
+    default:
+      return undefined;
+  }
+}
 
 const BUILTIN_VIDEO_SCALE_SPECS: BuiltinVideoScaleSpec[] = [
   { idSuffix: "original", nameSuffix: "Original", scale: "original" },
@@ -251,7 +269,7 @@ function buildBuiltinVideoPresets(): TranscodePreset[] {
       audioCodec: series.audioCodec,
       qualityMode: "crf" as const,
       crf: series.crf,
-      audioBitrateKbps: 128,
+      audioBitrateKbps: resolveRecommendedAudioBitrateKbps(series.audioCodec),
       scale: scale.scale,
       ffmpegPreset: DEFAULT_FFMPEG_PRESET,
       requiresVideo: true,
@@ -423,15 +441,28 @@ export function normalizePresetForOutput(
       height: undefined,
       requiresVideo: false,
       requiresAudio: true,
+      audioBitrateKbps:
+        preset.audioBitrateKbps ??
+        resolveRecommendedAudioBitrateKbps(preset.audioCodec || "mp3"),
     };
   }
+  const resolvedVideoCodec = preset.videoCodec || "h264";
   return {
     ...preset,
     outputType: "video",
     container: preset.container || "mp4",
-    videoCodec: preset.videoCodec || "h264",
+    videoCodec: resolvedVideoCodec,
     qualityMode: preset.qualityMode || "crf",
-    crf: preset.crf ?? 23,
+    crf:
+      preset.crf ??
+      (resolvedVideoCodec === "h265"
+        ? DEFAULT_H265_CRF
+        : resolvedVideoCodec === "vp9"
+          ? DEFAULT_VP9_CRF
+          : DEFAULT_H264_CRF),
+    audioBitrateKbps:
+      preset.audioBitrateKbps ??
+      resolveRecommendedAudioBitrateKbps(preset.audioCodec || "aac"),
     ffmpegPreset: preset.ffmpegPreset || DEFAULT_FFMPEG_PRESET,
     requiresVideo: true,
   };
