@@ -1722,6 +1722,9 @@
         "install": "Install updates",
         "restart": "Restart to apply",
         "command": "Update actions",
+        "status": "Status",
+        "downloading": "Downloading",
+        "installing": "Installing",
         "viewReleaseNotes": "View",
         "noReleaseNotes": "No release notes",
         "releaseNotesClose": "Close"
