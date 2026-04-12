@@ -16,24 +16,26 @@
 
 ## Overview
 
-Dream Creator is an AI assistant for content creators that brings together work usually scattered across media downloads, subtitle workflows, research, desktop operations, and mobile channels. It is not just a collection of tools, but a creative assistant that understands context and keeps work moving: from sourcing media, refining subtitles, and preparing exports to researching references, shaping ideas, and following through across devices, the workflows creators switch between every day can now continue inside one system.
+Dream Creator is an AI assistant for content creators that brings media download, subtitle work, research, desktop execution, and mobile follow-up into one workflow. It is not a loose bundle of tools, but a context-aware creative assistant that keeps work moving from one step to the next.
 
 ## Built for Every Creative Context
 
-- 🎬 Creative preparation in one place: source material, subtitles, research, and idea development come together in one workspace, so the most fragmented part of creation turns into reusable assets and clearer direction faster.
-- 🖥️ Complete desktop execution: with user authorization, the assistant goes beyond understanding requests to accessing the web and the local computer, using tools, skills, and memory to unify conversation, operation, and execution in one workflow.
-- 📱 Work continues beyond the desktop: strong multi-channel access keeps the same assistant available outside the desktop. Telegram is supported today (Feishu / WeChat in development), so work does not stop when you step away from the computer.
+From preparation and desktop execution to follow-up away from the desk, work no longer has to break across different tools and devices.
+
+- 🎬 Creative preparation: source material, subtitles, references, and idea fragments can be gathered in one place before moving into the next step.
+- 🖥️ Desktop execution: within the granted scope, the assistant can access webpages, call tools, and operate the computer so conversation can turn directly into action.
+- 📱 Mobile follow-up: the same assistant can stay available through channels such as Telegram, so tasks keep moving even away from the desktop.
 
 ## Core Capabilities
 
-- 📥 Video download: one-click downloads from more than a thousand video sites, with authenticated access supported. From a YouTube BGM reference to a 4K Bilibili clip, everything can become part of your content library.
-- 📝 Subtitle proofreading and translation: existing subtitles do not need to be rebuilt from scratch. Proofreading, translation, and review connect in one flow, making multilingual publishing more reliable and content reuse more efficient.
-- 🎞️ Video transcoding and subtitle burn-in: downloading, translation, transcoding, and subtitle embedding can be chained into one pipeline, turning fragmented release prep into a one-click delivery flow.
-- 💡 Conversational research and ideation: reference gathering, information organization, and idea expansion all happen inside the conversation, so creative momentum is not broken between inspiration and structure.
-- 🤖 Executable AI assistant: it goes beyond answering questions, with the ability to access webpages, operate the computer, and call tools within the granted scope to move ideas directly into results.
-- 🧩 Multi-assistant switching: different assistants can be defined for different contexts, each with its own role, memory, and capability boundary, so research, processing, and publishing do not interfere with each other.
-- ⚙️ AI-native automation: recurring downloading, organization, processing, and scheduled tasks can keep running on their own, leaving more attention for judgment, taste, and the creative work itself.
-- 📲 Mobile channel access: the same capability set is not confined to the desktop. Telegram is supported today, with Feishu and WeChat in development, so work can continue from your phone.
+- 📥 Video download: from public footage to authenticated sources, everything can be collected into the same library.
+- 📝 Subtitle proofreading and translation: existing subtitles do not need to be rebuilt; proofreading, translation, and review can run as one chain.
+- 🎞️ Video transcoding and subtitle burn-in: downloading, translation, transcoding, and subtitle embedding can be completed as a continuous flow.
+- 💡 Conversational research and ideation: reference lookup, information organization, and idea expansion can stay inside the same conversation.
+- 🤖 Executable AI assistant: it does more than answer questions; within the granted scope it can access webpages, call tools, and operate the computer.
+- 🧩 Multi-assistant switching: different creative contexts can use different assistants, each with its own role, memory, and capability boundary.
+- ⚙️ AI-native automation: recurring downloading, organization, processing, and scheduled tasks can keep running over time.
+- 📲 Mobile channel access: the same capability set is not tied to the desktop, so work can keep moving from your phone.
 
 ## Product Preview
 
