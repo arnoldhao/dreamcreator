@@ -18,7 +18,7 @@
         PublisherName="CN=DreamApp"
         PublisherDisplayName="DreamApp"
         Version="2.0.0.0"
-        PackageDescription="An AI agent for content creators.">
+        PackageDescription="An AI assistant for content creators.">
         <Capabilities>
             <Capability Name="runFullTrust" />
             
@@ -26,7 +26,7 @@
         <Applications>
             <Application
                 Id="com.example.dreamcreator"
-                Description="An AI agent for content creators."
+                Description="An AI assistant for content creators."
                 DisplayName="Dream Creator"
                 ExecutableName="dreamcreator"
                 EntryPoint="Windows.FullTrustApplication">
@@ -43,7 +43,7 @@
             <Framework>false</Framework>
             <DisplayName>Dream Creator</DisplayName>
             <PublisherDisplayName>DreamApp</PublisherDisplayName>
-            <Description>An AI agent for content creators.</Description>
+            <Description>An AI assistant for content creators.</Description>
             <Logo>Assets\AppIcon.png</Logo>
         </Properties>
     </PackageInformation>

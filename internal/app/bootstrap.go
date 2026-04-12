@@ -120,7 +120,7 @@ var (
 	// AppVersion can be overridden via APP_VERSION env or ldflags "-X dreamcreator/internal/app.AppVersion=1.2.3".
 	AppVersion     = "dev"
 	AppName        = "Dream Creator"
-	AppDescription = "An AI agent for content creators."
+	AppDescription = "An AI assistant for content creators."
 )
 
 type providersUpdatedWindowNotifier struct {

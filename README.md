@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./frontend/public/appicon.png" width="112" alt="追创作 / Dream Creator 图标" />
   <h1>追创作 / Dream Creator</h1>
-  <p>一款面向创作者的人工智能桌面助手</p>
+  <p><strong>一款面向内容创作者的人工智能助手</strong></p>
   <p>
     <strong>简体中文</strong> ·
     <a href="./README_en.md">English</a>
@@ -16,63 +16,82 @@
 
 ## 项目简介
 
-追创作是一款同时支持 macOS 与 Windows 的跨平台桌面应用，面向创作者提供视频下载、字幕翻译、转码处理与 AI 助手能力。
-> 当前项目基于 Wails 3。由于 Wails 3 仍处于 Alpha 阶段，后续版本可能出现破坏性变更。
->
-> 当前版本仍在持续优化中，部分对话与工具调用会产生较高词元消耗，建议优先使用成本较低的模型进行日常试用。
+追创作是一款面向内容创作者的人工智能助手，把原本分散在素材下载、字幕处理、资料检索、桌面操作与移动沟通中的工作，收束到同一个入口。它不只是工具的组合，更是一位能够理解上下文、持续推进任务的创作助手：从素材采集、字幕处理、转码导出，到资料研究、灵感整理与跨设备跟进，创作者日常反复切换的一整套流程，如今可以在同一套系统里连续完成。
 
-## 界面预览
+## 覆盖每一个创作现场
 
-![追创作中文界面预览](./images/ui_chs.png)
-
-## 适用场景
-
-- 素材收集：用于下载、整理和转码创作所需的视频素材。
-- 字幕处理：用于字幕校对、翻译与导出，适配不同发布流程。
-- 资料获取：通过 AI 对话结合内置工具与技能，辅助完成创作前的检索、整理与参考。
+- 🎬 创作准备更集中：素材、字幕、资料与灵感被收束到同一工作台，创作前期最分散的准备工作，可以更快沉淀为可复用的资源与更清晰的方向。
+- 🖥️ 桌面执行更完整：在用户授权下，助手不止能够理解需求，还能访问网络与本地电脑，调用工具、技能与记忆系统，把对话、操作与执行合并成同一条工作流。
+- 📱 离开桌面也不中断：强大的多渠道接入能力，让同一位助手不被桌面限制。当前支持 Telegram 等渠道接入（飞书 / 微信开发中），离开电脑后，任务依然可以继续推进。
 
 ## 核心能力
 
-- `聊天与助手`：支持多会话管理，并可按任务配置不同 Assistant，明确区分不同工作目标与上下文。
-- `素材库`：统一管理下载内容、导入资源、任务历史与处理结果，减少素材分散和状态失真。
-- `任务处理`：围绕素材执行转码、字幕导入、字幕翻译等后续动作，并保留过程记录。
-- `定时任务`：按计划触发提醒、检查或助手运行，为可重复流程提供稳定入口。
-- `模型与服务商配置`：支持接入不同 Provider，为不同任务选择合适的模型与调用方式。
-- `连接与接入`：为浏览器站点、Webhook、频道等接入能力提供统一入口，便于纳入既有流程。
-- `外部工具管理`：集中管理 `yt-dlp`、`FFmpeg`、`bun`、`playwright` 等依赖的安装、检查与更新。
+- 📥 视频下载：千余个视频网站素材一键下载，支持身份认证，无论是 YouTube 的 BGM 还是 Bilibili 的 4K 视频，都可以沉淀为你的资源库。
+- 📝 字幕校对与翻译：已有字幕不必推倒重来，校对、翻译、复核一套衔接完成，让跨语言发布更稳，也让内容复用更高效。
+- 🎞️ 视频转码与字幕烧录：下载、翻译、转码、字幕内嵌可串成一条流水线，原本分散的发布前处理，现在可以一键交付。
+- 💡 对话式资料检索与灵感激发：资料查找、信息整理、观点延展都能在对话里完成，从灵感萌发到结构成形不必跳出当前工作流。
+- 🤖 可执行的人工智能助手：不止于回答问题，在授权范围内还可访问网页、操作电脑、调用工具，把想法直接推进为结果。
+- 🧩 多助手切换机制：不同场景可定义不同助手，分别承载各自的角色、记忆与能力边界，让研究、处理与发布互不干扰。
+- ⚙️ 人工智能原生自动化：重复性的下载、整理、处理与定时任务可以持续运行，把有限精力留给判断、审美与创作本身。
+- 📲 移动端渠道接入：同一套能力不被桌面绑定，当前支持 Telegram 等渠道接入（飞书 / 微信开发中），手机上也能持续跟进任务。
 
-## 如何使用
+## 产品界面
 
-### 一、下载安装
+![追创作中文界面预览](./images/ui_chs.png)
 
-1. **下载对应安装包**：点击以下直链即可下载最新版本；如需查看历史版本，可前往 [GitHub Releases](https://github.com/arnoldhao/dreamcreator/releases)：
-   - macOS Apple Silicon：[点击下载](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-macos-arm64-latest.zip)
-   - macOS Intel：[点击下载](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-macos-x64-latest.zip)
-   - Windows 安装版：[点击下载](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-windows-x64-latest-installer.exe)
-   - Windows 便携版：[点击下载](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-windows-x64-latest.zip)
-2. **首次运行 macOS**：解压 `.zip` 后，将 `DreamCreator.app` 移动到“应用程序”目录。若系统提示“无法打开”或“已损坏”，请在终端执行：
+## 快速开始
 
-   `sudo xattr -rd com.apple.quarantine /Applications/DreamCreator.app`
-3. **首次运行 Windows**：安装版双击 `.exe` 按提示安装；便携版解压 `.zip` 后直接运行。若首次启动出现 SmartScreen 提示，点击“更多信息 → 仍要运行”。
+下载应用并完成一次基础配置，即可开始搭建自己的创作工作流。
 
+### 下载安装
 
-### 二、供应商 / Provider
+可直接下载最新安装包；历史版本见 [GitHub 发布页](https://github.com/arnoldhao/dreamcreator/releases)。
 
-- 项目运行在本地，需由用户自行配置 Provider API Key。应用内置若干常见 Provider，也支持自定义添加。
+| 平台 | 架构 | 形式 | 下载 |
+| --- | --- | --- | --- |
+| macOS | Apple 芯片 | 压缩包 | [点击下载](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-macos-arm64-latest.zip) |
+| macOS | Intel | 压缩包 | [点击下载](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-macos-x64-latest.zip) |
+| Windows | x64 | 安装版 | [点击下载](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-windows-x64-latest-installer.exe) |
+| Windows | x64 | 便携版 | [点击下载](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-windows-x64-latest.zip) |
 
-### 三、依赖外部工具
+### 首次打开
 
-- 首次启动后，应用会引导安装所需的外部工具。相关依赖未随安装包内置，以便控制安装包体积并简化后续更新。
+1. `macOS`：解压后将 `DreamCreator.app` 移动到“应用程序”目录。若系统提示“无法打开”或“已损坏”，请在终端执行 `sudo xattr -rd com.apple.quarantine /Applications/DreamCreator.app`。
+2. `Windows`：安装版直接运行 `.exe`；便携版解压后直接启动。若首次启动出现 SmartScreen，选择“更多信息 -> 仍要运行”。
 
-## 项目状态
+### 基础配置
 
-- 这是一个`个人学习项目`，`暂不接受 Pull Request`
-- 如果你只是想反馈问题或交流想法，可以提 Issue 或直接发邮件。
-- 当前仓库使用 `Apache-2.0` 许可证，具体见根目录 [LICENSE](./LICENSE)。
+- 应用以本地方式运行，首次使用前需配置可用的模型服务商 API 密钥。
+- 视频、字幕与自动化能力依赖 `yt-dlp`、`FFmpeg`、`bun`、`playwright` 等外部工具；首次打开时，应用会引导完成安装。
 
+### 首次体验
 
+1. 配置模型服务商并完成外部工具安装。
+2. 粘贴一个视频链接，或直接发起一次字幕校对、翻译或转码任务。
+3. 在资源库或对话中继续衔接后续处理，完成一次完整工作流。
 
-## 联系方式
+## 感谢
+
+追创作建立在一系列优秀的开源项目与生态能力之上。项目的桌面体验、助手执行、媒体处理、本地存储、浏览器自动化与渠道接入，都离不开这些依赖的支持。
+
+| 分类 | 项目主页 |
+| --- | --- |
+| 桌面框架 | <a href="https://go.dev/" target="_blank" rel="noreferrer">Go</a> / <a href="https://v3alpha.wails.io/" target="_blank" rel="noreferrer">Wails 3</a> / <a href="https://react.dev/" target="_blank" rel="noreferrer">React</a> |
+| 本地存储 | <a href="https://www.sqlite.org/" target="_blank" rel="noreferrer">SQLite</a> / <a href="https://bun.uptrace.dev/" target="_blank" rel="noreferrer">bun</a> / <a href="https://github.com/asg017/sqlite-vec" target="_blank" rel="noreferrer">sqlite-vec</a> |
+| 媒体处理 | <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noreferrer">yt-dlp</a> / <a href="https://ffmpeg.org/" target="_blank" rel="noreferrer">FFmpeg</a> |
+| 浏览器自动化 | <a href="https://playwright.dev/" target="_blank" rel="noreferrer">Playwright</a> |
+| 渠道接入 | <a href="https://telegram.org/" target="_blank" rel="noreferrer">Telegram</a> / <a href="https://github.com/mymmrac/telego" target="_blank" rel="noreferrer">telego</a> |
+
+正是这些项目与它们背后的维护者，让追创作能够在桌面、媒体处理、自动化与渠道接入之间建立起一条完整而持续演进的工作链路。
+
+## 协作
+
+- 项目正在持续演进，界面体验、工作流设计与渠道能力会围绕真实使用场景继续完善。
+- 项目由作者持续维护。
+- 当前暂不接受 PR，主要通过 [GitHub Issues](https://github.com/arnoldhao/dreamcreator/issues) 或邮件反馈问题、分享建议与真实使用场景，持续推进迭代。
+- 仓库采用 `Apache-2.0` 许可证，详见 [LICENSE](./LICENSE)。
+
+## 联系
 
 - 官网：<https://dreamcreator.dreamapp.cc>
 - 邮箱：<xunruhao@gmail.com>

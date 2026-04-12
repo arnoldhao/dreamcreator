@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./frontend/public/appicon.png" width="112" alt="Dream Creator icon" />
   <h1>Dream Creator</h1>
-  <p>An AI desktop assistant built for creators.</p>
+  <p><strong>An AI assistant for content creators.</strong></p>
   <p>
     <a href="./README.md">简体中文</a> ·
     <strong>English</strong>
@@ -16,58 +16,79 @@
 
 ## Overview
 
-Dream Creator is a cross-platform desktop application for macOS and Windows. It is built for creators who need video download, subtitle translation, transcoding, and AI assistant capabilities in the same workspace.
+Dream Creator is an AI assistant for content creators that brings together work usually scattered across media downloads, subtitle workflows, research, desktop operations, and mobile channels. It is not just a collection of tools, but a creative assistant that understands context and keeps work moving: from sourcing media, refining subtitles, and preparing exports to researching references, shaping ideas, and following through across devices, the workflows creators switch between every day can now continue inside one system.
 
-> The current project is based on Wails 3. Since Wails 3 is still in Alpha, future versions may introduce breaking changes.
->
-> The current build is still under active optimization. Some conversations and tool calls can consume a large number of tokens, so lower-cost models are recommended for day-to-day use.
+## Built for Every Creative Context
 
-## Screenshot
-
-![Dream Creator English UI preview](./images/ui_en.png)
-
-## Use Cases
-
-- Media collection: download, organize, and transcode video assets needed for creative work.
-- Subtitle handling: review, translate, and export subtitles for different publishing workflows.
-- Research support: use AI conversations together with built-in tools and skills to assist with search, organization, and reference gathering before production.
+- 🎬 Creative preparation in one place: source material, subtitles, research, and idea development come together in one workspace, so the most fragmented part of creation turns into reusable assets and clearer direction faster.
+- 🖥️ Complete desktop execution: with user authorization, the assistant goes beyond understanding requests to accessing the web and the local computer, using tools, skills, and memory to unify conversation, operation, and execution in one workflow.
+- 📱 Work continues beyond the desktop: strong multi-channel access keeps the same assistant available outside the desktop. Telegram is supported today (Feishu / WeChat in development), so work does not stop when you step away from the computer.
 
 ## Core Capabilities
 
-- `Chat and assistants`: manage multiple conversations and configure different assistants for different goals and contexts.
-- `Library`: keep downloads, imported assets, task history, and outputs in one place to reduce fragmentation.
-- `Task processing`: continue from media assets into transcode, subtitle import, subtitle translation, and related follow-up actions with recorded history.
-- `Cron jobs`: trigger reminders, checks, or assistant runs on a schedule and provide a stable entry point for repeatable workflows.
-- `Provider configuration`: connect different providers and choose models that fit different tasks.
-- `Connections and integrations`: provide a unified entry point for browser sites, webhooks, channels, and related integrations.
-- `External tool management`: centrally manage installation, verification, and updates for dependencies such as `yt-dlp`, `FFmpeg`, `bun`, and `playwright`.
+- 📥 Video download: one-click downloads from more than a thousand video sites, with authenticated access supported. From a YouTube BGM reference to a 4K Bilibili clip, everything can become part of your content library.
+- 📝 Subtitle proofreading and translation: existing subtitles do not need to be rebuilt from scratch. Proofreading, translation, and review connect in one flow, making multilingual publishing more reliable and content reuse more efficient.
+- 🎞️ Video transcoding and subtitle burn-in: downloading, translation, transcoding, and subtitle embedding can be chained into one pipeline, turning fragmented release prep into a one-click delivery flow.
+- 💡 Conversational research and ideation: reference gathering, information organization, and idea expansion all happen inside the conversation, so creative momentum is not broken between inspiration and structure.
+- 🤖 Executable AI assistant: it goes beyond answering questions, with the ability to access webpages, operate the computer, and call tools within the granted scope to move ideas directly into results.
+- 🧩 Multi-assistant switching: different assistants can be defined for different contexts, each with its own role, memory, and capability boundary, so research, processing, and publishing do not interfere with each other.
+- ⚙️ AI-native automation: recurring downloading, organization, processing, and scheduled tasks can keep running on their own, leaving more attention for judgment, taste, and the creative work itself.
+- 📲 Mobile channel access: the same capability set is not confined to the desktop. Telegram is supported today, with Feishu and WeChat in development, so work can continue from your phone.
 
-## How to Use
+## Product Preview
 
-### 1. Download and install
+![Dream Creator English UI preview](./images/ui_en.png)
 
-1. **Download the right package**: use the direct links below to download the latest build. If you need older releases, see [GitHub Releases](https://github.com/arnoldhao/dreamcreator/releases):
-   - macOS Apple Silicon: [Download](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-macos-arm64-latest.zip)
-   - macOS Intel: [Download](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-macos-x64-latest.zip)
-   - Windows Installer: [Download](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-windows-x64-latest-installer.exe)
-   - Windows Portable: [Download](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-windows-x64-latest.zip)
-2. **First launch on macOS**: unzip the package, move `DreamCreator.app` to the Applications folder, and if macOS says the app can't be opened or is damaged, run:
+## Quick Start
 
-   `sudo xattr -rd com.apple.quarantine /Applications/DreamCreator.app`
-3. **First launch on Windows**: double-click the `.exe` installer or unzip the portable `.zip` package and run it. If SmartScreen appears on first launch, choose `More info` and then `Run anyway`.
+Download the app, complete a basic setup, and your creative workflow is ready to begin.
 
-### 2. Providers
+### Download and install
 
-- The application runs locally, so users need to configure their own Provider API keys. Several common providers are built in, and custom providers can also be added.
+Download the latest build directly below. Older releases are available on [GitHub Releases](https://github.com/arnoldhao/dreamcreator/releases).
 
-### 3. External tools
+| Platform | Architecture | Package | Download |
+| --- | --- | --- | --- |
+| macOS | Apple Silicon | Archive | [Download](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-macos-arm64-latest.zip) |
+| macOS | Intel | Archive | [Download](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-macos-x64-latest.zip) |
+| Windows | x64 | Installer | [Download](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-windows-x64-latest-installer.exe) |
+| Windows | x64 | Portable | [Download](https://updates.dreamapp.cc/dreamcreator/downloads/dreamcreator-windows-x64-latest.zip) |
 
-- On first launch, the app guides users through installing the required external tools. These dependencies are not bundled into the installation package in order to keep package size under control and simplify future updates.
+### First launch
 
-## Project Status
+1. `macOS`: unzip the package and move `DreamCreator.app` to the Applications folder. If macOS says the app cannot be opened or is damaged, run `sudo xattr -rd com.apple.quarantine /Applications/DreamCreator.app`.
+2. `Windows`: run the `.exe` installer directly, or unzip the portable package and launch it. If SmartScreen appears on first launch, choose `More info -> Run anyway`.
 
-- This is a `personal learning project`, and `pull requests are not being accepted`.
-- If you want to share ideas or report issues, use GitHub Issues or email.
+### Basic setup
+
+- The app runs locally, so you need to configure an available model provider API key before first use.
+- Video, subtitle, and automation workflows depend on external tools such as `yt-dlp`, `FFmpeg`, `bun`, and `playwright`; the app will guide you through installation when first opened.
+
+### First experience
+
+1. Configure your model provider and finish installing the required external tools.
+2. Paste a video link, or start a subtitle proofreading, translation, or transcoding task directly.
+3. Continue the follow-up work in the library or in chat to complete one full workflow.
+
+## Acknowledgements
+
+Dream Creator is built on top of a number of excellent open-source projects and supporting ecosystems. The desktop experience, assistant execution, media pipeline, local storage, browser automation, and channel integrations all depend on these foundations.
+
+| Category | Homepage |
+| --- | --- |
+| Desktop Framework | <a href="https://go.dev/" target="_blank" rel="noreferrer">Go</a> / <a href="https://v3alpha.wails.io/" target="_blank" rel="noreferrer">Wails 3</a> / <a href="https://react.dev/" target="_blank" rel="noreferrer">React</a> |
+| Local Storage | <a href="https://www.sqlite.org/" target="_blank" rel="noreferrer">SQLite</a> / <a href="https://bun.uptrace.dev/" target="_blank" rel="noreferrer">bun</a> / <a href="https://github.com/asg017/sqlite-vec" target="_blank" rel="noreferrer">sqlite-vec</a> |
+| Media Processing | <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noreferrer">yt-dlp</a> / <a href="https://ffmpeg.org/" target="_blank" rel="noreferrer">FFmpeg</a> |
+| Browser Automation | <a href="https://playwright.dev/" target="_blank" rel="noreferrer">Playwright</a> |
+| Channel Access | <a href="https://telegram.org/" target="_blank" rel="noreferrer">Telegram</a> / <a href="https://github.com/mymmrac/telego" target="_blank" rel="noreferrer">telego</a> |
+
+These projects, and the maintainers behind them, make it possible for Dream Creator to connect desktop workflows, media processing, automation, and channel access into one evolving system.
+
+## Collaboration
+
+- The project is under active development, and the interface, workflow design, and channel capabilities will continue to evolve around real-world usage.
+- The project is actively maintained by its author.
+- Pull requests are not being accepted for now. Iteration currently moves forward through [GitHub Issues](https://github.com/arnoldhao/dreamcreator/issues) and email, including bug reports, feedback, and real usage scenarios.
 - This repository is licensed under `Apache-2.0`. See [LICENSE](./LICENSE).
 
 ## Contact
