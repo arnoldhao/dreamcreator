@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "Dream Creator",
-    "description": "An AI agent for content creators",
+    "description": "An AI assistant for content creators",
     "settings": {
       "title": {
         "gateway": "Gateway",

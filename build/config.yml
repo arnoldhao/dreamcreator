@@ -8,7 +8,7 @@ info:
   companyName: "DreamApp" # The name of the company
   productName: "Dream Creator" # The name of the application
   productIdentifier: "com.dreamapp.dreamcreator" # The unique product identifier
-  description: "An AI agent for content creators." # The application description
+  description: "An AI assistant for content creators." # The application description
   copyright: "(c) 2026, Arnold HAO" # Copyright text
   comments: "Some Product Comments" # Comments
   version: "1.0.0" # The application version

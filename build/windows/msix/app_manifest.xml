@@ -16,7 +16,7 @@
   <Properties>
     <DisplayName>Dream Creator</DisplayName>
     <PublisherDisplayName>DreamApp</PublisherDisplayName>
-    <Description>An AI agent for content creators.</Description>
+    <Description>An AI assistant for content creators.</Description>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
   
@@ -32,7 +32,7 @@
     <Application Id="com.example.dreamcreator" Executable="dreamcreator" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
         DisplayName="Dream Creator"
-        Description="An AI agent for content creators."
+        Description="An AI assistant for content creators."
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
