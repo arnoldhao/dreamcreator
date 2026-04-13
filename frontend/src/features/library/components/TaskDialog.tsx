@@ -56,6 +56,7 @@ import { Separator } from "@/shared/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs"
 import { cn } from "@/lib/utils"
 
+import { useLibraryViewStore } from "../model/viewStore"
 import { openLibraryWorkspace } from "../model/workspaceStore"
 import { resolveFileIcon } from "../utils/fileIcons"
 import { formatBytes } from "../utils/format"
@@ -150,6 +151,7 @@ export function TaskDialog() {
   const open = useTaskDialogStore((state) => state.open)
   const operationId = useTaskDialogStore((state) => state.operationId)
   const closeTaskDialog = useTaskDialogStore((state) => state.closeTaskDialog)
+  const setLibraryPageTab = useLibraryViewStore((state) => state.setPageTab)
   const realtimeOperations = useLibraryRealtimeStore((state) => state.operations)
 
   const liveOperation = React.useMemo(
@@ -609,6 +611,7 @@ export function TaskDialog() {
             openMode: normalizeWorkspaceMode(file.fileType),
           }
         openLibraryWorkspace(target)
+        setLibraryPageTab("workspace")
         closeTaskDialog()
         return
       }
@@ -624,7 +627,7 @@ export function TaskDialog() {
         await openLibraryPath.mutateAsync({ path: file.path })
       }
     },
-    [closeTaskDialog, libraryQuery.data, openFileLocation, openLibraryPath, operation?.libraryId],
+    [closeTaskDialog, libraryQuery.data, openFileLocation, openLibraryPath, operation?.libraryId, setLibraryPageTab],
   )
 
   const handlePreviewFile = React.useCallback((file: OperationFileItem) => {

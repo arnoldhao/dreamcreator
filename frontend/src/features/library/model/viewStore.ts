@@ -2,7 +2,7 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import type { VisibilityState } from "@tanstack/react-table"
 
-import type { LibraryViewMode } from "./types"
+import type { LibraryPageTab, LibraryViewMode } from "./types"
 
 type ColumnVisibilityByView = {
   task: VisibilityState
@@ -10,9 +10,11 @@ type ColumnVisibilityByView = {
 }
 
 type LibraryViewState = {
+  pageTab: LibraryPageTab
   viewMode: LibraryViewMode
   columnVisibility: ColumnVisibilityByView
   rowsPerPage: number
+  setPageTab: (tab: LibraryPageTab) => void
   setViewMode: (mode: LibraryViewMode) => void
   setColumnVisibility: (mode: LibraryViewMode, visibility: VisibilityState) => void
   setRowsPerPage: (rows: number) => void
@@ -30,9 +32,11 @@ const defaultColumnVisibility: ColumnVisibilityByView = {
 export const useLibraryViewStore = create<LibraryViewState>()(
   persist(
     (set) => ({
+      pageTab: "overview",
       viewMode: "task",
       columnVisibility: defaultColumnVisibility,
       rowsPerPage: 20,
+      setPageTab: (pageTab) => set({ pageTab }),
       setViewMode: (mode) => set({ viewMode: mode }),
       setColumnVisibility: (mode, visibility) =>
         set((state) => ({

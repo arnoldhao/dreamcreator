@@ -1,5 +1,6 @@
 export type LibraryTab = "all" | "video" | "subtitle" | "thumbnail"
 export type LibraryViewMode = "task" | "file"
+export type LibraryPageTab = "overview" | "tasks" | "resources" | "workspace" | "config"
 
 export type LibraryProgress = {
   label: string
