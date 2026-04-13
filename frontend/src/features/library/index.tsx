@@ -135,7 +135,14 @@ import { LibraryWorkspacePage, type LibraryWorkspaceToolbarState } from "./compo
 import { LibraryImportDialog } from "./components/LibraryImportDialog"
 import { useLibraryViewStore } from "./model/viewStore"
 import { openLibraryWorkspace, useLibraryWorkspaceStore } from "./model/workspaceStore"
-import type { LibraryFileRow, LibraryProgress, LibraryTaskOutput, LibraryTaskRow } from "./model/types"
+import type {
+  LibraryFileRow,
+  LibraryPageTab,
+  LibraryProgress,
+  LibraryTaskOutput,
+  LibraryTaskRow,
+  LibraryWorkspaceTarget,
+} from "./model/types"
 import { formatBytes } from "./utils/format"
 import { formatTemplate } from "./utils/i18n"
 import {
@@ -154,7 +161,6 @@ import { resolvePresetName } from "./utils/transcodePresets"
 import { buildWorkspaceTargetFromLibraryFile, canOpenLibraryWorkspaceFile } from "./utils/workspaceTargets"
 
 type LibraryNewAction = "download" | "importVideo" | "importSubtitle"
-type LibraryPageTab = "overview" | "tasks" | "resources" | "workspace" | "config"
 type ResourceViewMode = "library" | "file"
 type ResourceFileTypeFilter = "all" | "video" | "subtitle"
 type ResourceFileStatusFilter = "active" | "deleted" | "all"
@@ -201,7 +207,6 @@ export function LibraryPage() {
   const librariesQuery = useListLibraries()
   const selectedLibraryRealtimeFiles = useLibraryRealtimeStore((state) => state.files)
   const selectedLibraryRealtimeHistory = useLibraryRealtimeStore((state) => state.histories)
-  const workspaceOpenRevision = useLibraryWorkspaceStore((state) => state.openRevision)
   const workspaceTargetLibraryId = useLibraryWorkspaceStore((state) => state.libraryId)
 
   const externalTools = useExternalTools()
@@ -223,12 +228,13 @@ export function LibraryPage() {
   const moduleConfigQuery = useGetLibraryModuleConfig()
   const updateModuleConfig = useUpdateLibraryModuleConfig()
 
+  const pageTab = useLibraryViewStore((state) => state.pageTab)
   const rowsPerPage = useLibraryViewStore((state) => state.rowsPerPage)
   const columnVisibility = useLibraryViewStore((state) => state.columnVisibility)
+  const setPageTab = useLibraryViewStore((state) => state.setPageTab)
   const setRowsPerPage = useLibraryViewStore((state) => state.setRowsPerPage)
   const setColumnVisibility = useLibraryViewStore((state) => state.setColumnVisibility)
 
-  const [pageTab, setPageTab] = React.useState<LibraryPageTab>("overview")
   const [resourceViewMode, setResourceViewMode] = React.useState<ResourceViewMode>("library")
   const [resourceFileTypeFilter, setResourceFileTypeFilter] = React.useState<ResourceFileTypeFilter>("all")
   const [resourceFileStatusFilter, setResourceFileStatusFilter] = React.useState<ResourceFileStatusFilter>("active")
@@ -385,6 +391,31 @@ export function LibraryPage() {
   }, [currentViewMode])
   const currentColumnVisibility = { ...defaultVisibility, ...(columnVisibility[currentViewMode] ?? {}) }
 
+  const handlePageTabChange = React.useCallback(
+    (nextTab: LibraryPageTab) => {
+      if (nextTab === "workspace") {
+        const nextLibraryId = workspaceTargetLibraryId.trim()
+        if (nextLibraryId && selectedLibraryId !== nextLibraryId) {
+          setSelectedLibraryId(nextLibraryId)
+        }
+      }
+      setPageTab(nextTab)
+    },
+    [selectedLibraryId, setPageTab, workspaceTargetLibraryId],
+  )
+
+  const openWorkspaceTarget = React.useCallback(
+    (target: LibraryWorkspaceTarget) => {
+      const nextLibraryId = target.libraryId?.trim() ?? ""
+      if (nextLibraryId && selectedLibraryId !== nextLibraryId) {
+        setSelectedLibraryId(nextLibraryId)
+      }
+      openLibraryWorkspace(target)
+      setPageTab("workspace")
+    },
+    [selectedLibraryId, setPageTab],
+  )
+
   const labels = React.useMemo<LibraryLabelMaps>(() => {
     const typeLabels = {
       video: t("library.type.video"),
@@ -457,14 +488,13 @@ export function LibraryPage() {
 
   React.useEffect(() => {
     const trimmedLibraryId = workspaceTargetLibraryId.trim()
-    if (!workspaceOpenRevision || !trimmedLibraryId) {
+    if (pageTab !== "workspace" || !trimmedLibraryId) {
       return
     }
     if (selectedLibraryId !== trimmedLibraryId) {
       setSelectedLibraryId(trimmedLibraryId)
     }
-    setPageTab("workspace")
-  }, [selectedLibraryId, workspaceOpenRevision, workspaceTargetLibraryId])
+  }, [pageTab, selectedLibraryId, workspaceTargetLibraryId])
 
   React.useEffect(() => {
     const libraries = librariesQuery.data ?? []
@@ -1054,7 +1084,7 @@ export function LibraryPage() {
         language,
         t,
       }),
-    [language, t],
+    [language, setPageTab, t],
   )
 
   const taskSelectionColumn = React.useMemo<ColumnDef<LibraryTaskRow>>(
@@ -1107,7 +1137,7 @@ export function LibraryPage() {
           if (!target) {
             return
           }
-          openLibraryWorkspace(target)
+          openWorkspaceTarget(target)
         },
         onPreviewImage: (file) => {
           const path = file.path?.trim() ?? ""
@@ -1186,6 +1216,7 @@ export function LibraryPage() {
       filesById,
       handleDeleteFile,
       language,
+      openWorkspaceTarget,
       openLibraryPath,
       presetsQuery.data,
       t,
@@ -1852,7 +1883,7 @@ export function LibraryPage() {
         <div className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 pt-1">
           <Tabs
             value={pageTab}
-            onValueChange={(value) => setPageTab(value as LibraryPageTab)}
+            onValueChange={(value) => handlePageTabChange(value as LibraryPageTab)}
             className="min-w-0 w-auto"
           >
             <TabsList>
@@ -2447,8 +2478,7 @@ export function LibraryPage() {
                       if (!target) {
                         return
                       }
-                      setSelectedLibraryId(file.libraryId)
-                      openLibraryWorkspace(target)
+                      openWorkspaceTarget(target)
                     }}
                     onOpenTaskDialog={openTaskDialog}
                   />

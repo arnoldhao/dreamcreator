@@ -97,7 +97,7 @@ func TestListFontCatalogReturnsFamilyFaces(t *testing.T) {
 	}
 }
 
-func TestExportFontFamilyMatchesHyphenatedAlias(t *testing.T) {
+func TestExportFontFamilyPreservesRequestedAlias(t *testing.T) {
 	tempDir := t.TempDir()
 	fontPath := filepath.Join(tempDir, "Go-Regular.ttf")
 	if err := os.WriteFile(fontPath, goregular.TTF, 0o644); err != nil {
@@ -125,11 +125,54 @@ func TestExportFontFamilyMatchesHyphenatedAlias(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExportFontFamily returned error: %v", err)
 	}
-	if exported.Family != "Go" {
-		t.Fatalf("expected exported family Go, got %q", exported.Family)
+	if exported.Family != "Go-Regular" {
+		t.Fatalf("expected exported family Go-Regular, got %q", exported.Family)
 	}
 	if len(exported.Assets) != 1 {
 		t.Fatalf("expected one exported asset, got %d", len(exported.Assets))
+	}
+}
+
+func TestExportFontFamilyKeepsRequestedFamilyWhenCatalogIncludesVariantEntries(t *testing.T) {
+	tempDir := t.TempDir()
+	regularPath := filepath.Join(tempDir, "MicrosoftYaHei-Regular.ttf")
+	lightPath := filepath.Join(tempDir, "MicrosoftYaHei-Light.ttf")
+	if err := os.WriteFile(regularPath, goregular.TTF, 0o644); err != nil {
+		t.Fatalf("write regular font file: %v", err)
+	}
+	if err := os.WriteFile(lightPath, goregular.TTF, 0o644); err != nil {
+		t.Fatalf("write light font file: %v", err)
+	}
+
+	service := NewFontService()
+	service.loaded = true
+	service.catalog = fontCatalog{
+		families: []string{"Microsoft YaHei"},
+		filesByFamily: map[string][]fontFileEntry{
+			normalizeFontFamilyKey("Microsoft YaHei"): {
+				{
+					family:   "Microsoft YaHei",
+					fileName: filepath.Base(regularPath),
+					path:     regularPath,
+				},
+				{
+					family:   "Microsoft YaHei Light",
+					fileName: filepath.Base(lightPath),
+					path:     lightPath,
+				},
+			},
+		},
+	}
+
+	exported, err := service.ExportFontFamily(context.Background(), "Microsoft YaHei")
+	if err != nil {
+		t.Fatalf("ExportFontFamily returned error: %v", err)
+	}
+	if exported.Family != "Microsoft YaHei" {
+		t.Fatalf("expected exported family Microsoft YaHei, got %q", exported.Family)
+	}
+	if len(exported.Assets) != 2 {
+		t.Fatalf("expected two exported assets, got %d", len(exported.Assets))
 	}
 }
 

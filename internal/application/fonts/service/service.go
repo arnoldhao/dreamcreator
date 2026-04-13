@@ -116,43 +116,49 @@ func (service *FontService) ExportFontFamily(ctx context.Context, family string)
 	service.mu.RLock()
 	entries := append([]fontFileEntry(nil), service.catalog.filesByFamily[normalizeFontFamilyKey(trimmedFamily)]...)
 	service.mu.RUnlock()
+	platformExportCandidates := buildPlatformFontFamilyCandidates(trimmedFamily, entries)
 	result := ExportedFontFamily{
 		Family: trimmedFamily,
 		Assets: make([]ExportedFontAsset, 0, len(entries)),
 	}
-	if len(entries) == 0 {
-		return result, nil
-	}
+	if len(entries) > 0 {
+		for _, entry := range entries {
+			if ctx.Err() != nil {
+				return ExportedFontFamily{}, ctx.Err()
+			}
 
-	for _, entry := range entries {
-		if ctx.Err() != nil {
-			return ExportedFontFamily{}, ctx.Err()
-		}
-
-		data, err := os.ReadFile(entry.path)
-		if err != nil {
-			continue
-		}
-		if size := int64(len(data)); size <= 0 || size > maxFontFileSizeBytes {
-			continue
-		}
-
-		fileName := entry.fileName
-		if entry.faceIndex >= 0 && isFontCollectionData(data) {
-			data, err = extractFontFaceFromCollectionBytes(data, entry.faceIndex)
+			data, err := os.ReadFile(entry.path)
 			if err != nil {
 				continue
 			}
 			if size := int64(len(data)); size <= 0 || size > maxFontFileSizeBytes {
 				continue
 			}
-		}
 
-		result.Family = entry.family
-		result.Assets = append(result.Assets, ExportedFontAsset{
-			FileName: fileName,
-			Content:  data,
-		})
+			fileName := entry.fileName
+			if entry.faceIndex >= 0 && isFontCollectionData(data) {
+				data, err = extractFontFaceFromCollectionBytes(data, entry.faceIndex)
+				if err != nil {
+					continue
+				}
+				if size := int64(len(data)); size <= 0 || size > maxFontFileSizeBytes {
+					continue
+				}
+			}
+
+			result.Assets = append(result.Assets, ExportedFontAsset{
+				FileName: fileName,
+				Content:  data,
+			})
+		}
+	}
+	if len(result.Assets) == 0 {
+		if platformResult, ok, err := exportPlatformFontFamily(ctx, platformExportCandidates); err != nil {
+			return ExportedFontFamily{}, err
+		} else if ok {
+			platformResult.Family = trimmedFamily
+			return platformResult, nil
+		}
 	}
 
 	return result, nil
@@ -312,20 +318,6 @@ func scanFontCatalog(ctx context.Context) (fontCatalog, error) {
 
 	families := make([]string, 0, len(displayFamilies))
 	familyCatalog := make([]FontCatalogFamily, 0, len(displayFamilies))
-	for _, entries := range filesByFamily {
-		if len(entries) == 0 {
-			continue
-		}
-		sort.Slice(entries, func(left, right int) bool {
-			if entries[left].priority != entries[right].priority {
-				return entries[left].priority < entries[right].priority
-			}
-			if entries[left].fileName == entries[right].fileName {
-				return entries[left].path < entries[right].path
-			}
-			return entries[left].fileName < entries[right].fileName
-		})
-	}
 	for _, family := range displayFamilies {
 		families = append(families, family)
 	}
@@ -350,11 +342,16 @@ func scanFontCatalog(ctx context.Context) (fontCatalog, error) {
 			Faces:  faces,
 		})
 	}
-	return fontCatalog{
+	catalog := fontCatalog{
 		families:      families,
 		familyCatalog: familyCatalog,
 		filesByFamily: filesByFamily,
-	}, nil
+	}
+	if err := augmentPlatformFontCatalog(ctx, &catalog); err != nil {
+		return fontCatalog{}, err
+	}
+	sortFontFileEntriesByPriority(catalog.filesByFamily)
+	return catalog, nil
 }
 
 func fontNamesFromFontData(data []byte) []fontNameEntry {
@@ -715,6 +712,52 @@ func deriveCatalogFontWeight(normalized string) int {
 		return 700
 	default:
 		return 400
+	}
+}
+
+func buildPlatformFontFamilyCandidates(requestedFamily string, entries []fontFileEntry) []string {
+	candidates := make([]string, 0, len(entries)+1)
+	seen := make(map[string]struct{}, len(entries)+1)
+	push := func(value string) {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return
+		}
+		key := normalizeFontFamilyKey(trimmed)
+		if key == "" {
+			return
+		}
+		if _, exists := seen[key]; exists {
+			return
+		}
+		seen[key] = struct{}{}
+		candidates = append(candidates, trimmed)
+	}
+
+	push(requestedFamily)
+	for _, entry := range entries {
+		push(entry.family)
+	}
+	return candidates
+}
+
+func sortFontFileEntriesByPriority(filesByFamily map[string][]fontFileEntry) {
+	for _, entries := range filesByFamily {
+		if len(entries) == 0 {
+			continue
+		}
+		sort.Slice(entries, func(left, right int) bool {
+			if entries[left].priority != entries[right].priority {
+				return entries[left].priority < entries[right].priority
+			}
+			if entries[left].fileName == entries[right].fileName {
+				if entries[left].path == entries[right].path {
+					return entries[left].faceIndex < entries[right].faceIndex
+				}
+				return entries[left].path < entries[right].path
+			}
+			return entries[left].fileName < entries[right].fileName
+		})
 	}
 }
 
