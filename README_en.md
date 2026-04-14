@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="./frontend/public/appicon.png" width="112" alt="Dream Creator icon" />
-  <h1>Dream Creator</h1>
+  <img src="./frontend/public/appicon.png" width="112" alt="DreamCreator icon" />
+  <h1>DreamCreator</h1>
   <p><strong>An AI assistant for content creators.</strong></p>
   <p>
     <a href="./README.md">简体中文</a> ·
@@ -16,34 +16,32 @@
 
 ## Overview
 
-Dream Creator is an AI assistant for content creators that brings media download, subtitle work, research, desktop execution, and mobile follow-up into one workflow. It is not a loose bundle of tools, but a context-aware creative assistant that keeps work moving from one step to the next.
+DreamCreator is an AI-native desktop app that combines video download, subtitle workflows, research, desktop execution, and mobile follow-up.
 
-## Built for Every Creative Context
+Whether you work in the interface, through conversation, or from mobile, DreamCreator keeps content preparation orderly and the product experience consistent.
 
-From preparation and desktop execution to follow-up away from the desk, work no longer has to break across different tools and devices.
+## Built for Creative Workflows
 
-- 🎬 Creative preparation: source material, subtitles, references, and idea fragments can be gathered in one place before moving into the next step.
-- 🖥️ Desktop execution: within the granted scope, the assistant can access webpages, call tools, and operate the computer so conversation can turn directly into action.
-- 📱 Mobile follow-up: the same assistant can stay available through channels such as Telegram, so tasks keep moving even away from the desktop.
+- 🎬 **Creative preparation**: Organize source material, subtitles, references, and idea fragments in one place.
+- 🖥️ **Desktop execution**: Access webpages, call tools, and keep tasks moving forward.
+- 📱 **Mobile follow-up**: Keep checking results and follow-up progress through Telegram.
 
 ## Core Capabilities
 
-- 📥 Video download: from public footage to authenticated sources, everything can be collected into the same library.
-- 📝 Subtitle proofreading and translation: existing subtitles do not need to be rebuilt; proofreading, translation, and review can run as one chain.
-- 🎞️ Video transcoding and subtitle burn-in: downloading, translation, transcoding, and subtitle embedding can be completed as a continuous flow.
-- 💡 Conversational research and ideation: reference lookup, information organization, and idea expansion can stay inside the same conversation.
-- 🤖 Executable AI assistant: it does more than answer questions; within the granted scope it can access webpages, call tools, and operate the computer.
-- 🧩 Multi-assistant switching: different creative contexts can use different assistants, each with its own role, memory, and capability boundary.
-- ⚙️ AI-native automation: recurring downloading, organization, processing, and scheduled tasks can keep running over time.
-- 📲 Mobile channel access: the same capability set is not tied to the desktop, so work can keep moving from your phone.
+- 📥 **Video download**: Download public videos and videos that require sign-in into the local library.
+- 📝 **Subtitle proofreading and translation**: Continue from existing subtitles for proofreading, translation, QA, and export.
+- 🎞️ **Video transcoding and subtitle burn-in**: Complete transcoding, subtitle export, embedded subtitle tracks, and burn-in.
+- 💡 **Conversation, research, and idea organization**: Organize references and continue into the next action in one thread.
+- 🤖 **AI assistant**: Access webpages, call tools, and operate the computer within the granted scope.
+- 🧩 **Multi-assistant setup**: Split assistants by role, model, and permission boundary.
+- ⚙️ **Scheduled tasks**: Hand recurring download, organization, inspection, and delivery work to the system.
+- 📲 **Mobile channel access**: Keep checking results and following up through channels such as Telegram.
 
 ## Product Preview
 
-![Dream Creator English UI preview](./images/ui_en.png)
+![DreamCreator English UI preview](./images/ui_en.png)
 
 ## Quick Start
-
-Download the app, complete a basic setup, and your creative workflow is ready to begin.
 
 ### Download and install
 
@@ -60,21 +58,22 @@ Download the latest build directly below. Older releases are available on [GitHu
 
 1. `macOS`: unzip the package and move `DreamCreator.app` to the Applications folder. If macOS says the app cannot be opened or is damaged, run `sudo xattr -rd com.apple.quarantine /Applications/DreamCreator.app`.
 2. `Windows`: run the `.exe` installer directly, or unzip the portable package and launch it. If SmartScreen appears on first launch, choose `More info -> Run anyway`.
+3. Full instructions for installation, initialization, usage, and updates are available in [Install, First Launch & Updates](https://dreamapp.cc/docs/dreamcreator/install-and-update/).
 
-### Basic setup
+## Documentation
 
-- The app runs locally, so you need to configure an available model provider API key before first use.
-- Video, subtitle, and automation workflows depend on external tools such as `yt-dlp`, `FFmpeg`, `bun`, and `playwright`; the app will guide you through installation when first opened.
-
-### First experience
-
-1. Configure your model provider and finish installing the required external tools.
-2. Paste a video link, or start a subtitle proofreading, translation, or transcoding task directly.
-3. Continue the follow-up work in the library or in chat to complete one full workflow.
+- [Install, First Launch & Updates](https://dreamapp.cc/docs/dreamcreator/install-and-update/)
+- [DreamCreator Overview](https://dreamapp.cc/docs/dreamcreator/overview/)
+- [Video Download](https://dreamapp.cc/docs/dreamcreator/video-download/)
+- [Subtitle Proofreading & Translation](https://dreamapp.cc/docs/dreamcreator/subtitle-proofreading-and-translation/)
+- [Video Transcoding & Subtitle Burn-In](https://dreamapp.cc/docs/dreamcreator/transcoding-and-subtitle-burn-in/)
+- [Conversation, Research & Idea Organization](https://dreamapp.cc/docs/dreamcreator/conversation-and-research/)
+- [Scheduled Tasks](https://dreamapp.cc/docs/dreamcreator/scheduled-tasks/)
+- [Mobile Channel Access](https://dreamapp.cc/docs/dreamcreator/mobile-channel-access/)
 
 ## Acknowledgements
 
-Dream Creator is built on top of a number of excellent open-source projects and supporting ecosystems. The desktop experience, assistant execution, media pipeline, local storage, browser automation, and channel integrations all depend on these foundations.
+DreamCreator is built on top of a number of excellent open-source projects and supporting ecosystems. The desktop experience, assistant execution, media pipeline, local storage, browser automation, and channel integrations all depend on these foundations.
 
 | Category | Homepage |
 | --- | --- |
@@ -84,7 +83,7 @@ Dream Creator is built on top of a number of excellent open-source projects and 
 | Browser Automation | <a href="https://playwright.dev/" target="_blank" rel="noreferrer">Playwright</a> |
 | Channel Access | <a href="https://telegram.org/" target="_blank" rel="noreferrer">Telegram</a> / <a href="https://github.com/mymmrac/telego" target="_blank" rel="noreferrer">telego</a> |
 
-These projects, and the maintainers behind them, make it possible for Dream Creator to connect desktop workflows, media processing, automation, and channel access into one evolving system.
+These projects, and the maintainers behind them, make it possible for DreamCreator to connect desktop workflows, media processing, automation, and channel access into one evolving system.
 
 ## Collaboration
 
@@ -95,5 +94,5 @@ These projects, and the maintainers behind them, make it possible for Dream Crea
 
 ## Contact
 
-- Website: <https://dreamcreator.dreamapp.cc>
+- Website: <https://dreamapp.cc>
 - Email: <xunruhao@gmail.com>

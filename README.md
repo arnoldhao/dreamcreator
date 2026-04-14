@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="./frontend/public/appicon.png" width="112" alt="追创作 / Dream Creator 图标" />
-  <h1>追创作 / Dream Creator</h1>
+  <img src="./frontend/public/appicon.png" width="112" alt="追创作 / DreamCreator 图标" />
+  <h1>追创作 / DreamCreator</h1>
   <p><strong>一款面向内容创作者的人工智能助手</strong></p>
   <p>
     <strong>简体中文</strong> ·
@@ -16,34 +16,30 @@
 
 ## 项目简介
 
-追创作是一款面向内容创作者的人工智能助手，把素材下载、字幕处理、资料检索、桌面执行与移动跟进收进同一套工作流。它不是零散工具的堆叠，而是一位能够理解上下文、持续推进任务的创作助手。
+追创作是一款AI Native桌面应用，整合视频下载、字幕处理、资料检索、桌面执行与移动跟进能力。无论你是通过界面、对话或者是移动端，都可以有序地完成创作准备，获得一致的产品体验。
 
 ## 覆盖每一个创作现场
 
-从创作准备、桌面处理到离开工位后的持续跟进，工作不必在不同工具和设备之间反复断开。
-
-- 🎬 创作准备：素材、字幕、资料与灵感线索可以先沉淀到同一处，再进入后续处理。
-- 🖥️ 桌面执行：在授权范围内，助手可以访问网页、调用工具、操作电脑，把对话直接推进为动作。
-- 📱 移动跟进：同一位助手可延伸到 Telegram 等渠道，离开桌面后任务也能继续推进。
+- 🎬 **创作准备**：集中整理素材、字幕、资料与灵感线索。
+- 🖥️ **桌面执行**：访问网页、调用工具并继续推进任务。
+- 📱 **移动跟进**：通过 Telegram 持续查看结果与后续进展。
 
 ## 核心能力
 
-- 📥 视频下载：从公开视频素材到需要身份认证的来源，都可以沉淀到同一资源库里。
-- 📝 字幕校对与翻译：已有字幕不必推倒重来，校对、翻译、复核可以接成一条链路。
-- 🎞️ 视频转码与字幕烧录：下载、翻译、转码、字幕内嵌可以连续完成。
-- 💡 对话式资料检索与灵感激发：资料查找、信息整理、观点延展都可以留在同一条对话里。
-- 🤖 可执行的人工智能助手：不止回答问题，在授权范围内还能访问网页、调用工具、操作电脑。
-- 🧩 多助手切换机制：不同创作场景可以用不同助手承载各自的角色、记忆与能力边界。
-- ⚙️ 人工智能原生自动化：重复性的下载、整理、处理与定时任务可以长期运行。
-- 📲 移动端渠道接入：同一套能力不被桌面绑定，手机上也能继续跟进任务。
+- 📥 **视频下载**：将公开视频和需登录访问的视频下载到本地资源库。
+- 📝 **字幕校对与翻译**：围绕现有字幕完成校对、翻译、QA 与导出。
+- 🎞️ **视频转码与字幕烧录**：完成转码、字幕导出、内嵌字幕轨与烧录字幕。
+- 💡 **对话、检索与灵感整理**：在同一条线程中整理资料与推进后续动作。
+- 🤖 **人工智能助手**：在授权范围内访问网页、调用工具并操作电脑。
+- 🧩 **多助手机制**：按任务拆分不同助手的角色、模型与权限边界。
+- ⚙️ **定时任务**：把重复性的下载、整理、巡检与投递交给系统运行。
+- 📲 **移动端渠道接入**：通过 Telegram 等渠道继续查看结果与跟进任务。
 
 ## 产品界面
 
 ![追创作中文界面预览](./images/ui_chs.png)
 
 ## 快速开始
-
-下载应用并完成一次基础配置，即可开始搭建自己的创作工作流。
 
 ### 下载安装
 
@@ -60,17 +56,18 @@
 
 1. `macOS`：解压后将 `DreamCreator.app` 移动到“应用程序”目录。若系统提示“无法打开”或“已损坏”，请在终端执行 `sudo xattr -rd com.apple.quarantine /Applications/DreamCreator.app`。
 2. `Windows`：安装版直接运行 `.exe`；便携版解压后直接启动。若首次启动出现 SmartScreen，选择“更多信息 -> 仍要运行”。
+3. 完整的安装、初始化、使用与更新说明见 [安装、首次启动与更新](https://dreamapp.cc/zh-CN/docs/dreamcreator/install-and-update/)。
 
-### 基础配置
+## 文档
 
-- 应用以本地方式运行，首次使用前需配置可用的模型服务商 API 密钥。
-- 视频、字幕与自动化能力依赖 `yt-dlp`、`FFmpeg`、`bun`、`playwright` 等外部工具；首次打开时，应用会引导完成安装。
-
-### 首次体验
-
-1. 配置模型服务商并完成外部工具安装。
-2. 粘贴一个视频链接，或直接发起一次字幕校对、翻译或转码任务。
-3. 在资源库或对话中继续衔接后续处理，完成一次完整工作流。
+- [安装、首次启动与更新](https://dreamapp.cc/zh-CN/docs/dreamcreator/install-and-update/)
+- [追创作概览](https://dreamapp.cc/zh-CN/docs/dreamcreator/overview/)
+- [视频下载](https://dreamapp.cc/zh-CN/docs/dreamcreator/video-download/)
+- [字幕校对与翻译](https://dreamapp.cc/zh-CN/docs/dreamcreator/subtitle-proofreading-and-translation/)
+- [视频转码与字幕烧录](https://dreamapp.cc/zh-CN/docs/dreamcreator/transcoding-and-subtitle-burn-in/)
+- [对话、检索与灵感整理](https://dreamapp.cc/zh-CN/docs/dreamcreator/conversation-and-research/)
+- [定时任务](https://dreamapp.cc/zh-CN/docs/dreamcreator/scheduled-tasks/)
+- [移动端渠道接入](https://dreamapp.cc/zh-CN/docs/dreamcreator/mobile-channel-access/)
 
 ## 感谢
 
@@ -84,7 +81,7 @@
 | 浏览器自动化 | <a href="https://playwright.dev/" target="_blank" rel="noreferrer">Playwright</a> |
 | 渠道接入 | <a href="https://telegram.org/" target="_blank" rel="noreferrer">Telegram</a> / <a href="https://github.com/mymmrac/telego" target="_blank" rel="noreferrer">telego</a> |
 
-正是这些项目与它们背后的维护者，让追创作能够在桌面、媒体处理、自动化与渠道接入之间建立起一条完整而持续演进的工作链路。
+正是这些项目与它们背后的维护者，让追创作能够在桌面、媒体处理、自动化与渠道接入之间建立起一条持续演进的工作链路。
 
 ## 协作
 
@@ -95,5 +92,5 @@
 
 ## 联系
 
-- 官网：<https://dreamcreator.dreamapp.cc>
+- 官网：<https://dreamapp.cc>
 - 邮箱：<xunruhao@gmail.com>
