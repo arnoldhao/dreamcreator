@@ -2143,6 +2143,23 @@
       "trace": "运行追踪",
       "prompt": "提示词"
     },
+    "contextPanel": {
+      "actions": {
+        "filter": "筛选",
+        "clearFilters": "清空筛选"
+      },
+      "filters": {
+        "thread": "对话",
+        "event": "事件",
+        "runId": "运行 ID",
+        "allRuns": "全部运行"
+      },
+      "footer": {
+        "eventCount": "事件数",
+        "firstAt": "最早时间",
+        "lastAt": "最后时间"
+      }
+    },
     "status": {
       "title": "网关状态",
       "activeSessions": "活跃会话",
@@ -2184,12 +2201,14 @@
       }
     },
     "gateway": {
-      "events": "网关事件",
-      "eventsCount": "事件数",
       "filterAll": "全部事件",
       "eventsEmpty": "暂无网关事件。",
       "eventUnknown": "(未知)",
       "noPayload": "(无载荷)",
+      "detail": {
+        "description": "查看网关事件元数据以及格式化后的载荷。",
+        "payload": "事件载荷"
+      },
       "table": {
         "time": "时间",
         "event": "事件",
@@ -2201,6 +2220,10 @@
     "trace": {
       "error": "加载运行事件失败",
       "empty": "暂无运行事件",
+      "detail": {
+        "description": "查看运行追踪事件元数据以及格式化后的载荷。",
+        "payload": "事件载荷"
+      },
       "table": {
         "current": "当前",
         "runId": "运行 ID",
@@ -2213,13 +2236,6 @@
         "event": "事件",
         "tool": "工具",
         "viewPayload": "查看载荷"
-      },
-      "status": {
-        "completed": "已完成",
-        "running": "运行中",
-        "error": "错误",
-        "aborted": "已中止",
-        "unknown": "未知"
       }
     },
     "calls": {
@@ -2299,7 +2315,8 @@
         "history": "历史",
         "user": "用户",
         "assistant": "助手",
-        "tool": "工具"
+        "tool": "工具",
+        "meta": "元信息"
       },
       "messages": {
         "unavailable": "暂无消息快照。请切换到加强模式后重新运行。",
@@ -2311,14 +2328,14 @@
         "runId": "运行 ID",
         "mode": "模式",
         "generatedAt": "生成时间",
-        "promptChars": "提示词字符数"
+        "promptChars": "提示词字符数",
+        "emptyCollections": "暂无工具或技能"
       },
       "tools": "工具",
       "skills": "技能",
       "expandList": "展开列表",
       "collapseList": "收起列表",
       "listEmpty": "(无)",
-      "system": "系统提示词",
       "systemEmpty": "(空)"
     },
     "framework": {

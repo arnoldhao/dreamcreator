@@ -1,136 +1,166 @@
-import { Fragment, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
-import { Select } from "@/shared/ui/select";
+import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 import { TabsContent } from "@/shared/ui/tabs";
 
 import type { EventsTabProps } from "../types";
+import { DebugDetailSheet, type DebugDetailField } from "./DebugDetailSheet";
+
+function formatJsonPayload(value: unknown, emptyText: string) {
+  if (value == null) {
+    return emptyText;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return emptyText;
+    }
+    try {
+      return JSON.stringify(JSON.parse(trimmed), null, 2);
+    } catch {
+      return trimmed;
+    }
+  }
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
 
 export function EventsTab({
   t,
-  gatewayEventsForThread,
   gatewayFilteredEvents,
-  selectedGatewayEvent,
-  setSelectedGatewayEvent,
-  gatewayEventOptions,
+  formatDateTime,
   formatRuntimeTime,
 }: EventsTabProps) {
-  const [expandedGatewayEventKey, setExpandedGatewayEventKey] = useState<string | null>(null);
+  const [selectedGatewayEventKey, setSelectedGatewayEventKey] = useState("");
 
-  const toggleGatewayPayload = (key: string) => {
-    setExpandedGatewayEventKey((current) => (current === key ? null : key));
-  };
+  useEffect(() => {
+    const visibleKeys = new Set(gatewayFilteredEvents.map((item) => item.__key));
+    setSelectedGatewayEventKey((current) => (current && visibleKeys.has(current) ? current : ""));
+  }, [gatewayFilteredEvents]);
+
+  const selectedGatewayEvent = useMemo(
+    () => gatewayFilteredEvents.find((item) => item.__key === selectedGatewayEventKey) ?? null,
+    [gatewayFilteredEvents, selectedGatewayEventKey]
+  );
+
+  const detailFields = useMemo<DebugDetailField[]>(
+    () =>
+      !selectedGatewayEvent
+        ? []
+        : [
+            {
+              label: t("settings.debug.gateway.table.time"),
+              value: formatDateTime(selectedGatewayEvent.timestamp),
+            },
+            {
+              label: t("settings.debug.gateway.table.event"),
+              value: selectedGatewayEvent.event || t("settings.debug.gateway.eventUnknown"),
+            },
+            {
+              label: t("settings.debug.gateway.table.run"),
+              value: selectedGatewayEvent.runId || "-",
+            },
+            {
+              label: t("settings.debug.gateway.table.session"),
+              value: selectedGatewayEvent.sessionDisplayId || "-",
+              valueClassName: "break-all",
+            },
+          ],
+    [formatDateTime, selectedGatewayEvent, t]
+  );
+
+  const selectedPayloadText = useMemo(
+    () => formatJsonPayload(selectedGatewayEvent?.payload, t("settings.debug.gateway.noPayload")),
+    [selectedGatewayEvent?.payload, t]
+  );
 
   return (
-    <TabsContent value="events" className="mt-0">
-      <Card className="w-full border bg-card">
-        <CardHeader size="compact" className="space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <CardTitle className="text-sm font-medium leading-none tracking-normal">
-              {t("settings.debug.gateway.events")}
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <Select
-                value={selectedGatewayEvent}
-                onChange={(event) => setSelectedGatewayEvent(event.target.value)}
-                className="min-w-[220px]"
-              >
-                <option value="all">{t("settings.debug.gateway.filterAll")}</option>
-                {gatewayEventOptions.map(([eventName, count]) => (
-                  <option key={eventName} value={eventName}>
-                    {eventName} ({count})
-                  </option>
-                ))}
-              </Select>
-              <span className="text-xs text-muted-foreground">
-                {t("settings.debug.gateway.eventsCount")}: {gatewayFilteredEvents.length}/{gatewayEventsForThread.length}
-              </span>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent size="compact" className="space-y-2 pt-0">
-          <div className="rounded-lg bg-card outline outline-1 outline-border">
-            <div className="p-2">
-              <Table className="text-xs table-fixed w-full">
-                <colgroup>
-                  <col style={{ width: "24%" }} />
-                  <col style={{ width: "28%" }} />
-                  <col style={{ width: "24%" }} />
-                  <col style={{ width: "24%" }} />
-                </colgroup>
-                <TableHeader className="app-table-dense-head [&_tr]:border-b">
+    <>
+      <TabsContent value="events" className="mt-0 flex h-full min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border/70 bg-background/70">
+          <div className="relative h-full overflow-auto">
+            <Table className="table-fixed min-w-[760px]">
+              <TableHeader className="app-table-dense-head sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                <TableRow>
+                  <TableHead className="w-[160px]">{t("settings.debug.gateway.table.time")}</TableHead>
+                  <TableHead className="w-[200px]">{t("settings.debug.gateway.table.event")}</TableHead>
+                  <TableHead className="w-[160px]">{t("settings.debug.gateway.table.run")}</TableHead>
+                  <TableHead>{t("settings.debug.gateway.table.session")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {gatewayFilteredEvents.length === 0 ? (
                   <TableRow>
-                    <TableHead className="whitespace-nowrap">{t("settings.debug.gateway.table.time")}</TableHead>
-                    <TableHead className="whitespace-nowrap">{t("settings.debug.gateway.table.event")}</TableHead>
-                    <TableHead className="whitespace-nowrap">{t("settings.debug.gateway.table.run")}</TableHead>
-                    <TableHead className="whitespace-nowrap">{t("settings.debug.gateway.table.session")}</TableHead>
+                    <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+                      {t("settings.debug.gateway.eventsEmpty")}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-              </Table>
+                ) : (
+                  gatewayFilteredEvents.map((event) => {
+                    const sessionText = event.sessionDisplayId || "-";
+                    const active = selectedGatewayEvent?.__key === event.__key;
 
-              <div className="max-h-64 overflow-y-auto overflow-x-hidden">
-                <Table className="text-xs table-fixed w-full">
-                  <colgroup>
-                    <col style={{ width: "24%" }} />
-                    <col style={{ width: "28%" }} />
-                    <col style={{ width: "24%" }} />
-                    <col style={{ width: "24%" }} />
-                  </colgroup>
-                  <TableBody>
-                    {gatewayFilteredEvents.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="px-2 py-1 text-muted-foreground">
-                          {t("settings.debug.gateway.eventsEmpty")}
+                    return (
+                      <TableRow
+                        key={event.__key}
+                        className={cn("cursor-pointer hover:bg-muted/20", active && "bg-muted/40")}
+                        onClick={() => setSelectedGatewayEventKey(event.__key)}
+                        title={t("settings.debug.gateway.table.viewPayload")}
+                      >
+                        <TableCell
+                          className="font-mono text-[11px] text-muted-foreground"
+                          title={formatRuntimeTime(event.timestamp)}
+                        >
+                          <div className="truncate">{formatRuntimeTime(event.timestamp)}</div>
+                        </TableCell>
+                        <TableCell className="font-mono text-[11px]" title={event.event || "-"}>
+                          <div className="truncate">{event.event || "-"}</div>
+                        </TableCell>
+                        <TableCell className="font-mono text-[11px]" title={event.runId || "-"}>
+                          <div className="truncate">{event.runId || "-"}</div>
+                        </TableCell>
+                        <TableCell className="font-mono text-[11px]" title={sessionText}>
+                          <div className="truncate">{sessionText}</div>
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      gatewayFilteredEvents.slice(-120).reverse().map((event) => {
-                        const isExpanded = expandedGatewayEventKey === event.__key;
-                        const sessionText = event.sessionDisplayId || "-";
-                        const payloadText = event.payload
-                          ? JSON.stringify(event.payload, null, 2)
-                          : t("settings.debug.gateway.noPayload");
-                        return (
-                          <Fragment key={event.__key}>
-                            <TableRow
-                              className="cursor-pointer"
-                              onClick={() => toggleGatewayPayload(event.__key)}
-                              title={t("settings.debug.gateway.table.viewPayload")}
-                            >
-                              <TableCell className="truncate whitespace-nowrap font-mono text-[11px] text-muted-foreground" title={formatRuntimeTime(event.timestamp)}>
-                                {formatRuntimeTime(event.timestamp)}
-                              </TableCell>
-                              <TableCell className="truncate whitespace-nowrap font-mono text-[11px]" title={event.event || "-"}>
-                                {event.event || "-"}
-                              </TableCell>
-                              <TableCell className="truncate whitespace-nowrap font-mono text-[11px]" title={event.runId || "-"}>
-                                {event.runId || "-"}
-                              </TableCell>
-                              <TableCell className="truncate whitespace-nowrap font-mono text-[11px]" title={sessionText}>
-                                {sessionText}
-                              </TableCell>
-                            </TableRow>
-                            {isExpanded ? (
-                              <TableRow>
-                                <TableCell colSpan={4} className="border-0 px-2 pb-2">
-                                  <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/20 p-2 text-[11px] text-foreground">
-                                    {payloadText}
-                                  </pre>
-                                </TableCell>
-                              </TableRow>
-                            ) : null}
-                          </Fragment>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
           </div>
-        </CardContent>
-      </Card>
-    </TabsContent>
+        </div>
+      </TabsContent>
+
+      <DebugDetailSheet
+        open={Boolean(selectedGatewayEvent)}
+        onOpenChange={(open) => (!open ? setSelectedGatewayEventKey("") : undefined)}
+        title={selectedGatewayEvent?.event || t("settings.debug.gateway.eventUnknown")}
+        description={t("settings.debug.gateway.detail.description")}
+        headerMeta={
+          selectedGatewayEvent ? (
+            <span className="truncate text-[11px] text-muted-foreground">
+              {selectedGatewayEvent.runId || selectedGatewayEvent.sessionDisplayId || formatRuntimeTime(selectedGatewayEvent.timestamp)}
+            </span>
+          ) : null
+        }
+        fields={detailFields}
+      >
+        <div className="overflow-hidden rounded-md border">
+          <div className="space-y-2 px-4 py-3">
+            <div className="text-[11px] font-medium text-muted-foreground">
+              {t("settings.debug.gateway.detail.payload")}
+            </div>
+            <pre className="max-h-64 overflow-auto rounded-md bg-muted/20 p-3 font-mono text-[11px] whitespace-pre-wrap break-words text-foreground">
+              {selectedPayloadText}
+            </pre>
+          </div>
+        </div>
+      </DebugDetailSheet>
+    </>
   );
 }

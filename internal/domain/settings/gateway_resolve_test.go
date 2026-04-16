@@ -6,6 +6,9 @@ func TestDefaultGatewaySettingsHeartbeatDefaults(t *testing.T) {
 	t.Parallel()
 
 	defaults := DefaultGatewaySettings()
+	if defaults.Runtime.DebugMode != GatewayDebugModeOff {
+		t.Fatalf("expected runtime.debugMode default off, got %q", defaults.Runtime.DebugMode)
+	}
 	if !defaults.Heartbeat.Periodic.Enabled {
 		t.Fatalf("expected periodic.enabled default true")
 	}
@@ -124,6 +127,40 @@ func TestResolveGatewaySettingsHeartbeatExtendedFields(t *testing.T) {
 	}
 	if resolved.Heartbeat.Events.SubagentWakeMode != "now" {
 		t.Fatalf("expected subagentWakeMode=now, got %q", resolved.Heartbeat.Events.SubagentWakeMode)
+	}
+}
+
+func TestResolveGatewaySettingsDebugModeSetsRecordPrompt(t *testing.T) {
+	t.Parallel()
+
+	resolved := ResolveGatewaySettings(GatewaySettingsParams{
+		Runtime: &GatewayRuntimeSettingsParams{
+			DebugMode: stringPtr("full"),
+		},
+	})
+
+	if resolved.Runtime.DebugMode != GatewayDebugModeFull {
+		t.Fatalf("expected runtime.debugMode=full, got %q", resolved.Runtime.DebugMode)
+	}
+	if !resolved.Runtime.RecordPrompt {
+		t.Fatalf("expected runtime.recordPrompt=true when debugMode=full")
+	}
+}
+
+func TestResolveGatewaySettingsMigratesLegacyRecordPrompt(t *testing.T) {
+	t.Parallel()
+
+	resolved := ResolveGatewaySettings(GatewaySettingsParams{
+		Runtime: &GatewayRuntimeSettingsParams{
+			RecordPrompt: boolPtr(true),
+		},
+	})
+
+	if resolved.Runtime.DebugMode != GatewayDebugModeFull {
+		t.Fatalf("expected legacy recordPrompt=true to resolve debugMode=full, got %q", resolved.Runtime.DebugMode)
+	}
+	if !resolved.Runtime.RecordPrompt {
+		t.Fatalf("expected runtime.recordPrompt=true after migration")
 	}
 }
 

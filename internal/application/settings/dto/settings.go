@@ -126,6 +126,7 @@ type GatewaySettings struct {
 
 type GatewayRuntimeSettings struct {
 	MaxSteps          int                          `json:"maxSteps"`
+	DebugMode         string                       `json:"debugMode"`
 	RecordPrompt      bool                         `json:"recordPrompt"`
 	ToolLoopDetection GatewayToolLoopSettings      `json:"toolLoopDetection"`
 	ContextWindow     GatewayContextWindowSettings `json:"contextWindow"`
@@ -338,6 +339,7 @@ type UpdateGatewaySettingsRequest struct {
 
 type UpdateGatewayRuntimeSettingsRequest struct {
 	MaxSteps          *int                                       `json:"maxSteps,omitempty"`
+	DebugMode         *string                                    `json:"debugMode,omitempty"`
 	RecordPrompt      *bool                                      `json:"recordPrompt,omitempty"`
 	ToolLoopDetection *UpdateGatewayToolLoopSettingsRequest      `json:"toolLoopDetection,omitempty"`
 	ContextWindow     *UpdateGatewayContextWindowSettingsRequest `json:"contextWindow,omitempty"`

@@ -3561,6 +3561,23 @@
       "trace": "Run trace",
       "prompt": "Prompt"
     },
+    "contextPanel": {
+      "actions": {
+        "filter": "Filter",
+        "clearFilters": "Clear filters"
+      },
+      "filters": {
+        "thread": "Conversation",
+        "event": "Event",
+        "runId": "Run ID",
+        "allRuns": "All runs"
+      },
+      "footer": {
+        "eventCount": "Events",
+        "firstAt": "First time",
+        "lastAt": "Last time"
+      }
+    },
     "status": {
       "title": "Gateway status",
       "activeSessions": "Active sessions",
@@ -3602,12 +3619,14 @@
       }
     },
     "gateway": {
-      "events": "Gateway events",
-      "eventsCount": "Events",
       "filterAll": "All events",
       "eventsEmpty": "No Gateway events yet.",
       "eventUnknown": "(Unknown)",
       "noPayload": "(No payload)",
+      "detail": {
+        "description": "Inspect gateway event metadata and formatted payloads.",
+        "payload": "Event payload"
+      },
       "table": {
         "time": "Time",
         "event": "Event",
@@ -3619,6 +3638,10 @@
     "trace": {
       "error": "Failed to load run events",
       "empty": "No run events",
+      "detail": {
+        "description": "Inspect run trace event metadata and formatted payloads.",
+        "payload": "Event payload"
+      },
       "table": {
         "current": "Current",
         "runId": "Run",
@@ -3631,13 +3654,6 @@
         "event": "Event",
         "tool": "Tool",
         "viewPayload": "View payload"
-      },
-      "status": {
-        "completed": "Completed",
-        "running": "Running",
-        "error": "Error",
-        "aborted": "Aborted",
-        "unknown": "Unknown"
       }
     },
     "calls": {
@@ -3717,7 +3733,8 @@
         "history": "History",
         "user": "User",
         "assistant": "Assistant",
-        "tool": "Tool"
+        "tool": "Tool",
+        "meta": "Meta"
       },
       "messages": {
         "unavailable": "No message snapshot. Switch debug to enhanced and run again.",
@@ -3729,14 +3746,14 @@
         "runId": "Run ID",
         "mode": "Mode",
         "generatedAt": "Generated at",
-        "promptChars": "Prompt chars"
+        "promptChars": "Prompt chars",
+        "emptyCollections": "No tools or skills"
       },
       "tools": "Tools",
       "skills": "Skills",
       "expandList": "Expand list",
       "collapseList": "Collapse list",
       "listEmpty": "(None)",
-      "system": "System prompt",
       "systemEmpty": "(Empty)"
     },
     "framework": {

@@ -5,6 +5,7 @@ export type ProxyMode = "none" | "system" | "manual";
 export type ProxyScheme = "http" | "https" | "socks5";
 export type SystemProxySource = "system" | "vpn";
 export type MenuBarVisibility = "always" | "whenRunning" | "never";
+export type GatewayDebugMode = "off" | "basic" | "full";
 
 export interface WindowBounds {
   x: number;
@@ -197,6 +198,7 @@ export interface GatewaySettings {
 
 export interface GatewayRuntimeSettings {
   maxSteps: number;
+  debugMode: GatewayDebugMode;
   recordPrompt: boolean;
   toolLoopDetection: GatewayToolLoopSettings;
   contextWindow: GatewayContextWindowSettings;
@@ -409,6 +411,7 @@ export interface UpdateGatewaySettingsRequest {
 
 export interface UpdateGatewayRuntimeSettingsRequest {
   maxSteps?: number;
+  debugMode?: GatewayDebugMode;
   recordPrompt?: boolean;
   toolLoopDetection?: UpdateGatewayToolLoopSettingsRequest;
   contextWindow?: UpdateGatewayContextWindowSettingsRequest;

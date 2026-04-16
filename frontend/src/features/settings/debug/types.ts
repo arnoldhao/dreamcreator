@@ -100,11 +100,8 @@ export type OverviewTabProps = {
 
 export type EventsTabProps = {
   t: TranslateFn;
-  gatewayEventsForThread: GatewayDebugEvent[];
   gatewayFilteredEvents: GatewayDebugEvent[];
-  selectedGatewayEvent: string;
-  setSelectedGatewayEvent: (value: string) => void;
-  gatewayEventOptions: Array<[string, number]>;
+  formatDateTime: (value?: string | number) => string;
   formatRuntimeTime: (value?: string | number) => string;
 };
 
@@ -120,15 +117,10 @@ export type RealtimeLogsCardProps = {
 
 export type RunTraceTabProps = {
   t: TranslateFn;
-  selectedRunId: string;
-  setSelectedRunId: (value: string) => void;
-  runSummaries: RunSummary[];
   filteredRunEvents: ParsedRunEvent[];
   runEventsLoading: boolean;
   runEventsError: boolean;
   formatDateTime: (value?: string | number) => string;
-  statusLabelClass: (status: RunSummary["status"]) => string;
-  formatRunStatus: (status: RunSummary["status"]) => string;
 };
 
 export type RunSummaryCardProps = {
@@ -145,14 +137,10 @@ export type RunSummaryCardProps = {
 export type PromptTabProps = {
   t: TranslateFn;
   selectedRunId: string;
-  setSelectedRunId: (value: string) => void;
-  runSummaries: RunSummary[];
   runEventsLoading: boolean;
   runEventsError: boolean;
   selectedPromptRun: PromptRunSnapshot | null;
   formatDateTime: (value?: string | number) => string;
-  statusLabelClass: (status: RunSummary["status"]) => string;
-  formatRunStatus: (status: RunSummary["status"]) => string;
 };
 
 export type ChannelsTabProps = {

@@ -24,16 +24,13 @@ import { SettingsCompactListCard, SettingsCompactRow, SettingsCompactSeparator }
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { messageBus } from "@/shared/message";
-import { useSettings, useUpdateSettings as useAppSettingsUpdate } from "@/shared/query/settings";
 import { useUpdateStore } from "@/shared/store/update";
 import { useCheckForUpdate, useDownloadUpdate, useRestartToApply, useUpdateState } from "@/shared/query/update";
 import { Browser } from "@wailsio/runtime";
 
 export function AboutSection() {
   const { t } = useI18n();
-  const { mode, setMode } = useDebugMode();
-  const settingsQuery = useSettings();
-  const updateAppSettings = useAppSettingsUpdate();
+  const { mode, setMode, isPending: debugModePending } = useDebugMode();
   const updateInfo = useUpdateStore((state) => state.info);
   const setUpdateInfo = useUpdateStore((state) => state.setInfo);
   const checkUpdate = useCheckForUpdate();
@@ -139,31 +136,7 @@ export function AboutSection() {
     if (nextMode !== "off" && nextMode !== "basic" && nextMode !== "full") {
       return;
     }
-    if (nextMode === mode) {
-      return;
-    }
-    const previousMode = mode;
     setMode(nextMode);
-
-    const targetRecordPrompt = nextMode === "full";
-    const currentRecordPrompt = settingsQuery.data?.gateway.runtime.recordPrompt;
-    if (typeof currentRecordPrompt === "boolean" && targetRecordPrompt === currentRecordPrompt) {
-      return;
-    }
-    updateAppSettings.mutate(
-      {
-        gateway: {
-          runtime: {
-            recordPrompt: targetRecordPrompt,
-          },
-        },
-      },
-      {
-        onError: () => {
-          setMode(previousMode);
-        },
-      }
-    );
   };
 
   const handleAdvancedUnlock = () => {
@@ -511,7 +484,7 @@ export function AboutSection() {
                 value={mode}
                 onChange={handleDebugModeChange}
                 className="w-36"
-                disabled={updateAppSettings.isPending}
+                disabled={debugModePending}
                 aria-label={t("settings.about.advanced.debug")}
               >
                 <option value="off">{t("settings.about.advanced.options.off")}</option>

@@ -390,8 +390,20 @@ func (service *SettingsService) UpdateSettings(ctx context.Context, request dto.
 			if request.Gateway.Runtime.MaxSteps != nil {
 				gateway.Runtime.MaxSteps = *request.Gateway.Runtime.MaxSteps
 			}
-			if request.Gateway.Runtime.RecordPrompt != nil {
-				gateway.Runtime.RecordPrompt = *request.Gateway.Runtime.RecordPrompt
+			if request.Gateway.Runtime.DebugMode != nil {
+				gateway.Runtime.DebugMode = settings.ApplyGatewayDebugModeOverride(
+					gateway.Runtime.DebugMode,
+					request.Gateway.Runtime.DebugMode,
+					nil,
+				)
+				gateway.Runtime.RecordPrompt = settings.GatewayDebugModeRecordsPrompt(gateway.Runtime.DebugMode)
+			} else if request.Gateway.Runtime.RecordPrompt != nil {
+				gateway.Runtime.DebugMode = settings.ApplyGatewayDebugModeOverride(
+					gateway.Runtime.DebugMode,
+					nil,
+					request.Gateway.Runtime.RecordPrompt,
+				)
+				gateway.Runtime.RecordPrompt = settings.GatewayDebugModeRecordsPrompt(gateway.Runtime.DebugMode)
 			}
 			if request.Gateway.Runtime.ToolLoopDetection != nil {
 				if request.Gateway.Runtime.ToolLoopDetection.Enabled != nil {
@@ -951,6 +963,11 @@ func memorySettingsParamsFromSettings(memory settings.MemorySettings) settings.M
 
 func normalizeGatewaySettings(gateway settings.GatewaySettings) settings.GatewaySettings {
 	defaults := settings.DefaultGatewaySettings()
+	gateway.Runtime.DebugMode = settings.ResolveGatewayDebugMode(
+		gateway.Runtime.DebugMode.String(),
+		gateway.Runtime.RecordPrompt,
+	)
+	gateway.Runtime.RecordPrompt = settings.GatewayDebugModeRecordsPrompt(gateway.Runtime.DebugMode)
 
 	toolLoop := gateway.Runtime.ToolLoopDetection
 	if toolLoop.HistorySize <= 0 && toolLoop.WarnThreshold <= 0 && toolLoop.CriticalThreshold <= 0 &&

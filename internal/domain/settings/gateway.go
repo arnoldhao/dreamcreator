@@ -21,11 +21,24 @@ type GatewaySettings struct {
 
 type GatewayRuntimeSettings struct {
 	MaxSteps          int                          `json:"maxSteps"`
+	DebugMode         GatewayDebugMode             `json:"debugMode"`
 	RecordPrompt      bool                         `json:"recordPrompt"`
 	ToolLoopDetection GatewayToolLoopSettings      `json:"toolLoopDetection"`
 	ContextWindow     GatewayContextWindowSettings `json:"contextWindow"`
 	Compaction        GatewayCompactionSettings    `json:"compaction"`
 }
+
+type GatewayDebugMode string
+
+func (mode GatewayDebugMode) String() string {
+	return string(mode)
+}
+
+const (
+	GatewayDebugModeOff   GatewayDebugMode = "off"
+	GatewayDebugModeBasic GatewayDebugMode = "basic"
+	GatewayDebugModeFull  GatewayDebugMode = "full"
+)
 
 type GatewayToolLoopSettings struct {
 	Enabled                       bool                     `json:"enabled"`
@@ -233,6 +246,7 @@ type GatewaySettingsParams struct {
 
 type GatewayRuntimeSettingsParams struct {
 	MaxSteps          *int                                `json:"maxSteps,omitempty"`
+	DebugMode         *string                             `json:"debugMode,omitempty"`
 	RecordPrompt      *bool                               `json:"recordPrompt,omitempty"`
 	ToolLoopDetection *GatewayToolLoopSettingsParams      `json:"toolLoopDetection,omitempty"`
 	ContextWindow     *GatewayContextWindowSettingsParams `json:"contextWindow,omitempty"`
@@ -510,6 +524,7 @@ const (
 	DefaultGatewayHTTPResponsesImagesMaxRedirects          = 3
 	DefaultGatewayHTTPResponsesImagesTimeoutMs             = 10000
 	DefaultGatewayChannelHealthCheckMinutes                = 5
+	DefaultGatewayRuntimeDebugMode                         = GatewayDebugModeOff
 )
 
 func DefaultGatewaySettings() GatewaySettings {
@@ -521,6 +536,7 @@ func DefaultGatewaySettings() GatewaySettings {
 		SandboxEnabled:      DefaultGatewaySandboxEnabled,
 		Runtime: GatewayRuntimeSettings{
 			MaxSteps:     DefaultGatewayRuntimeMaxSteps,
+			DebugMode:    DefaultGatewayRuntimeDebugMode,
 			RecordPrompt: DefaultGatewayRuntimeRecordPrompt,
 			ToolLoopDetection: GatewayToolLoopSettings{
 				Enabled:                       DefaultGatewayToolLoopEnabled,
@@ -767,9 +783,12 @@ func ResolveGatewaySettings(params GatewaySettingsParams) GatewaySettings {
 		if params.Runtime.MaxSteps != nil {
 			settings.Runtime.MaxSteps = *params.Runtime.MaxSteps
 		}
-		if params.Runtime.RecordPrompt != nil {
-			settings.Runtime.RecordPrompt = *params.Runtime.RecordPrompt
-		}
+		settings.Runtime.DebugMode = ApplyGatewayDebugModeOverride(
+			settings.Runtime.DebugMode,
+			params.Runtime.DebugMode,
+			params.Runtime.RecordPrompt,
+		)
+		settings.Runtime.RecordPrompt = GatewayDebugModeRecordsPrompt(settings.Runtime.DebugMode)
 		if params.Runtime.ToolLoopDetection != nil {
 			if params.Runtime.ToolLoopDetection.Enabled != nil {
 				settings.Runtime.ToolLoopDetection.Enabled = *params.Runtime.ToolLoopDetection.Enabled
@@ -852,6 +871,11 @@ func ResolveGatewaySettings(params GatewaySettingsParams) GatewaySettings {
 			}
 		}
 	}
+	settings.Runtime.DebugMode = ResolveGatewayDebugMode(
+		settings.Runtime.DebugMode.String(),
+		settings.Runtime.RecordPrompt,
+	)
+	settings.Runtime.RecordPrompt = GatewayDebugModeRecordsPrompt(settings.Runtime.DebugMode)
 	if params.Queue != nil {
 		if params.Queue.GlobalConcurrency != nil {
 			settings.Queue.GlobalConcurrency = *params.Queue.GlobalConcurrency
@@ -1046,6 +1070,43 @@ func ResolveGatewaySettings(params GatewaySettingsParams) GatewaySettings {
 	}
 
 	return settings
+}
+
+func ResolveGatewayDebugMode(value string, recordPrompt bool) GatewayDebugMode {
+	switch GatewayDebugMode(strings.TrimSpace(value)) {
+	case GatewayDebugModeOff, GatewayDebugModeBasic, GatewayDebugModeFull:
+		return GatewayDebugMode(strings.TrimSpace(value))
+	default:
+		if recordPrompt {
+			return GatewayDebugModeFull
+		}
+		return DefaultGatewayRuntimeDebugMode
+	}
+}
+
+func GatewayDebugModeRecordsPrompt(mode GatewayDebugMode) bool {
+	return mode == GatewayDebugModeFull
+}
+
+func ApplyGatewayDebugModeOverride(
+	current GatewayDebugMode,
+	override *string,
+	recordPrompt *bool,
+) GatewayDebugMode {
+	mode := ResolveGatewayDebugMode(current.String(), GatewayDebugModeRecordsPrompt(current))
+	if override != nil {
+		return ResolveGatewayDebugMode(*override, mode == GatewayDebugModeFull)
+	}
+	if recordPrompt == nil {
+		return mode
+	}
+	if *recordPrompt {
+		return GatewayDebugModeFull
+	}
+	if mode == GatewayDebugModeFull {
+		return GatewayDebugModeBasic
+	}
+	return mode
 }
 
 func normalizeStringSlice(values []string) []string {

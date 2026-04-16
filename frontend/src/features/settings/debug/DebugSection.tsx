@@ -4,7 +4,6 @@ import { Activity, BarChart3, Brain, Database, FileText, Plug2, RefreshCw, Scrol
 import { useShallow } from "zustand/react/shallow";
 
 import { Button } from "@/shared/ui/button";
-import { Select } from "@/shared/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { useI18n } from "@/shared/i18n";
 import {
@@ -33,6 +32,8 @@ import { FrameworkTab } from "./tabs/FrameworkTab";
 import { OverviewTab } from "./tabs/OverviewTab";
 import { PromptTab } from "./tabs/PromptTab";
 import { RunTraceTab } from "./tabs/RunTraceTab";
+import { ContextFilterMenu, ContextTableFooter } from "./tabs/ContextTabControls";
+import { formatRelativeDebugTime } from "./utils/time";
 import type {
   GatewayDebugEvent,
   ParsedRunEvent,
@@ -257,23 +258,8 @@ function resolveRunStatus(events: ParsedRunEvent[]): RunSummary["status"] {
   return status;
 }
 
-function statusLabelClass(status: RunSummary["status"]) {
-  switch (status) {
-    case "completed":
-      return "bg-emerald-100 text-emerald-800";
-    case "running":
-      return "bg-sky-100 text-sky-800";
-    case "error":
-      return "bg-destructive/15 text-destructive";
-    case "aborted":
-      return "bg-amber-100 text-amber-800";
-    default:
-      return "bg-muted text-muted-foreground";
-  }
-}
-
 export function DebugSection() {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const { status, url, topics, messages, metrics, clearMessages } = useRealtimeStore(
     useShallow((state) => ({
       status: state.status,
@@ -298,6 +284,9 @@ export function DebugSection() {
   const [selectedCallRecordId, setSelectedCallRecordId] = useState<string>("");
   const [logLevel, setLogLevel] = useState<string>("info");
   const [selectedGatewayEvent, setSelectedGatewayEvent] = useState<string>("all");
+  const [eventRowsPerPage, setEventRowsPerPage] = useState(20);
+  const [eventPageIndex, setEventPageIndex] = useState(0);
+  const [gatewaySubscriptionVersion, setGatewaySubscriptionVersion] = useState(0);
   const [gatewayEvents, setGatewayEvents] = useState<GatewayDebugEvent[]>([]);
   const subscriptionsRef = useRef<Map<string, () => void>>(new Map());
 
@@ -341,6 +330,11 @@ export function DebugSection() {
   const sortedThreads = useMemo(
     () => [...threads].sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
     [threads]
+  );
+  const defaultContextThreadId = sortedThreads[0]?.id ?? "";
+  const selectedContextThread = useMemo(
+    () => sortedThreads.find((thread) => thread.id === selectedThreadId) ?? null,
+    [selectedThreadId, sortedThreads]
   );
 
   useEffect(() => {
@@ -391,7 +385,7 @@ export function DebugSection() {
       );
     });
     return () => unsubscribe();
-  }, []);
+  }, [gatewaySubscriptionVersion]);
 
   useEffect(() => {
     if (selectedTopic === "all") {
@@ -508,24 +502,6 @@ export function DebugSection() {
     return t("settings.debug.message.realtime.status.disconnected");
   }, [status, t]);
 
-  const formatRunStatus = useCallback(
-    (statusValue: RunSummary["status"]) => {
-      switch (statusValue) {
-        case "completed":
-          return t("settings.debug.trace.status.completed");
-        case "running":
-          return t("settings.debug.trace.status.running");
-        case "error":
-          return t("settings.debug.trace.status.error");
-        case "aborted":
-          return t("settings.debug.trace.status.aborted");
-        default:
-          return t("settings.debug.trace.status.unknown");
-      }
-    },
-    [t]
-  );
-
   const topicOptions = useMemo(() => Array.from(new Set([...(topics ?? []), "all"])), [topics]);
 
   const llmCallRecords = useMemo(() => llmCallRecordsQuery.data ?? [], [llmCallRecordsQuery.data]);
@@ -607,19 +583,6 @@ export function DebugSection() {
     }
   }, [selectedRunId, runSummaries]);
 
-  useEffect(() => {
-    if (activeContextTab !== "trace" && activeContextTab !== "prompt") {
-      return;
-    }
-    if (selectedRunId !== "all") {
-      return;
-    }
-    const firstRunId = runSummaries[0]?.runId;
-    if (firstRunId) {
-      setSelectedRunId(firstRunId);
-    }
-  }, [activeContextTab, selectedRunId, runSummaries]);
-
   const filteredRunEvents = useMemo(() => {
     if (selectedRunId === "all") {
       return parsedRunEvents;
@@ -695,6 +658,107 @@ export function DebugSection() {
     });
   }, [gatewayEventsForThread, selectedGatewayEvent, t]);
 
+  const sortedGatewayEvents = useMemo(
+    () =>
+      [...gatewayFilteredEvents].sort((left, right) => {
+        const leftTime = Number.isFinite(left.timestamp) ? left.timestamp : 0;
+        const rightTime = Number.isFinite(right.timestamp) ? right.timestamp : 0;
+        return rightTime - leftTime;
+      }),
+    [gatewayFilteredEvents]
+  );
+
+  const gatewayEventPageCount = useMemo(
+    () => Math.max(1, Math.ceil(sortedGatewayEvents.length / eventRowsPerPage)),
+    [eventRowsPerPage, sortedGatewayEvents.length]
+  );
+
+  useEffect(() => {
+    setEventPageIndex((current) => Math.min(current, gatewayEventPageCount - 1));
+  }, [gatewayEventPageCount]);
+
+  useEffect(() => {
+    setEventPageIndex(0);
+  }, [selectedThreadId, selectedGatewayEvent]);
+
+  const paginatedGatewayEvents = useMemo(() => {
+    const start = eventPageIndex * eventRowsPerPage;
+    return sortedGatewayEvents.slice(start, start + eventRowsPerPage);
+  }, [eventPageIndex, eventRowsPerPage, sortedGatewayEvents]);
+
+  const gatewayEventsFirstAt = useMemo(
+    () =>
+      sortedGatewayEvents.length > 0
+        ? formatRelativeDebugTime(sortedGatewayEvents[sortedGatewayEvents.length - 1]?.timestamp, language, t("common.justNow"))
+        : "-",
+    [language, sortedGatewayEvents, t]
+  );
+
+  const gatewayEventsLastAt = useMemo(
+    () =>
+      sortedGatewayEvents.length > 0
+        ? formatRelativeDebugTime(sortedGatewayEvents[0]?.timestamp, language, t("common.justNow"))
+        : "-",
+    [language, sortedGatewayEvents, t]
+  );
+
+  const contextThreadOptions = useMemo(() => {
+    if (sortedThreads.length === 0) {
+      return [{ value: "", label: t("settings.debug.thread.empty") }];
+    }
+    return sortedThreads.map((thread) => ({
+      value: thread.id,
+      label: thread.title || thread.id,
+    }));
+  }, [sortedThreads, t]);
+
+  const contextGatewayEventOptions = useMemo(
+    () => [
+      { value: "all", label: t("settings.debug.gateway.filterAll") },
+      ...gatewayEventOptions.map(([eventName, count]) => ({
+        value: eventName,
+        label: `${eventName} (${count})`,
+      })),
+    ],
+    [gatewayEventOptions, t]
+  );
+
+  const contextRunOptions = useMemo(
+    () => [
+      { value: "all", label: t("settings.debug.contextPanel.filters.allRuns") },
+      ...runSummaries.map((item) => ({
+        value: item.runId,
+        label: item.runId,
+      })),
+    ],
+    [runSummaries, t]
+  );
+
+  const contextFilterCount = useMemo(() => {
+    const threadCount = selectedThreadId && selectedThreadId !== defaultContextThreadId ? 1 : 0;
+    if (activeContextTab === "events") {
+      return threadCount + (selectedGatewayEvent !== "all" ? 1 : 0);
+    }
+    return threadCount + (selectedRunId !== "all" ? 1 : 0);
+  }, [activeContextTab, defaultContextThreadId, selectedGatewayEvent, selectedRunId, selectedThreadId]);
+
+  const contextFilterTriggerLabel = useMemo(() => {
+    const threadLabel = selectedContextThread?.title || selectedContextThread?.id || "";
+    if (activeContextTab === "events" && selectedGatewayEvent !== "all") {
+      return selectedGatewayEvent;
+    }
+    if ((activeContextTab === "trace" || activeContextTab === "prompt") && selectedRunId !== "all") {
+      return selectedRunId;
+    }
+    return threadLabel || t("settings.debug.contextPanel.actions.filter");
+  }, [activeContextTab, selectedContextThread, selectedGatewayEvent, selectedRunId, t]);
+
+  const clearContextFilters = useCallback(() => {
+    setSelectedThreadId(defaultContextThreadId);
+    setSelectedGatewayEvent("all");
+    setSelectedRunId("all");
+  }, [defaultContextThreadId]);
+
   const inspectCallRecordRun = useCallback(
     (record: LLMCallRecord) => {
       if (record.threadId) {
@@ -711,6 +775,16 @@ export function DebugSection() {
     },
     []
   );
+
+  const refreshContextTab = useCallback(() => {
+    if (activeContextTab === "events") {
+      setGatewaySubscriptionVersion((current) => current + 1);
+      return;
+    }
+    if (activeContextTab === "trace" || activeContextTab === "prompt") {
+      void runEventsQuery.refetch();
+    }
+  }, [activeContextTab, runEventsQuery]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col space-y-4">
@@ -803,7 +877,7 @@ export function DebugSection() {
         ) : null}
 
         {activeTab === "context" ? (
-          <div className="space-y-3">
+          <div className="min-h-0 flex-1 overflow-hidden">
             <Tabs
               value={activeContextTab}
               onValueChange={(value) => {
@@ -811,9 +885,9 @@ export function DebugSection() {
                   setActiveContextTab(value as ContextTabValue);
                 }
               }}
-              className="flex min-h-0 flex-1 flex-col space-y-3"
+              className="flex h-full min-h-0 flex-1 flex-col gap-3"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 flex-nowrap items-center justify-between gap-3 overflow-x-auto pb-1 -mb-1">
                 <TabsList className="h-auto shrink-0 rounded-none bg-transparent p-0">
                   <TabsTrigger
                     value="events"
@@ -839,71 +913,109 @@ export function DebugSection() {
                 </TabsList>
 
                 <div className="ml-auto flex min-w-0 items-center gap-2">
-                  <Select
-                    value={selectedThreadId}
-                    onChange={(event) => setSelectedThreadId(event.target.value)}
-                    className="w-[280px] min-w-0 shrink"
-                  >
-                    {sortedThreads.length === 0 ? (
-                      <option value="">{t("settings.debug.thread.empty")}</option>
-                    ) : (
-                      sortedThreads.map((thread) => (
-                        <option key={thread.id} value={thread.id}>
-                          {thread.title || thread.id}
-                        </option>
-                      ))
-                    )}
-                  </Select>
+                  <ContextFilterMenu
+                    t={t}
+                    triggerLabel={contextFilterTriggerLabel}
+                    filterCount={contextFilterCount}
+                    fields={
+                      activeContextTab === "events"
+                        ? [
+                            {
+                              label: t("settings.debug.contextPanel.filters.thread"),
+                              value: selectedThreadId,
+                              onChange: setSelectedThreadId,
+                              options: contextThreadOptions,
+                            },
+                            {
+                              label: t("settings.debug.contextPanel.filters.event"),
+                              value: selectedGatewayEvent,
+                              onChange: setSelectedGatewayEvent,
+                              options: contextGatewayEventOptions,
+                            },
+                          ]
+                        : [
+                            {
+                              label: t("settings.debug.contextPanel.filters.thread"),
+                              value: selectedThreadId,
+                              onChange: setSelectedThreadId,
+                              options: contextThreadOptions,
+                            },
+                            {
+                              label: t("settings.debug.contextPanel.filters.runId"),
+                              value: selectedRunId,
+                              onChange: setSelectedRunId,
+                              options: contextRunOptions,
+                            },
+                          ]
+                    }
+                    onClearAll={clearContextFilters}
+                    disabled={sortedThreads.length === 0}
+                  />
                   <Button
                     size="compactIcon"
                     variant="outline"
                     className="shrink-0"
                     aria-label={t("common.refresh")}
                     title={t("common.refresh")}
-                    onClick={() => {
-                      void runEventsQuery.refetch();
-                    }}
+                    onClick={refreshContextTab}
                   >
                     <RefreshCw className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
-              <EventsTab
-                t={t}
-                gatewayEventsForThread={gatewayEventsForThread}
-                gatewayFilteredEvents={gatewayFilteredEvents}
-                selectedGatewayEvent={selectedGatewayEvent}
-                setSelectedGatewayEvent={setSelectedGatewayEvent}
-                gatewayEventOptions={gatewayEventOptions}
-                formatRuntimeTime={formatRuntimeTime}
-              />
+              <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+                {activeContextTab === "events" ? (
+                  <EventsTab
+                    t={t}
+                    gatewayFilteredEvents={paginatedGatewayEvents}
+                    formatDateTime={formatDateTime}
+                    formatRuntimeTime={formatRuntimeTime}
+                  />
+                ) : null}
 
-              <RunTraceTab
-                t={t}
-                selectedRunId={selectedRunId}
-                setSelectedRunId={setSelectedRunId}
-                runSummaries={runSummaries}
-                filteredRunEvents={filteredRunEvents}
-                runEventsLoading={runEventsQuery.isLoading}
-                runEventsError={Boolean(runEventsQuery.error)}
-                formatDateTime={formatDateTime}
-                statusLabelClass={statusLabelClass}
-                formatRunStatus={formatRunStatus}
-              />
+                {activeContextTab === "trace" ? (
+                  <RunTraceTab
+                    t={t}
+                    filteredRunEvents={filteredRunEvents}
+                    runEventsLoading={runEventsQuery.isLoading}
+                    runEventsError={Boolean(runEventsQuery.error)}
+                    formatDateTime={formatDateTime}
+                  />
+                ) : null}
 
-              <PromptTab
-                t={t}
-                selectedRunId={selectedRunId}
-                setSelectedRunId={setSelectedRunId}
-                runSummaries={runSummaries}
-                runEventsLoading={runEventsQuery.isLoading}
-                runEventsError={Boolean(runEventsQuery.error)}
-                selectedPromptRun={selectedPromptRun}
-                formatDateTime={formatDateTime}
-                statusLabelClass={statusLabelClass}
-                formatRunStatus={formatRunStatus}
-              />
+                {activeContextTab === "prompt" ? (
+                  <PromptTab
+                    t={t}
+                    selectedRunId={selectedRunId}
+                    runEventsLoading={runEventsQuery.isLoading}
+                    runEventsError={Boolean(runEventsQuery.error)}
+                    selectedPromptRun={selectedPromptRun}
+                    formatDateTime={formatDateTime}
+                  />
+                ) : null}
+              </div>
+
+              {activeContextTab === "events" ? (
+                <ContextTableFooter
+                  t={t}
+                  className="gap-y-2"
+                  stats={[
+                    { label: t("settings.debug.contextPanel.footer.eventCount"), value: sortedGatewayEvents.length },
+                    { label: t("settings.debug.contextPanel.footer.firstAt"), value: gatewayEventsFirstAt },
+                    { label: t("settings.debug.contextPanel.footer.lastAt"), value: gatewayEventsLastAt },
+                  ]}
+                  rowsPerPage={eventRowsPerPage}
+                  onRowsPerPageChange={(value) => {
+                    setEventRowsPerPage(value);
+                    setEventPageIndex(0);
+                  }}
+                  pageIndex={eventPageIndex}
+                  pageCount={gatewayEventPageCount}
+                  onPrevPage={() => setEventPageIndex((current) => Math.max(0, current - 1))}
+                  onNextPage={() => setEventPageIndex((current) => Math.min(gatewayEventPageCount - 1, current + 1))}
+                />
+              ) : null}
             </Tabs>
           </div>
         ) : null}
