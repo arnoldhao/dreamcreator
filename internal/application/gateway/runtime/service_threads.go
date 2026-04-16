@@ -376,3 +376,24 @@ func normalizeUsageSource(raw string) string {
 		return usageSourceUnknown
 	}
 }
+
+func resolveLLMOperation(runKind string, isSubagent bool, titleGeneration bool) string {
+	if titleGeneration {
+		return "runtime.title_generation"
+	}
+	if isSubagent {
+		return "runtime.subagent"
+	}
+	switch strings.ToLower(strings.TrimSpace(runKind)) {
+	case "heartbeat":
+		return "runtime.heartbeat"
+	case "cron":
+		return "runtime.cron"
+	case "subagent":
+		return "runtime.subagent"
+	case "user", "":
+		return "runtime.run"
+	default:
+		return "runtime." + strings.ToLower(strings.TrimSpace(runKind))
+	}
+}

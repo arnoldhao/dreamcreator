@@ -164,6 +164,41 @@ BEGIN
 	UPDATE telemetry_state SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;
 
+CREATE TABLE IF NOT EXISTS llm_call_records (
+	id TEXT PRIMARY KEY,
+	session_id TEXT,
+	thread_id TEXT,
+	run_id TEXT,
+	provider_id TEXT,
+	model_name TEXT,
+	request_source TEXT,
+	operation TEXT,
+	status TEXT NOT NULL,
+	finish_reason TEXT,
+	error_text TEXT,
+	input_tokens INTEGER,
+	output_tokens INTEGER,
+	total_tokens INTEGER,
+	context_prompt_tokens INTEGER,
+	context_total_tokens INTEGER,
+	context_window_tokens INTEGER,
+	request_payload_json TEXT,
+	response_payload_json TEXT,
+	payload_truncated BOOLEAN NOT NULL DEFAULT 0,
+	started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	finished_at TIMESTAMP,
+	duration_ms INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS llm_call_records_started_at_idx
+	ON llm_call_records(started_at DESC);
+CREATE INDEX IF NOT EXISTS llm_call_records_thread_started_at_idx
+	ON llm_call_records(thread_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS llm_call_records_run_started_at_idx
+	ON llm_call_records(run_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS llm_call_records_model_started_at_idx
+	ON llm_call_records(provider_id, model_name, started_at DESC);
+
 CREATE TABLE IF NOT EXISTS usage_ledger (
 	id TEXT PRIMARY KEY,
 	category TEXT,

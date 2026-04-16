@@ -157,6 +157,13 @@ func NewService(
 	}
 }
 
+func (service *Service) SetLLMCallRecorder(recorder llm.CallRecorder) {
+	if service == nil || service.chatFactory == nil {
+		return
+	}
+	service.chatFactory.SetCallRecorder(recorder)
+}
+
 func (service *Service) Start(ctx context.Context, request dto.RuntimeRunRequest) (dto.RuntimeStartResponse, error) {
 	if service == nil {
 		return dto.RuntimeStartResponse{}, ErrInvalidRequest
@@ -381,6 +388,11 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 
 	runCtx, cancel := context.WithCancel(ctx)
 	runCtx = llm.WithRuntimeParams(runCtx, llm.RuntimeParams{
+		SessionID:        sessionID,
+		ThreadID:         sessionID,
+		RunID:            run.ID,
+		RequestSource:    usageSource,
+		Operation:        resolveLLMOperation(runKind, flags.IsSubagent, titleGenerationRun),
 		ProviderID:       resolvedModel.ProviderID,
 		ModelName:        resolvedModel.ModelName,
 		ThinkingLevel:    thinkingLevel,

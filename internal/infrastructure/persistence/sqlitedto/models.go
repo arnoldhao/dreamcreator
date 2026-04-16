@@ -577,6 +577,34 @@ type TtsJobRow struct {
 	CreatedAt  time.Time      `bun:"created_at"`
 }
 
+type LLMCallRecordRow struct {
+	bun.BaseModel `bun:"table:llm_call_records"`
+
+	ID                  string         `bun:"id,pk"`
+	SessionID           sql.NullString `bun:"session_id"`
+	ThreadID            sql.NullString `bun:"thread_id"`
+	RunID               sql.NullString `bun:"run_id"`
+	ProviderID          sql.NullString `bun:"provider_id"`
+	ModelName           sql.NullString `bun:"model_name"`
+	RequestSource       sql.NullString `bun:"request_source"`
+	Operation           sql.NullString `bun:"operation"`
+	Status              string         `bun:"status"`
+	FinishReason        sql.NullString `bun:"finish_reason"`
+	ErrorText           sql.NullString `bun:"error_text"`
+	InputTokens         sql.NullInt64  `bun:"input_tokens"`
+	OutputTokens        sql.NullInt64  `bun:"output_tokens"`
+	TotalTokens         sql.NullInt64  `bun:"total_tokens"`
+	ContextPromptTokens sql.NullInt64  `bun:"context_prompt_tokens"`
+	ContextTotalTokens  sql.NullInt64  `bun:"context_total_tokens"`
+	ContextWindowTokens sql.NullInt64  `bun:"context_window_tokens"`
+	RequestPayloadJSON  sql.NullString `bun:"request_payload_json"`
+	ResponsePayloadJSON sql.NullString `bun:"response_payload_json"`
+	PayloadTruncated    bool           `bun:"payload_truncated"`
+	StartedAt           time.Time      `bun:"started_at"`
+	FinishedAt          sql.NullTime   `bun:"finished_at"`
+	DurationMS          sql.NullInt64  `bun:"duration_ms"`
+}
+
 type UsageLedgerRow struct {
 	bun.BaseModel `bun:"table:usage_ledger"`
 

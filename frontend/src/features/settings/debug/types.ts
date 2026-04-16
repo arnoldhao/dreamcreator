@@ -1,7 +1,7 @@
 import type { ConnectionStatus, RealtimeEvent } from "@/app/ws/client";
 import type { HealthSnapshotEntity, LogRecordEntity, StatusReportEntity } from "@/entities/observability";
 import type { GatewayEvent } from "@/shared/realtime";
-import type { ThreadRunEvent } from "@/shared/query/threads";
+import type { LLMCallRecord, ThreadRunEvent } from "@/shared/query/threads";
 import type { ChannelDebugSnapshot } from "@/shared/store/channels";
 
 export type TranslateFn = (key: string) => string;
@@ -178,4 +178,31 @@ export type FrameworkTabProps = {
   showDialogPreview: () => void;
   sendOsNotification: () => void;
   publishBackendDebug: () => void;
+};
+
+export type CallRecordsTabProps = {
+  t: TranslateFn;
+  threads: Array<{ id: string; title: string; updatedAt?: string }>;
+  optionRecords: LLMCallRecord[];
+  selectedThreadId: string;
+  setSelectedThreadId: (value: string) => void;
+  callSource: string;
+  setCallSource: (value: string) => void;
+  callStatus: string;
+  setCallStatus: (value: string) => void;
+  providerFilter: string;
+  setProviderFilter: (value: string) => void;
+  modelFilter: string;
+  setModelFilter: (value: string) => void;
+  runFilter: string;
+  setRunFilter: (value: string) => void;
+  records: LLMCallRecord[];
+  selectedRecord: LLMCallRecord | null;
+  setSelectedRecordId: (value: string) => void;
+  isLoading: boolean;
+  hasError: boolean;
+  isDetailLoading: boolean;
+  refresh: () => void;
+  formatDateTime: (value?: string | number) => string;
+  inspectRun: (record: LLMCallRecord) => void;
 };

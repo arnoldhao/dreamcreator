@@ -19,6 +19,44 @@ export interface ThreadRunEvent {
   createdAt: string;
 }
 
+export interface LLMCallRecord {
+  id: string;
+  sessionId: string;
+  threadId: string;
+  runId: string;
+  providerId: string;
+  modelName: string;
+  requestSource: string;
+  operation: string;
+  status: string;
+  finishReason: string;
+  errorText: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  contextPromptTokens: number;
+  contextTotalTokens: number;
+  contextWindowTokens: number;
+  requestPayloadJson: string;
+  responsePayloadJson: string;
+  payloadTruncated: boolean;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+}
+
+export type LLMCallRecordListQuery = {
+  threadId?: string;
+  runId?: string;
+  providerId?: string;
+  modelName?: string;
+  requestSource?: string;
+  status?: string;
+  startAt?: string;
+  endAt?: string;
+  limit?: number;
+};
+
 export const threadsKey = (includeDeleted: boolean) => ["threads", { includeDeleted }];
 
 export const threadMessagesKey = (threadId: string, limit: number) => ["threads", threadId, "messages", limit];
@@ -30,6 +68,8 @@ export const threadRunEventsKey = (threadId: string, afterId: number, limit: num
   limit,
   eventTypePrefix,
 ];
+export const llmCallRecordsKey = (query: LLMCallRecordListQuery) => ["threads", "llm-call-records", query];
+export const llmCallRecordKey = (id: string) => ["threads", "llm-call-record", id];
 
 export function useThreads(includeDeleted = false) {
   return useQuery({
@@ -90,6 +130,38 @@ export function useThreadRunEvents(
       return (result as ThreadRunEvent[]) ?? [];
     },
     enabled: Boolean(threadId),
+    staleTime: 3_000,
+  });
+}
+
+export function useLLMCallRecords(query: LLMCallRecordListQuery) {
+  return useQuery({
+    queryKey: llmCallRecordsKey(query),
+    queryFn: async (): Promise<LLMCallRecord[]> => {
+      const result = await Call.ByName(
+        "dreamcreator/internal/presentation/wails.ThreadHandler.ListLLMCallRecords",
+        query
+      );
+      return (result as LLMCallRecord[]) ?? [];
+    },
+    staleTime: 3_000,
+  });
+}
+
+export function useLLMCallRecord(id: string | null) {
+  return useQuery({
+    queryKey: id ? llmCallRecordKey(id) : ["threads", "llm-call-record"],
+    queryFn: async (): Promise<LLMCallRecord | null> => {
+      if (!id) {
+        return null;
+      }
+      const result = await Call.ByName(
+        "dreamcreator/internal/presentation/wails.ThreadHandler.GetLLMCallRecord",
+        id
+      );
+      return (result as LLMCallRecord) ?? null;
+    },
+    enabled: Boolean(id),
     staleTime: 3_000,
   });
 }

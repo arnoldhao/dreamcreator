@@ -2135,6 +2135,7 @@
   "settings.debug": {
     "tabs": {
       "overview": "概览",
+      "calls": "调用记录",
       "context": "上下文",
       "channels": "频道",
       "framework": "框架",
@@ -2219,6 +2220,75 @@
         "error": "错误",
         "aborted": "已中止",
         "unknown": "未知"
+      }
+    },
+    "calls": {
+      "error": "加载调用记录失败",
+      "actions": {
+        "searchAndFilter": "搜索和筛选",
+        "clearFilters": "清空筛选",
+        "selectCalls": "选择",
+        "selectedCount": "已选 {count} 条",
+        "cancelSelection": "取消",
+        "batch": "批量操作",
+        "copyRecordIds": "复制记录 ID",
+        "copyRunIds": "复制运行 ID",
+        "copyConversationIds": "复制对话 ID"
+      },
+      "filters": {
+        "allThreads": "全部对话",
+        "allSources": "全部来源",
+        "allStatus": "全部状态",
+        "provider": "供应商",
+        "model": "模型",
+        "runId": "运行 ID",
+        "searchPlaceholder": "搜索对话、运行、模型或供应商"
+      },
+      "table": {
+        "time": "时间",
+        "conversation": "对话",
+        "runId": "运行 ID",
+        "model": "模型",
+        "source": "来源",
+        "operation": "操作",
+        "status": "状态",
+        "duration": "耗时",
+        "tokens": "词元",
+        "totalCalls": "总计 {count} 次调用"
+      },
+      "detail": {
+        "empty": "选择一条调用记录以查看请求和响应载荷。",
+        "description": "查看调用元数据以及格式化后的请求和响应载荷。",
+        "titleFallback": "调用详情",
+        "inspect": "查看运行",
+        "startedAt": "开始时间",
+        "finishedAt": "结束时间",
+        "duration": "耗时",
+        "threadId": "对话 ID",
+        "runId": "运行 ID",
+        "recordId": "记录 ID",
+        "provider": "供应商",
+        "model": "模型",
+        "source": "来源",
+        "operation": "操作",
+        "finishReason": "结束原因",
+        "tokens": "词元",
+        "contextTokens": "上下文词元",
+        "payloadTruncated": "载荷已截断",
+        "boolean": {
+          "true": "是",
+          "false": "否"
+        },
+        "error": "错误",
+        "requestPayload": "请求载荷",
+        "responsePayload": "响应载荷"
+      },
+      "toasts": {
+        "clipboardUnavailable": "当前环境无法访问剪贴板",
+        "copyFailed": "复制选中内容失败",
+        "recordIdsCopied": "已复制 {count} 条记录 ID",
+        "runIdsCopied": "已复制 {count} 条运行 ID",
+        "conversationIdsCopied": "已复制 {count} 条对话 ID"
       }
     },
     "prompt": {

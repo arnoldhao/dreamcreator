@@ -47,6 +47,7 @@ import (
 	gatewayusage "dreamcreator/internal/application/gateway/usage"
 	gatewayvoice "dreamcreator/internal/application/gateway/voice"
 	libraryservice "dreamcreator/internal/application/library/service"
+	llmrecord "dreamcreator/internal/application/llmrecord"
 	memoryservice "dreamcreator/internal/application/memory/service"
 	appnotice "dreamcreator/internal/application/notice"
 	providerservice "dreamcreator/internal/application/providers/service"
@@ -78,6 +79,7 @@ import (
 	"dreamcreator/internal/infrastructure/heartbeatrepo"
 	"dreamcreator/internal/infrastructure/libraryicons"
 	"dreamcreator/internal/infrastructure/libraryrepo"
+	"dreamcreator/internal/infrastructure/llmrecordrepo"
 	"dreamcreator/internal/infrastructure/logging"
 	"dreamcreator/internal/infrastructure/noderepo"
 	"dreamcreator/internal/infrastructure/noticerepo"
@@ -552,6 +554,8 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	messageRepo := threadrepo.NewSQLiteThreadMessageRepository(database.Bun)
 	runRepo := threadrepo.NewSQLiteThreadRunRepository(database.Bun)
 	runEventRepo := threadrepo.NewSQLiteThreadRunEventRepository(database.Bun)
+	llmCallRecordRepo := llmrecordrepo.NewSQLiteRepository(database.Bun)
+	llmCallRecordService := llmrecord.NewService(llmCallRecordRepo)
 	toolService := toolsservice.NewToolService()
 	toolService.SetPolicy(gatewaytools.NewPolicyPipeline(settingsService))
 	toolExecutor := gatewaytools.NewRegistryExecutor()
@@ -613,9 +617,10 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 			"principalId":   principalID,
 		})
 	})
+	memoryService.SetLLMCallRecorder(llmCallRecordService)
 	threadService.SetMemoryLifecycle(memoryService)
 	telegramBotService.SetThreadService(threadService)
-	app.RegisterService(application.NewService(wails.NewThreadHandler(threadService, eventBus, windowManager)))
+	app.RegisterService(application.NewService(wails.NewThreadHandler(threadService, llmCallRecordService, eventBus, windowManager)))
 	app.RegisterService(application.NewService(wails.NewMemoryHandler(memoryService)))
 	agentRepo := agentrepo.NewSQLiteAgentRepository(database.Bun)
 	agentService := agentservice.NewAgentService(agentRepo, threadRepo, runRepo, runEventRepo, assistantRepo)
@@ -696,6 +701,7 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 		memoryService,
 		telemetryService,
 	)
+	runtimeService.SetLLMCallRecorder(llmCallRecordService)
 	libraryService.SetOneShotRuntime(runtimeService)
 	libraryService.RecoverPendingJobs(ctx)
 	threadService.SetTitleRuntime(runtimeService)

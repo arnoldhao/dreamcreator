@@ -3553,6 +3553,7 @@
   "settings.debug": {
     "tabs": {
       "overview": "Overview",
+      "calls": "Call records",
       "context": "Context",
       "channels": "Channels",
       "framework": "Framework",
@@ -3637,6 +3638,75 @@
         "error": "Error",
         "aborted": "Aborted",
         "unknown": "Unknown"
+      }
+    },
+    "calls": {
+      "error": "Failed to load call records",
+      "actions": {
+        "searchAndFilter": "Search and filter",
+        "clearFilters": "Clear filters",
+        "selectCalls": "Select",
+        "selectedCount": "{count} selected",
+        "cancelSelection": "Cancel",
+        "batch": "Batch actions",
+        "copyRecordIds": "Copy record IDs",
+        "copyRunIds": "Copy run IDs",
+        "copyConversationIds": "Copy conversation IDs"
+      },
+      "filters": {
+        "allThreads": "All conversations",
+        "allSources": "All sources",
+        "allStatus": "All status",
+        "provider": "Provider",
+        "model": "Model",
+        "runId": "Run ID",
+        "searchPlaceholder": "Search conversation, run, model, or provider"
+      },
+      "table": {
+        "time": "Time",
+        "conversation": "Conversation",
+        "runId": "Run ID",
+        "model": "Model",
+        "source": "Source",
+        "operation": "Operation",
+        "status": "Status",
+        "duration": "Duration",
+        "tokens": "Tokens",
+        "totalCalls": "Total {count} calls"
+      },
+      "detail": {
+        "empty": "Select a call record to inspect request and response payloads.",
+        "description": "Inspect call metadata and formatted request and response payloads.",
+        "titleFallback": "Call details",
+        "inspect": "Inspect run",
+        "startedAt": "Started at",
+        "finishedAt": "Finished at",
+        "duration": "Duration",
+        "threadId": "Conversation ID",
+        "runId": "Run ID",
+        "recordId": "Record ID",
+        "provider": "Provider",
+        "model": "Model",
+        "source": "Source",
+        "operation": "Operation",
+        "finishReason": "Finish reason",
+        "tokens": "Tokens",
+        "contextTokens": "Context tokens",
+        "payloadTruncated": "Payload truncated",
+        "boolean": {
+          "true": "Yes",
+          "false": "No"
+        },
+        "error": "Error",
+        "requestPayload": "Request payload",
+        "responsePayload": "Response payload"
+      },
+      "toasts": {
+        "clipboardUnavailable": "Clipboard is unavailable in the current environment",
+        "copyFailed": "Failed to copy selected values",
+        "recordIdsCopied": "Copied {count} record ID(s)",
+        "runIdsCopied": "Copied {count} run ID(s)",
+        "conversationIdsCopied": "Copied {count} conversation ID(s)"
       }
     },
     "prompt": {

@@ -54,6 +54,11 @@ func (service *Service) RunOneShot(ctx context.Context, request runtimedto.Runti
 	}
 
 	runCtx := llm.WithRuntimeParams(ctx, llm.RuntimeParams{
+		SessionID:        strings.TrimSpace(request.SessionID),
+		ThreadID:         strings.TrimSpace(request.SessionID),
+		RunID:            strings.TrimSpace(request.RunID),
+		RequestSource:    resolveUsageSource(request.Metadata, resolveMetadataString(request.Metadata, "channel")),
+		Operation:        resolveOneShotLLMOperation(request.Metadata),
 		ProviderID:       resolvedModel.ProviderID,
 		ModelName:        resolvedModel.ModelName,
 		ThinkingLevel:    resolveThinkingLevel(request.Thinking, request.Metadata),
@@ -190,6 +195,13 @@ func (service *Service) RunOneShot(ctx context.Context, request runtimedto.Runti
 		FinishedAt: service.now(),
 		Usage:      usage,
 	}, nil
+}
+
+func resolveOneShotLLMOperation(metadata map[string]any) string {
+	if value, ok := resolveMetadataBool(metadata, "titleGeneration"); ok && value {
+		return "runtime.title_generation"
+	}
+	return "runtime.one_shot"
 }
 
 func (service *Service) resolveOneShotAssistantSnapshot(ctx context.Context, assistantID string, appLanguage string) (assistantdto.AssistantSnapshot, error) {

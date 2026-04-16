@@ -33,6 +33,7 @@ type OpenAICompatibleConfig struct {
 	Headers           map[string]string
 	HTTPClient        *http.Client
 	StreamIdleTimeout time.Duration
+	Recorder          CallRecorder
 }
 
 type OpenAICompatibleChatModel struct {
@@ -46,6 +47,7 @@ type OpenAICompatibleChatModel struct {
 	tools             []*schema.ToolInfo
 	toolChoice        *schema.ToolChoice
 	allowedToolNames  []string
+	recorder          CallRecorder
 }
 
 func NewOpenAICompatibleChatModel(config OpenAICompatibleConfig) (*OpenAICompatibleChatModel, error) {
@@ -75,6 +77,7 @@ func NewOpenAICompatibleChatModel(config OpenAICompatibleConfig) (*OpenAICompati
 		headers:           config.Headers,
 		client:            client,
 		streamIdleTimeout: streamIdleTimeout,
+		recorder:          config.Recorder,
 	}, nil
 }
 
@@ -203,10 +206,10 @@ func (modelClient *OpenAICompatibleChatModel) Stream(ctx context.Context, input 
 
 	streamCtx, streamCancel := context.WithCancel(ctx)
 	streamClient := cloneStreamHTTPClient(modelClient.client)
-	response, err := modelClient.executeStreamRequest(streamCtx, streamClient, payload)
+	response, record, err := modelClient.executeStreamRequest(streamCtx, streamClient, payload)
 	if err != nil && shouldRetryWithoutStructuredOutput(err, params.StructuredOutput, payload.ResponseFormat) {
 		payload.ResponseFormat = nil
-		response, err = modelClient.executeStreamRequest(streamCtx, streamClient, payload)
+		response, record, err = modelClient.executeStreamRequest(streamCtx, streamClient, payload)
 	}
 	if err != nil {
 		streamCancel()
@@ -221,6 +224,9 @@ func (modelClient *OpenAICompatibleChatModel) Stream(ctx context.Context, input 
 
 		buffered := bufio.NewReader(response.Body)
 		var eventData strings.Builder
+		transcript := &streamTranscriptBuilder{}
+		var finalUsage *openAIUsage
+		finalFinishReason := ""
 		idleTimeout := modelClient.streamIdleTimeout
 		if idleTimeout <= 0 {
 			idleTimeout = defaultStreamIdleTimeout
@@ -267,8 +273,10 @@ func (modelClient *OpenAICompatibleChatModel) Stream(ctx context.Context, input 
 			select {
 			case <-streamCtx.Done():
 				if idleTimedOut.Load() {
+					record.finishWithError(streamCtx, errStreamIdleTimeout, transcript.JSONPayload())
 					writer.Send(nil, errStreamIdleTimeout)
 				} else {
+					record.finishWithError(streamCtx, streamCtx.Err(), transcript.JSONPayload())
 					writer.Send(nil, streamCtx.Err())
 				}
 				return
@@ -279,18 +287,35 @@ func (modelClient *OpenAICompatibleChatModel) Stream(ctx context.Context, input 
 			if err != nil {
 				if err == io.EOF {
 					if eventData.Len() > 0 {
-						_ = emitStreamChunk(eventData.String(), writer)
+						payload := eventData.String()
+						transcript.Append(strings.TrimSpace(payload))
+						finishReason, usage, _ := inspectStreamChunk(payload)
+						if finishReason != "" {
+							finalFinishReason = finishReason
+						}
+						if usage != nil {
+							finalUsage = usage
+						}
+						if emitErr := emitStreamChunk(payload, writer); emitErr != nil && emitErr != io.EOF {
+							record.finishWithError(streamCtx, emitErr, transcript.JSONPayload())
+							writer.Send(nil, emitErr)
+							return
+						}
 					}
+					record.finishWithResponse(streamCtx, finalFinishReason, transcript.JSONPayload(), finalUsage)
 					return
 				}
 				if idleTimedOut.Load() {
+					record.finishWithError(streamCtx, errStreamIdleTimeout, transcript.JSONPayload())
 					writer.Send(nil, errStreamIdleTimeout)
 					return
 				}
 				if streamCtx.Err() != nil {
+					record.finishWithError(streamCtx, streamCtx.Err(), transcript.JSONPayload())
 					writer.Send(nil, streamCtx.Err())
 					return
 				}
+				record.finishWithError(streamCtx, err, transcript.JSONPayload())
 				writer.Send(nil, err)
 				return
 			}
@@ -299,10 +324,24 @@ func (modelClient *OpenAICompatibleChatModel) Stream(ctx context.Context, input 
 			line = strings.TrimRight(line, "\r\n")
 			if line == "" {
 				if eventData.Len() > 0 {
-					if err := emitStreamChunk(eventData.String(), writer); err != nil {
+					payload := eventData.String()
+					transcript.Append(strings.TrimSpace(payload))
+					finishReason, usage, parseErr := inspectStreamChunk(payload)
+					if finishReason != "" {
+						finalFinishReason = finishReason
+					}
+					if usage != nil {
+						finalUsage = usage
+					}
+					if err := emitStreamChunk(payload, writer); err != nil {
+						if parseErr != nil {
+							record.finishWithError(streamCtx, parseErr, transcript.JSONPayload())
+						}
 						if err == io.EOF {
+							record.finishWithResponse(streamCtx, finalFinishReason, transcript.JSONPayload(), finalUsage)
 							return
 						}
+						record.finishWithError(streamCtx, err, transcript.JSONPayload())
 						writer.Send(nil, err)
 						return
 					}
@@ -479,26 +518,44 @@ type openAIUsage struct {
 }
 
 func (modelClient *OpenAICompatibleChatModel) executeChatRequest(ctx context.Context, payload openAIChatRequest) ([]byte, error) {
+	payloadJSON := marshalOpenAIChatPayload(payload)
+	record := startActiveLLMCallRecord(ctx, modelClient.recorder, runtimeParamsFromContext(ctx), payloadJSON)
 	request, err := modelClient.buildChatRequest(ctx, payload)
 	if err != nil {
+		record.finishWithError(ctx, err, "")
 		return nil, err
 	}
 	response, err := modelClient.client.Do(request)
 	if err != nil {
+		record.finishWithError(ctx, err, "")
 		return nil, err
 	}
 	defer response.Body.Close()
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
+		record.finishWithError(ctx, err, "")
 		return nil, err
 	}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusBadRequest {
+		record.finishWithError(ctx, &HTTPStatusError{
+			Code:    response.StatusCode,
+			Message: extractHTTPErrorMessage(body),
+			Body:    strings.TrimSpace(string(body)),
+		}, strings.TrimSpace(string(body)))
 		return nil, &HTTPStatusError{
 			Code:    response.StatusCode,
 			Message: extractHTTPErrorMessage(body),
 			Body:    strings.TrimSpace(string(body)),
 		}
+	}
+	finishReason, usage, inspectErr := inspectChatResponse(body)
+	if inspectErr != nil {
+		record.finishWithError(ctx, inspectErr, strings.TrimSpace(string(body)))
+	} else if finishReason != "" || usage != nil {
+		record.finishWithResponse(ctx, finishReason, strings.TrimSpace(string(body)), usage)
+	} else {
+		record.finishWithResponse(ctx, "", strings.TrimSpace(string(body)), nil)
 	}
 	return body, nil
 }
@@ -507,25 +564,31 @@ func (modelClient *OpenAICompatibleChatModel) executeStreamRequest(
 	ctx context.Context,
 	client *http.Client,
 	payload openAIChatRequest,
-) (*http.Response, error) {
+) (*http.Response, *activeLLMCallRecord, error) {
+	payloadJSON := marshalOpenAIChatPayload(payload)
+	record := startActiveLLMCallRecord(ctx, modelClient.recorder, runtimeParamsFromContext(ctx), payloadJSON)
 	request, err := modelClient.buildChatRequest(ctx, payload)
 	if err != nil {
-		return nil, err
+		record.finishWithError(ctx, err, "")
+		return nil, nil, err
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, err
+		record.finishWithError(ctx, err, "")
+		return nil, nil, err
 	}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusBadRequest {
 		defer response.Body.Close()
 		body, _ := io.ReadAll(response.Body)
-		return nil, &HTTPStatusError{
+		statusErr := &HTTPStatusError{
 			Code:    response.StatusCode,
 			Message: extractHTTPErrorMessage(body),
 			Body:    strings.TrimSpace(string(body)),
 		}
+		record.finishWithError(ctx, statusErr, strings.TrimSpace(string(body)))
+		return nil, nil, statusErr
 	}
-	return response, nil
+	return response, record, nil
 }
 
 func (modelClient *OpenAICompatibleChatModel) buildChatRequest(ctx context.Context, payload openAIChatRequest) (*http.Request, error) {
@@ -548,6 +611,48 @@ func (modelClient *OpenAICompatibleChatModel) buildChatRequest(ctx context.Conte
 		request.Header.Set(key, value)
 	}
 	return request, nil
+}
+
+func marshalOpenAIChatPayload(payload openAIChatRequest) string {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func inspectChatResponse(body []byte) (string, *openAIUsage, error) {
+	if len(body) == 0 {
+		return "", nil, nil
+	}
+	var decoded openAIChatResponse
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		return "", nil, err
+	}
+	finishReason := ""
+	if len(decoded.Choices) > 0 {
+		finishReason = strings.TrimSpace(decoded.Choices[0].FinishReason)
+	}
+	return finishReason, decoded.Usage, nil
+}
+
+func inspectStreamChunk(payload string) (string, *openAIUsage, error) {
+	payload = strings.TrimSpace(payload)
+	if payload == "" || payload == "[DONE]" {
+		return "", nil, nil
+	}
+	var decoded openAIChatStreamResponse
+	if err := json.Unmarshal([]byte(payload), &decoded); err != nil {
+		return "", nil, err
+	}
+	finishReason := ""
+	for _, choice := range decoded.Choices {
+		if value := strings.TrimSpace(choice.FinishReason); value != "" {
+			finishReason = value
+			break
+		}
+	}
+	return finishReason, decoded.Usage, nil
 }
 
 func shouldRetryWithoutStructuredOutput(err error, config StructuredOutputConfig, responseFormat *openAIResponseFormat) bool {

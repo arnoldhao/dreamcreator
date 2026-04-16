@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Call } from "@wailsio/runtime";
-import { Activity, BarChart3, Brain, FileText, Plug2, RefreshCw, ScrollText, Wrench } from "lucide-react";
+import { Activity, BarChart3, Brain, Database, FileText, Plug2, RefreshCw, ScrollText, Wrench } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 
 import { Button } from "@/shared/ui/button";
 import { Select } from "@/shared/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { useI18n } from "@/shared/i18n";
-import { useThreadRunEvents, useThreads, type ThreadRunEvent } from "@/shared/query/threads";
+import {
+  useLLMCallRecord,
+  useLLMCallRecords,
+  useThreadRunEvents,
+  useThreads,
+  type LLMCallRecord,
+  type ThreadRunEvent,
+} from "@/shared/query/threads";
 import { useGatewayHealth, useGatewayLogsTail, useGatewayStatus } from "@/shared/query/diagnostics";
 import { useChannelsDebug } from "@/shared/query/channels";
 import {
@@ -20,6 +27,7 @@ import {
 } from "@/shared/realtime";
 import { messageBus } from "@/shared/message";
 import { ChannelsTab } from "./tabs/ChannelsTab";
+import { CallRecordsTab } from "./tabs/CallRecordsTab";
 import { EventsTab } from "./tabs/EventsTab";
 import { FrameworkTab } from "./tabs/FrameworkTab";
 import { OverviewTab } from "./tabs/OverviewTab";
@@ -35,7 +43,7 @@ import type {
 
 const MAX_GATEWAY_EVENTS = 600;
 const RUN_EVENT_LIMIT = 1200;
-const DEBUG_TAB_VALUES = ["overview", "context", "channels", "framework"] as const;
+const DEBUG_TAB_VALUES = ["overview", "calls", "context", "channels", "framework"] as const;
 type DebugTabValue = (typeof DEBUG_TAB_VALUES)[number];
 const CONTEXT_TAB_VALUES = ["events", "trace", "prompt"] as const;
 type ContextTabValue = (typeof CONTEXT_TAB_VALUES)[number];
@@ -278,9 +286,16 @@ export function DebugSection() {
   );
   const [selectedTopic, setSelectedTopic] = useState<string>(DEFAULT_DEBUG_TOPICS[0]);
   const [selectedThreadId, setSelectedThreadId] = useState<string>("");
+  const [selectedCallThreadId, setSelectedCallThreadId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<DebugTabValue>("overview");
   const [activeContextTab, setActiveContextTab] = useState<ContextTabValue>("events");
   const [selectedRunId, setSelectedRunId] = useState<string>("all");
+  const [callSource, setCallSource] = useState<string>("");
+  const [callStatus, setCallStatus] = useState<string>("");
+  const [callProviderFilter, setCallProviderFilter] = useState<string>("");
+  const [callModelFilter, setCallModelFilter] = useState<string>("");
+  const [callRunFilter, setCallRunFilter] = useState<string>("");
+  const [selectedCallRecordId, setSelectedCallRecordId] = useState<string>("");
   const [logLevel, setLogLevel] = useState<string>("info");
   const [selectedGatewayEvent, setSelectedGatewayEvent] = useState<string>("all");
   const [gatewayEvents, setGatewayEvents] = useState<GatewayDebugEvent[]>([]);
@@ -298,6 +313,30 @@ export function DebugSection() {
     }
   );
   const channelDebugQuery = useChannelsDebug();
+  const llmCallRecordListQuery = useMemo(
+    () => ({
+      threadId: selectedCallThreadId || undefined,
+      runId: callRunFilter.trim() || undefined,
+      providerId: callProviderFilter.trim() || undefined,
+      modelName: callModelFilter.trim() || undefined,
+      requestSource: callSource || undefined,
+      status: callStatus || undefined,
+      limit: 200,
+    }),
+    [callModelFilter, callProviderFilter, callRunFilter, callSource, callStatus, selectedCallThreadId]
+  );
+  const llmCallRecordOptionListQuery = useMemo(
+    () => ({
+      threadId: selectedCallThreadId || undefined,
+      requestSource: callSource || undefined,
+      status: callStatus || undefined,
+      limit: 200,
+    }),
+    [callSource, callStatus, selectedCallThreadId]
+  );
+  const llmCallRecordsQuery = useLLMCallRecords(llmCallRecordListQuery);
+  const llmCallRecordOptionsQuery = useLLMCallRecords(llmCallRecordOptionListQuery);
+  const llmCallRecordQuery = useLLMCallRecord(selectedCallRecordId || null);
 
   const sortedThreads = useMemo(
     () => [...threads].sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
@@ -489,6 +528,27 @@ export function DebugSection() {
 
   const topicOptions = useMemo(() => Array.from(new Set([...(topics ?? []), "all"])), [topics]);
 
+  const llmCallRecords = useMemo(() => llmCallRecordsQuery.data ?? [], [llmCallRecordsQuery.data]);
+  const selectedCallRecord = useMemo<LLMCallRecord | null>(() => {
+    if (!selectedCallRecordId) {
+      return null;
+    }
+    if (llmCallRecordQuery.data?.id === selectedCallRecordId) {
+      return llmCallRecordQuery.data;
+    }
+    return llmCallRecords.find((item) => item.id === selectedCallRecordId) ?? null;
+  }, [llmCallRecordQuery.data, llmCallRecords, selectedCallRecordId]);
+
+  useEffect(() => {
+    if (!selectedCallRecordId) {
+      return;
+    }
+    const exists = llmCallRecords.some((item) => item.id === selectedCallRecordId);
+    if (!exists) {
+      setSelectedCallRecordId("");
+    }
+  }, [llmCallRecords, selectedCallRecordId]);
+
   const visibleMessages = useMemo(() => {
     if (selectedTopic === "all") {
       return Object.values(messages)
@@ -635,6 +695,23 @@ export function DebugSection() {
     });
   }, [gatewayEventsForThread, selectedGatewayEvent, t]);
 
+  const inspectCallRecordRun = useCallback(
+    (record: LLMCallRecord) => {
+      if (record.threadId) {
+        setSelectedThreadId(record.threadId);
+      }
+      setActiveTab("context");
+      if (record.runId) {
+        setActiveContextTab("trace");
+        setSelectedRunId(record.runId);
+      } else {
+        setActiveContextTab("events");
+        setSelectedRunId("all");
+      }
+    },
+    []
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col space-y-4">
       <Tabs
@@ -651,6 +728,10 @@ export function DebugSection() {
             <TabsTrigger value="overview" className="min-w-0">
               <BarChart3 className="h-4 w-4" />
               <span className="truncate">{t("settings.debug.tabs.overview")}</span>
+            </TabsTrigger>
+            <TabsTrigger value="calls" className="min-w-0">
+              <Database className="h-4 w-4" />
+              <span className="truncate">{t("settings.debug.tabs.calls")}</span>
             </TabsTrigger>
             <TabsTrigger value="context" className="min-w-0">
               <Brain className="h-4 w-4" />
@@ -683,6 +764,42 @@ export function DebugSection() {
             messages={messages}
             clearMessages={() => clearMessages()}
           />
+        ) : null}
+
+        {activeTab === "calls" ? (
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <CallRecordsTab
+              t={t}
+              threads={sortedThreads}
+              optionRecords={llmCallRecordOptionsQuery.data ?? []}
+              selectedThreadId={selectedCallThreadId}
+              setSelectedThreadId={setSelectedCallThreadId}
+              callSource={callSource}
+              setCallSource={setCallSource}
+              callStatus={callStatus}
+              setCallStatus={setCallStatus}
+              providerFilter={callProviderFilter}
+              setProviderFilter={setCallProviderFilter}
+              modelFilter={callModelFilter}
+              setModelFilter={setCallModelFilter}
+              runFilter={callRunFilter}
+              setRunFilter={setCallRunFilter}
+              records={llmCallRecords}
+              selectedRecord={selectedCallRecord}
+              setSelectedRecordId={setSelectedCallRecordId}
+              isLoading={llmCallRecordsQuery.isLoading}
+              hasError={Boolean(llmCallRecordsQuery.error)}
+              isDetailLoading={llmCallRecordQuery.isLoading}
+              refresh={() => {
+                void llmCallRecordsQuery.refetch();
+                if (selectedCallRecordId) {
+                  void llmCallRecordQuery.refetch();
+                }
+              }}
+              formatDateTime={formatDateTime}
+              inspectRun={inspectCallRecordRun}
+            />
+          </div>
         ) : null}
 
         {activeTab === "context" ? (
