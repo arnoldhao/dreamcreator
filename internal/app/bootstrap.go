@@ -555,7 +555,7 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	runRepo := threadrepo.NewSQLiteThreadRunRepository(database.Bun)
 	runEventRepo := threadrepo.NewSQLiteThreadRunEventRepository(database.Bun)
 	llmCallRecordRepo := llmrecordrepo.NewSQLiteRepository(database.Bun)
-	llmCallRecordService := llmrecord.NewService(llmCallRecordRepo)
+	llmCallRecordService := llmrecord.NewService(llmCallRecordRepo, settingsService)
 	toolService := toolsservice.NewToolService()
 	toolService.SetPolicy(gatewaytools.NewPolicyPipeline(settingsService))
 	toolExecutor := gatewaytools.NewRegistryExecutor()
@@ -634,6 +634,7 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	purgeCtx, purgeCancel := context.WithCancel(ctx)
 	app.OnShutdown(purgeCancel)
 	startThreadPurgeWorker(purgeCtx, threadService)
+	startLLMCallRecordPruneWorker(purgeCtx, llmCallRecordService)
 
 	voiceConfigRepo := voicerepo.NewSQLiteVoiceConfigRepository(database.Bun)
 	ttsJobRepo := voicerepo.NewSQLiteTTSJobRepository(database.Bun)

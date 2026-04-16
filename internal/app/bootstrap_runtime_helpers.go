@@ -7,6 +7,7 @@ import (
 	"time"
 
 	gatewayruntimedto "dreamcreator/internal/application/gateway/runtime/dto"
+	llmrecord "dreamcreator/internal/application/llmrecord"
 	threadservice "dreamcreator/internal/application/thread/service"
 
 	"go.uber.org/zap"
@@ -37,6 +38,29 @@ func startThreadPurgeWorker(ctx context.Context, service *threadservice.ThreadSe
 			case <-ticker.C:
 				if _, err := service.PurgeExpired(ctx, batchSize); err != nil {
 					zap.L().Warn("thread purge worker failed", zap.Error(err))
+				}
+			}
+		}
+	}()
+}
+
+func startLLMCallRecordPruneWorker(ctx context.Context, service *llmrecord.Service) {
+	if service == nil {
+		return
+	}
+
+	const interval = time.Hour
+
+	ticker := time.NewTicker(interval)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if _, err := service.RunScheduledCleanup(ctx); err != nil {
+					zap.L().Warn("llm call record prune worker failed", zap.Error(err))
 				}
 			}
 		}

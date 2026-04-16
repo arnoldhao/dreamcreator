@@ -1,9 +1,11 @@
 import * as React from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, ListChecks, RefreshCw, Search } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ListChecks, RefreshCw, Search, Settings2, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { messageBus } from "@/shared/message";
 import { useEnabledProvidersWithModels, useProviders } from "@/shared/query/providers";
+import { useSettings, useUpdateSettings } from "@/shared/query/settings";
+import { useClearLLMCallRecords, usePruneExpiredLLMCallRecords } from "@/shared/query/threads";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { DASHBOARD_CONTROL_GROUP_CLASS, PanelCard } from "@/shared/ui/dashboard";
@@ -19,6 +21,7 @@ import { Input } from "@/shared/ui/input";
 import { Select } from "@/shared/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/shared/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
+import type { GatewayCallRecordAutoCleanup, GatewayCallRecordSaveStrategy } from "@/shared/contracts/settings";
 
 import type { CallRecordsTabProps } from "../types";
 
@@ -102,6 +105,41 @@ type FilterOption = {
 };
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 30, 50];
+const CALL_RECORD_RETENTION_DAY_OPTIONS = [7, 14, 30, 60, 90, 180, 365];
+
+function normalizeCallRecordSaveStrategy(value: unknown): GatewayCallRecordSaveStrategy {
+  switch (trimmedText(value)) {
+    case "off":
+    case "errors":
+    case "all":
+      return trimmedText(value) as GatewayCallRecordSaveStrategy;
+    default:
+      return "all";
+  }
+}
+
+function normalizeCallRecordAutoCleanup(value: unknown): GatewayCallRecordAutoCleanup {
+  switch (trimmedText(value)) {
+    case "off":
+    case "on_write":
+    case "hourly":
+      return trimmedText(value) as GatewayCallRecordAutoCleanup;
+    default:
+      return "hourly";
+  }
+}
+
+function normalizeCallRecordRetentionDays(value: unknown) {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 30;
+  }
+  const rounded = Math.round(numeric);
+  if (rounded <= 0) {
+    return 30;
+  }
+  return Math.min(365, rounded);
+}
 
 const SelectionCheckbox = React.forwardRef<
   HTMLInputElement,
@@ -361,6 +399,105 @@ function CallRecordBatchMenu(props: {
   );
 }
 
+function CallRecordSettingsMenu(props: {
+  t: CallRecordsTabProps["t"];
+  saveStrategy: GatewayCallRecordSaveStrategy;
+  retentionDays: number;
+  autoCleanup: GatewayCallRecordAutoCleanup;
+  settingsPending: boolean;
+  cleanupPending: boolean;
+  onSaveStrategyChange: (value: GatewayCallRecordSaveStrategy) => void;
+  onRetentionDaysChange: (value: number) => void;
+  onAutoCleanupChange: (value: GatewayCallRecordAutoCleanup) => void;
+  onPruneExpired: () => void;
+  onClearAll: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="compact" className="shrink-0 gap-2">
+          <Settings2 className="h-4 w-4" />
+          {props.t("settings.debug.calls.config.title")}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[18rem] max-w-[calc(100vw-2rem)] p-0">
+        <div className="grid gap-2 p-3">
+          <DropdownMenuLabel className="px-0 pt-0">{props.t("settings.debug.calls.config.title")}</DropdownMenuLabel>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground">
+              {props.t("settings.debug.calls.config.saveStrategy.label")}
+            </span>
+            <Select
+              value={props.saveStrategy}
+              onChange={(event) => props.onSaveStrategyChange(event.target.value as GatewayCallRecordSaveStrategy)}
+              disabled={props.settingsPending}
+              className="w-full"
+            >
+              <option value="all">{props.t("settings.debug.calls.config.saveStrategy.options.all")}</option>
+              <option value="errors">{props.t("settings.debug.calls.config.saveStrategy.options.errors")}</option>
+              <option value="off">{props.t("settings.debug.calls.config.saveStrategy.options.off")}</option>
+            </Select>
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground">
+              {props.t("settings.debug.calls.config.retentionDays.label")}
+            </span>
+            <Select
+              value={String(props.retentionDays)}
+              onChange={(event) => props.onRetentionDaysChange(Number(event.target.value))}
+              disabled={props.settingsPending}
+              className="w-full"
+            >
+              {CALL_RECORD_RETENTION_DAY_OPTIONS.map((days) => (
+                <option key={days} value={String(days)}>
+                  {formatTemplate(props.t("settings.debug.calls.config.retentionDays.days"), { count: days })}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground">
+              {props.t("settings.debug.calls.config.autoCleanup.label")}
+            </span>
+            <Select
+              value={props.autoCleanup}
+              onChange={(event) => props.onAutoCleanupChange(event.target.value as GatewayCallRecordAutoCleanup)}
+              disabled={props.settingsPending}
+              className="w-full"
+            >
+              <option value="hourly">{props.t("settings.debug.calls.config.autoCleanup.options.hourly")}</option>
+              <option value="on_write">{props.t("settings.debug.calls.config.autoCleanup.options.onWrite")}</option>
+              <option value="off">{props.t("settings.debug.calls.config.autoCleanup.options.off")}</option>
+            </Select>
+          </label>
+        </div>
+        <DropdownMenuSeparator />
+        <div className="grid gap-2 p-3">
+          <Button
+            variant="outline"
+            size="compact"
+            className="justify-start"
+            onClick={props.onPruneExpired}
+            disabled={props.cleanupPending}
+          >
+            {props.t("settings.debug.calls.config.actions.pruneExpired")}
+          </Button>
+          <Button
+            variant="outline"
+            size="compact"
+            className="justify-start text-destructive hover:text-destructive"
+            onClick={props.onClearAll}
+            disabled={props.cleanupPending}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            {props.t("settings.debug.calls.config.actions.clearAll")}
+          </Button>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function CallRecordsTab({
   t,
   threads,
@@ -389,6 +526,10 @@ export function CallRecordsTab({
 }: CallRecordsTabProps) {
   const providersQuery = useProviders();
   const enabledProvidersWithModelsQuery = useEnabledProvidersWithModels();
+  const settingsQuery = useSettings();
+  const updateSettings = useUpdateSettings();
+  const pruneExpiredMutation = usePruneExpiredLLMCallRecords();
+  const clearMutation = useClearLLMCallRecords();
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectionMode, setSelectionMode] = React.useState(false);
   const [selectedRecordIds, setSelectedRecordIds] = React.useState<string[]>([]);
@@ -535,6 +676,14 @@ export function CallRecordsTab({
   const selectedModelLabel = selectedRecord ? resolveModelLabel(selectedRecord.providerId, selectedRecord.modelName) : "-";
   const normalizedProviderFilter = providerFilter.trim();
   const normalizedModelFilter = modelFilter.trim();
+  const callRecordSettings = React.useMemo(() => {
+    const raw = settingsQuery.data?.gateway.runtime.callRecords;
+    return {
+      saveStrategy: normalizeCallRecordSaveStrategy(raw?.saveStrategy),
+      retentionDays: normalizeCallRecordRetentionDays(raw?.retentionDays),
+      autoCleanup: normalizeCallRecordAutoCleanup(raw?.autoCleanup),
+    };
+  }, [settingsQuery.data?.gateway.runtime.callRecords]);
 
   const providerOptions = React.useMemo(() => {
     const labels = new Map<string, string>();
@@ -737,6 +886,82 @@ export function CallRecordsTab({
     void copySelectedValues(values, "settings.debug.calls.toasts.conversationIdsCopied");
   }, [copySelectedValues, selectedRows]);
 
+  const patchCallRecordSettings = React.useCallback(
+    (patch: {
+      saveStrategy?: GatewayCallRecordSaveStrategy;
+      retentionDays?: number;
+      autoCleanup?: GatewayCallRecordAutoCleanup;
+    }) => {
+      updateSettings.mutate(
+        {
+          gateway: {
+            runtime: {
+              callRecords: patch,
+            },
+          },
+        },
+        {
+          onError: (error) => {
+            messageBus.publishToast({
+              intent: "warning",
+              title: t("settings.debug.calls.config.toasts.saveFailed"),
+              description: String(error),
+            });
+          },
+        }
+      );
+    },
+    [t, updateSettings]
+  );
+
+  const handlePruneExpired = React.useCallback(() => {
+    pruneExpiredMutation.mutate(undefined, {
+      onSuccess: (count) => {
+        messageBus.publishToast({
+          intent: "success",
+          title: t("settings.debug.calls.config.toasts.pruneDone"),
+          description: t("settings.debug.calls.config.toasts.pruneDoneDesc").replace("{count}", String(count)),
+        });
+        refresh();
+      },
+      onError: (error) => {
+        messageBus.publishToast({
+          intent: "warning",
+          title: t("settings.debug.calls.config.toasts.pruneFailed"),
+          description: String(error),
+        });
+      },
+    });
+  }, [pruneExpiredMutation, refresh, t]);
+
+  const handleClearAll = React.useCallback(() => {
+    messageBus.publishDialog({
+      intent: "danger",
+      title: t("settings.debug.calls.config.confirm.clearTitle"),
+      description: t("settings.debug.calls.config.confirm.clearDescription"),
+      confirmLabel: t("settings.debug.calls.config.actions.clearAll"),
+      cancelLabel: t("common.cancel"),
+      onConfirm: () =>
+        clearMutation.mutate(undefined, {
+          onSuccess: (count) => {
+            messageBus.publishToast({
+              intent: "success",
+              title: t("settings.debug.calls.config.toasts.clearDone"),
+              description: t("settings.debug.calls.config.toasts.clearDoneDesc").replace("{count}", String(count)),
+            });
+            refresh();
+          },
+          onError: (error) => {
+            messageBus.publishToast({
+              intent: "warning",
+              title: t("settings.debug.calls.config.toasts.clearFailed"),
+              description: String(error),
+            });
+          },
+        }),
+    });
+  }, [clearMutation, refresh, t]);
+
   const detailItems = selectedRecord
     ? [
         {
@@ -817,7 +1042,7 @@ export function CallRecordsTab({
   return (
     <>
       <div className="flex h-full min-h-0 flex-1 flex-col gap-3">
-        <div className="flex min-w-0 flex-nowrap items-center justify-end gap-2 overflow-x-auto pb-1 -mb-1">
+        <div className="flex min-w-0 flex-nowrap items-center justify-end gap-2 overflow-x-auto px-0.5 py-1 -mx-0.5">
           <CallRecordFilterMenu
             t={t}
             searchQuery={searchQuery}
@@ -871,6 +1096,21 @@ export function CallRecordsTab({
               {t("settings.debug.calls.actions.selectCalls")}
             </Button>
           )}
+          <CallRecordSettingsMenu
+            t={t}
+            saveStrategy={callRecordSettings.saveStrategy}
+            retentionDays={callRecordSettings.retentionDays}
+            autoCleanup={callRecordSettings.autoCleanup}
+            settingsPending={settingsQuery.isLoading || updateSettings.isPending}
+            cleanupPending={pruneExpiredMutation.isPending || clearMutation.isPending}
+            onSaveStrategyChange={(value) => patchCallRecordSettings({ saveStrategy: value })}
+            onRetentionDaysChange={(value) =>
+              patchCallRecordSettings({ retentionDays: normalizeCallRecordRetentionDays(value) })
+            }
+            onAutoCleanupChange={(value) => patchCallRecordSettings({ autoCleanup: value })}
+            onPruneExpired={handlePruneExpired}
+            onClearAll={handleClearAll}
+          />
           <Button
             size="compactIcon"
             variant="outline"

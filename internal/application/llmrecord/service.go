@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 
+	settingsdto "dreamcreator/internal/application/settings/dto"
+	domainsettings "dreamcreator/internal/domain/settings"
 	"dreamcreator/internal/infrastructure/llm"
 )
 
@@ -18,6 +22,13 @@ type Repository interface {
 	Update(ctx context.Context, record Record) error
 	Get(ctx context.Context, id string) (Record, error)
 	List(ctx context.Context, filter QueryFilter) ([]Record, error)
+	Delete(ctx context.Context, id string) error
+	DeleteStartedBefore(ctx context.Context, cutoff time.Time) (int, error)
+	DeleteAll(ctx context.Context) (int, error)
+}
+
+type SettingsReader interface {
+	GetSettings(ctx context.Context) (settingsdto.Settings, error)
 }
 
 type QueryFilter struct {
@@ -33,22 +44,36 @@ type QueryFilter struct {
 }
 
 type Service struct {
-	repo  Repository
-	now   func() time.Time
-	newID func() string
+	repo     Repository
+	settings SettingsReader
+	now      func() time.Time
+	newID    func() string
+	pruneMu  sync.Mutex
 }
 
-func NewService(repo Repository) *Service {
+type Config struct {
+	SaveStrategy  domainsettings.GatewayCallRecordSaveStrategy
+	RetentionDays int
+	AutoCleanup   domainsettings.GatewayCallRecordAutoCleanup
+}
+
+func NewService(repo Repository, settings SettingsReader) *Service {
 	return &Service{
-		repo:  repo,
-		now:   time.Now,
-		newID: uuid.NewString,
+		repo:     repo,
+		settings: settings,
+		now:      time.Now,
+		newID:    uuid.NewString,
 	}
 }
 
 func (service *Service) StartLLMCall(ctx context.Context, record llm.CallRecordStart) (string, error) {
 	if service == nil || service.repo == nil {
 		return "", errors.New("llm call record repository unavailable")
+	}
+	config := service.resolveConfig(ctx)
+	service.maybeAutoCleanupOnWrite(ctx, config)
+	if config.SaveStrategy == domainsettings.GatewayCallRecordSaveStrategyOff {
+		return "", nil
 	}
 	startedAt := record.StartedAt.UTC()
 	if startedAt.IsZero() {
@@ -85,6 +110,13 @@ func (service *Service) FinishLLMCall(ctx context.Context, record llm.CallRecord
 	if id == "" {
 		return errors.New("llm call record id is required")
 	}
+	config := service.resolveConfig(ctx)
+	status := normalizeStatus(record.Status)
+	if config.SaveStrategy == domainsettings.GatewayCallRecordSaveStrategyOff ||
+		(config.SaveStrategy == domainsettings.GatewayCallRecordSaveStrategyErrors &&
+			status == llm.CallRecordStatusCompleted) {
+		return service.repo.Delete(ctx, id)
+	}
 	item, err := service.repo.Get(ctx, id)
 	if err != nil {
 		return err
@@ -94,7 +126,7 @@ func (service *Service) FinishLLMCall(ctx context.Context, record llm.CallRecord
 		finishedAt = service.now().UTC()
 	}
 	responsePayload, responseTruncated := trimPayload(record.ResponsePayload)
-	item.Status = normalizeStatus(record.Status)
+	item.Status = status
 	item.FinishReason = strings.TrimSpace(record.FinishReason)
 	item.ErrorText = strings.TrimSpace(record.ErrorText)
 	item.InputTokens = maxInt(record.InputTokens)
@@ -163,6 +195,77 @@ func (service *Service) List(ctx context.Context, request ListRequest) ([]Record
 		items[i].ResponsePayloadJSON = ""
 	}
 	return items, nil
+}
+
+func (service *Service) PruneExpired(ctx context.Context) (int, error) {
+	if service == nil || service.repo == nil {
+		return 0, errors.New("llm call record repository unavailable")
+	}
+	return service.pruneExpiredWithConfig(ctx, service.resolveConfig(ctx))
+}
+
+func (service *Service) RunScheduledCleanup(ctx context.Context) (int, error) {
+	if service == nil || service.repo == nil {
+		return 0, errors.New("llm call record repository unavailable")
+	}
+	config := service.resolveConfig(ctx)
+	if config.AutoCleanup != domainsettings.GatewayCallRecordAutoCleanupHourly {
+		return 0, nil
+	}
+	return service.pruneExpiredWithConfig(ctx, config)
+}
+
+func (service *Service) Clear(ctx context.Context) (int, error) {
+	if service == nil || service.repo == nil {
+		return 0, errors.New("llm call record repository unavailable")
+	}
+	return service.repo.DeleteAll(ctx)
+}
+
+func (service *Service) maybeAutoCleanupOnWrite(ctx context.Context, config Config) {
+	if config.AutoCleanup != domainsettings.GatewayCallRecordAutoCleanupOnWrite {
+		return
+	}
+	if _, err := service.pruneExpiredWithConfig(ctx, config); err != nil {
+		zap.L().Warn("llm call record on-write cleanup failed", zap.Error(err))
+	}
+}
+
+func (service *Service) resolveConfig(ctx context.Context) Config {
+	defaults := domainsettings.DefaultGatewaySettings().Runtime.CallRecords
+	config := Config{
+		SaveStrategy:  defaults.SaveStrategy,
+		RetentionDays: defaults.RetentionDays,
+		AutoCleanup:   defaults.AutoCleanup,
+	}
+	if service == nil || service.settings == nil {
+		return config
+	}
+	current, err := service.settings.GetSettings(ctx)
+	if err != nil {
+		return config
+	}
+	config.SaveStrategy = domainsettings.ResolveGatewayCallRecordSaveStrategy(
+		current.Gateway.Runtime.CallRecords.SaveStrategy,
+	)
+	config.RetentionDays = domainsettings.NormalizeGatewayCallRecordRetentionDays(
+		current.Gateway.Runtime.CallRecords.RetentionDays,
+	)
+	config.AutoCleanup = domainsettings.ResolveGatewayCallRecordAutoCleanup(
+		current.Gateway.Runtime.CallRecords.AutoCleanup,
+	)
+	return config
+}
+
+func (service *Service) pruneExpiredWithConfig(ctx context.Context, config Config) (int, error) {
+	if service == nil || service.repo == nil {
+		return 0, errors.New("llm call record repository unavailable")
+	}
+	retentionDays := domainsettings.NormalizeGatewayCallRecordRetentionDays(config.RetentionDays)
+	cutoff := service.now().UTC().AddDate(0, 0, -retentionDays)
+	service.pruneMu.Lock()
+	defer service.pruneMu.Unlock()
+	return service.repo.DeleteStartedBefore(ctx, cutoff)
 }
 
 func trimPayload(value string) (string, bool) {

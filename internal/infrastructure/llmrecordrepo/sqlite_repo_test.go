@@ -100,4 +100,42 @@ func TestSQLiteRepository_ListFiltersByThreadAndStatus(t *testing.T) {
 	if updated.ResponsePayloadJSON == "" {
 		t.Fatal("expected response payload to be stored")
 	}
+
+	deleted, err := repo.DeleteStartedBefore(ctx, base.Add(time.Second))
+	if err != nil {
+		t.Fatalf("delete started before cutoff: %v", err)
+	}
+	if deleted != 1 {
+		t.Fatalf("expected 1 deleted row before cutoff, got %d", deleted)
+	}
+
+	if _, err := repo.Get(ctx, "call-1"); err == nil {
+		t.Fatal("expected call-1 to be deleted")
+	}
+
+	if err := repo.Delete(ctx, "call-2"); err != nil {
+		t.Fatalf("delete record by id: %v", err)
+	}
+
+	remaining, err := repo.List(ctx, llmrecord.QueryFilter{Limit: 20})
+	if err != nil {
+		t.Fatalf("list remaining records: %v", err)
+	}
+	if len(remaining) != 0 {
+		t.Fatalf("expected no remaining records, got %d", len(remaining))
+	}
+
+	for _, record := range records {
+		if err := repo.Insert(ctx, record); err != nil {
+			t.Fatalf("reinsert record %s: %v", record.ID, err)
+		}
+	}
+
+	cleared, err := repo.DeleteAll(ctx)
+	if err != nil {
+		t.Fatalf("delete all records: %v", err)
+	}
+	if cleared != len(records) {
+		t.Fatalf("expected %d cleared rows, got %d", len(records), cleared)
+	}
 }

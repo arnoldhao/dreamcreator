@@ -6,6 +6,8 @@ export type ProxyScheme = "http" | "https" | "socks5";
 export type SystemProxySource = "system" | "vpn";
 export type MenuBarVisibility = "always" | "whenRunning" | "never";
 export type GatewayDebugMode = "off" | "basic" | "full";
+export type GatewayCallRecordSaveStrategy = "off" | "errors" | "all";
+export type GatewayCallRecordAutoCleanup = "off" | "on_write" | "hourly";
 
 export interface WindowBounds {
   x: number;
@@ -200,9 +202,16 @@ export interface GatewayRuntimeSettings {
   maxSteps: number;
   debugMode: GatewayDebugMode;
   recordPrompt: boolean;
+  callRecords: GatewayCallRecordsSettings;
   toolLoopDetection: GatewayToolLoopSettings;
   contextWindow: GatewayContextWindowSettings;
   compaction: GatewayCompactionSettings;
+}
+
+export interface GatewayCallRecordsSettings {
+  saveStrategy: GatewayCallRecordSaveStrategy;
+  retentionDays: number;
+  autoCleanup: GatewayCallRecordAutoCleanup;
 }
 
 export interface GatewayToolLoopSettings {
@@ -413,9 +422,16 @@ export interface UpdateGatewayRuntimeSettingsRequest {
   maxSteps?: number;
   debugMode?: GatewayDebugMode;
   recordPrompt?: boolean;
+  callRecords?: UpdateGatewayCallRecordsSettingsRequest;
   toolLoopDetection?: UpdateGatewayToolLoopSettingsRequest;
   contextWindow?: UpdateGatewayContextWindowSettingsRequest;
   compaction?: UpdateGatewayCompactionSettingsRequest;
+}
+
+export interface UpdateGatewayCallRecordsSettingsRequest {
+  saveStrategy?: GatewayCallRecordSaveStrategy;
+  retentionDays?: number;
+  autoCleanup?: GatewayCallRecordAutoCleanup;
 }
 
 export interface UpdateGatewayToolLoopSettingsRequest {

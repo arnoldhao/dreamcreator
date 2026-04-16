@@ -2251,6 +2251,46 @@
         "copyRunIds": "复制运行 ID",
         "copyConversationIds": "复制对话 ID"
       },
+      "config": {
+        "title": "记录设置",
+        "saveStrategy": {
+          "label": "保存策略",
+          "options": {
+            "all": "保存全部调用",
+            "errors": "仅保存异常调用",
+            "off": "关闭记录保存"
+          }
+        },
+        "retentionDays": {
+          "label": "保存天数",
+          "days": "{count} 天"
+        },
+        "autoCleanup": {
+          "label": "自动清理",
+          "options": {
+            "hourly": "每小时清理一次",
+            "onWrite": "写入时顺带清理",
+            "off": "关闭自动清理"
+          }
+        },
+        "actions": {
+          "pruneExpired": "立即清理过期记录",
+          "clearAll": "清空全部记录"
+        },
+        "confirm": {
+          "clearTitle": "清空调用记录",
+          "clearDescription": "这会删除当前所有调用记录，且无法恢复。"
+        },
+        "toasts": {
+          "saveFailed": "保存调用记录配置失败",
+          "pruneDone": "已清理过期记录",
+          "pruneDoneDesc": "共清理 {count} 条过期记录",
+          "pruneFailed": "清理过期记录失败",
+          "clearDone": "已清空调用记录",
+          "clearDoneDesc": "共删除 {count} 条调用记录",
+          "clearFailed": "清空调用记录失败"
+        }
+      },
       "filters": {
         "allThreads": "全部对话",
         "allSources": "全部来源",

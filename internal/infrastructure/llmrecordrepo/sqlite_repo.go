@@ -99,6 +99,44 @@ func (repo *SQLiteRepository) List(ctx context.Context, filter llmrecord.QueryFi
 	return result, nil
 }
 
+func (repo *SQLiteRepository) Delete(ctx context.Context, id string) error {
+	_, err := repo.db.NewDelete().
+		Model((*llmCallRecordRow)(nil)).
+		Where("id = ?", strings.TrimSpace(id)).
+		Exec(ctx)
+	return err
+}
+
+func (repo *SQLiteRepository) DeleteStartedBefore(ctx context.Context, cutoff time.Time) (int, error) {
+	result, err := repo.db.NewDelete().
+		Model((*llmCallRecordRow)(nil)).
+		Where("started_at < ?", cutoff.UTC()).
+		Exec(ctx)
+	if err != nil {
+		return 0, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return int(affected), nil
+}
+
+func (repo *SQLiteRepository) DeleteAll(ctx context.Context) (int, error) {
+	result, err := repo.db.NewDelete().
+		Model((*llmCallRecordRow)(nil)).
+		Where("1 = 1").
+		Exec(ctx)
+	if err != nil {
+		return 0, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return int(affected), nil
+}
+
 func toRow(record llmrecord.Record) llmCallRecordRow {
 	return llmCallRecordRow{
 		ID:                  strings.TrimSpace(record.ID),

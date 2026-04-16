@@ -405,6 +405,23 @@ func (service *SettingsService) UpdateSettings(ctx context.Context, request dto.
 				)
 				gateway.Runtime.RecordPrompt = settings.GatewayDebugModeRecordsPrompt(gateway.Runtime.DebugMode)
 			}
+			if request.Gateway.Runtime.CallRecords != nil {
+				if request.Gateway.Runtime.CallRecords.SaveStrategy != nil {
+					gateway.Runtime.CallRecords.SaveStrategy = settings.ResolveGatewayCallRecordSaveStrategy(
+						*request.Gateway.Runtime.CallRecords.SaveStrategy,
+					)
+				}
+				if request.Gateway.Runtime.CallRecords.RetentionDays != nil {
+					gateway.Runtime.CallRecords.RetentionDays = settings.NormalizeGatewayCallRecordRetentionDays(
+						*request.Gateway.Runtime.CallRecords.RetentionDays,
+					)
+				}
+				if request.Gateway.Runtime.CallRecords.AutoCleanup != nil {
+					gateway.Runtime.CallRecords.AutoCleanup = settings.ResolveGatewayCallRecordAutoCleanup(
+						*request.Gateway.Runtime.CallRecords.AutoCleanup,
+					)
+				}
+			}
 			if request.Gateway.Runtime.ToolLoopDetection != nil {
 				if request.Gateway.Runtime.ToolLoopDetection.Enabled != nil {
 					gateway.Runtime.ToolLoopDetection.Enabled = *request.Gateway.Runtime.ToolLoopDetection.Enabled
@@ -968,6 +985,11 @@ func normalizeGatewaySettings(gateway settings.GatewaySettings) settings.Gateway
 		gateway.Runtime.RecordPrompt,
 	)
 	gateway.Runtime.RecordPrompt = settings.GatewayDebugModeRecordsPrompt(gateway.Runtime.DebugMode)
+	callRecords := gateway.Runtime.CallRecords
+	callRecords.SaveStrategy = settings.ResolveGatewayCallRecordSaveStrategy(callRecords.SaveStrategy.String())
+	callRecords.RetentionDays = settings.NormalizeGatewayCallRecordRetentionDays(callRecords.RetentionDays)
+	callRecords.AutoCleanup = settings.ResolveGatewayCallRecordAutoCleanup(callRecords.AutoCleanup.String())
+	gateway.Runtime.CallRecords = callRecords
 
 	toolLoop := gateway.Runtime.ToolLoopDetection
 	if toolLoop.HistorySize <= 0 && toolLoop.WarnThreshold <= 0 && toolLoop.CriticalThreshold <= 0 &&

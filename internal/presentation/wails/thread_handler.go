@@ -94,6 +94,20 @@ func (handler *ThreadHandler) GetLLMCallRecord(ctx context.Context, id string) (
 	return handler.calls.Get(ctx, id)
 }
 
+func (handler *ThreadHandler) PruneExpiredLLMCallRecords(ctx context.Context) (int, error) {
+	if handler.calls == nil {
+		return 0, errors.New("llm call record service is not configured")
+	}
+	return handler.calls.PruneExpired(ctx)
+}
+
+func (handler *ThreadHandler) ClearLLMCallRecords(ctx context.Context) (int, error) {
+	if handler.calls == nil {
+		return 0, errors.New("llm call record service is not configured")
+	}
+	return handler.calls.Clear(ctx)
+}
+
 func (handler *ThreadHandler) AppendMessage(ctx context.Context, request dto.AppendMessageRequest) error {
 	if err := handler.service.AppendMessage(ctx, request); err != nil {
 		return err

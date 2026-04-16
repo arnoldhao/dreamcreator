@@ -9,6 +9,19 @@ func TestDefaultGatewaySettingsHeartbeatDefaults(t *testing.T) {
 	if defaults.Runtime.DebugMode != GatewayDebugModeOff {
 		t.Fatalf("expected runtime.debugMode default off, got %q", defaults.Runtime.DebugMode)
 	}
+	if defaults.Runtime.CallRecords.SaveStrategy != GatewayCallRecordSaveStrategyAll {
+		t.Fatalf("expected runtime.callRecords.saveStrategy default all, got %q", defaults.Runtime.CallRecords.SaveStrategy)
+	}
+	if defaults.Runtime.CallRecords.RetentionDays != DefaultGatewayCallRecordRetentionDays {
+		t.Fatalf(
+			"expected runtime.callRecords.retentionDays default %d, got %d",
+			DefaultGatewayCallRecordRetentionDays,
+			defaults.Runtime.CallRecords.RetentionDays,
+		)
+	}
+	if defaults.Runtime.CallRecords.AutoCleanup != GatewayCallRecordAutoCleanupHourly {
+		t.Fatalf("expected runtime.callRecords.autoCleanup default hourly, got %q", defaults.Runtime.CallRecords.AutoCleanup)
+	}
 	if !defaults.Heartbeat.Periodic.Enabled {
 		t.Fatalf("expected periodic.enabled default true")
 	}
@@ -164,7 +177,45 @@ func TestResolveGatewaySettingsMigratesLegacyRecordPrompt(t *testing.T) {
 	}
 }
 
+func TestResolveGatewaySettingsCallRecordOptions(t *testing.T) {
+	t.Parallel()
+
+	resolved := ResolveGatewaySettings(GatewaySettingsParams{
+		Runtime: &GatewayRuntimeSettingsParams{
+			CallRecords: &GatewayCallRecordsSettingsParams{
+				SaveStrategy:  stringPtr(" errors "),
+				RetentionDays: intPtr(400),
+				AutoCleanup:   stringPtr(" on_write "),
+			},
+		},
+	})
+
+	if resolved.Runtime.CallRecords.SaveStrategy != GatewayCallRecordSaveStrategyErrors {
+		t.Fatalf(
+			"expected runtime.callRecords.saveStrategy=errors, got %q",
+			resolved.Runtime.CallRecords.SaveStrategy,
+		)
+	}
+	if resolved.Runtime.CallRecords.RetentionDays != MaxGatewayCallRecordRetentionDays {
+		t.Fatalf(
+			"expected runtime.callRecords.retentionDays=%d, got %d",
+			MaxGatewayCallRecordRetentionDays,
+			resolved.Runtime.CallRecords.RetentionDays,
+		)
+	}
+	if resolved.Runtime.CallRecords.AutoCleanup != GatewayCallRecordAutoCleanupOnWrite {
+		t.Fatalf(
+			"expected runtime.callRecords.autoCleanup=on_write, got %q",
+			resolved.Runtime.CallRecords.AutoCleanup,
+		)
+	}
+}
+
 func boolPtr(value bool) *bool {
+	return &value
+}
+
+func intPtr(value int) *int {
 	return &value
 }
 

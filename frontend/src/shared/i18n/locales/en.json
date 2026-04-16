@@ -3669,6 +3669,46 @@
         "copyRunIds": "Copy run IDs",
         "copyConversationIds": "Copy conversation IDs"
       },
+      "config": {
+        "title": "Record settings",
+        "saveStrategy": {
+          "label": "Save strategy",
+          "options": {
+            "all": "Store all calls",
+            "errors": "Store only failed calls",
+            "off": "Disable persistence"
+          }
+        },
+        "retentionDays": {
+          "label": "Retention period",
+          "days": "{count} days"
+        },
+        "autoCleanup": {
+          "label": "Automatic cleanup",
+          "options": {
+            "hourly": "Run hourly cleanup",
+            "onWrite": "Clean during writes",
+            "off": "Disable automatic cleanup"
+          }
+        },
+        "actions": {
+          "pruneExpired": "Prune expired records now",
+          "clearAll": "Clear all records"
+        },
+        "confirm": {
+          "clearTitle": "Clear call records",
+          "clearDescription": "This deletes every stored call record and cannot be undone."
+        },
+        "toasts": {
+          "saveFailed": "Failed to save call-record settings",
+          "pruneDone": "Expired records pruned",
+          "pruneDoneDesc": "Removed {count} expired record(s)",
+          "pruneFailed": "Failed to prune expired records",
+          "clearDone": "Call records cleared",
+          "clearDoneDesc": "Removed {count} call record(s)",
+          "clearFailed": "Failed to clear call records"
+        }
+      },
       "filters": {
         "allThreads": "All conversations",
         "allSources": "All sources",

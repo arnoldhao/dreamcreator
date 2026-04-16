@@ -23,6 +23,7 @@ type GatewayRuntimeSettings struct {
 	MaxSteps          int                          `json:"maxSteps"`
 	DebugMode         GatewayDebugMode             `json:"debugMode"`
 	RecordPrompt      bool                         `json:"recordPrompt"`
+	CallRecords       GatewayCallRecordsSettings   `json:"callRecords"`
 	ToolLoopDetection GatewayToolLoopSettings      `json:"toolLoopDetection"`
 	ContextWindow     GatewayContextWindowSettings `json:"contextWindow"`
 	Compaction        GatewayCompactionSettings    `json:"compaction"`
@@ -39,6 +40,36 @@ const (
 	GatewayDebugModeBasic GatewayDebugMode = "basic"
 	GatewayDebugModeFull  GatewayDebugMode = "full"
 )
+
+type GatewayCallRecordSaveStrategy string
+
+func (strategy GatewayCallRecordSaveStrategy) String() string {
+	return string(strategy)
+}
+
+const (
+	GatewayCallRecordSaveStrategyOff    GatewayCallRecordSaveStrategy = "off"
+	GatewayCallRecordSaveStrategyErrors GatewayCallRecordSaveStrategy = "errors"
+	GatewayCallRecordSaveStrategyAll    GatewayCallRecordSaveStrategy = "all"
+)
+
+type GatewayCallRecordAutoCleanup string
+
+func (policy GatewayCallRecordAutoCleanup) String() string {
+	return string(policy)
+}
+
+const (
+	GatewayCallRecordAutoCleanupOff     GatewayCallRecordAutoCleanup = "off"
+	GatewayCallRecordAutoCleanupOnWrite GatewayCallRecordAutoCleanup = "on_write"
+	GatewayCallRecordAutoCleanupHourly  GatewayCallRecordAutoCleanup = "hourly"
+)
+
+type GatewayCallRecordsSettings struct {
+	SaveStrategy  GatewayCallRecordSaveStrategy `json:"saveStrategy"`
+	RetentionDays int                           `json:"retentionDays"`
+	AutoCleanup   GatewayCallRecordAutoCleanup  `json:"autoCleanup"`
+}
 
 type GatewayToolLoopSettings struct {
 	Enabled                       bool                     `json:"enabled"`
@@ -248,9 +279,16 @@ type GatewayRuntimeSettingsParams struct {
 	MaxSteps          *int                                `json:"maxSteps,omitempty"`
 	DebugMode         *string                             `json:"debugMode,omitempty"`
 	RecordPrompt      *bool                               `json:"recordPrompt,omitempty"`
+	CallRecords       *GatewayCallRecordsSettingsParams   `json:"callRecords,omitempty"`
 	ToolLoopDetection *GatewayToolLoopSettingsParams      `json:"toolLoopDetection,omitempty"`
 	ContextWindow     *GatewayContextWindowSettingsParams `json:"contextWindow,omitempty"`
 	Compaction        *GatewayCompactionSettingsParams    `json:"compaction,omitempty"`
+}
+
+type GatewayCallRecordsSettingsParams struct {
+	SaveStrategy  *string `json:"saveStrategy,omitempty"`
+	RetentionDays *int    `json:"retentionDays,omitempty"`
+	AutoCleanup   *string `json:"autoCleanup,omitempty"`
 }
 
 type GatewayToolLoopSettingsParams struct {
@@ -525,6 +563,10 @@ const (
 	DefaultGatewayHTTPResponsesImagesTimeoutMs             = 10000
 	DefaultGatewayChannelHealthCheckMinutes                = 5
 	DefaultGatewayRuntimeDebugMode                         = GatewayDebugModeOff
+	DefaultGatewayCallRecordSaveStrategy                   = GatewayCallRecordSaveStrategyAll
+	DefaultGatewayCallRecordRetentionDays                  = 30
+	MaxGatewayCallRecordRetentionDays                      = 365
+	DefaultGatewayCallRecordAutoCleanup                    = GatewayCallRecordAutoCleanupHourly
 )
 
 func DefaultGatewaySettings() GatewaySettings {
@@ -538,6 +580,11 @@ func DefaultGatewaySettings() GatewaySettings {
 			MaxSteps:     DefaultGatewayRuntimeMaxSteps,
 			DebugMode:    DefaultGatewayRuntimeDebugMode,
 			RecordPrompt: DefaultGatewayRuntimeRecordPrompt,
+			CallRecords: GatewayCallRecordsSettings{
+				SaveStrategy:  DefaultGatewayCallRecordSaveStrategy,
+				RetentionDays: DefaultGatewayCallRecordRetentionDays,
+				AutoCleanup:   DefaultGatewayCallRecordAutoCleanup,
+			},
 			ToolLoopDetection: GatewayToolLoopSettings{
 				Enabled:                       DefaultGatewayToolLoopEnabled,
 				WarnThreshold:                 DefaultGatewayToolLoopWarnThreshold,
@@ -789,6 +836,23 @@ func ResolveGatewaySettings(params GatewaySettingsParams) GatewaySettings {
 			params.Runtime.RecordPrompt,
 		)
 		settings.Runtime.RecordPrompt = GatewayDebugModeRecordsPrompt(settings.Runtime.DebugMode)
+		if params.Runtime.CallRecords != nil {
+			if params.Runtime.CallRecords.SaveStrategy != nil {
+				settings.Runtime.CallRecords.SaveStrategy = ResolveGatewayCallRecordSaveStrategy(
+					*params.Runtime.CallRecords.SaveStrategy,
+				)
+			}
+			if params.Runtime.CallRecords.RetentionDays != nil {
+				settings.Runtime.CallRecords.RetentionDays = NormalizeGatewayCallRecordRetentionDays(
+					*params.Runtime.CallRecords.RetentionDays,
+				)
+			}
+			if params.Runtime.CallRecords.AutoCleanup != nil {
+				settings.Runtime.CallRecords.AutoCleanup = ResolveGatewayCallRecordAutoCleanup(
+					*params.Runtime.CallRecords.AutoCleanup,
+				)
+			}
+		}
 		if params.Runtime.ToolLoopDetection != nil {
 			if params.Runtime.ToolLoopDetection.Enabled != nil {
 				settings.Runtime.ToolLoopDetection.Enabled = *params.Runtime.ToolLoopDetection.Enabled
@@ -876,6 +940,15 @@ func ResolveGatewaySettings(params GatewaySettingsParams) GatewaySettings {
 		settings.Runtime.RecordPrompt,
 	)
 	settings.Runtime.RecordPrompt = GatewayDebugModeRecordsPrompt(settings.Runtime.DebugMode)
+	settings.Runtime.CallRecords.SaveStrategy = ResolveGatewayCallRecordSaveStrategy(
+		settings.Runtime.CallRecords.SaveStrategy.String(),
+	)
+	settings.Runtime.CallRecords.RetentionDays = NormalizeGatewayCallRecordRetentionDays(
+		settings.Runtime.CallRecords.RetentionDays,
+	)
+	settings.Runtime.CallRecords.AutoCleanup = ResolveGatewayCallRecordAutoCleanup(
+		settings.Runtime.CallRecords.AutoCleanup.String(),
+	)
 	if params.Queue != nil {
 		if params.Queue.GlobalConcurrency != nil {
 			settings.Queue.GlobalConcurrency = *params.Queue.GlobalConcurrency
@@ -1086,6 +1159,38 @@ func ResolveGatewayDebugMode(value string, recordPrompt bool) GatewayDebugMode {
 
 func GatewayDebugModeRecordsPrompt(mode GatewayDebugMode) bool {
 	return mode == GatewayDebugModeFull
+}
+
+func ResolveGatewayCallRecordSaveStrategy(value string) GatewayCallRecordSaveStrategy {
+	switch GatewayCallRecordSaveStrategy(strings.ToLower(strings.TrimSpace(value))) {
+	case GatewayCallRecordSaveStrategyOff,
+		GatewayCallRecordSaveStrategyErrors,
+		GatewayCallRecordSaveStrategyAll:
+		return GatewayCallRecordSaveStrategy(strings.ToLower(strings.TrimSpace(value)))
+	default:
+		return DefaultGatewayCallRecordSaveStrategy
+	}
+}
+
+func ResolveGatewayCallRecordAutoCleanup(value string) GatewayCallRecordAutoCleanup {
+	switch GatewayCallRecordAutoCleanup(strings.ToLower(strings.TrimSpace(value))) {
+	case GatewayCallRecordAutoCleanupOff,
+		GatewayCallRecordAutoCleanupOnWrite,
+		GatewayCallRecordAutoCleanupHourly:
+		return GatewayCallRecordAutoCleanup(strings.ToLower(strings.TrimSpace(value)))
+	default:
+		return DefaultGatewayCallRecordAutoCleanup
+	}
+}
+
+func NormalizeGatewayCallRecordRetentionDays(value int) int {
+	if value <= 0 {
+		return DefaultGatewayCallRecordRetentionDays
+	}
+	if value > MaxGatewayCallRecordRetentionDays {
+		return MaxGatewayCallRecordRetentionDays
+	}
+	return value
 }
 
 func ApplyGatewayDebugModeOverride(

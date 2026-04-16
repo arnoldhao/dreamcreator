@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Call } from "@wailsio/runtime";
 
 import type { ThreadSummary } from "@/shared/store/threads";
@@ -163,5 +163,39 @@ export function useLLMCallRecord(id: string | null) {
     },
     enabled: Boolean(id),
     staleTime: 3_000,
+  });
+}
+
+export function usePruneExpiredLLMCallRecords() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (): Promise<number> => {
+      const result = await Call.ByName(
+        "dreamcreator/internal/presentation/wails.ThreadHandler.PruneExpiredLLMCallRecords"
+      );
+      return Number(result ?? 0);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["threads", "llm-call-records"] });
+      void queryClient.invalidateQueries({ queryKey: ["threads", "llm-call-record"] });
+    },
+  });
+}
+
+export function useClearLLMCallRecords() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (): Promise<number> => {
+      const result = await Call.ByName(
+        "dreamcreator/internal/presentation/wails.ThreadHandler.ClearLLMCallRecords"
+      );
+      return Number(result ?? 0);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["threads", "llm-call-records"] });
+      void queryClient.invalidateQueries({ queryKey: ["threads", "llm-call-record"] });
+    },
   });
 }
