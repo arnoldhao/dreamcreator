@@ -563,8 +563,8 @@ const (
 	DefaultGatewayHTTPResponsesImagesTimeoutMs             = 10000
 	DefaultGatewayChannelHealthCheckMinutes                = 5
 	DefaultGatewayRuntimeDebugMode                         = GatewayDebugModeOff
-	DefaultGatewayCallRecordSaveStrategy                   = GatewayCallRecordSaveStrategyAll
-	DefaultGatewayCallRecordRetentionDays                  = 30
+	DefaultGatewayCallRecordSaveStrategy                   = GatewayCallRecordSaveStrategyOff
+	DefaultGatewayCallRecordRetentionDays                  = 14
 	MaxGatewayCallRecordRetentionDays                      = 365
 	DefaultGatewayCallRecordAutoCleanup                    = GatewayCallRecordAutoCleanupHourly
 )

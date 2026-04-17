@@ -9,8 +9,8 @@ func TestDefaultGatewaySettingsHeartbeatDefaults(t *testing.T) {
 	if defaults.Runtime.DebugMode != GatewayDebugModeOff {
 		t.Fatalf("expected runtime.debugMode default off, got %q", defaults.Runtime.DebugMode)
 	}
-	if defaults.Runtime.CallRecords.SaveStrategy != GatewayCallRecordSaveStrategyAll {
-		t.Fatalf("expected runtime.callRecords.saveStrategy default all, got %q", defaults.Runtime.CallRecords.SaveStrategy)
+	if defaults.Runtime.CallRecords.SaveStrategy != GatewayCallRecordSaveStrategyOff {
+		t.Fatalf("expected runtime.callRecords.saveStrategy default off, got %q", defaults.Runtime.CallRecords.SaveStrategy)
 	}
 	if defaults.Runtime.CallRecords.RetentionDays != DefaultGatewayCallRecordRetentionDays {
 		t.Fatalf(

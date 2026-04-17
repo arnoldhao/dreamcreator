@@ -114,7 +114,7 @@ function normalizeCallRecordSaveStrategy(value: unknown): GatewayCallRecordSaveS
     case "all":
       return trimmedText(value) as GatewayCallRecordSaveStrategy;
     default:
-      return "all";
+      return "off";
   }
 }
 
@@ -132,11 +132,11 @@ function normalizeCallRecordAutoCleanup(value: unknown): GatewayCallRecordAutoCl
 function normalizeCallRecordRetentionDays(value: unknown) {
   const numeric = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(numeric)) {
-    return 30;
+    return 14;
   }
   const rounded = Math.round(numeric);
   if (rounded <= 0) {
-    return 30;
+    return 14;
   }
   return Math.min(365, rounded);
 }

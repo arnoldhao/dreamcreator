@@ -101,11 +101,13 @@ tasks:
     dir: build
     sources:
       - "../frontend/public/appicon.png"
+      - "../frontend/public/appicon_windows.png"
     generates:
       - "darwin/icons.icns"
       - "windows/icon.ico"
     cmds:
-      - wails3 generate icons -input ../frontend/public/appicon.png -macfilename darwin/icons.icns -windowsfilename windows/icon.ico
+      - wails3 generate icons -input ../frontend/public/appicon.png -macfilename darwin/icons.icns
+      - wails3 generate icons -input ../frontend/public/appicon_windows.png -windowsfilename windows/icon.ico
 
   dev:frontend:
     summary: Runs the frontend in development mode
