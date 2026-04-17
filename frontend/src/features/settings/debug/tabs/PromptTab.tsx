@@ -31,6 +31,10 @@ export function PromptTab({
 
   const toolItems = useMemo(() => selectedPromptRun?.payload.tools ?? [], [selectedPromptRun]);
   const skillItems = useMemo(() => selectedPromptRun?.payload.skills ?? [], [selectedPromptRun]);
+  const metaSectionCount = useMemo(
+    () => Number(toolItems.length > 0) + Number(skillItems.length > 0),
+    [skillItems.length, toolItems.length]
+  );
   const promptMessages = useMemo(() => {
     const source = Array.isArray(selectedPromptRun?.payload.messages) ? selectedPromptRun?.payload.messages ?? [] : [];
     return source
@@ -60,7 +64,10 @@ export function PromptTab({
     }
 
     return (
-      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+      <div
+        className="grid gap-1.5"
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 11rem), 1fr))" }}
+      >
         {items.map((item) => (
           <div
             key={item}
@@ -276,7 +283,13 @@ export function PromptTab({
                 {toolItems.length === 0 && skillItems.length === 0 ? (
                   <div className="text-sm text-muted-foreground">{t("settings.debug.prompt.meta.emptyCollections")}</div>
                 ) : (
-                  <div className="grid gap-4 lg:grid-cols-2">
+                  <div
+                    className="grid gap-4"
+                    style={{
+                      gridTemplateColumns:
+                        metaSectionCount > 1 ? "repeat(auto-fit, minmax(min(100%, 22rem), 1fr))" : "minmax(0, 1fr)",
+                    }}
+                  >
                     {renderMetaCollectionSection(
                       t("settings.debug.prompt.tools"),
                       toolItems,
