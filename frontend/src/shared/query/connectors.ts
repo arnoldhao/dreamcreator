@@ -1,29 +1,44 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
+  CancelConnectorConnectRequest,
   ClearConnectorRequest,
-  ConnectConnectorRequest,
+  ConnectorConnectSession,
   Connector,
+  FinishConnectorConnectRequest,
+  FinishConnectorConnectResult,
+  GetConnectorConnectSessionRequest,
   OpenConnectorSiteRequest,
+  StartConnectorConnectRequest,
+  StartConnectorConnectResult,
   UpsertConnectorRequest,
 } from "@/shared/contracts/connectors";
 import {
+  CancelConnectorConnect as CancelConnectorConnectBinding,
   ClearConnector as ClearConnectorBinding,
-  ConnectConnector as ConnectConnectorBinding,
-  InstallPlaywright,
+  FinishConnectorConnect as FinishConnectorConnectBinding,
+  GetConnectorConnectSession as GetConnectorConnectSessionBinding,
   ListConnectors,
   OpenConnectorSite as OpenConnectorSiteBinding,
+  StartConnectorConnect as StartConnectorConnectBinding,
   UpsertConnector as UpsertConnectorBinding,
 } from "../../../bindings/dreamcreator/internal/presentation/wails/connectorshandler";
 import {
+  CancelConnectorConnectRequest as BindingsCancelConnectorConnectRequest,
   ClearConnectorRequest as BindingsClearConnectorRequest,
-  ConnectConnectorRequest as BindingsConnectConnectorRequest,
+  ConnectorConnectSession as BindingsConnectorConnectSession,
   Connector as BindingsConnector,
+  FinishConnectorConnectRequest as BindingsFinishConnectorConnectRequest,
+  FinishConnectorConnectResult as BindingsFinishConnectorConnectResult,
+  GetConnectorConnectSessionRequest as BindingsGetConnectorConnectSessionRequest,
   OpenConnectorSiteRequest as BindingsOpenConnectorSiteRequest,
+  StartConnectorConnectRequest as BindingsStartConnectorConnectRequest,
+  StartConnectorConnectResult as BindingsStartConnectorConnectResult,
   UpsertConnectorRequest as BindingsUpsertConnectorRequest,
 } from "../../../bindings/dreamcreator/internal/application/connectors/dto/models";
 
 export const CONNECTORS_QUERY_KEY = ["connectors"];
+export const CONNECTOR_CONNECT_SESSION_QUERY_KEY = ["connector-connect-session"];
 
 export function useConnectors() {
   return useQuery({
@@ -59,14 +74,34 @@ export function useClearConnector() {
   });
 }
 
-export function useConnectConnector() {
+export function useStartConnectorConnect() {
+  return useMutation({
+    mutationFn: async (request: StartConnectorConnectRequest): Promise<StartConnectorConnectResult> => {
+      return toStartConnectorConnectResult(
+        await StartConnectorConnectBinding(BindingsStartConnectorConnectRequest.createFrom(request))
+      );
+    },
+  });
+}
+
+export function useFinishConnectorConnect() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (request: ConnectConnectorRequest): Promise<Connector> => {
-      return toConnector(await ConnectConnectorBinding(BindingsConnectConnectorRequest.createFrom(request)));
+    mutationFn: async (request: FinishConnectorConnectRequest): Promise<FinishConnectorConnectResult> => {
+      return toFinishConnectorConnectResult(
+        await FinishConnectorConnectBinding(BindingsFinishConnectorConnectRequest.createFrom(request))
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CONNECTORS_QUERY_KEY });
+    },
+  });
+}
+
+export function useCancelConnectorConnect() {
+  return useMutation({
+    mutationFn: async (request: CancelConnectorConnectRequest): Promise<void> => {
+      await CancelConnectorConnectBinding(BindingsCancelConnectorConnectRequest.createFrom(request));
     },
   });
 }
@@ -79,11 +114,17 @@ export function useOpenConnectorSite() {
   });
 }
 
-export function useInstallPlaywright() {
-  return useMutation({
-    mutationFn: async (): Promise<void> => {
-      await InstallPlaywright();
+export function useConnectorConnectSession(request: GetConnectorConnectSessionRequest, enabled: boolean) {
+  return useQuery({
+    queryKey: [...CONNECTOR_CONNECT_SESSION_QUERY_KEY, request.sessionId],
+    enabled: enabled && request.sessionId.trim().length > 0,
+    queryFn: async (): Promise<ConnectorConnectSession> => {
+      return toConnectorConnectSession(
+        await GetConnectorConnectSessionBinding(BindingsGetConnectorConnectSessionRequest.createFrom(request))
+      );
     },
+    refetchInterval: 1000,
+    staleTime: 0,
   });
 }
 
@@ -91,5 +132,26 @@ function toConnector(raw: BindingsConnector): Connector {
   return {
     ...raw,
     cookies: raw.cookies.map((item) => ({ ...item })),
+  };
+}
+
+function toStartConnectorConnectResult(raw: BindingsStartConnectorConnectResult): StartConnectorConnectResult {
+  return {
+    ...raw,
+    connector: toConnector(raw.connector),
+  };
+}
+
+function toFinishConnectorConnectResult(raw: BindingsFinishConnectorConnectResult): FinishConnectorConnectResult {
+  return {
+    ...raw,
+    connector: toConnector(raw.connector),
+  };
+}
+
+function toConnectorConnectSession(raw: BindingsConnectorConnectSession): ConnectorConnectSession {
+  return {
+    ...raw,
+    connector: toConnector(raw.connector),
   };
 }

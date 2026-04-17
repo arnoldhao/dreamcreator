@@ -10,6 +10,7 @@ export type ToolRequirementStatus = {
   name: string;
   available: boolean;
   reason: string;
+  data?: unknown;
 };
 
 export type ToolItem = {

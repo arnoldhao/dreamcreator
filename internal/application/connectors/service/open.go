@@ -3,10 +3,10 @@ package service
 import (
 	"context"
 	"strings"
-	"time"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/chromedp/chromedp"
 
+	"dreamcreator/internal/application/browsercdp"
 	"dreamcreator/internal/application/connectors/dto"
 	"dreamcreator/internal/domain/connectors"
 )
@@ -28,52 +28,27 @@ func (service *ConnectorsService) OpenConnectorSite(ctx context.Context, request
 	if err != nil {
 		return err
 	}
-	return runPlaywrightOpenWithCookies(ctx, targetURL, cookies)
-}
-
-func runPlaywrightOpenWithCookies(ctx context.Context, targetURL string, cookies []cookieRecord) error {
-	pw, err := playwright.Run()
-	if err != nil {
-		return mapPlaywrightInstallError(err)
-	}
-	defer pw.Stop()
-
-	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-		Headless: playwright.Bool(false),
-	})
-	if err != nil {
-		return mapPlaywrightInstallError(err)
-	}
-	defer browser.Close()
-
-	browserCtx, err := browser.NewContext()
+	userDataDir := connectorOpenDir(connector.Type, service.newSessionID())
+	runtime, tabCtx, cancel, err := service.startBrowser(service.preferredBrowser(ctx), false, userDataDir)
 	if err != nil {
 		return err
 	}
-	if len(cookies) > 0 {
-		if err := browserCtx.AddCookies(toPlaywrightCookies(cookies, targetURL)); err != nil {
-			return err
+	defer cancel()
+	defer runtime.Stop()
+	defer func() {
+		if service.removeAll != nil {
+			_ = service.removeAll(userDataDir)
 		}
-	}
-	page, err := browserCtx.NewPage()
-	if err != nil {
+	}()
+
+	if err := chromedp.Run(tabCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+		return browsercdp.SetCookies(ctx, targetURL, cookies)
+	})); err != nil {
 		return err
 	}
-	if _, err := page.Goto(targetURL); err != nil {
+	if err := chromedp.Run(tabCtx, chromedp.Navigate(targetURL)); err != nil {
 		return err
 	}
-
-	closeTicker := time.NewTicker(500 * time.Millisecond)
-	defer closeTicker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-closeTicker.C:
-			if page.IsClosed() {
-				return nil
-			}
-		}
-	}
+	_, err = waitForConnectorTabClose(ctx, runtime, tabCtx, false, service.readCookies)
+	return err
 }

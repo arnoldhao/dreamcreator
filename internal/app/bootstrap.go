@@ -497,7 +497,7 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	startModelsDevCatalogSyncWorker(ctx, modelsDevCatalog)
 
 	connectorsRepo := connectorsrepo.NewSQLiteConnectorRepository(database.Bun)
-	connectorsService := connectorsservice.NewConnectorsService(connectorsRepo)
+	connectorsService := connectorsservice.NewConnectorsService(connectorsRepo, settingsService)
 	if err := connectorsService.EnsureDefaults(ctx); err != nil {
 		return nil, err
 	}

@@ -3,117 +3,24 @@ package tools
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
-	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	gatewaynodes "dreamcreator/internal/application/gateway/nodes"
-	"github.com/playwright-community/playwright-go"
+	"github.com/chromedp/cdproto/emulation"
+	pagepkg "github.com/chromedp/cdproto/page"
+	runtimepkg "github.com/chromedp/cdproto/runtime"
+	targetpkg "github.com/chromedp/cdproto/target"
+	"github.com/chromedp/chromedp"
+
+	"dreamcreator/internal/application/browsercdp"
 )
-
-const (
-	browserTypePlaywright = "playwright"
-	defaultBrowserType    = browserTypePlaywright
-
-	defaultBrowserWaitUntil = "domcontentloaded"
-
-	defaultBrowserSnapshotModeEfficient = "efficient"
-
-	defaultBrowserProfileDreamCreator = "dreamcreator"
-	defaultBrowserColor               = "#FF4500"
-
-	defaultBrowserSnapshotAIMaxChars          = 80000
-	defaultBrowserSnapshotAIEfficientMaxChars = 10000
-	defaultBrowserSnapshotDepth               = 6
-	defaultBrowserSnapshotLimit               = 200
-	defaultBrowserViewportWidth               = 1366
-	defaultBrowserViewportHeight              = 900
-
-	defaultBrowserHookTimeoutMs = 20000
-
-	browserRuntimeCheckCacheTTL = 10 * time.Second
-)
-
-var browserToolActions = []string{
-	"status",
-	"start",
-	"stop",
-	"profiles",
-	"tabs",
-	"open",
-	"focus",
-	"close",
-	"snapshot",
-	"screenshot",
-	"navigate",
-	"console",
-	"pdf",
-	"upload",
-	"dialog",
-	"act",
-}
-
-var browserSelectorUnsupportedMessage = strings.Join([]string{
-	"Error: 'selector' is not supported. Use 'ref' from snapshot instead.",
-	"",
-	"Example workflow:",
-	"1. snapshot action to get page state with refs",
-	`2. act with ref: "e123" to interact with element`,
-	"",
-	"This is more reliable for modern SPAs.",
-}, "\n")
-
-var browserWaitFnDisabledMessage = strings.Join([]string{
-	"wait --fn is disabled by config (browser.evaluateEnabled=false).",
-	"Docs: /gateway/configuration#browser-playwright-managed-browser",
-}, "\n")
-
-var browserEvaluateDisabledMessage = strings.Join([]string{
-	"act:evaluate is disabled by config (browser.evaluateEnabled=false).",
-	"Docs: /gateway/configuration#browser-playwright-managed-browser",
-}, "\n")
-
-var browserWaitRequiresConditionMessage = "wait requires at least one of: timeMs, text, textGone, selector, url, loadState, fn"
-
-var errBrowserSnapshotForAIUnavailable = errors.New("playwright snapshotForAI is unavailable")
-
-var browserActKinds = []string{
-	"click",
-	"type",
-	"press",
-	"hover",
-	"drag",
-	"select",
-	"fill",
-	"resize",
-	"wait",
-	"evaluate",
-	"close",
-}
-
-var browserPlaywrightRuntimeCache = struct {
-	mu        sync.Mutex
-	checkedAt time.Time
-	available bool
-	reason    string
-	execPath  string
-}{}
-
-var browserGlobalTabCounter uint64
 
 var globalBrowserSessions = struct {
 	mu       sync.Mutex
@@ -130,16 +37,13 @@ type browserSessionState struct {
 type browserProfileState struct {
 	mu sync.Mutex
 
+	sessionKey  string
 	profileName string
 	resolved    browserResolvedConfig
 	profile     browserProfileConfig
-
-	pw      *playwright.Playwright
-	browser playwright.Browser
-	context playwright.BrowserContext
+	runtime     *browsercdp.Runtime
 
 	tabs         map[string]*browserTabState
-	pageToTarget map[playwright.Page]string
 	activeTarget string
 
 	consoleMessages []browserConsoleMessage
@@ -149,11 +53,13 @@ type browserProfileState struct {
 
 type browserTabState struct {
 	TargetID string
-	Page     playwright.Page
+	ctx      context.Context
+	cancel   context.CancelFunc
 
 	mu             sync.RWMutex
 	refs           map[string]browserSnapshotRef
 	evaluateResult any
+	lastURL        string
 }
 
 type browserSnapshotRef struct {
@@ -179,40 +85,18 @@ type browserPendingUpload struct {
 }
 
 type browserPendingDialog struct {
-	Accept     bool
-	PromptText string
-	ExpiresAt  time.Time
+	Accept     bool      `json:"accept"`
+	PromptText string    `json:"promptText,omitempty"`
+	Message    string    `json:"message,omitempty"`
+	Type       string    `json:"type,omitempty"`
+	ExpiresAt  time.Time `json:"expiresAt"`
 }
 
-type browserResolvedConfig struct {
-	Enabled                     bool
-	EvaluateEnabled             bool
-	CDPURL                      string
-	RemoteCdpTimeoutMs          int
-	RemoteCdpHandshakeTimeoutMs int
-	Color                       string
-	Headless                    bool
-	NoSandbox                   bool
-	AttachOnly                  bool
-	DefaultProfile              string
-	Profiles                    map[string]browserProfileConfig
-	SnapshotDefaultMode         string
-	SSRFRules                   browserSSRFPolicy
-	ExtraArgs                   []string
-}
-
-type browserProfileConfig struct {
-	Name    string
-	CDPURL  string
-	CDPPort int
-	Color   string
-	Driver  string
-}
-
-type browserSSRFPolicy struct {
-	DangerouslyAllowPrivateNetwork bool
-	AllowedHostnames               map[string]struct{}
-	HostnameAllowlist              []string
+type browserSnapshotJSItem struct {
+	Selector string `json:"selector"`
+	Role     string `json:"role"`
+	Name     string `json:"name"`
+	Text     string `json:"text"`
 }
 
 func runBrowserTool(settings SettingsReader, connectors ConnectorsReader, nodes *gatewaynodes.Service) func(ctx context.Context, args string) (string, error) {
@@ -221,7 +105,6 @@ func runBrowserTool(settings SettingsReader, connectors ConnectorsReader, nodes 
 		if err != nil {
 			return "", err
 		}
-
 		action, err := resolveBrowserAction(payload)
 		if err != nil {
 			return "", err
@@ -229,17 +112,14 @@ func runBrowserTool(settings SettingsReader, connectors ConnectorsReader, nodes 
 		if isBrowserNodeTargetRequest(payload) {
 			return runBrowserActionOnNode(ctx, payload, action, nodes)
 		}
-
 		toolsConfig := resolveToolsConfig(ctx, settings)
 		resolved := resolveBrowserRuntimeConfig(toolsConfig)
 		if !resolved.Enabled {
 			return "", errors.New("browser disabled")
 		}
-
 		profileName := resolveBrowserProfileName(payload, resolved)
 		sessionKey := resolveBrowserSessionKey(ctx, payload)
 		state := getOrCreateBrowserProfileState(sessionKey, profileName, resolved)
-
 		result, err := runBrowserAction(ctx, payload, action, state, connectors)
 		if err != nil {
 			return "", err
@@ -248,267 +128,87 @@ func runBrowserTool(settings SettingsReader, connectors ConnectorsReader, nodes 
 	}
 }
 
-func resolveBrowserAction(payload toolArgs) (string, error) {
-	rawAction := strings.ToLower(strings.TrimSpace(getStringArg(payload, "action", "method")))
-	if rawAction == "" {
-		if getStringArg(payload, "targetUrl", "url") != "" {
-			rawAction = "open"
-		} else {
-			rawAction = "status"
-		}
-	}
-	switch rawAction {
-	case "navigate", "status", "start", "stop", "profiles", "tabs", "open", "focus", "close", "snapshot", "screenshot", "console", "pdf", "upload", "dialog", "act":
-		return rawAction, nil
-	default:
-		return "", errors.New("browser action not supported: " + rawAction)
-	}
-}
+func getOrCreateBrowserProfileState(sessionKey string, profileName string, resolved browserResolvedConfig) *browserProfileState {
+	globalBrowserSessions.mu.Lock()
+	defer globalBrowserSessions.mu.Unlock()
 
-func isBrowserNodeTargetRequest(payload toolArgs) bool {
-	target := strings.ToLower(strings.TrimSpace(getStringArg(payload, "target")))
-	nodeID := strings.TrimSpace(getStringArg(payload, "node", "nodeId"))
-	if target == "node" {
-		return true
-	}
-	return nodeID != ""
-}
-
-func resolveBrowserNodeID(ctx context.Context, payload toolArgs, nodes *gatewaynodes.Service) (string, error) {
-	requestedNode := strings.TrimSpace(getStringArg(payload, "node", "nodeId"))
-	if requestedNode != "" {
-		return requestedNode, nil
-	}
-	if nodes == nil {
-		return "", errors.New("nodes service unavailable")
-	}
-	list, err := nodes.ListNodes(ctx)
-	if err != nil {
-		return "", err
-	}
-	for _, descriptor := range list {
-		nodeID := strings.TrimSpace(descriptor.NodeID)
-		if nodeID == "" {
-			continue
-		}
-		for _, capability := range descriptor.Capabilities {
-			if strings.EqualFold(strings.TrimSpace(capability.Name), "browser.control") {
-				return nodeID, nil
-			}
-		}
-	}
-	for _, descriptor := range list {
-		nodeID := strings.TrimSpace(descriptor.NodeID)
-		if nodeID != "" {
-			return nodeID, nil
-		}
-	}
-	return "", errors.New("nodeId is required")
-}
-
-func runBrowserActionOnNode(ctx context.Context, payload toolArgs, action string, nodes *gatewaynodes.Service) (string, error) {
-	if nodes == nil {
-		return "", errors.New("nodes service unavailable")
-	}
-	target := strings.ToLower(strings.TrimSpace(getStringArg(payload, "target")))
-	if target != "" && target != "node" {
-		return "", errors.New(`node is only supported with target="node"`)
-	}
-	nodeID, err := resolveBrowserNodeID(ctx, payload, nodes)
-	if err != nil {
-		return "", err
-	}
-	argsJSON, err := json.Marshal(payload)
-	if err != nil {
-		return "", err
-	}
-	request := gatewaynodes.NodeInvokeRequest{
-		NodeID:     nodeID,
-		Capability: "browser.control",
-		Action:     action,
-		Args:       string(argsJSON),
-		TimeoutMs:  resolveBrowserActionTimeoutMs(payload, 30000),
-	}
-	result, invokeErr := nodes.Invoke(ctx, request)
-	if invokeErr != nil {
-		return marshalResult(result), invokeErr
-	}
-	if !result.Ok {
-		if strings.TrimSpace(result.Error) != "" {
-			return marshalResult(result), errors.New(strings.TrimSpace(result.Error))
-		}
-		return marshalResult(result), errors.New("node browser invoke failed")
-	}
-	if parsed := resolveBrowserNodeOutput(result.Output); parsed != nil {
-		return marshalResult(parsed), nil
-	}
-	return marshalResult(result), nil
-}
-
-type browserNodeProxyEnvelope struct {
-	Result any                    `json:"result"`
-	Files  []browserNodeProxyFile `json:"files"`
-}
-
-type browserNodeProxyFile struct {
-	Path     string `json:"path"`
-	Base64   string `json:"base64"`
-	MimeType string `json:"mimeType"`
-}
-
-func resolveBrowserNodeOutput(output string) any {
-	trimmedOutput := strings.TrimSpace(output)
-	if trimmedOutput == "" {
-		return nil
-	}
-	var parsed any
-	if err := json.Unmarshal([]byte(trimmedOutput), &parsed); err != nil {
-		return nil
-	}
-
-	envelope := browserNodeProxyEnvelope{}
-	if err := json.Unmarshal([]byte(trimmedOutput), &envelope); err == nil && envelope.Result != nil {
-		mapping := persistBrowserNodeProxyFiles(envelope.Files)
-		applyBrowserProxyPathMapping(envelope.Result, mapping)
-		return envelope.Result
-	}
-	return parsed
-}
-
-func persistBrowserNodeProxyFiles(files []browserNodeProxyFile) map[string]string {
-	if len(files) == 0 {
-		return nil
-	}
-	mapping := map[string]string{}
-	for _, file := range files {
-		remotePath := strings.TrimSpace(file.Path)
-		encoded := strings.TrimSpace(file.Base64)
-		if remotePath == "" || encoded == "" {
-			continue
-		}
-		bytes, err := base64.StdEncoding.DecodeString(encoded)
-		if err != nil {
-			continue
-		}
-		localPath, err := saveBrowserArtifact(resolveBrowserProxyFileExt(file), bytes)
-		if err != nil {
-			continue
-		}
-		mapping[remotePath] = localPath
-	}
-	if len(mapping) == 0 {
-		return nil
-	}
-	return mapping
-}
-
-func resolveBrowserProxyFileExt(file browserNodeProxyFile) string {
-	ext := strings.TrimSpace(strings.TrimPrefix(filepath.Ext(strings.TrimSpace(file.Path)), "."))
-	if ext != "" {
-		return ext
-	}
-	mimeType := strings.ToLower(strings.TrimSpace(file.MimeType))
-	switch {
-	case strings.Contains(mimeType, "png"):
-		return "png"
-	case strings.Contains(mimeType, "jpeg"), strings.Contains(mimeType, "jpg"):
-		return "jpg"
-	case strings.Contains(mimeType, "pdf"):
-		return "pdf"
-	case strings.Contains(mimeType, "json"):
-		return "json"
-	case strings.Contains(mimeType, "text"), strings.Contains(mimeType, "plain"):
-		return "txt"
-	default:
-		return "bin"
-	}
-}
-
-func applyBrowserProxyPathMapping(result any, mapping map[string]string) {
-	if len(mapping) == 0 || result == nil {
-		return
-	}
-	obj, ok := result.(map[string]any)
+	session, ok := globalBrowserSessions.sessions[sessionKey]
 	if !ok {
-		return
-	}
-	if pathValue, ok := obj["path"].(string); ok {
-		if mapped, exists := mapping[pathValue]; exists {
-			obj["path"] = mapped
+		session = &browserSessionState{
+			sessionKey: sessionKey,
+			profiles:   map[string]*browserProfileState{},
 		}
+		globalBrowserSessions.sessions[sessionKey] = session
 	}
-	if imagePathValue, ok := obj["imagePath"].(string); ok {
-		if mapped, exists := mapping[imagePathValue]; exists {
-			obj["imagePath"] = mapped
+	state, ok := session.profiles[profileName]
+	if !ok {
+		state = &browserProfileState{
+			sessionKey:      sessionKey,
+			profileName:     profileName,
+			resolved:        resolved,
+			profile:         resolved.Profiles[profileName],
+			tabs:            map[string]*browserTabState{},
+			pendingUploads:  map[string]browserPendingUpload{},
+			pendingDialogs:  map[string]browserPendingDialog{},
+			consoleMessages: nil,
 		}
+		session.profiles[profileName] = state
+		return state
 	}
-	if downloadRaw, exists := obj["download"]; exists {
-		if downloadObj, ok := downloadRaw.(map[string]any); ok {
-			if pathValue, ok := downloadObj["path"].(string); ok {
-				if mapped, exists := mapping[pathValue]; exists {
-					downloadObj["path"] = mapped
-				}
-			}
-		}
+	state.mu.Lock()
+	state.resolved = resolved
+	if profile, exists := resolved.Profiles[profileName]; exists {
+		state.profile = profile
 	}
+	state.mu.Unlock()
+	return state
 }
 
-func resolveBrowserSessionKey(ctx context.Context, payload toolArgs) string {
-	sessionKey, _ := RuntimeContextFromContext(ctx)
-	sessionKey = strings.TrimSpace(sessionKey)
-	if sessionKey == "" {
-		sessionKey = strings.TrimSpace(getStringArg(payload, "sessionKey", "session_key"))
-	}
-	if sessionKey == "" {
-		sessionKey = "default"
-	}
-	return sessionKey
-}
-
-func runBrowserAction(
-	ctx context.Context,
-	payload toolArgs,
-	action string,
-	state *browserProfileState,
-	connectors ConnectorsReader,
-) (any, error) {
+func runBrowserAction(ctx context.Context, payload toolArgs, action string, state *browserProfileState, connectors ConnectorsReader) (map[string]any, error) {
 	switch action {
 	case "status":
-		return browserActionStatus(state)
+		return browserActionStatus(state), nil
 	case "start":
 		if err := ensureBrowserProfileStarted(state); err != nil {
 			return nil, err
 		}
-		return browserActionStatus(state)
+		return browserActionStatus(state), nil
 	case "stop":
-		if err := stopBrowserProfile(state); err != nil {
-			return nil, err
-		}
-		return browserActionStatus(state)
+		stopBrowserProfile(state)
+		return browserActionStatus(state), nil
 	case "profiles":
-		return browserActionProfiles(state), nil
+		return map[string]any{
+			"profiles": []map[string]any{
+				{
+					"name":    state.profileName,
+					"color":   state.profile.Color,
+					"driver":  state.profile.Driver,
+					"default": state.profileName == state.resolved.DefaultProfile,
+				},
+			},
+		}, nil
 	case "tabs":
-		return browserActionTabs(state)
+		return browserActionTabs(state), nil
 	case "open":
 		return browserActionOpen(ctx, payload, state, connectors)
-	case "focus":
-		return browserActionFocus(payload, state)
-	case "close":
-		return browserActionClose(payload, state)
-	case "snapshot":
-		return browserActionSnapshot(payload, state)
-	case "screenshot":
-		return browserActionScreenshot(payload, state)
 	case "navigate":
 		return browserActionNavigate(ctx, payload, state, connectors)
+	case "focus":
+		return browserActionFocus(ctx, payload, state)
+	case "close":
+		return browserActionClose(ctx, payload, state)
+	case "snapshot":
+		return browserActionSnapshot(ctx, payload, state)
+	case "screenshot":
+		return browserActionScreenshot(ctx, payload, state)
 	case "console":
-		return browserActionConsole(payload, state)
+		return browserActionConsole(payload, state), nil
 	case "pdf":
-		return browserActionPDF(payload, state)
+		return browserActionPDF(ctx, payload, state)
 	case "upload":
-		return browserActionUpload(payload, state)
+		return browserActionUpload(ctx, payload, state)
 	case "dialog":
-		return browserActionDialog(payload, state)
+		return browserActionDialog(ctx, payload, state)
 	case "act":
 		return browserActionAct(payload, state)
 	default:
@@ -516,533 +216,97 @@ func runBrowserAction(
 	}
 }
 
-func browserActionStatus(state *browserProfileState) (map[string]any, error) {
-	available, reason, execPath := resolveBrowserPlaywrightRuntimeAvailability()
-
+func browserActionStatus(state *browserProfileState) map[string]any {
 	state.mu.Lock()
 	defer state.mu.Unlock()
-	pruneClosedTabsLocked(state)
 
-	running := state.browser != nil && state.context != nil
-	detectedPath := any(nil)
-	if strings.TrimSpace(execPath) != "" {
-		detectedPath = strings.TrimSpace(execPath)
+	status := resolveBrowserRuntimeAvailability(state.resolved.PreferredBrowser, state.resolved.Headless)
+	if state.runtime != nil {
+		status = state.runtime.Status()
 	}
-	detectError := any(nil)
-	if !available && strings.TrimSpace(reason) != "" {
-		detectError = strings.TrimSpace(reason)
-	}
-	chosenBrowser := any(nil)
-	if running {
-		chosenBrowser = "chromium"
-	}
-
 	return map[string]any{
-		"enabled":                state.resolved.Enabled,
+		"ok":                     status.Ready,
+		"cdpReady":               status.Ready,
+		"ready":                  status.Ready,
+		"candidates":             status.Candidates,
+		"selectedBrowser":        status.SelectedBrowser,
+		"chosenBrowser":          status.ChosenBrowser,
+		"detectedExecutablePath": status.DetectedExecutablePath,
+		"detectError":            status.DetectError,
+		"cdpUrl":                 status.CDPURL,
+		"cdpPort":                status.CDPPort,
+		"headless":               status.Headless,
 		"profile":                state.profileName,
-		"running":                running,
-		"cdpReady":               false,
-		"cdpHttp":                false,
-		"pid":                    nil,
-		"cdpPort":                nil,
-		"cdpUrl":                 nil,
-		"chosenBrowser":          chosenBrowser,
-		"detectedBrowser":        "chromium",
-		"detectedExecutablePath": detectedPath,
-		"detectError":            detectError,
-		"userDataDir":            nil,
-		"color":                  state.profile.Color,
-		"headless":               state.resolved.Headless,
-		"noSandbox":              state.resolved.NoSandbox,
-		"executablePath":         detectedPath,
-		"attachOnly":             false,
 		"tabCount":               len(state.tabs),
-		"activeTargetId":         state.activeTarget,
-	}, nil
+	}
 }
 
-func browserActionProfiles(state *browserProfileState) map[string]any {
+func browserActionTabs(state *browserProfileState) map[string]any {
 	state.mu.Lock()
 	defer state.mu.Unlock()
-	pruneClosedTabsLocked(state)
-
-	names := make([]string, 0, len(state.resolved.Profiles))
-	for name := range state.resolved.Profiles {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	profiles := make([]map[string]any, 0, len(names))
-	for _, name := range names {
-		cfg := state.resolved.Profiles[name]
-		isCurrent := name == state.profileName
-		running := isCurrent && state.browser != nil && state.context != nil
-		tabCount := 0
-		if isCurrent {
-			tabCount = len(state.tabs)
-		}
-		profiles = append(profiles, map[string]any{
-			"name":      name,
-			"cdpPort":   cfg.CDPPort,
-			"cdpUrl":    cfg.CDPURL,
-			"color":     cfg.Color,
-			"running":   running,
-			"tabCount":  tabCount,
-			"isDefault": name == state.resolved.DefaultProfile,
-			"isRemote":  cfg.CDPURL != "",
+	items := make([]map[string]any, 0, len(state.tabs))
+	for _, tab := range state.tabs {
+		tab.mu.RLock()
+		items = append(items, map[string]any{
+			"targetId": tab.TargetID,
+			"url":      tab.lastURL,
+			"active":   tab.TargetID == state.activeTarget,
 		})
+		tab.mu.RUnlock()
 	}
-
-	return map[string]any{"profiles": profiles}
-}
-
-func browserActionTabs(state *browserProfileState) (map[string]any, error) {
-	state.mu.Lock()
-	running := state.browser != nil && state.context != nil
-	state.mu.Unlock()
-	if !running {
-		return map[string]any{"running": false, "tabs": []any{}}, nil
-	}
-
-	tabs, err := listBrowserTabs(state)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]any{"running": true, "tabs": tabs}, nil
+	sort.Slice(items, func(i, j int) bool {
+		return fmt.Sprint(items[i]["targetId"]) < fmt.Sprint(items[j]["targetId"])
+	})
+	return map[string]any{"tabs": items, "activeTarget": state.activeTarget}
 }
 
 func browserActionOpen(ctx context.Context, payload toolArgs, state *browserProfileState, connectors ConnectorsReader) (map[string]any, error) {
-	targetURL := getStringArg(payload, "targetUrl", "url")
-	if targetURL == "" {
-		return nil, errors.New("targetUrl is required")
-	}
+	targetURL := strings.TrimSpace(getStringArg(payload, "targetUrl", "url"))
 	if err := assertBrowserURLAllowed(targetURL, state.resolved.SSRFRules); err != nil {
 		return nil, err
 	}
-	if err := ensureBrowserProfileStarted(state); err != nil {
+	tab, err := createBrowserTab(state)
+	if err != nil {
 		return nil, err
 	}
-
+	if err := addConnectorCookiesToTab(ctx, connectors, tab, targetURL); err != nil {
+		return nil, err
+	}
+	if err := navigateBrowserTab(tab, targetURL, resolveBrowserActionTimeoutMs(payload, 30000)); err != nil {
+		return nil, err
+	}
 	state.mu.Lock()
-	browserCtx := state.context
+	state.activeTarget = tab.TargetID
 	state.mu.Unlock()
-	if browserCtx == nil {
-		return nil, errors.New("browser context unavailable")
-	}
-
-	if err := addConnectorCookiesToContext(ctx, connectors, browserCtx, targetURL); err != nil {
-		return nil, err
-	}
-
-	page, err := browserCtx.NewPage()
-	if err != nil {
-		return nil, err
-	}
-	if _, err := page.Goto(strings.TrimSpace(targetURL), playwright.PageGotoOptions{
-		Timeout:   playwright.Float(float64(resolveBrowserActionTimeoutMs(payload, 30000))),
-		WaitUntil: resolveBrowserWaitUntilState(resolveBrowserWaitUntil(payload, defaultBrowserWaitUntil)),
-	}); err != nil {
-		_ = page.Close()
-		return nil, err
-	}
-
-	tab := attachBrowserTab(state, page)
-	title, _ := page.Title()
-	urlValue := strings.TrimSpace(page.URL())
-	if urlValue == "" {
-		urlValue = strings.TrimSpace(targetURL)
-	}
-	if err := assertBrowserURLAllowed(urlValue, state.resolved.SSRFRules); err != nil {
-		return nil, err
-	}
-
-	return map[string]any{
-		"targetId": tab.TargetID,
-		"title":    strings.TrimSpace(title),
-		"url":      urlValue,
-		"type":     "page",
-	}, nil
-}
-
-func browserActionFocus(payload toolArgs, state *browserProfileState) (map[string]any, error) {
-	targetID := strings.TrimSpace(getStringArg(payload, "targetId"))
-	if targetID == "" {
-		return nil, errors.New("targetId is required")
-	}
-	tab, err := resolveBrowserTab(state, targetID, false)
-	if err != nil {
-		return nil, err
-	}
-	if err := tab.Page.BringToFront(); err != nil {
-		return nil, err
-	}
-	return map[string]any{"ok": true, "targetId": tab.TargetID}, nil
-}
-
-func browserActionClose(payload toolArgs, state *browserProfileState) (map[string]any, error) {
-	targetID := strings.TrimSpace(getStringArg(payload, "targetId"))
-	tab, err := resolveBrowserTab(state, targetID, false)
-	if err != nil {
-		return nil, err
-	}
-	if err := tab.Page.Close(); err != nil {
-		return nil, err
-	}
-
-	state.mu.Lock()
-	delete(state.tabs, tab.TargetID)
-	delete(state.pageToTarget, tab.Page)
-	if state.activeTarget == tab.TargetID {
-		state.activeTarget = ""
-	}
-	pruneClosedTabsLocked(state)
-	state.mu.Unlock()
-
-	return map[string]any{"ok": true, "targetId": tab.TargetID}, nil
-}
-
-func browserActionSnapshot(payload toolArgs, state *browserProfileState) (map[string]any, error) {
-	if err := ensureBrowserProfileStarted(state); err != nil {
-		return nil, err
-	}
-	targetID := strings.TrimSpace(getStringArg(payload, "targetId"))
-	tab, err := resolveBrowserTab(state, targetID, true)
-	if err != nil {
-		return nil, err
-	}
-
-	format := strings.ToLower(strings.TrimSpace(getStringArg(payload, "snapshotFormat", "format")))
-	if format != "aria" {
-		format = "ai"
-	}
-	refsMode := strings.ToLower(strings.TrimSpace(getStringArg(payload, "refs")))
-	if refsMode != "aria" {
-		refsMode = "role"
-	}
-	mode := strings.ToLower(strings.TrimSpace(getStringArg(payload, "mode")))
-	if mode == "" {
-		mode = strings.TrimSpace(state.resolved.SnapshotDefaultMode)
-	}
-	if mode != defaultBrowserSnapshotModeEfficient {
-		mode = ""
-	}
-	labels, _ := getBoolArg(payload, "labels")
-	if format == "aria" && (labels || mode == defaultBrowserSnapshotModeEfficient) {
-		return nil, errors.New("labels/mode=efficient require format=ai")
-	}
-
-	interactive, hasInteractive := getBoolArg(payload, "interactive")
-	if !hasInteractive {
-		interactive = mode == defaultBrowserSnapshotModeEfficient
-	}
-	compact, hasCompact := getBoolArg(payload, "compact")
-	if !hasCompact {
-		compact = mode == defaultBrowserSnapshotModeEfficient
-	}
-
-	depth, hasDepth := getIntArg(payload, "depth")
-	if hasDepth && depth <= 0 {
-		hasDepth = false
-	}
-	if !hasDepth && mode == defaultBrowserSnapshotModeEfficient {
-		depth = defaultBrowserSnapshotDepth
-		hasDepth = true
-	}
-
-	limit, ok := getIntArg(payload, "limit")
-	if !ok || limit <= 0 {
-		limit = defaultBrowserSnapshotLimit
-	}
-
-	maxChars := 0
-	_, hasMaxChars := payload["maxChars"]
-	if value, ok := getIntArg(payload, "maxChars"); ok && value > 0 {
-		maxChars = value
-	}
-	if format == "ai" && !hasMaxChars {
-		if mode == defaultBrowserSnapshotModeEfficient {
-			maxChars = defaultBrowserSnapshotAIEfficientMaxChars
-		} else {
-			maxChars = defaultBrowserSnapshotAIMaxChars
-		}
-	}
-
-	selector := strings.TrimSpace(getStringArg(payload, "selector"))
-	frameSelector := strings.TrimSpace(getStringArg(payload, "frame"))
-	if refsMode == "aria" && (selector != "" || frameSelector != "") {
-		return nil, errors.New("refs=aria does not support selector/frame snapshots yet")
-	}
-
-	maxDepth := 0
-	if hasDepth {
-		maxDepth = depth
-	}
-	wantsRoleSnapshot := labels ||
-		mode == defaultBrowserSnapshotModeEfficient ||
-		interactive ||
-		compact ||
-		hasDepth ||
-		selector != "" ||
-		frameSelector != ""
-	if format == "ai" && !wantsRoleSnapshot {
-		aiResult, aiErr := collectBrowserAISnapshot(tab.Page, maxChars)
-		if aiErr == nil {
-			state.mu.Lock()
-			tab.refs = aiResult.Refs
-			state.mu.Unlock()
-
-			result := map[string]any{
-				"ok":        true,
-				"format":    "ai",
-				"targetId":  tab.TargetID,
-				"url":       strings.TrimSpace(tab.Page.URL()),
-				"snapshot":  aiResult.Snapshot,
-				"truncated": aiResult.Truncated,
-				"refs":      aiResult.RefsJSON,
-				"stats":     aiResult.Stats,
-			}
-			return result, nil
-		}
-		if !isBrowserSnapshotForAIUnavailable(aiErr) {
-			return nil, aiErr
-		}
-	}
-
-	items, err := collectBrowserSnapshotItems(tab.Page, selector, frameSelector, interactive, limit, refsMode, maxDepth)
-	if err != nil {
-		return nil, err
-	}
-
-	refs := make(map[string]browserSnapshotRef, len(items))
-	refsJSON := make(map[string]map[string]any, len(items))
-	lines := make([]string, 0, len(items))
-	nodes := make([]map[string]any, 0, len(items))
-	interactiveCount := 0
-	for index, item := range items {
-		if index >= limit {
-			break
-		}
-		ref := strings.TrimSpace(item.Ref)
-		if ref == "" {
-			ref = fmt.Sprintf("e%d", index+1)
-		}
-		entryMode := refsMode
-		if entryMode == "aria" && strings.TrimSpace(item.AriaRef) == "" {
-			entryMode = "role"
-		}
-		entry := browserSnapshotRef{
-			Role:    item.Role,
-			Name:    item.Name,
-			Nth:     item.Nth,
-			Mode:    entryMode,
-			AriaRef: item.AriaRef,
-			Frame:   frameSelector,
-		}
-		refs[ref] = entry
-		refsJSON[ref] = map[string]any{
-			"role": entry.Role,
-			"name": entry.Name,
-		}
-		if entry.Nth > 0 {
-			refsJSON[ref]["nth"] = entry.Nth
-		}
-		if isBrowserInteractiveRole(entry.Role) {
-			interactiveCount += 1
-		}
-		line := fmt.Sprintf("[%s] role=%s name=%s", ref, entry.Role, entry.Name)
-		if !compact && strings.TrimSpace(item.Text) != "" {
-			line += " text=" + trimToMaxChars(item.Text, 120)
-		}
-		lines = append(lines, line)
-		nodeDepth := item.Depth
-		if maxDepth > 0 {
-			nodeDepth = minInt(nodeDepth, maxDepth)
-		}
-		nodes = append(nodes, map[string]any{
-			"ref":   ref,
-			"role":  entry.Role,
-			"name":  entry.Name,
-			"depth": nodeDepth,
-		})
-	}
-
-	state.mu.Lock()
-	tab.refs = refs
-	state.mu.Unlock()
-
-	if format == "aria" {
-		result := map[string]any{
-			"ok":       true,
-			"format":   "aria",
-			"targetId": tab.TargetID,
-			"url":      strings.TrimSpace(tab.Page.URL()),
-			"nodes":    nodes,
-		}
-		return result, nil
-	}
-
-	snapshot := strings.Join(lines, "\n")
-	truncated := false
-	if maxChars > 0 && len(snapshot) > maxChars {
-		snapshot = trimToMaxChars(snapshot, maxChars)
-		truncated = true
-	}
-
-	result := map[string]any{
-		"ok":        true,
-		"format":    "ai",
-		"targetId":  tab.TargetID,
-		"url":       strings.TrimSpace(tab.Page.URL()),
-		"snapshot":  snapshot,
-		"truncated": truncated,
-		"refs":      refsJSON,
-		"stats": map[string]any{
-			"lines":       len(lines),
-			"chars":       len(snapshot),
-			"refs":        len(refsJSON),
-			"interactive": interactiveCount,
-		},
-	}
-
-	if labels {
-		img, err := tab.Page.Screenshot(playwright.PageScreenshotOptions{Type: playwright.ScreenshotTypePng})
-		if err == nil {
-			path, writeErr := saveBrowserArtifact("png", img)
-			if writeErr == nil {
-				result["labels"] = true
-				result["imagePath"] = path
-				result["imageType"] = "png"
-			}
-		}
-	}
-
-	return result, nil
-}
-
-func browserActionScreenshot(payload toolArgs, state *browserProfileState) (map[string]any, error) {
-	if err := ensureBrowserProfileStarted(state); err != nil {
-		return nil, err
-	}
-	targetID := strings.TrimSpace(getStringArg(payload, "targetId"))
-	tab, err := resolveBrowserTab(state, targetID, true)
-	if err != nil {
-		return nil, err
-	}
-
-	imageType := strings.ToLower(strings.TrimSpace(getStringArg(payload, "type")))
-	if imageType != "jpeg" {
-		imageType = "png"
-	}
-
-	fullPage, _ := getBoolArg(payload, "fullPage")
-	ref := strings.TrimSpace(getStringArg(payload, "ref"))
-	element := strings.TrimSpace(getStringArg(payload, "element"))
-	if fullPage && (ref != "" || element != "") {
-		return nil, errors.New("fullPage is not supported for element screenshots")
-	}
-
-	var bytes []byte
-	if ref != "" {
-		locator, err := resolveBrowserRefLocator(tab, ref)
-		if err != nil {
-			return nil, err
-		}
-		bytes, err = locator.Screenshot(playwright.LocatorScreenshotOptions{
-			Type:    toPlaywrightScreenshotType(imageType),
-			Timeout: playwright.Float(float64(resolveBrowserActionTimeoutMs(payload, 15000))),
-		})
-		if err != nil {
-			return nil, err
-		}
-	} else if element != "" {
-		locator := tab.Page.Locator(strings.TrimSpace(element))
-		bytes, err = locator.Screenshot(playwright.LocatorScreenshotOptions{
-			Type:    toPlaywrightScreenshotType(imageType),
-			Timeout: playwright.Float(float64(resolveBrowserActionTimeoutMs(payload, 15000))),
-		})
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		bytes, err = tab.Page.Screenshot(playwright.PageScreenshotOptions{
-			Type:     toPlaywrightScreenshotType(imageType),
-			FullPage: playwright.Bool(fullPage),
-			Timeout:  playwright.Float(float64(resolveBrowserActionTimeoutMs(payload, 15000))),
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	path, err := saveBrowserArtifact(imageType, bytes)
-	if err != nil {
-		return nil, err
-	}
 	return map[string]any{
 		"ok":       true,
-		"path":     path,
 		"targetId": tab.TargetID,
-		"url":      strings.TrimSpace(tab.Page.URL()),
+		"url":      browserTabURL(tab),
 	}, nil
 }
 
 func browserActionNavigate(ctx context.Context, payload toolArgs, state *browserProfileState, connectors ConnectorsReader) (map[string]any, error) {
-	targetURL := getStringArg(payload, "targetUrl", "url")
-	if targetURL == "" {
-		return nil, errors.New("targetUrl is required")
-	}
+	targetURL := strings.TrimSpace(getStringArg(payload, "targetUrl", "url"))
 	if err := assertBrowserURLAllowed(targetURL, state.resolved.SSRFRules); err != nil {
 		return nil, err
 	}
 	if err := ensureBrowserProfileStarted(state); err != nil {
 		return nil, err
 	}
-
-	targetID := strings.TrimSpace(getStringArg(payload, "targetId"))
-	tab, err := resolveBrowserTab(state, targetID, true)
+	tab, err := resolveBrowserTab(state, strings.TrimSpace(getStringArg(payload, "targetId")), true)
 	if err != nil {
 		return nil, err
 	}
-
-	state.mu.Lock()
-	browserCtx := state.context
-	state.mu.Unlock()
-	if browserCtx != nil {
-		if err := addConnectorCookiesToContext(ctx, connectors, browserCtx, targetURL); err != nil {
-			return nil, err
-		}
-	}
-
-	resp, err := tab.Page.Goto(strings.TrimSpace(targetURL), playwright.PageGotoOptions{
-		Timeout:   playwright.Float(float64(resolveBrowserActionTimeoutMs(payload, 30000))),
-		WaitUntil: resolveBrowserWaitUntilState(resolveBrowserWaitUntil(payload, defaultBrowserWaitUntil)),
-	})
-	if err != nil {
+	if err := addConnectorCookiesToTab(ctx, connectors, tab, targetURL); err != nil {
 		return nil, err
 	}
-
-	finalURL := strings.TrimSpace(tab.Page.URL())
-	if finalURL == "" {
-		finalURL = strings.TrimSpace(targetURL)
-	}
-	if err := assertBrowserURLAllowed(finalURL, state.resolved.SSRFRules); err != nil {
+	if err := navigateBrowserTab(tab, targetURL, resolveBrowserActionTimeoutMs(payload, 30000)); err != nil {
 		return nil, err
 	}
-
-	status := http.StatusOK
-	if resp != nil {
-		status = resp.Status()
-	}
-
-	return map[string]any{
-		"ok":       true,
-		"targetId": tab.TargetID,
-		"url":      finalURL,
-		"status":   status,
-	}, nil
+	return map[string]any{"ok": true, "targetId": tab.TargetID, "url": browserTabURL(tab)}, nil
 }
 
-func browserActionConsole(payload toolArgs, state *browserProfileState) (map[string]any, error) {
+func browserActionFocus(ctx context.Context, payload toolArgs, state *browserProfileState) (map[string]any, error) {
 	if err := ensureBrowserProfileStarted(state); err != nil {
 		return nil, err
 	}
@@ -1051,135 +315,215 @@ func browserActionConsole(payload toolArgs, state *browserProfileState) (map[str
 	if err != nil {
 		return nil, err
 	}
+	if err := chromedp.Run(tab.ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		return targetpkg.ActivateTarget(targetpkg.ID(tab.TargetID)).Do(ctx)
+	})); err != nil {
+		return nil, err
+	}
+	state.mu.Lock()
+	state.activeTarget = tab.TargetID
+	state.mu.Unlock()
+	return map[string]any{"ok": true, "targetId": tab.TargetID}, nil
+}
 
-	level := strings.ToLower(strings.TrimSpace(getStringArg(payload, "level")))
+func browserActionClose(_ context.Context, payload toolArgs, state *browserProfileState) (map[string]any, error) {
+	if err := ensureBrowserProfileStarted(state); err != nil {
+		return nil, err
+	}
+	targetID := strings.TrimSpace(getStringArg(payload, "targetId"))
+	tab, err := resolveBrowserTab(state, targetID, false)
+	if err != nil {
+		return nil, err
+	}
+	tab.cancel()
+	_ = chromedp.Run(state.runtime.BrowserContext(), chromedp.ActionFunc(func(ctx context.Context) error {
+		return targetpkg.CloseTarget(targetpkg.ID(tab.TargetID)).Do(ctx)
+	}))
+	state.mu.Lock()
+	delete(state.tabs, tab.TargetID)
+	if state.activeTarget == tab.TargetID {
+		state.activeTarget = ""
+	}
+	state.mu.Unlock()
+	return map[string]any{"ok": true, "targetId": tab.TargetID}, nil
+}
+
+func browserActionSnapshot(ctx context.Context, payload toolArgs, state *browserProfileState) (map[string]any, error) {
+	if err := ensureBrowserProfileStarted(state); err != nil {
+		return nil, err
+	}
+	tab, err := resolveBrowserTab(state, strings.TrimSpace(getStringArg(payload, "targetId")), true)
+	if err != nil {
+		return nil, err
+	}
+	limit := defaultBrowserSnapshotLimit
+	if value, ok := getIntArg(payload, "limit"); ok && value > 0 {
+		limit = value
+	}
+	items, refs, err := collectBrowserSnapshot(ctx, tab, limit)
+	if err != nil {
+		return nil, err
+	}
+	tab.mu.Lock()
+	tab.refs = refs
+	tab.mu.Unlock()
+	return map[string]any{
+		"ok":       true,
+		"targetId": tab.TargetID,
+		"url":      browserTabURL(tab),
+		"items":    items,
+	}, nil
+}
+
+func browserActionScreenshot(ctx context.Context, payload toolArgs, state *browserProfileState) (map[string]any, error) {
+	if err := ensureBrowserProfileStarted(state); err != nil {
+		return nil, err
+	}
+	tab, err := resolveBrowserTab(state, strings.TrimSpace(getStringArg(payload, "targetId")), true)
+	if err != nil {
+		return nil, err
+	}
+	var buf []byte
+	timeout := time.Duration(resolveBrowserActionTimeoutMs(payload, 15000)) * time.Millisecond
+	runCtx, cancel := context.WithTimeout(tab.ctx, timeout)
+	defer cancel()
+	fullPage, _ := getBoolArg(payload, "fullPage")
+	if err := chromedp.Run(runCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+		if fullPage {
+			return chromedp.FullScreenshot(&buf, 90).Do(ctx)
+		}
+		return chromedp.CaptureScreenshot(&buf).Do(ctx)
+	})); err != nil {
+		return nil, err
+	}
+	path, err := saveBrowserArtifact("png", buf)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"ok":       true,
+		"targetId": tab.TargetID,
+		"path":     path,
+		"base64":   base64.StdEncoding.EncodeToString(buf),
+	}, nil
+}
+
+func browserActionConsole(payload toolArgs, state *browserProfileState) map[string]any {
+	targetID := strings.TrimSpace(getStringArg(payload, "targetId"))
 	state.mu.Lock()
 	defer state.mu.Unlock()
-
 	messages := make([]browserConsoleMessage, 0, len(state.consoleMessages))
 	for _, item := range state.consoleMessages {
-		if item.TargetID != tab.TargetID {
-			continue
-		}
-		if level != "" && level != "all" && item.Type != level {
+		if targetID != "" && item.TargetID != targetID {
 			continue
 		}
 		messages = append(messages, item)
 	}
-
-	return map[string]any{
-		"ok":       true,
-		"targetId": tab.TargetID,
-		"messages": messages,
-	}, nil
+	return map[string]any{"messages": messages}
 }
 
-func browserActionPDF(payload toolArgs, state *browserProfileState) (map[string]any, error) {
+func browserActionPDF(ctx context.Context, payload toolArgs, state *browserProfileState) (map[string]any, error) {
 	if err := ensureBrowserProfileStarted(state); err != nil {
 		return nil, err
 	}
-	targetID := strings.TrimSpace(getStringArg(payload, "targetId"))
-	tab, err := resolveBrowserTab(state, targetID, true)
+	tab, err := resolveBrowserTab(state, strings.TrimSpace(getStringArg(payload, "targetId")), true)
 	if err != nil {
 		return nil, err
 	}
-
-	bytes, err := tab.Page.PDF(playwright.PagePdfOptions{
-		PrintBackground: playwright.Bool(true),
-	})
+	var buf []byte
+	timeout := time.Duration(resolveBrowserActionTimeoutMs(payload, 15000)) * time.Millisecond
+	runCtx, cancel := context.WithTimeout(tab.ctx, timeout)
+	defer cancel()
+	if err := chromedp.Run(runCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+		var printErr error
+		buf, _, printErr = pagepkg.PrintToPDF().WithPrintBackground(true).Do(ctx)
+		return printErr
+	})); err != nil {
+		return nil, err
+	}
+	path, err := saveBrowserArtifact("pdf", buf)
 	if err != nil {
 		return nil, err
 	}
-	path, err := saveBrowserArtifact("pdf", bytes)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]any{
-		"ok":       true,
-		"path":     path,
-		"targetId": tab.TargetID,
-		"url":      strings.TrimSpace(tab.Page.URL()),
-	}, nil
+	return map[string]any{"ok": true, "targetId": tab.TargetID, "path": path}, nil
 }
 
-func browserActionUpload(payload toolArgs, state *browserProfileState) (map[string]any, error) {
+func browserActionUpload(ctx context.Context, payload toolArgs, state *browserProfileState) (map[string]any, error) {
 	if err := ensureBrowserProfileStarted(state); err != nil {
 		return nil, err
 	}
-
-	paths, err := parseBrowserUploadPaths(payload)
+	tab, err := resolveBrowserTab(state, strings.TrimSpace(getStringArg(payload, "targetId")), true)
 	if err != nil {
 		return nil, err
 	}
-
-	targetID := strings.TrimSpace(getStringArg(payload, "targetId"))
-	tab, err := resolveBrowserTab(state, targetID, true)
+	request := getMapArg(payload, "request")
+	if request == nil {
+		request = map[string]any{}
+	}
+	ref := strings.TrimSpace(getStringArg(toolArgs(request), "ref"))
+	if ref == "" {
+		ref = strings.TrimSpace(getStringArg(payload, "ref"))
+	}
+	selector, err := resolveBrowserRefSelector(tab, ref)
 	if err != nil {
 		return nil, err
 	}
-
-	inputRef := strings.TrimSpace(getStringArg(payload, "inputRef"))
-	ref := strings.TrimSpace(getStringArg(payload, "ref"))
-	element := strings.TrimSpace(getStringArg(payload, "element"))
-	if inputRef != "" || ref != "" || element != "" {
-		locator, err := resolveBrowserUploadLocator(tab, inputRef, ref, element)
+	rawPaths := getStringSliceArg(toolArgs(request), "paths")
+	if len(rawPaths) == 0 {
+		rawPaths = getStringSliceArg(payload, "paths")
+	}
+	rootDir, err := resolveBrowserUploadRootDir()
+	if err != nil {
+		return nil, err
+	}
+	paths := make([]string, 0, len(rawPaths))
+	for _, item := range rawPaths {
+		resolvedPath, err := resolvePathWithinRoot(rootDir, item)
 		if err != nil {
 			return nil, err
 		}
-		if err := locator.SetInputFiles(paths); err != nil {
-			return nil, err
-		}
-		return map[string]any{
-			"ok":       true,
-			"targetId": tab.TargetID,
-			"paths":    paths,
-			"armed":    false,
-		}, nil
+		paths = append(paths, resolvedPath)
 	}
-
-	timeoutMs := resolveBrowserActionTimeoutMs(payload, defaultBrowserHookTimeoutMs)
-	state.mu.Lock()
-	state.pendingUploads[tab.TargetID] = browserPendingUpload{
-		Paths:     append([]string(nil), paths...),
-		ExpiresAt: time.Now().Add(time.Duration(timeoutMs) * time.Millisecond),
+	if len(paths) == 0 {
+		return nil, errors.New("paths are required")
 	}
-	state.mu.Unlock()
-
-	return map[string]any{
-		"ok":       true,
-		"targetId": tab.TargetID,
-		"paths":    paths,
-		"armed":    true,
-	}, nil
+	timeout := time.Duration(resolveBrowserActionTimeoutMs(payload, 15000)) * time.Millisecond
+	runCtx, cancel := context.WithTimeout(tab.ctx, timeout)
+	defer cancel()
+	if err := chromedp.Run(runCtx, chromedp.SetUploadFiles(selector, paths, chromedp.ByQuery)); err != nil {
+		return nil, err
+	}
+	return map[string]any{"ok": true, "targetId": tab.TargetID, "paths": paths}, nil
 }
 
-func browserActionDialog(payload toolArgs, state *browserProfileState) (map[string]any, error) {
+func browserActionDialog(ctx context.Context, payload toolArgs, state *browserProfileState) (map[string]any, error) {
 	if err := ensureBrowserProfileStarted(state); err != nil {
 		return nil, err
 	}
-	targetID := strings.TrimSpace(getStringArg(payload, "targetId"))
-	tab, err := resolveBrowserTab(state, targetID, true)
+	tab, err := resolveBrowserTab(state, strings.TrimSpace(getStringArg(payload, "targetId")), true)
 	if err != nil {
 		return nil, err
 	}
-	accept, _ := getBoolArg(payload, "accept")
-	promptText := strings.TrimSpace(getStringArg(payload, "promptText"))
-	timeoutMs := resolveBrowserActionTimeoutMs(payload, defaultBrowserHookTimeoutMs)
-
+	targetID := tab.TargetID
 	state.mu.Lock()
-	state.pendingDialogs[tab.TargetID] = browserPendingDialog{
-		Accept:     accept,
-		PromptText: promptText,
-		ExpiresAt:  time.Now().Add(time.Duration(timeoutMs) * time.Millisecond),
-	}
+	pending, exists := state.pendingDialogs[targetID]
 	state.mu.Unlock()
-
-	return map[string]any{
-		"ok":       true,
-		"targetId": tab.TargetID,
-		"armed":    true,
-		"accept":   accept,
-	}, nil
+	if !exists {
+		return map[string]any{"ok": true, "targetId": targetID, "pending": nil}, nil
+	}
+	if accept, ok := getBoolArg(payload, "accept"); ok {
+		promptText := strings.TrimSpace(getStringArg(payload, "promptText"))
+		if err := chromedp.Run(tab.ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+			return pagepkg.HandleJavaScriptDialog(accept).WithPromptText(promptText).Do(ctx)
+		})); err != nil {
+			return nil, err
+		}
+		state.mu.Lock()
+		delete(state.pendingDialogs, targetID)
+		state.mu.Unlock()
+		return map[string]any{"ok": true, "targetId": targetID}, nil
+	}
+	return map[string]any{"ok": true, "targetId": targetID, "pending": pending}, nil
 }
 
 func browserActionAct(payload toolArgs, state *browserProfileState) (map[string]any, error) {
@@ -1200,7 +544,6 @@ func browserActionAct(payload toolArgs, state *browserProfileState) (map[string]
 	if err := ensureBrowserProfileStarted(state); err != nil {
 		return nil, err
 	}
-
 	targetID := strings.TrimSpace(getStringArg(toolArgs(request), "targetId"))
 	if targetID == "" {
 		targetID = strings.TrimSpace(getStringArg(payload, "targetId"))
@@ -1209,7 +552,6 @@ func browserActionAct(payload toolArgs, state *browserProfileState) (map[string]
 	if err != nil {
 		return nil, err
 	}
-
 	switch kind {
 	case "click":
 		err = browserActClick(tab, toolArgs(request), payload)
@@ -1220,386 +562,158 @@ func browserActionAct(payload toolArgs, state *browserProfileState) (map[string]
 	case "hover":
 		err = browserActHover(tab, toolArgs(request), payload)
 	case "drag":
-		err = browserActDrag(tab, toolArgs(request), payload)
+		err = errors.New("drag is not implemented yet")
 	case "select":
 		err = browserActSelect(tab, toolArgs(request), payload)
 	case "fill":
 		err = browserActFill(tab, toolArgs(request), payload)
 	case "resize":
-		err = browserActResize(tab, toolArgs(request))
+		err = browserActResize(tab, toolArgs(request), payload)
 	case "wait":
-		err = browserActWait(tab, toolArgs(request), state.resolved.EvaluateEnabled)
+		err = browserActWait(tab, toolArgs(request), payload)
 	case "evaluate":
-		err = browserActEvaluate(tab, toolArgs(request), payload, state.resolved.EvaluateEnabled)
+		err = browserActEvaluate(tab, toolArgs(request), payload)
 	case "close":
-		err = browserActClose(tab, state)
-	default:
-		err = errors.New("act kind not supported: " + kind)
+		_, err = browserActionClose(context.Background(), toolArgs{"targetId": tab.TargetID}, state)
 	}
 	if err != nil {
 		return nil, err
 	}
-
-	result := map[string]any{
-		"ok":       true,
-		"targetId": tab.TargetID,
-		"url":      strings.TrimSpace(tab.Page.URL()),
-	}
+	result := map[string]any{"ok": true, "targetId": tab.TargetID}
 	if kind == "evaluate" {
 		result["result"] = tabResultFromEvaluate(tab)
 	}
 	return result, nil
 }
 
-func tabResultFromEvaluate(tab *browserTabState) any {
-	if tab == nil {
-		return nil
-	}
-	tab.mu.RLock()
-	defer tab.mu.RUnlock()
-	return tab.evaluateResult
-}
-
 func browserActClick(tab *browserTabState, request toolArgs, payload toolArgs) error {
-	ref := strings.TrimSpace(getStringArg(request, "ref"))
-	if ref == "" {
-		return errors.New("ref is required")
-	}
-	locator, err := resolveBrowserRefLocator(tab, ref)
+	selector, err := resolveBrowserRefSelector(tab, strings.TrimSpace(getStringArg(request, "ref")))
 	if err != nil {
 		return err
 	}
-	clickOptions := playwright.LocatorClickOptions{}
-	if timeout := resolveBrowserActTimeoutMs(request, payload, 10000); timeout > 0 {
-		clickOptions.Timeout = playwright.Float(float64(timeout))
-	}
-	buttonRaw := strings.TrimSpace(getStringArg(request, "button"))
-	if buttonRaw != "" {
-		button := toPlaywrightMouseButton(buttonRaw)
-		if button == nil {
-			return errors.New("button must be left|right|middle")
-		}
-		clickOptions.Button = button
-	}
-	modifiers, err := toPlaywrightKeyboardModifiers(getStringSliceArg(request, "modifiers"))
-	if err != nil {
-		return err
-	}
-	if len(modifiers) > 0 {
-		clickOptions.Modifiers = modifiers
-	}
-	if doubleClick, _ := getBoolArg(request, "doubleClick"); doubleClick {
-		dblOptions := playwright.LocatorDblclickOptions{}
-		if clickOptions.Timeout != nil {
-			dblOptions.Timeout = clickOptions.Timeout
-		}
-		if clickOptions.Button != nil {
-			dblOptions.Button = clickOptions.Button
-		}
-		if len(clickOptions.Modifiers) > 0 {
-			dblOptions.Modifiers = clickOptions.Modifiers
-		}
-		if err := locator.Dblclick(dblOptions); err != nil {
-			return toBrowserFriendlyInteractionError(err, ref)
-		}
-		return nil
-	}
-	if err := locator.Click(clickOptions); err != nil {
-		return toBrowserFriendlyInteractionError(err, ref)
-	}
-	return nil
+	timeout := time.Duration(resolveBrowserActTimeoutMs(request, payload, 15000)) * time.Millisecond
+	runCtx, cancel := context.WithTimeout(tab.ctx, timeout)
+	defer cancel()
+	return chromedp.Run(runCtx,
+		chromedp.ScrollIntoView(selector, chromedp.ByQuery),
+		chromedp.Click(selector, chromedp.ByQuery),
+	)
 }
 
 func browserActType(tab *browserTabState, request toolArgs, payload toolArgs) error {
-	ref := strings.TrimSpace(getStringArg(request, "ref"))
-	if ref == "" {
-		return errors.New("ref is required")
-	}
-	textRaw, ok := request["text"]
-	if !ok {
-		return errors.New("text is required")
-	}
-	text, ok := textRaw.(string)
-	if !ok {
-		return errors.New("text is required")
-	}
-	locator, err := resolveBrowserRefLocator(tab, ref)
+	selector, err := resolveBrowserRefSelector(tab, strings.TrimSpace(getStringArg(request, "ref")))
 	if err != nil {
 		return err
 	}
-	timeout := resolveBrowserActTimeoutMs(request, payload, 10000)
-	if slowly, _ := getBoolArg(request, "slowly"); slowly {
-		typeOptions := playwright.LocatorTypeOptions{}
-		if timeout > 0 {
-			typeOptions.Timeout = playwright.Float(float64(timeout))
-		}
-		typeOptions.Delay = playwright.Float(75)
-		if err := locator.Click(playwright.LocatorClickOptions{Timeout: playwright.Float(float64(timeout))}); err != nil {
-			return toBrowserFriendlyInteractionError(err, ref)
-		}
-		if err := locator.Type(text, typeOptions); err != nil {
-			return toBrowserFriendlyInteractionError(err, ref)
-		}
-	} else {
-		fillOptions := playwright.LocatorFillOptions{}
-		if timeout > 0 {
-			fillOptions.Timeout = playwright.Float(float64(timeout))
-		}
-		if err := locator.Fill(text, fillOptions); err != nil {
-			return toBrowserFriendlyInteractionError(err, ref)
-		}
-	}
-	if submit, _ := getBoolArg(request, "submit"); submit {
-		pressOptions := playwright.LocatorPressOptions{}
-		if timeout > 0 {
-			pressOptions.Timeout = playwright.Float(float64(timeout))
-		}
-		if err := locator.Press("Enter", pressOptions); err != nil {
-			return toBrowserFriendlyInteractionError(err, ref)
-		}
-	}
-	return nil
+	value := getStringArg(request, "text", "value")
+	timeout := time.Duration(resolveBrowserActTimeoutMs(request, payload, 15000)) * time.Millisecond
+	runCtx, cancel := context.WithTimeout(tab.ctx, timeout)
+	defer cancel()
+	return chromedp.Run(runCtx,
+		chromedp.Focus(selector, chromedp.ByQuery),
+		chromedp.SendKeys(selector, value, chromedp.ByQuery),
+	)
 }
 
 func browserActPress(tab *browserTabState, request toolArgs, payload toolArgs) error {
-	key := strings.TrimSpace(getStringArg(request, "key"))
-	if key == "" {
+	keys := strings.TrimSpace(getStringArg(request, "key", "keys", "text"))
+	if keys == "" {
 		return errors.New("key is required")
 	}
-	options := playwright.KeyboardPressOptions{}
-	if delayMs, ok := getIntArg(request, "delayMs"); ok && delayMs >= 0 {
-		options.Delay = playwright.Float(float64(delayMs))
-	}
-	if timeout := resolveBrowserActTimeoutMs(request, payload, 10000); timeout > 0 {
-		tab.Page.SetDefaultTimeout(float64(timeout))
-		defer tab.Page.SetDefaultTimeout(30000)
-	}
-	return tab.Page.Keyboard().Press(key, options)
+	timeout := time.Duration(resolveBrowserActTimeoutMs(request, payload, 15000)) * time.Millisecond
+	runCtx, cancel := context.WithTimeout(tab.ctx, timeout)
+	defer cancel()
+	return chromedp.Run(runCtx, chromedp.KeyEvent(keys))
 }
 
 func browserActHover(tab *browserTabState, request toolArgs, payload toolArgs) error {
-	ref := strings.TrimSpace(getStringArg(request, "ref"))
-	if ref == "" {
-		return errors.New("ref is required")
-	}
-	locator, err := resolveBrowserRefLocator(tab, ref)
+	selector, err := resolveBrowserRefSelector(tab, strings.TrimSpace(getStringArg(request, "ref")))
 	if err != nil {
 		return err
 	}
-	hoverOptions := playwright.LocatorHoverOptions{}
-	if timeout := resolveBrowserActTimeoutMs(request, payload, 10000); timeout > 0 {
-		hoverOptions.Timeout = playwright.Float(float64(timeout))
-	}
-	if err := locator.Hover(hoverOptions); err != nil {
-		return toBrowserFriendlyInteractionError(err, ref)
-	}
-	return nil
-}
-
-func browserActDrag(tab *browserTabState, request toolArgs, payload toolArgs) error {
-	startRef := strings.TrimSpace(getStringArg(request, "startRef"))
-	endRef := strings.TrimSpace(getStringArg(request, "endRef"))
-	if startRef == "" || endRef == "" {
-		return errors.New("startRef and endRef are required")
-	}
-	startLocator, err := resolveBrowserRefLocator(tab, startRef)
-	if err != nil {
-		return err
-	}
-	endLocator, err := resolveBrowserRefLocator(tab, endRef)
-	if err != nil {
-		return err
-	}
-	dragOptions := playwright.LocatorDragToOptions{}
-	if timeout := resolveBrowserActTimeoutMs(request, payload, 12000); timeout > 0 {
-		dragOptions.Timeout = playwright.Float(float64(timeout))
-	}
-	if err := startLocator.DragTo(endLocator, dragOptions); err != nil {
-		return toBrowserFriendlyInteractionError(err, startRef+" -> "+endRef)
-	}
-	return nil
+	timeout := time.Duration(resolveBrowserActTimeoutMs(request, payload, 15000)) * time.Millisecond
+	runCtx, cancel := context.WithTimeout(tab.ctx, timeout)
+	defer cancel()
+	return chromedp.Run(runCtx, chromedp.EvaluateAsDevTools(fmt.Sprintf(`(() => { const el = document.querySelector(%q); if (!el) throw new Error("element not found"); el.dispatchEvent(new MouseEvent("mouseover", {bubbles:true})); el.dispatchEvent(new MouseEvent("mouseenter", {bubbles:true})); })()`, selector), nil))
 }
 
 func browserActSelect(tab *browserTabState, request toolArgs, payload toolArgs) error {
-	ref := strings.TrimSpace(getStringArg(request, "ref"))
-	values := getStringSliceArg(request, "values")
-	if ref == "" || len(values) == 0 {
-		return errors.New("ref and values are required")
-	}
-	locator, err := resolveBrowserRefLocator(tab, ref)
+	selector, err := resolveBrowserRefSelector(tab, strings.TrimSpace(getStringArg(request, "ref")))
 	if err != nil {
 		return err
 	}
-	timeout := resolveBrowserActTimeoutMs(request, payload, 10000)
-	_, err = locator.SelectOption(playwright.SelectOptionValues{Values: &values}, playwright.LocatorSelectOptionOptions{
-		Timeout: playwright.Float(float64(timeout)),
-	})
-	if err != nil {
-		return toBrowserFriendlyInteractionError(err, ref)
-	}
-	return nil
+	value := getStringArg(request, "value", "text")
+	timeout := time.Duration(resolveBrowserActTimeoutMs(request, payload, 15000)) * time.Millisecond
+	runCtx, cancel := context.WithTimeout(tab.ctx, timeout)
+	defer cancel()
+	return chromedp.Run(runCtx, chromedp.EvaluateAsDevTools(fmt.Sprintf(`(() => { const el = document.querySelector(%q); if (!el) throw new Error("element not found"); el.value = %q; el.dispatchEvent(new Event("input", {bubbles:true})); el.dispatchEvent(new Event("change", {bubbles:true})); })()`, selector, value), nil))
 }
 
 func browserActFill(tab *browserTabState, request toolArgs, payload toolArgs) error {
-	rawFields, ok := request["fields"].([]any)
-	if !ok || len(rawFields) == 0 {
-		return errors.New("fields are required")
-	}
-	timeout := resolveBrowserActTimeoutMs(request, payload, 10000)
-	for _, raw := range rawFields {
-		field, ok := raw.(map[string]any)
-		if !ok {
-			continue
-		}
-		ref := strings.TrimSpace(getStringArg(toolArgs(field), "ref"))
-		if ref == "" {
-			continue
-		}
-		typeValue := strings.ToLower(strings.TrimSpace(getStringArg(toolArgs(field), "type")))
-		locator, err := resolveBrowserRefLocator(tab, ref)
-		if err != nil {
-			return err
-		}
-		switch typeValue {
-		case "checkbox", "radio", "bool", "boolean":
-			checked, _ := getBoolArg(toolArgs(field), "value")
-			if checked {
-				err = locator.Check(playwright.LocatorCheckOptions{Timeout: playwright.Float(float64(timeout))})
-			} else {
-				err = locator.Uncheck(playwright.LocatorUncheckOptions{Timeout: playwright.Float(float64(timeout))})
-			}
-		case "select", "option":
-			value := strings.TrimSpace(getStringArg(toolArgs(field), "value"))
-			if value == "" {
-				continue
-			}
-			values := []string{value}
-			_, err = locator.SelectOption(playwright.SelectOptionValues{Values: &values}, playwright.LocatorSelectOptionOptions{
-				Timeout: playwright.Float(float64(timeout)),
-			})
-		default:
-			value := strings.TrimSpace(getStringArg(toolArgs(field), "value"))
-			err = locator.Fill(value, playwright.LocatorFillOptions{Timeout: playwright.Float(float64(timeout))})
-		}
-		if err != nil {
-			return toBrowserFriendlyInteractionError(err, ref)
-		}
-	}
-	return nil
-}
-
-func browserActResize(tab *browserTabState, request toolArgs) error {
-	width, hasWidth := getIntArg(request, "width")
-	height, hasHeight := getIntArg(request, "height")
-	if !hasWidth || !hasHeight || width <= 0 || height <= 0 {
-		return errors.New("width and height are required")
-	}
-	return tab.Page.SetViewportSize(width, height)
-}
-
-func browserActWait(tab *browserTabState, request toolArgs, evaluateEnabled bool) error {
-	timeMs, hasTime := getIntArg(request, "timeMs")
-	text := strings.TrimSpace(getStringArg(request, "text"))
-	textGone := strings.TrimSpace(getStringArg(request, "textGone"))
-	selector := strings.TrimSpace(getStringArg(request, "selector"))
-	urlWait := strings.TrimSpace(getStringArg(request, "url"))
-	loadState := strings.ToLower(strings.TrimSpace(getStringArg(request, "loadState")))
-	fn := strings.TrimSpace(getStringArg(request, "fn"))
-	timeoutMs := resolveBrowserActionTimeoutMs(request, 15000)
-
-	if fn != "" && !evaluateEnabled {
-		return errors.New(browserWaitFnDisabledMessage)
-	}
-
-	hasCondition := false
-	if hasTime && timeMs > 0 {
-		hasCondition = true
-		tab.Page.WaitForTimeout(float64(timeMs))
-	}
-	if text != "" {
-		hasCondition = true
-		if err := tab.Page.Locator("text=" + text).First().WaitFor(playwright.LocatorWaitForOptions{
-			State:   playwright.WaitForSelectorStateVisible,
-			Timeout: playwright.Float(float64(timeoutMs)),
-		}); err != nil {
-			return err
-		}
-	}
-	if textGone != "" {
-		hasCondition = true
-		if err := tab.Page.Locator("text=" + textGone).First().WaitFor(playwright.LocatorWaitForOptions{
-			State:   playwright.WaitForSelectorStateHidden,
-			Timeout: playwright.Float(float64(timeoutMs)),
-		}); err != nil {
-			return err
-		}
-	}
-	if selector != "" {
-		hasCondition = true
-		if _, err := tab.Page.WaitForSelector(selector, playwright.PageWaitForSelectorOptions{
-			State:   playwright.WaitForSelectorStateVisible,
-			Timeout: playwright.Float(float64(timeoutMs)),
-		}); err != nil {
-			return err
-		}
-	}
-	if urlWait != "" {
-		hasCondition = true
-		if err := tab.Page.WaitForURL(urlWait, playwright.PageWaitForURLOptions{
-			Timeout: playwright.Float(float64(timeoutMs)),
-		}); err != nil {
-			return err
-		}
-	}
-	if loadState != "" {
-		hasCondition = true
-		state := resolveBrowserLoadState(loadState)
-		if state == nil {
-			return errors.New("loadState must be load|domcontentloaded|networkidle")
-		}
-		if err := tab.Page.WaitForLoadState(playwright.PageWaitForLoadStateOptions{
-			State:   state,
-			Timeout: playwright.Float(float64(timeoutMs)),
-		}); err != nil {
-			return err
-		}
-	}
-	if fn != "" {
-		hasCondition = true
-		if err := waitBrowserEvaluateCondition(tab.Page, fn, timeoutMs); err != nil {
-			return err
-		}
-	}
-	if !hasCondition {
-		return errors.New(browserWaitRequiresConditionMessage)
-	}
-	return nil
-}
-
-func browserActEvaluate(tab *browserTabState, request toolArgs, payload toolArgs, evaluateEnabled bool) error {
-	if !evaluateEnabled {
-		return errors.New(browserEvaluateDisabledMessage)
-	}
-	fn := strings.TrimSpace(getStringArg(request, "fn"))
-	if fn == "" {
-		return errors.New("fn is required")
-	}
-	timeoutMs := resolveBrowserActTimeoutMs(request, payload, 20000)
-	ref := strings.TrimSpace(getStringArg(request, "ref"))
-	var (
-		result any
-		err    error
-	)
-	if ref != "" {
-		locator, resolveErr := resolveBrowserRefLocator(tab, ref)
-		if resolveErr != nil {
-			return resolveErr
-		}
-		result, err = locator.Evaluate(browserEvaluateElementExpression, []any{fn, timeoutMs})
-	} else {
-		result, err = tab.Page.Evaluate(browserEvaluatePageExpression, []any{fn, timeoutMs})
-	}
+	selector, err := resolveBrowserRefSelector(tab, strings.TrimSpace(getStringArg(request, "ref")))
 	if err != nil {
+		return err
+	}
+	value := getStringArg(request, "value", "text")
+	timeout := time.Duration(resolveBrowserActTimeoutMs(request, payload, 15000)) * time.Millisecond
+	runCtx, cancel := context.WithTimeout(tab.ctx, timeout)
+	defer cancel()
+	return chromedp.Run(runCtx, chromedp.SetValue(selector, value, chromedp.ByQuery))
+}
+
+func browserActResize(tab *browserTabState, request toolArgs, payload toolArgs) error {
+	width, ok := getIntArg(request, "width")
+	if !ok || width <= 0 {
+		return errors.New("width is required")
+	}
+	height, ok := getIntArg(request, "height")
+	if !ok || height <= 0 {
+		return errors.New("height is required")
+	}
+	timeout := time.Duration(resolveBrowserActTimeoutMs(request, payload, 15000)) * time.Millisecond
+	runCtx, cancel := context.WithTimeout(tab.ctx, timeout)
+	defer cancel()
+	return chromedp.Run(runCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+		return emulation.SetDeviceMetricsOverride(int64(width), int64(height), 1, false).Do(ctx)
+	}))
+}
+
+func browserActWait(tab *browserTabState, request toolArgs, payload toolArgs) error {
+	timeoutMs := resolveBrowserActTimeoutMs(request, payload, 15000)
+	if timeMs, ok := getIntArg(request, "timeMs"); ok && timeMs > 0 {
+		time.Sleep(time.Duration(timeMs) * time.Millisecond)
+		return nil
+	}
+	if selector := strings.TrimSpace(getStringArg(request, "selector")); selector != "" {
+		runCtx, cancel := context.WithTimeout(tab.ctx, time.Duration(timeoutMs)*time.Millisecond)
+		defer cancel()
+		return chromedp.Run(runCtx, chromedp.WaitVisible(selector, chromedp.ByQuery))
+	}
+	if text := strings.TrimSpace(getStringArg(request, "text")); text != "" {
+		return waitForText(tab.ctx, text, timeoutMs, false)
+	}
+	if textGone := strings.TrimSpace(getStringArg(request, "textGone")); textGone != "" {
+		return waitForText(tab.ctx, textGone, timeoutMs, true)
+	}
+	if urlWait := strings.TrimSpace(getStringArg(request, "url")); urlWait != "" {
+		return waitForURL(tab.ctx, urlWait, timeoutMs)
+	}
+	if fn := strings.TrimSpace(getStringArg(request, "fn")); fn != "" {
+		return waitBrowserEvaluateCondition(tab.ctx, fn, timeoutMs)
+	}
+	return errors.New(browserWaitRequiresConditionMessage)
+}
+
+func browserActEvaluate(tab *browserTabState, request toolArgs, payload toolArgs) error {
+	expression := strings.TrimSpace(getStringArg(request, "expression", "fn", "script"))
+	if expression == "" {
+		return errors.New("expression is required")
+	}
+	timeout := time.Duration(resolveBrowserActTimeoutMs(request, payload, 15000)) * time.Millisecond
+	runCtx, cancel := context.WithTimeout(tab.ctx, timeout)
+	defer cancel()
+	var result any
+	if err := chromedp.Run(runCtx, chromedp.Evaluate(expression, &result)); err != nil {
 		return err
 	}
 	tab.mu.Lock()
@@ -1608,1309 +722,317 @@ func browserActEvaluate(tab *browserTabState, request toolArgs, payload toolArgs
 	return nil
 }
 
-func browserActClose(tab *browserTabState, state *browserProfileState) error {
-	if tab == nil || tab.Page == nil {
-		return errors.New("tab not found")
-	}
-	if err := tab.Page.Close(); err != nil {
-		return err
-	}
-	state.mu.Lock()
-	delete(state.tabs, tab.TargetID)
-	delete(state.pageToTarget, tab.Page)
-	if state.activeTarget == tab.TargetID {
-		state.activeTarget = ""
-	}
-	pruneClosedTabsLocked(state)
-	state.mu.Unlock()
-	return nil
-}
-
-type browserSnapshotItem struct {
-	Ref     string
-	AriaRef string
-	Role    string
-	Name    string
-	Text    string
-	Depth   int
-	Nth     int
-}
-
-var browserAriaSnapshotLinePattern = regexp.MustCompile(`^(\s*)-\s*([^\s":]+)(?:\s+"([^"]*)")?(.*)$`)
-var browserAriaSnapshotRefPattern = regexp.MustCompile(`\[ref=([^\]]+)\]`)
-var browserStrictModeCountPattern = regexp.MustCompile(`resolved to (\d+) elements`)
-var browserEvaluatePageExpression = `([fnBody, timeoutMs]) => {
-	try {
-		const candidate = eval("(" + fnBody + ")");
-		const result = typeof candidate === "function" ? candidate() : candidate;
-		if (result && typeof result.then === "function") {
-			return Promise.race([
-				result,
-				new Promise((_, reject) =>
-					setTimeout(() => reject(new Error("evaluate timed out after " + timeoutMs + "ms")), timeoutMs),
-				),
-			]);
-		}
-		return result;
-	} catch (err) {
-		throw new Error("Invalid evaluate function: " + (err && err.message ? err.message : String(err)));
-	}
-}`
-var browserEvaluateElementExpression = `(el, [fnBody, timeoutMs]) => {
-	try {
-		const candidate = eval("(" + fnBody + ")");
-		const result = typeof candidate === "function" ? candidate(el) : candidate;
-		if (result && typeof result.then === "function") {
-			return Promise.race([
-				result,
-				new Promise((_, reject) =>
-					setTimeout(() => reject(new Error("evaluate timed out after " + timeoutMs + "ms")), timeoutMs),
-				),
-			]);
-		}
-		return result;
-	} catch (err) {
-		throw new Error("Invalid evaluate function: " + (err && err.message ? err.message : String(err)));
-	}
-}`
-
-type browserAISnapshotResult struct {
-	Snapshot  string
-	Truncated bool
-	Refs      map[string]browserSnapshotRef
-	RefsJSON  map[string]map[string]any
-	Stats     map[string]any
-}
-
-func collectBrowserAISnapshot(page playwright.Page, maxChars int) (*browserAISnapshotResult, error) {
-	snapshot, err := captureBrowserPrivateAISnapshot(page, 5000)
-	if err != nil {
-		return nil, err
-	}
-	items := parseBrowserAriaSnapshot(snapshot, false, 2000, true, 0)
-	refs := make(map[string]browserSnapshotRef, len(items))
-	refsJSON := make(map[string]map[string]any, len(items))
-	interactiveCount := 0
-	for index, item := range items {
-		ref := strings.TrimSpace(item.Ref)
-		if ref == "" {
-			ref = fmt.Sprintf("e%d", index+1)
-		}
-		entryMode := "aria"
-		if strings.TrimSpace(item.AriaRef) == "" {
-			entryMode = "role"
-		}
-		entry := browserSnapshotRef{
-			Role:    item.Role,
-			Name:    item.Name,
-			Nth:     item.Nth,
-			Mode:    entryMode,
-			AriaRef: item.AriaRef,
-		}
-		refs[ref] = entry
-		refsJSON[ref] = map[string]any{
-			"role": entry.Role,
-			"name": entry.Name,
-		}
-		if entry.Nth > 0 {
-			refsJSON[ref]["nth"] = entry.Nth
-		}
-		if isBrowserInteractiveRole(entry.Role) {
-			interactiveCount += 1
-		}
-	}
-
-	truncated := false
-	if maxChars > 0 && len(snapshot) > maxChars {
-		snapshot = trimToMaxChars(snapshot, maxChars)
-		truncated = true
-	}
-
-	lines := 0
-	for _, line := range strings.Split(snapshot, "\n") {
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-		lines += 1
-	}
-	return &browserAISnapshotResult{
-		Snapshot:  snapshot,
-		Truncated: truncated,
-		Refs:      refs,
-		RefsJSON:  refsJSON,
-		Stats: map[string]any{
-			"lines":       lines,
-			"chars":       len(snapshot),
-			"refs":        len(refsJSON),
-			"interactive": interactiveCount,
-		},
-	}, nil
-}
-
-func captureBrowserPrivateAISnapshot(page playwright.Page, timeoutMs int) (snapshot string, err error) {
-	defer func() {
-		if recover() != nil {
-			snapshot = ""
-			err = errBrowserSnapshotForAIUnavailable
-		}
-	}()
-	if page == nil {
-		return "", errBrowserSnapshotForAIUnavailable
-	}
-
-	value := reflect.ValueOf(page)
-	if !value.IsValid() {
-		return "", errBrowserSnapshotForAIUnavailable
-	}
-	if value.Kind() == reflect.Interface {
-		value = value.Elem()
-	}
-	if value.Kind() == reflect.Pointer {
-		value = value.Elem()
-	}
-	if !value.IsValid() || value.Kind() != reflect.Struct {
-		return "", errBrowserSnapshotForAIUnavailable
-	}
-
-	channelOwnerField := value.FieldByName("channelOwner")
-	if !channelOwnerField.IsValid() {
-		return "", errBrowserSnapshotForAIUnavailable
-	}
-	channelField := channelOwnerField.FieldByName("channel")
-	if !channelField.IsValid() || (channelField.Kind() == reflect.Pointer && channelField.IsNil()) {
-		return "", errBrowserSnapshotForAIUnavailable
-	}
-	sendMethod := channelField.MethodByName("Send")
-	if !sendMethod.IsValid() {
-		return "", errBrowserSnapshotForAIUnavailable
-	}
-
-	calls := sendMethod.Call([]reflect.Value{
-		reflect.ValueOf("snapshotForAI"),
-		reflect.ValueOf(map[string]any{
-			"timeout": normalizeBrowserTimeoutMs(timeoutMs, 5000),
-			"track":   "response",
-		}),
-	})
-	if len(calls) != 2 {
-		return "", errBrowserSnapshotForAIUnavailable
-	}
-	if errValue := calls[1]; errValue.IsValid() && !errValue.IsNil() {
-		if invokeErr, ok := errValue.Interface().(error); ok {
-			return "", invokeErr
-		}
-		return "", fmt.Errorf("snapshotForAI call failed")
-	}
-
-	result := calls[0].Interface()
-	snapshot = extractBrowserAISnapshotText(result)
-	if strings.TrimSpace(snapshot) == "" {
-		return "", errBrowserSnapshotForAIUnavailable
-	}
-	return snapshot, nil
-}
-
-func extractBrowserAISnapshotText(raw any) string {
-	switch value := raw.(type) {
-	case map[string]any:
-		if full, ok := value["full"]; ok {
-			return fmt.Sprint(full)
-		}
-		if snapshot, ok := value["snapshot"]; ok {
-			return fmt.Sprint(snapshot)
-		}
-	case string:
-		return value
-	}
-	return ""
-}
-
-func isBrowserSnapshotForAIUnavailable(err error) bool {
-	if err == nil {
-		return false
-	}
-	if errors.Is(err, errBrowserSnapshotForAIUnavailable) {
-		return true
-	}
-	message := strings.ToLower(strings.TrimSpace(err.Error()))
-	return strings.Contains(message, "_snapshotforai") ||
-		strings.Contains(message, "snapshotforai") ||
-		strings.Contains(message, "playwright snapshotforai is unavailable")
-}
-
-func collectBrowserSnapshotItems(
-	page playwright.Page,
-	selector string,
-	frameSelector string,
-	interactive bool,
-	limit int,
-	refsMode string,
-	maxDepth int,
-) ([]browserSnapshotItem, error) {
-	if limit <= 0 {
-		limit = defaultBrowserSnapshotLimit
-	}
-	locator := resolveBrowserSnapshotLocator(page, selector, frameSelector)
-	snapshot, err := locator.AriaSnapshot(playwright.LocatorAriaSnapshotOptions{
-		Ref: playwright.Bool(strings.EqualFold(refsMode, "aria")),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return parseBrowserAriaSnapshot(snapshot, interactive, limit, strings.EqualFold(refsMode, "aria"), maxDepth), nil
-}
-
-func resolveBrowserSnapshotLocator(page playwright.Page, selector string, frameSelector string) playwright.Locator {
-	selector = strings.TrimSpace(selector)
-	frameSelector = strings.TrimSpace(frameSelector)
-	if frameSelector != "" {
-		frame := page.FrameLocator(frameSelector)
-		if selector != "" {
-			return frame.Locator(selector)
-		}
-		return frame.Locator(":root")
-	}
-	if selector != "" {
-		return page.Locator(selector)
-	}
-	return page.Locator(":root")
-}
-
-func parseBrowserAriaSnapshot(
-	snapshot string,
-	interactive bool,
-	limit int,
-	useAriaRefs bool,
-	maxDepth int,
-) []browserSnapshotItem {
-	if limit <= 0 {
-		limit = defaultBrowserSnapshotLimit
-	}
-	lines := strings.Split(snapshot, "\n")
-	items := make([]browserSnapshotItem, 0, minInt(len(lines), limit))
-	countByRoleName := map[string]int{}
-	nextRef := 0
-
-	for _, rawLine := range lines {
-		if len(items) >= limit {
-			break
-		}
-		line := strings.TrimRight(rawLine, "\r")
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-
-		match := browserAriaSnapshotLinePattern.FindStringSubmatch(line)
-		if len(match) < 5 {
-			continue
-		}
-		role := strings.ToLower(strings.TrimSpace(match[2]))
-		if role == "" || strings.HasPrefix(role, "/") {
-			continue
-		}
-		if interactive && !isBrowserInteractiveRole(role) {
-			continue
-		}
-
-		name := strings.TrimSpace(match[3])
-		suffix := strings.TrimSpace(match[4])
-		text := browserAriaSnapshotTextFromSuffix(suffix)
-		depth := browserAriaSnapshotDepth(line)
-		if maxDepth > 0 && depth > maxDepth {
-			continue
-		}
-
-		ariaRef := ""
-		if refMatch := browserAriaSnapshotRefPattern.FindStringSubmatch(suffix); len(refMatch) >= 2 {
-			ariaRef = strings.TrimSpace(refMatch[1])
-		}
-
-		key := role + "\n" + name
-		nth := countByRoleName[key]
-		countByRoleName[key] = nth + 1
-
-		nextRef += 1
-		ref := fmt.Sprintf("e%d", nextRef)
-		if useAriaRefs && ariaRef != "" {
-			ref = ariaRef
-		}
-
-		item := browserSnapshotItem{
-			Ref:     ref,
-			AriaRef: ariaRef,
-			Role:    role,
-			Name:    name,
-			Text:    text,
-			Depth:   depth,
-			Nth:     nth,
-		}
-		if item.Role == "" {
-			item.Role = "element"
-		}
-		if item.Name == "" {
-			item.Name = item.Text
-		}
-		if item.Name == "" {
-			item.Name = "(empty)"
-		}
-		items = append(items, item)
-	}
-	return items
-}
-
-func browserAriaSnapshotDepth(line string) int {
-	spaces := 0
-	for _, r := range line {
-		if r == ' ' {
-			spaces += 1
-			continue
-		}
-		if r == '\t' {
-			spaces += 2
-			continue
-		}
-		break
-	}
-	return spaces / 2
-}
-
-func browserAriaSnapshotTextFromSuffix(suffix string) string {
-	suffix = strings.TrimSpace(suffix)
-	if suffix == "" {
-		return ""
-	}
-	if idx := strings.LastIndex(suffix, ":"); idx >= 0 && idx+1 < len(suffix) {
-		return strings.TrimSpace(suffix[idx+1:])
-	}
-	return ""
-}
-
-func isBrowserInteractiveRole(role string) bool {
-	switch strings.ToLower(strings.TrimSpace(role)) {
-	case "button",
-		"link",
-		"textbox",
-		"checkbox",
-		"radio",
-		"combobox",
-		"listbox",
-		"menuitem",
-		"menuitemcheckbox",
-		"menuitemradio",
-		"option",
-		"searchbox",
-		"slider",
-		"spinbutton",
-		"switch",
-		"tab",
-		"treeitem":
-		return true
-	default:
-		return false
-	}
-}
-
-func resolveBrowserUploadLocator(tab *browserTabState, inputRef string, ref string, element string) (playwright.Locator, error) {
-	switch {
-	case strings.TrimSpace(inputRef) != "":
-		return tab.Page.Locator(strings.TrimSpace(inputRef)), nil
-	case strings.TrimSpace(ref) != "":
-		return resolveBrowserRefLocator(tab, strings.TrimSpace(ref))
-	case strings.TrimSpace(element) != "":
-		return tab.Page.Locator(strings.TrimSpace(element)), nil
-	default:
-		return nil, errors.New("upload requires ref/inputRef/element")
-	}
-}
-
-func parseBrowserUploadPaths(payload toolArgs) ([]string, error) {
-	raw := getStringSliceArg(payload, "paths")
-	if len(raw) == 0 {
-		return nil, errors.New("paths are required")
-	}
-	rootDir, err := resolveBrowserUploadRootDir()
-	if err != nil {
-		return nil, err
-	}
-	paths := make([]string, 0, len(raw))
-	for _, item := range raw {
-		trimmed := strings.TrimSpace(item)
-		if trimmed == "" {
-			continue
-		}
-		absPath, err := resolvePathWithinRoot(rootDir, trimmed)
-		if err != nil {
-			return nil, err
-		}
-		info, err := os.Stat(absPath)
-		if err != nil {
-			return nil, fmt.Errorf("upload path not found: %s", absPath)
-		}
-		if info.IsDir() {
-			return nil, fmt.Errorf("upload path must be a file: %s", absPath)
-		}
-		paths = append(paths, absPath)
-	}
-	if len(paths) == 0 {
-		return nil, errors.New("paths are required")
-	}
-	return paths, nil
-}
-
-func resolveBrowserUploadRootDir() (string, error) {
-	dir := filepath.Join(os.TempDir(), "dreamcreator", "browser", "uploads")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", err
-	}
-	return filepath.Abs(dir)
-}
-
-func resolvePathWithinRoot(rootDir string, requestedPath string) (string, error) {
-	root := strings.TrimSpace(rootDir)
-	if root == "" {
-		return "", errors.New("upload root is required")
-	}
-	rootAbs, err := filepath.Abs(root)
-	if err != nil {
-		return "", err
-	}
-	raw := strings.TrimSpace(requestedPath)
-	if raw == "" {
-		return "", errors.New("paths are required")
-	}
-
-	var candidate string
-	if filepath.IsAbs(raw) {
-		candidate = filepath.Clean(raw)
-	} else {
-		candidate = filepath.Join(rootAbs, raw)
-	}
-	candidateAbs, err := filepath.Abs(candidate)
-	if err != nil {
-		return "", err
-	}
-	rel, err := filepath.Rel(rootAbs, candidateAbs)
-	if err != nil {
-		return "", err
-	}
-	rel = filepath.ToSlash(strings.TrimSpace(rel))
-	if rel == "." || strings.HasPrefix(rel, "../") || rel == ".." {
-		return "", fmt.Errorf("Invalid path: must stay within uploads directory (%s)", rootAbs)
-	}
-	return candidateAbs, nil
-}
-
-func resolveBrowserRefLocator(tab *browserTabState, ref string) (playwright.Locator, error) {
-	if tab == nil {
-		return nil, errors.New("tab unavailable")
-	}
-	ref = strings.TrimSpace(ref)
-	if ref == "" {
-		return nil, errors.New("ref is required")
-	}
-	if tab.refs == nil {
-		return nil, errors.New("no snapshot refs available; run action=snapshot first")
-	}
-	entry, ok := tab.refs[ref]
-	if !ok {
-		return nil, fmt.Errorf("ref not found: %s (run action=snapshot again)", ref)
-	}
-
-	mode := strings.ToLower(strings.TrimSpace(entry.Mode))
-	if mode == "aria" {
-		ariaRef := strings.TrimSpace(entry.AriaRef)
-		if ariaRef == "" {
-			ariaRef = ref
-		}
-		if ariaRef == "" {
-			return nil, fmt.Errorf("ref selector missing for %s", ref)
-		}
-		locator := resolveBrowserScopedLocator(tab.Page, entry.Frame, "aria-ref="+ariaRef)
-		return locator, nil
-	}
-	if strings.TrimSpace(entry.Role) != "" {
-		locator, err := resolveBrowserRoleLocator(tab.Page, entry.Role, entry.Name, entry.Nth, entry.Frame)
-		if err == nil {
-			return locator, nil
-		}
-		// Fall back to selector-based resolution below.
-	}
-
-	selector := strings.TrimSpace(entry.Selector)
-	if selector == "" {
-		return nil, fmt.Errorf("ref selector missing for %s", ref)
-	}
-	return resolveBrowserScopedLocator(tab.Page, entry.Frame, selector), nil
-}
-
-func resolveBrowserScopedLocator(page playwright.Page, frameSelector string, selector string) playwright.Locator {
-	frameSelector = strings.TrimSpace(frameSelector)
-	selector = strings.TrimSpace(selector)
-	if frameSelector == "" {
-		if strings.HasPrefix(selector, "//") || strings.HasPrefix(selector, "/") {
-			return page.Locator("xpath=" + selector)
-		}
-		return page.Locator(selector)
-	}
-	frame := page.FrameLocator(frameSelector)
-	if strings.HasPrefix(selector, "//") || strings.HasPrefix(selector, "/") {
-		return frame.Locator("xpath=" + selector)
-	}
-	return frame.Locator(selector)
-}
-
-func resolveBrowserRoleLocator(page playwright.Page, role string, name string, nth int, frameSelector string) (playwright.Locator, error) {
-	role = strings.TrimSpace(strings.ToLower(role))
-	if role == "" {
-		return nil, errors.New("role is required")
-	}
-
-	frameSelector = strings.TrimSpace(frameSelector)
-	name = strings.TrimSpace(name)
-
-	var locator playwright.Locator
-	if frameSelector != "" {
-		frame := page.FrameLocator(frameSelector)
-		if name != "" {
-			locator = frame.GetByRole(playwright.AriaRole(role), playwright.FrameLocatorGetByRoleOptions{
-				Name:  name,
-				Exact: playwright.Bool(true),
-			})
-		} else {
-			locator = frame.GetByRole(playwright.AriaRole(role))
-		}
-	} else {
-		if name != "" {
-			locator = page.GetByRole(playwright.AriaRole(role), playwright.PageGetByRoleOptions{
-				Name:  name,
-				Exact: playwright.Bool(true),
-			})
-		} else {
-			locator = page.GetByRole(playwright.AriaRole(role))
-		}
-	}
-	if nth > 0 {
-		locator = locator.Nth(nth)
-	}
-	return locator, nil
-}
-
-func listBrowserTabs(state *browserProfileState) ([]map[string]any, error) {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-	pruneClosedTabsLocked(state)
-	items := make([]map[string]any, 0, len(state.tabs))
-	ids := make([]string, 0, len(state.tabs))
-	for id := range state.tabs {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-	for _, id := range ids {
-		tab := state.tabs[id]
-		title, _ := tab.Page.Title()
-		items = append(items, map[string]any{
-			"targetId": tab.TargetID,
-			"title":    strings.TrimSpace(title),
-			"url":      strings.TrimSpace(tab.Page.URL()),
-			"type":     "page",
-		})
-	}
-	return items, nil
-}
-
-func resolveBrowserTab(state *browserProfileState, targetID string, autoCreate bool) (*browserTabState, error) {
-	state.mu.Lock()
-	pruneClosedTabsLocked(state)
-
-	targetID = strings.TrimSpace(targetID)
-	if targetID != "" {
-		if tab, ok := state.tabs[targetID]; ok {
-			state.activeTarget = tab.TargetID
-			state.mu.Unlock()
-			return tab, nil
-		}
-		matches := make([]*browserTabState, 0, len(state.tabs))
-		targetLower := strings.ToLower(targetID)
-		for id, tab := range state.tabs {
-			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(id)), targetLower) {
-				matches = append(matches, tab)
-			}
-		}
-		if len(matches) == 1 {
-			state.activeTarget = matches[0].TargetID
-			state.mu.Unlock()
-			return matches[0], nil
-		}
-		if len(matches) > 1 {
-			state.mu.Unlock()
-			return nil, errors.New("ambiguous target id prefix")
-		}
-		if len(state.tabs) == 1 {
-			for _, only := range state.tabs {
-				state.activeTarget = only.TargetID
-				state.mu.Unlock()
-				return only, nil
-			}
-		}
-		state.mu.Unlock()
-		return nil, errors.New("tab not found")
-	}
-
-	if state.activeTarget != "" {
-		if tab, ok := state.tabs[state.activeTarget]; ok {
-			state.mu.Unlock()
-			return tab, nil
-		}
-	}
-	if len(state.tabs) == 1 {
-		for _, only := range state.tabs {
-			state.activeTarget = only.TargetID
-			state.mu.Unlock()
-			return only, nil
-		}
-	}
-	if len(state.tabs) > 1 {
-		ids := make([]string, 0, len(state.tabs))
-		for id := range state.tabs {
-			ids = append(ids, id)
-		}
-		sort.Strings(ids)
-		first := state.tabs[ids[0]]
-		state.activeTarget = first.TargetID
-		state.mu.Unlock()
-		return first, nil
-	}
-
-	browserCtx := state.context
-	state.mu.Unlock()
-	if !autoCreate || browserCtx == nil {
-		return nil, errors.New("no browser tab available")
-	}
-	page, err := browserCtx.NewPage()
-	if err != nil {
-		return nil, err
-	}
-	tab := attachBrowserTab(state, page)
-	return tab, nil
-}
-
-func attachBrowserTab(state *browserProfileState, page playwright.Page) *browserTabState {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-	if targetID, ok := state.pageToTarget[page]; ok {
-		if existing, exists := state.tabs[targetID]; exists {
-			state.activeTarget = existing.TargetID
-			return existing
-		}
-	}
-	targetID := fmt.Sprintf("T%d", atomic.AddUint64(&browserGlobalTabCounter, 1))
-	tab := &browserTabState{
-		TargetID: targetID,
-		Page:     page,
-		refs:     map[string]browserSnapshotRef{},
-	}
-	state.tabs[targetID] = tab
-	state.pageToTarget[page] = targetID
-	state.activeTarget = targetID
-	attachBrowserPageObservers(state, tab)
-	return tab
-}
-
-func attachBrowserPageObservers(state *browserProfileState, tab *browserTabState) {
-	if tab == nil || tab.Page == nil {
-		return
-	}
-	targetID := tab.TargetID
-
-	tab.Page.OnConsole(func(message playwright.ConsoleMessage) {
-		entry := browserConsoleMessage{
-			TargetID:  targetID,
-			Type:      strings.ToLower(strings.TrimSpace(message.Type())),
-			Text:      trimToMaxChars(strings.TrimSpace(message.Text()), 4000),
-			Timestamp: time.Now().UTC().Format(time.RFC3339),
-		}
-		state.mu.Lock()
-		state.consoleMessages = append(state.consoleMessages, entry)
-		if len(state.consoleMessages) > 400 {
-			state.consoleMessages = append([]browserConsoleMessage(nil), state.consoleMessages[len(state.consoleMessages)-400:]...)
-		}
-		state.mu.Unlock()
-	})
-
-	tab.Page.OnDialog(func(dialog playwright.Dialog) {
-		state.mu.Lock()
-		pending, ok := state.pendingDialogs[targetID]
-		if ok {
-			delete(state.pendingDialogs, targetID)
-		}
-		state.mu.Unlock()
-		if ok && time.Now().Before(pending.ExpiresAt) {
-			if pending.Accept {
-				if pending.PromptText != "" {
-					_ = dialog.Accept(pending.PromptText)
-				} else {
-					_ = dialog.Accept()
-				}
-			} else {
-				_ = dialog.Dismiss()
-			}
-			return
-		}
-		_ = dialog.Dismiss()
-	})
-
-	tab.Page.OnFileChooser(func(chooser playwright.FileChooser) {
-		state.mu.Lock()
-		pending, ok := state.pendingUploads[targetID]
-		if ok {
-			delete(state.pendingUploads, targetID)
-		}
-		state.mu.Unlock()
-		if ok && time.Now().Before(pending.ExpiresAt) {
-			_ = chooser.SetFiles(pending.Paths)
-		}
-	})
-}
-
 func ensureBrowserProfileStarted(state *browserProfileState) error {
 	state.mu.Lock()
 	defer state.mu.Unlock()
-	if state.browser != nil && state.context != nil {
-		pruneClosedTabsLocked(state)
+	if state.runtime != nil && state.runtime.Status().Ready {
 		return nil
 	}
-
-	var err error
-	if state.pw == nil {
-		state.pw, err = playwright.Run(&playwright.RunOptions{Verbose: false, Stdout: io.Discard, Stderr: io.Discard})
-		if err != nil {
-			return err
-		}
-	}
-
-	launchOptions := playwright.BrowserTypeLaunchOptions{
-		Headless: playwright.Bool(state.resolved.Headless),
-	}
-	args := append([]string(nil), state.resolved.ExtraArgs...)
-	if state.resolved.NoSandbox {
-		args = append(args, "--no-sandbox")
-	}
-	if state.resolved.Headless && !hasBrowserHeadlessArg(args) {
-		args = append(args, "--headless=new")
-	}
-	if len(args) > 0 {
-		launchOptions.Args = args
-	}
-	state.browser, err = state.pw.Chromium.Launch(launchOptions)
-	if err != nil {
-		return err
-	}
-	state.context, err = state.browser.NewContext(playwright.BrowserNewContextOptions{
-		Viewport: &playwright.Size{Width: defaultBrowserViewportWidth, Height: defaultBrowserViewportHeight},
+	userDataDir := filepath.Join(os.TempDir(), "dreamcreator", "browser", state.sessionKey, state.profileName)
+	runtime, err := browsercdp.Start(context.Background(), browsercdp.LaunchOptions{
+		PreferredBrowser: state.resolved.PreferredBrowser,
+		Headless:         state.resolved.Headless,
+		UserDataDir:      userDataDir,
 	})
 	if err != nil {
-		_ = state.browser.Close()
-		state.browser = nil
 		return err
 	}
-
-	if state.tabs == nil {
-		state.tabs = map[string]*browserTabState{}
-	}
-	if state.pageToTarget == nil {
-		state.pageToTarget = map[playwright.Page]string{}
-	}
-	if state.pendingUploads == nil {
-		state.pendingUploads = map[string]browserPendingUpload{}
-	}
-	if state.pendingDialogs == nil {
-		state.pendingDialogs = map[string]browserPendingDialog{}
-	}
-	for _, page := range state.context.Pages() {
-		if page == nil || page.IsClosed() {
-			continue
-		}
-		if targetID, ok := state.pageToTarget[page]; ok {
-			if _, exists := state.tabs[targetID]; exists {
-				continue
-			}
-		}
-		targetID := fmt.Sprintf("T%d", atomic.AddUint64(&browserGlobalTabCounter, 1))
-		tab := &browserTabState{TargetID: targetID, Page: page, refs: map[string]browserSnapshotRef{}}
-		state.tabs[targetID] = tab
-		state.pageToTarget[page] = targetID
-		if state.activeTarget == "" {
-			state.activeTarget = targetID
-		}
-		attachBrowserPageObservers(state, tab)
-	}
-	pruneClosedTabsLocked(state)
+	state.runtime = runtime
 	return nil
 }
 
-func stopBrowserProfile(state *browserProfileState) error {
+func stopBrowserProfile(state *browserProfileState) {
 	state.mu.Lock()
 	defer state.mu.Unlock()
-
-	if state.context != nil {
-		_ = state.context.Close()
-		state.context = nil
+	for _, tab := range state.tabs {
+		tab.cancel()
 	}
-	if state.browser != nil {
-		_ = state.browser.Close()
-		state.browser = nil
-	}
-	if state.pw != nil {
-		_ = state.pw.Stop()
-		state.pw = nil
-	}
-
 	state.tabs = map[string]*browserTabState{}
-	state.pageToTarget = map[playwright.Page]string{}
 	state.activeTarget = ""
-	state.pendingUploads = map[string]browserPendingUpload{}
-	state.pendingDialogs = map[string]browserPendingDialog{}
-	state.consoleMessages = nil
+	if state.runtime != nil {
+		state.runtime.Stop()
+		state.runtime = nil
+	}
+}
+
+func createBrowserTab(state *browserProfileState) (*browserTabState, error) {
+	if err := ensureBrowserProfileStarted(state); err != nil {
+		return nil, err
+	}
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	tabCtx, cancel := chromedp.NewContext(state.runtime.BrowserContext())
+	tab := &browserTabState{
+		ctx:    tabCtx,
+		cancel: cancel,
+		refs:   map[string]browserSnapshotRef{},
+	}
+	if err := chromedp.Run(tabCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+		targetID := string(chromedp.FromContext(ctx).Target.TargetID)
+		tab.TargetID = targetID
+		return nil
+	})); err != nil {
+		cancel()
+		return nil, err
+	}
+	attachBrowserTab(state, tab)
+	state.tabs[tab.TargetID] = tab
+	state.activeTarget = tab.TargetID
+	return tab, nil
+}
+
+func attachBrowserTab(state *browserProfileState, tab *browserTabState) {
+	chromedp.ListenTarget(tab.ctx, func(ev any) {
+		switch event := ev.(type) {
+		case *runtimepkg.EventConsoleAPICalled:
+			state.mu.Lock()
+			state.consoleMessages = append(state.consoleMessages, browserConsoleMessage{
+				TargetID:  tab.TargetID,
+				Type:      string(event.Type),
+				Text:      runtimeConsoleMessageText(event),
+				Timestamp: time.Now().Format(time.RFC3339),
+			})
+			state.mu.Unlock()
+		case *pagepkg.EventJavascriptDialogOpening:
+			state.mu.Lock()
+			state.pendingDialogs[tab.TargetID] = browserPendingDialog{
+				Message:   strings.TrimSpace(event.Message),
+				Type:      string(event.Type),
+				ExpiresAt: time.Now().Add(5 * time.Minute),
+			}
+			state.mu.Unlock()
+		}
+	})
+}
+
+func resolveBrowserTab(state *browserProfileState, targetID string, allowActive bool) (*browserTabState, error) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	targetID = strings.TrimSpace(targetID)
+	if targetID != "" {
+		tab, ok := state.tabs[targetID]
+		if !ok {
+			return nil, errors.New("tab not found")
+		}
+		return tab, nil
+	}
+	if allowActive && state.activeTarget != "" {
+		if tab, ok := state.tabs[state.activeTarget]; ok {
+			return tab, nil
+		}
+	}
+	for _, tab := range state.tabs {
+		return tab, nil
+	}
+	return nil, errors.New("no browser tab is open")
+}
+
+func navigateBrowserTab(tab *browserTabState, targetURL string, timeoutMs int) error {
+	timeout := time.Duration(normalizeBrowserTimeoutMs(timeoutMs, 30000)) * time.Millisecond
+	runCtx, cancel := context.WithTimeout(tab.ctx, timeout)
+	defer cancel()
+	if _, err := chromedp.RunResponse(runCtx, chromedp.Navigate(targetURL)); err != nil {
+		return err
+	}
+	var finalURL string
+	if err := chromedp.Run(runCtx,
+		chromedp.WaitReady("body", chromedp.ByQuery),
+		chromedp.Location(&finalURL),
+	); err != nil {
+		return err
+	}
+	tab.mu.Lock()
+	tab.lastURL = finalURL
+	tab.refs = map[string]browserSnapshotRef{}
+	tab.mu.Unlock()
 	return nil
 }
 
-func pruneClosedTabsLocked(state *browserProfileState) {
-	if state == nil {
-		return
-	}
-	for targetID, tab := range state.tabs {
-		if tab == nil || tab.Page == nil || tab.Page.IsClosed() {
-			delete(state.tabs, targetID)
-			if tab != nil && tab.Page != nil {
-				delete(state.pageToTarget, tab.Page)
-			}
-			if state.activeTarget == targetID {
-				state.activeTarget = ""
-			}
-		}
-	}
-	if state.activeTarget != "" {
-		if _, ok := state.tabs[state.activeTarget]; ok {
-			return
-		}
-	}
-	if len(state.tabs) == 0 {
-		state.activeTarget = ""
-		return
-	}
-	ids := make([]string, 0, len(state.tabs))
-	for id := range state.tabs {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-	state.activeTarget = ids[0]
-}
-
-func getOrCreateBrowserProfileState(sessionKey string, profileName string, resolved browserResolvedConfig) *browserProfileState {
-	globalBrowserSessions.mu.Lock()
-	defer globalBrowserSessions.mu.Unlock()
-
-	session, ok := globalBrowserSessions.sessions[sessionKey]
-	if !ok {
-		session = &browserSessionState{
-			sessionKey: sessionKey,
-			profiles:   map[string]*browserProfileState{},
-		}
-		globalBrowserSessions.sessions[sessionKey] = session
-	}
-
-	state, ok := session.profiles[profileName]
-	if !ok {
-		profile := resolved.Profiles[profileName]
-		state = &browserProfileState{
-			profileName:     profileName,
-			resolved:        resolved,
-			profile:         profile,
-			tabs:            map[string]*browserTabState{},
-			pageToTarget:    map[playwright.Page]string{},
-			pendingUploads:  map[string]browserPendingUpload{},
-			pendingDialogs:  map[string]browserPendingDialog{},
-			consoleMessages: nil,
-		}
-		session.profiles[profileName] = state
-		return state
-	}
-
-	state.mu.Lock()
-	state.resolved = resolved
-	if profile, exists := resolved.Profiles[profileName]; exists {
-		state.profile = profile
-	}
-	state.profileName = profileName
-	state.mu.Unlock()
-	return state
-}
-
-func resolveBrowserRuntimeConfig(config map[string]any) browserResolvedConfig {
-	browserConfig := resolveBrowserConfig(config)
-	resolved := browserResolvedConfig{
-		Enabled:         true,
-		EvaluateEnabled: true,
-		Color:           defaultBrowserColor,
-		Headless:        false,
-		NoSandbox:       false,
-		DefaultProfile:  defaultBrowserProfileDreamCreator,
-		Profiles: map[string]browserProfileConfig{
-			defaultBrowserProfileDreamCreator: {
-				Name:   defaultBrowserProfileDreamCreator,
-				Color:  defaultBrowserColor,
-				Driver: browserTypePlaywright,
-			},
-		},
-		SSRFRules: browserSSRFPolicy{
-			DangerouslyAllowPrivateNetwork: true,
-			AllowedHostnames:               map[string]struct{}{},
-			HostnameAllowlist:              nil,
-		},
-		ExtraArgs: nil,
-	}
-	if browserConfig == nil {
-		return resolved
-	}
-
-	if value, ok := getBoolArg(toolArgs(browserConfig), "enabled"); ok {
-		resolved.Enabled = value
-	}
-	if value, ok := getBoolArg(toolArgs(browserConfig), "evaluateEnabled"); ok {
-		resolved.EvaluateEnabled = value
-	}
-	if value := strings.TrimSpace(getStringArg(toolArgs(browserConfig), "color")); value != "" {
-		resolved.Color = value
-	}
-	if value, ok := getBoolArg(toolArgs(browserConfig), "headless"); ok {
-		resolved.Headless = value
-	}
-	if value, ok := getBoolArg(toolArgs(browserConfig), "noSandbox"); ok {
-		resolved.NoSandbox = value
-	}
-	if values := normalizeStringSlice(getStringSliceArg(toolArgs(browserConfig), "extraArgs")); len(values) > 0 {
-		resolved.ExtraArgs = values
-	}
-
-	if snapshotDefaults := getMapArg(toolArgs(browserConfig), "snapshotDefaults"); snapshotDefaults != nil {
-		if value := strings.TrimSpace(getStringArg(toolArgs(snapshotDefaults), "mode")); value == defaultBrowserSnapshotModeEfficient {
-			resolved.SnapshotDefaultMode = value
-		}
-	}
-
-	if ssrfRaw := getMapArg(toolArgs(browserConfig), "ssrfPolicy"); ssrfRaw != nil {
-		if value, ok := getBoolArg(toolArgs(ssrfRaw), "dangerouslyAllowPrivateNetwork"); ok {
-			resolved.SSRFRules.DangerouslyAllowPrivateNetwork = value
-		} else if value, ok := getBoolArg(toolArgs(ssrfRaw), "allowPrivateNetwork"); ok {
-			resolved.SSRFRules.DangerouslyAllowPrivateNetwork = value
-		}
-		for _, hostname := range getStringSliceArg(toolArgs(ssrfRaw), "allowedHostnames") {
-			resolved.SSRFRules.AllowedHostnames[strings.ToLower(strings.TrimSpace(hostname))] = struct{}{}
-		}
-		if allowlist := normalizeStringSlice(getStringSliceArg(toolArgs(ssrfRaw), "hostnameAllowlist")); len(allowlist) > 0 {
-			resolved.SSRFRules.HostnameAllowlist = allowlist
-		}
-	}
-
-	if _, ok := resolved.Profiles[resolved.DefaultProfile]; !ok {
-		resolved.DefaultProfile = defaultBrowserProfileDreamCreator
-	}
-	for name, profile := range resolved.Profiles {
-		if profile.Name == "" {
-			profile.Name = name
-		}
-		if profile.Color == "" {
-			profile.Color = resolved.Color
-		}
-		if profile.Driver == "" {
-			profile.Driver = browserTypePlaywright
-		}
-		resolved.Profiles[name] = profile
-	}
-
-	return resolved
-}
-
-func resolveBrowserProfileName(payload toolArgs, resolved browserResolvedConfig) string {
-	profile := strings.TrimSpace(getStringArg(payload, "profile"))
-	if profile == "" {
-		profile = strings.TrimSpace(resolved.DefaultProfile)
-	}
-	if profile == "" {
-		profile = defaultBrowserProfileDreamCreator
-	}
-	if _, ok := resolved.Profiles[profile]; !ok {
-		profileCfg := browserProfileConfig{
-			Name:   profile,
-			Color:  resolved.Color,
-			Driver: browserTypePlaywright,
-		}
-		resolved.Profiles[profile] = profileCfg
-	}
-	return profile
-}
-
-func resolveBrowserConfig(config map[string]any) map[string]any {
-	return getNestedMap(config, "browser")
-}
-
-func resolveBrowserConfigBool(config map[string]any, key string) (bool, bool) {
-	return getBoolArg(toolArgs(resolveBrowserConfig(config)), key)
-}
-
-func resolveBrowserType(payload toolArgs, config map[string]any) string {
-	if raw := getStringArg(payload, "type", "mode", "engine"); raw != "" {
-		return normalizeBrowserType(raw)
-	}
-	if payloadBrowser := getMapArg(payload, "browser"); payloadBrowser != nil {
-		if raw := getStringArg(toolArgs(payloadBrowser), "type", "mode", "engine"); raw != "" {
-			return normalizeBrowserType(raw)
-		}
-	}
-	if raw := getStringArg(toolArgs(resolveBrowserConfig(config)), "type", "mode", "engine"); raw != "" {
-		return normalizeBrowserType(raw)
-	}
-	return defaultBrowserType
-}
-
-func normalizeBrowserType(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case browserTypePlaywright, "browser", "headless", "chromium":
-		return browserTypePlaywright
-	default:
-		return ""
-	}
-}
-
-func resolveBrowserWaitUntil(payload toolArgs, fallback string) string {
-	if value := normalizeBrowserWaitUntil(getStringArg(payload, "waitUntil")); value != "" {
-		return value
-	}
-	return normalizeBrowserWaitUntil(fallback)
-}
-
-func resolveBrowserWaitUntilState(value string) *playwright.WaitUntilState {
-	switch normalizeBrowserWaitUntil(value) {
-	case "commit":
-		return playwright.WaitUntilStateCommit
-	case "load":
-		return playwright.WaitUntilStateLoad
-	case "networkidle":
-		return playwright.WaitUntilStateNetworkidle
-	default:
-		return playwright.WaitUntilStateDomcontentloaded
-	}
-}
-
-func normalizeBrowserWaitUntil(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "commit":
-		return "commit"
-	case "load":
-		return "load"
-	case "networkidle", "network_idle":
-		return "networkidle"
-	case "domcontentloaded", "dom_content_loaded", "dom-content-loaded":
-		return "domcontentloaded"
-	default:
-		return ""
-	}
-}
-
-func resolveBrowserLoadState(value string) *playwright.LoadState {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "load":
-		return playwright.LoadStateLoad
-	case "domcontentloaded", "dom_content_loaded", "dom-content-loaded":
-		return playwright.LoadStateDomcontentloaded
-	case "networkidle", "network_idle":
-		return playwright.LoadStateNetworkidle
-	default:
-		return nil
-	}
-}
-
-func resolveBrowserActionTimeoutMs(payload toolArgs, fallback int) int {
-	if timeoutMs, ok := getIntArg(payload, "timeoutMs"); ok && timeoutMs > 0 {
-		return normalizeBrowserTimeoutMs(timeoutMs, fallback)
-	}
-	if timeoutSeconds, ok := getIntArg(payload, "timeoutSeconds"); ok && timeoutSeconds > 0 {
-		return normalizeBrowserTimeoutMs(timeoutSeconds*1000, fallback)
-	}
-	return normalizeBrowserTimeoutMs(fallback, fallback)
-}
-
-func resolveBrowserActTimeoutMs(request toolArgs, payload toolArgs, fallback int) int {
-	if timeoutMs, ok := getIntArg(request, "timeoutMs"); ok && timeoutMs > 0 {
-		return normalizeBrowserTimeoutMs(timeoutMs, fallback)
-	}
-	if timeoutSeconds, ok := getIntArg(request, "timeoutSeconds"); ok && timeoutSeconds > 0 {
-		return normalizeBrowserTimeoutMs(timeoutSeconds*1000, fallback)
-	}
-	return resolveBrowserActionTimeoutMs(payload, fallback)
-}
-
-func normalizeBrowserTimeoutMs(value int, fallback int) int {
-	if value <= 0 {
-		value = fallback
-	}
-	if value < 500 {
-		return 500
-	}
-	if value > 120000 {
-		return 120000
-	}
-	return value
-}
-
-func toBrowserFriendlyInteractionError(err error, selector string) error {
-	if err == nil {
-		return nil
-	}
-	message := strings.TrimSpace(err.Error())
-	if message == "" {
-		return err
-	}
-	if strings.Contains(message, "strict mode violation") {
-		count := "multiple"
-		if match := browserStrictModeCountPattern.FindStringSubmatch(message); len(match) >= 2 {
-			count = strings.TrimSpace(match[1])
-		}
-		return fmt.Errorf(`Selector "%s" matched %s elements. Run a new snapshot to get updated refs, or use a different ref.`, selector, count)
-	}
-	if (strings.Contains(message, "Timeout") || strings.Contains(message, "waiting for")) &&
-		(strings.Contains(message, "to be visible") || strings.Contains(message, "not visible")) {
-		return fmt.Errorf(`Element "%s" not found or not visible. Run a new snapshot to see current page elements.`, selector)
-	}
-	if strings.Contains(message, "intercepts pointer events") ||
-		strings.Contains(message, "not receive pointer events") ||
-		strings.Contains(message, "not visible") {
-		return fmt.Errorf(`Element "%s" is not interactable (hidden or covered). Try scrolling it into view, closing overlays, or re-snapshotting.`, selector)
-	}
-	return err
-}
-
-func addConnectorCookiesToContext(ctx context.Context, connectors ConnectorsReader, browserCtx playwright.BrowserContext, targetURL string) error {
-	if connectors == nil || browserCtx == nil {
+func addConnectorCookiesToTab(ctx context.Context, connectors ConnectorsReader, tab *browserTabState, targetURL string) error {
+	if connectors == nil || tab == nil {
 		return nil
 	}
 	cookies, err := resolveConnectorCookiesForURL(ctx, connectors, targetURL)
-	if err != nil {
+	if err != nil || len(cookies) == 0 {
 		return err
 	}
-	if len(cookies) == 0 {
-		return nil
-	}
-	return browserCtx.AddCookies(toPlaywrightCookies(cookies, targetURL))
+	return chromedp.Run(tab.ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		return browsercdp.SetCookies(ctx, targetURL, connectorCookiesToRecords(cookies))
+	}))
 }
 
-func assertBrowserURLAllowed(rawURL string, policy browserSSRFPolicy) error {
-	trimmed := strings.TrimSpace(rawURL)
-	if trimmed == "" {
-		return errors.New("targetUrl is required")
+func collectBrowserSnapshot(ctx context.Context, tab *browserTabState, limit int) ([]browserSnapshotItem, map[string]browserSnapshotRef, error) {
+	if limit <= 0 {
+		limit = defaultBrowserSnapshotLimit
 	}
-	parsed, err := url.Parse(trimmed)
-	if err != nil {
-		return fmt.Errorf("invalid url: %w", err)
+	script := fmt.Sprintf(`(() => {
+  const inferRole = (el) => {
+    const explicit = (el.getAttribute("role") || "").trim();
+    if (explicit) return explicit.toLowerCase();
+    const tag = el.tagName.toLowerCase();
+    if (tag === "a") return "link";
+    if (tag === "button") return "button";
+    if (tag === "textarea" || tag === "input") return "textbox";
+    if (tag === "select") return "combobox";
+    return "element";
+  };
+  const cssPath = (el) => {
+    if (el.id) return "#" + CSS.escape(el.id);
+    const parts = [];
+    let node = el;
+    while (node && node.nodeType === 1 && parts.length < 6) {
+      let part = node.tagName.toLowerCase();
+      if (node.classList && node.classList.length > 0) {
+        part += "." + Array.from(node.classList).slice(0, 2).map((item) => CSS.escape(item)).join(".");
+      }
+      const parent = node.parentElement;
+      if (parent) {
+        const siblings = Array.from(parent.children).filter((candidate) => candidate.tagName === node.tagName);
+        if (siblings.length > 1) {
+          part += ":nth-of-type(" + (siblings.indexOf(node) + 1) + ")";
+        }
+      }
+      parts.unshift(part);
+      node = parent;
+    }
+    return parts.join(" > ");
+  };
+  const visible = (el) => {
+    const style = window.getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    return style && style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0;
+  };
+  const candidates = Array.from(document.querySelectorAll('a,button,input,textarea,select,summary,[role="button"],[role="link"],[role="menuitem"],[tabindex]'))
+    .filter((el) => visible(el))
+    .slice(0, %d)
+    .map((el) => {
+      const text = (el.innerText || el.textContent || el.value || "").replace(/\s+/g, " ").trim();
+      const name = (el.getAttribute("aria-label") || el.getAttribute("title") || el.placeholder || text).replace(/\s+/g, " ").trim();
+      return {
+        selector: cssPath(el),
+        role: inferRole(el),
+        name,
+        text,
+      };
+    });
+  return candidates;
+})()`, limit)
+	var raw []browserSnapshotJSItem
+	runCtx, cancel := context.WithTimeout(tab.ctx, 10*time.Second)
+	defer cancel()
+	if err := chromedp.Run(runCtx, chromedp.EvaluateAsDevTools(script, &raw)); err != nil {
+		return nil, nil, err
 	}
-	if !strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https") {
-		return errors.New("only http(s) urls are supported")
-	}
-	hostname := strings.ToLower(strings.TrimSpace(parsed.Hostname()))
-	if hostname == "" {
-		return errors.New("url hostname is required")
-	}
-	if isHostnameExplicitlyAllowed(hostname, policy) {
-		return nil
-	}
-	if policy.DangerouslyAllowPrivateNetwork {
-		return nil
-	}
-	if hostname == "localhost" || strings.HasSuffix(hostname, ".local") || strings.HasSuffix(hostname, ".internal") {
-		return fmt.Errorf("blocked private hostname: %s", hostname)
-	}
-	if ip := net.ParseIP(hostname); ip != nil {
-		if isPrivateOrLocalIP(ip) {
-			return fmt.Errorf("blocked private IP: %s", hostname)
+	items := make([]browserSnapshotItem, 0, len(raw))
+	refs := map[string]browserSnapshotRef{}
+	countByRoleName := map[string]int{}
+	for index, item := range raw {
+		ref := fmt.Sprintf("e%d", index+1)
+		key := item.Role + "\n" + item.Name
+		nth := countByRoleName[key]
+		countByRoleName[key] = nth + 1
+		items = append(items, browserSnapshotItem{
+			Ref:   ref,
+			Role:  item.Role,
+			Name:  item.Name,
+			Text:  item.Text,
+			Nth:   nth,
+			Depth: 0,
+		})
+		refs[ref] = browserSnapshotRef{
+			Selector: item.Selector,
+			Role:     item.Role,
+			Name:     item.Name,
+			Nth:      nth,
+			Mode:     "css",
 		}
 	}
-	return nil
+	return items, refs, nil
 }
 
-func isHostnameExplicitlyAllowed(hostname string, policy browserSSRFPolicy) bool {
-	hostname = strings.ToLower(strings.TrimSpace(hostname))
-	if hostname == "" {
-		return false
+func resolveBrowserRefSelector(tab *browserTabState, ref string) (string, error) {
+	if tab == nil {
+		return "", errors.New("tab unavailable")
 	}
-	if _, ok := policy.AllowedHostnames[hostname]; ok {
-		return true
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return "", errors.New("ref is required")
 	}
-	for _, pattern := range policy.HostnameAllowlist {
-		pattern = strings.ToLower(strings.TrimSpace(pattern))
-		if pattern == "" {
-			continue
-		}
-		if pattern == hostname {
-			return true
-		}
-		if strings.HasPrefix(pattern, "*.") {
-			suffix := strings.TrimPrefix(pattern, "*.")
-			if strings.HasSuffix(hostname, "."+suffix) || hostname == suffix {
-				return true
-			}
-			continue
-		}
-		if matched, _ := filepath.Match(pattern, hostname); matched {
-			return true
-		}
+	tab.mu.RLock()
+	defer tab.mu.RUnlock()
+	item, ok := tab.refs[ref]
+	if !ok {
+		return "", errors.New("ref not found; run snapshot first")
 	}
-	return false
+	if strings.TrimSpace(item.Selector) == "" {
+		return "", errors.New("ref selector unavailable")
+	}
+	return item.Selector, nil
 }
 
-func isPrivateOrLocalIP(ip net.IP) bool {
-	if ip == nil {
-		return false
+func browserTabURL(tab *browserTabState) string {
+	if tab == nil {
+		return ""
 	}
-	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
-		return true
-	}
-	if ip.IsUnspecified() || ip.IsMulticast() {
-		return true
-	}
-	if ip4 := ip.To4(); ip4 != nil {
-		// Carrier-grade NAT: 100.64.0.0/10
-		if ip4[0] == 100 && (ip4[1]&0xC0) == 64 {
-			return true
-		}
-	}
-	return false
+	tab.mu.RLock()
+	defer tab.mu.RUnlock()
+	return tab.lastURL
 }
 
-func waitBrowserEvaluateCondition(page playwright.Page, fn string, timeoutMs int) error {
+func waitForText(ctx context.Context, expected string, timeoutMs int, gone bool) error {
+	deadline := time.Now().Add(time.Duration(timeoutMs) * time.Millisecond)
+	expected = strings.TrimSpace(expected)
+	for {
+		var bodyText string
+		_ = chromedp.Run(ctx, chromedp.Text("body", &bodyText, chromedp.ByQuery))
+		contains := strings.Contains(bodyText, expected)
+		if (!gone && contains) || (gone && !contains) {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return errors.New("wait text timeout")
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+func waitForURL(ctx context.Context, expected string, timeoutMs int) error {
+	deadline := time.Now().Add(time.Duration(timeoutMs) * time.Millisecond)
+	expected = strings.TrimSpace(expected)
+	for {
+		var current string
+		_ = chromedp.Run(ctx, chromedp.Location(&current))
+		if current == expected {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return errors.New("wait url timeout")
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+func waitBrowserEvaluateCondition(ctx context.Context, fn string, timeoutMs int) error {
 	if timeoutMs <= 0 {
 		timeoutMs = 15000
 	}
 	deadline := time.Now().Add(time.Duration(timeoutMs) * time.Millisecond)
 	for {
-		result, err := page.Evaluate(fn)
+		var result any
+		err := chromedp.Run(ctx, chromedp.Evaluate(fn, &result))
 		if err == nil {
-			if value, ok := result.(bool); ok && value {
-				return nil
-			}
-			if result != nil {
-				switch typed := result.(type) {
-				case string:
-					if strings.TrimSpace(strings.ToLower(typed)) == "true" {
-						return nil
-					}
-				case float64:
-					if typed != 0 {
-						return nil
-					}
-				case int:
-					if typed != 0 {
-						return nil
-					}
+			switch typed := result.(type) {
+			case bool:
+				if typed {
+					return nil
+				}
+			case string:
+				if strings.TrimSpace(strings.ToLower(typed)) == "true" {
+					return nil
+				}
+			case float64:
+				if typed != 0 {
+					return nil
 				}
 			}
 		}
@@ -2924,199 +1046,24 @@ func waitBrowserEvaluateCondition(page playwright.Page, fn string, timeoutMs int
 	}
 }
 
-func saveBrowserArtifact(ext string, content []byte) (string, error) {
-	ext = strings.TrimSpace(strings.TrimPrefix(ext, "."))
-	if ext == "" {
-		ext = "bin"
-	}
-	dir := filepath.Join(os.TempDir(), "dreamcreator", "browser")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", err
-	}
-	filename := fmt.Sprintf("%d-%d.%s", time.Now().UnixNano(), atomic.AddUint64(&browserGlobalTabCounter, 1), ext)
-	path := filepath.Join(dir, filename)
-	if err := os.WriteFile(path, content, 0o644); err != nil {
-		return "", err
-	}
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return path, nil
-	}
-	return abs, nil
-}
-
-func resolveBrowserPlaywrightRuntimeAvailability() (bool, string, string) {
-	now := time.Now()
-	browserPlaywrightRuntimeCache.mu.Lock()
-	if !browserPlaywrightRuntimeCache.checkedAt.IsZero() && now.Sub(browserPlaywrightRuntimeCache.checkedAt) < browserRuntimeCheckCacheTTL {
-		available := browserPlaywrightRuntimeCache.available
-		reason := browserPlaywrightRuntimeCache.reason
-		execPath := browserPlaywrightRuntimeCache.execPath
-		browserPlaywrightRuntimeCache.mu.Unlock()
-		return available, reason, execPath
-	}
-	browserPlaywrightRuntimeCache.mu.Unlock()
-
-	available := true
-	reason := ""
-	execPath := ""
-
-	pw, err := playwright.Run(&playwright.RunOptions{
-		Verbose: false,
-		Stdout:  io.Discard,
-		Stderr:  io.Discard,
-	})
-	if err != nil {
-		available = false
-		reason = trimToMaxChars(strings.TrimSpace(err.Error()), 220)
-	} else {
-		defer pw.Stop()
-		execPath = strings.TrimSpace(pw.Chromium.ExecutablePath())
-
-		browser, launchErr := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-			Headless: playwright.Bool(true),
-			Args:     []string{"--headless=new"},
-		})
-		if launchErr != nil {
-			available = false
-			reason = trimToMaxChars(strings.TrimSpace(launchErr.Error()), 220)
-		} else {
-			_ = browser.Close()
-		}
-	}
-
-	browserPlaywrightRuntimeCache.mu.Lock()
-	browserPlaywrightRuntimeCache.checkedAt = now
-	browserPlaywrightRuntimeCache.available = available
-	browserPlaywrightRuntimeCache.reason = reason
-	browserPlaywrightRuntimeCache.execPath = execPath
-	browserPlaywrightRuntimeCache.mu.Unlock()
-
-	return available, reason, execPath
-}
-
-func hasBrowserHeadlessArg(args []string) bool {
-	for _, arg := range args {
-		if strings.Contains(strings.ToLower(strings.TrimSpace(arg)), "headless") {
-			return true
-		}
-	}
-	return false
-}
-
-func toPlaywrightScreenshotType(value string) *playwright.ScreenshotType {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "jpeg", "jpg":
-		return playwright.ScreenshotTypeJpeg
-	default:
-		return playwright.ScreenshotTypePng
-	}
-}
-
-func toPlaywrightMouseButton(value string) *playwright.MouseButton {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "left":
-		return playwright.MouseButtonLeft
-	case "right":
-		return playwright.MouseButtonRight
-	case "middle":
-		return playwright.MouseButtonMiddle
-	default:
-		return nil
-	}
-}
-
-func toPlaywrightKeyboardModifiers(values []string) ([]playwright.KeyboardModifier, error) {
-	if len(values) == 0 {
-		return nil, nil
-	}
-	result := make([]playwright.KeyboardModifier, 0, len(values))
-	for _, value := range values {
-		switch strings.ToLower(strings.TrimSpace(value)) {
-		case "alt":
-			if playwright.KeyboardModifierAlt != nil {
-				result = append(result, *playwright.KeyboardModifierAlt)
-			}
-		case "control", "ctrl":
-			if playwright.KeyboardModifierControl != nil {
-				result = append(result, *playwright.KeyboardModifierControl)
-			}
-		case "controlormeta", "control_or_meta":
-			if playwright.KeyboardModifierControlOrMeta != nil {
-				result = append(result, *playwright.KeyboardModifierControlOrMeta)
-			}
-		case "meta", "command", "cmd":
-			if playwright.KeyboardModifierMeta != nil {
-				result = append(result, *playwright.KeyboardModifierMeta)
-			}
-		case "shift":
-			if playwright.KeyboardModifierShift != nil {
-				result = append(result, *playwright.KeyboardModifierShift)
-			}
-		case "":
-			continue
-		default:
-			return nil, errors.New("modifiers must be Alt|Control|ControlOrMeta|Meta|Shift")
-		}
-	}
-	if len(result) == 0 {
-		return nil, nil
-	}
-	return result, nil
-}
-
-func containsString(values []string, candidate string) bool {
-	for _, value := range values {
-		if value == candidate {
-			return true
-		}
-	}
-	return false
-}
-
-func anyToString(value any) string {
-	switch typed := value.(type) {
-	case string:
-		return typed
-	case fmt.Stringer:
-		return typed.String()
-	case float64:
-		return strconv.FormatFloat(typed, 'f', -1, 64)
-	case int:
-		return strconv.Itoa(typed)
-	case int64:
-		return strconv.FormatInt(typed, 10)
-	default:
+func runtimeConsoleMessageText(event *runtimepkg.EventConsoleAPICalled) string {
+	if event == nil || len(event.Args) == 0 {
 		return ""
 	}
-}
-
-func anyToInt(value any) int {
-	switch typed := value.(type) {
-	case int:
-		return typed
-	case int64:
-		return int(typed)
-	case float64:
-		return int(typed)
-	case string:
-		parsed, _ := strconv.Atoi(strings.TrimSpace(typed))
-		return parsed
-	default:
-		return 0
+	parts := make([]string, 0, len(event.Args))
+	for _, arg := range event.Args {
+		if arg == nil {
+			continue
+		}
+		if arg.Value != nil {
+			parts = append(parts, fmt.Sprint(arg.Value))
+			continue
+		}
+		if strings.TrimSpace(arg.Description) != "" {
+			parts = append(parts, strings.TrimSpace(arg.Description))
+			continue
+		}
+		parts = append(parts, strings.TrimSpace(arg.Type.String()))
 	}
-}
-
-func minInt(a int, b int) int {
-	if a <= b {
-		return a
-	}
-	return b
-}
-
-func maxInt(a int, b int) int {
-	if a >= b {
-		return a
-	}
-	return b
+	return strings.TrimSpace(strings.Join(parts, " "))
 }

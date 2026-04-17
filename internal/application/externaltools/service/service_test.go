@@ -60,7 +60,6 @@ func TestEnsureDefaultsIncludesBunAndClawHub(t *testing.T) {
 		externaltools.ToolFFmpeg,
 		externaltools.ToolBun,
 		externaltools.ToolClawHub,
-		externaltools.ToolPlaywright,
 	} {
 		if _, err := repo.Get(context.Background(), string(name)); err != nil {
 			t.Fatalf("expected default tool %s: %v", name, err)
@@ -291,14 +290,14 @@ func TestToExternalToolDTOUsesManagedVersionFromPath(t *testing.T) {
 	}
 }
 
-func TestToExternalToolDTOIncludesRuntimeKind(t *testing.T) {
+func TestToExternalToolDTOIncludesSourceMetadata(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
 	item, err := externaltools.NewExternalTool(externaltools.ExternalToolParams{
-		Name:      string(externaltools.ToolPlaywright),
-		ExecPath:  "/tmp/chromium",
-		Version:   "136.0.7103.25",
+		Name:      string(externaltools.ToolClawHub),
+		ExecPath:  "/tmp/clawhub",
+		Version:   "1.2.3",
 		Status:    string(externaltools.StatusInstalled),
 		UpdatedAt: &now,
 	})
@@ -306,30 +305,16 @@ func TestToExternalToolDTOIncludesRuntimeKind(t *testing.T) {
 		t.Fatalf("new external tool failed: %v", err)
 	}
 	result := toExternalToolDTO(item)
-	if result.Kind != string(externaltools.KindRuntime) {
-		t.Fatalf("expected runtime kind, got %q", result.Kind)
+	if result.Kind != string(externaltools.KindBin) {
+		t.Fatalf("expected bin kind, got %q", result.Kind)
 	}
-	if result.SourceKind != sourceKindRuntime {
-		t.Fatalf("expected runtime source kind, got %q", result.SourceKind)
+	if result.SourceKind != sourceKindNPMRegistry {
+		t.Fatalf("expected npm registry source kind, got %q", result.SourceKind)
 	}
-}
-
-func TestParsePlaywrightVersion(t *testing.T) {
-	t.Parallel()
-
-	version, err := parsePlaywrightVersion("Chromium 136.0.7103.25")
-	if err != nil {
-		t.Fatalf("parse playwright version failed: %v", err)
+	if result.SourceRef != "clawhub" {
+		t.Fatalf("expected clawhub source ref, got %q", result.SourceRef)
 	}
-	if version != "136.0.7103.25" {
-		t.Fatalf("unexpected playwright version: %s", version)
-	}
-
-	scanned, err := parsePlaywrightVersion("HeadlessChrome/136.0.7103.25")
-	if err != nil {
-		t.Fatalf("parse playwright scanned version failed: %v", err)
-	}
-	if scanned != "136.0.7103.25" {
-		t.Fatalf("unexpected scanned playwright version: %s", scanned)
+	if result.Manager != toolManagerBun {
+		t.Fatalf("expected bun manager, got %q", result.Manager)
 	}
 }

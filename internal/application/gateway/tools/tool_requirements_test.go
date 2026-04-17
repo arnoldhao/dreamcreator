@@ -111,16 +111,17 @@ func TestResolveEffectiveToolSpecWebFetchDisabledByConfig(t *testing.T) {
 	if spec.Enabled {
 		t.Fatalf("expected web_fetch disabled when config enabled flag is false")
 	}
-	requirement, ok := findRequirement(spec.Requirements, "web_fetch.config_enabled")
+	requirement, ok := findRequirement(spec.Requirements, "web_fetch.local_browser")
 	if !ok {
-		t.Fatalf("expected web_fetch config requirement")
+		t.Fatalf("expected web_fetch local browser requirement")
 	}
-	if requirement.Available {
-		t.Fatalf("expected web_fetch config requirement to be unavailable")
+	if _, ok := findRequirement(spec.Requirements, "web_fetch.config_enabled"); ok {
+		t.Fatalf("did not expect web_fetch config enabled requirement")
 	}
+	_ = requirement
 }
 
-func TestResolveEffectiveToolSpecBrowserPlaywrightIncludesRuntimeRequirement(t *testing.T) {
+func TestResolveEffectiveToolSpecBrowserIncludesCDPRuntimeRequirement(t *testing.T) {
 	t.Parallel()
 
 	snapshot := loadToolRequirementSnapshot(context.Background(), gatewayToolSettingsStub{
@@ -128,17 +129,23 @@ func TestResolveEffectiveToolSpecBrowserPlaywrightIncludesRuntimeRequirement(t *
 			Gateway: settingsdto.GatewaySettings{ControlPlaneEnabled: true},
 			Tools: map[string]any{
 				"browser": map[string]any{
-					"type": "playwright",
+					"preferredBrowser": "brave",
 				},
 			},
 		},
 	})
 	spec := resolveEffectiveToolSpec(specBrowser().toDTO(), snapshot)
-	requirement, ok := findRequirement(spec.Requirements, "browser.playwright_runtime")
+	requirement, ok := findRequirement(spec.Requirements, "browser.cdp_runtime")
 	if !ok {
-		t.Fatalf("expected browser playwright runtime requirement")
+		t.Fatalf("expected browser cdp runtime requirement")
 	}
-	_ = requirement
+	data, ok := requirement.Data.(map[string]any)
+	if !ok || data == nil {
+		t.Fatalf("expected browser runtime requirement data")
+	}
+	if data["selectedBrowser"] != "brave" {
+		t.Fatalf("expected selected browser brave, got %#v", data["selectedBrowser"])
+	}
 }
 
 func TestResolveEffectiveToolSpecBrowserDisabledByConfig(t *testing.T) {
@@ -158,9 +165,9 @@ func TestResolveEffectiveToolSpecBrowserDisabledByConfig(t *testing.T) {
 	if spec.Enabled {
 		t.Fatalf("expected browser disabled when browser.enabled is false")
 	}
-	requirement, ok := findRequirement(spec.Requirements, "browser.playwright_runtime")
+	requirement, ok := findRequirement(spec.Requirements, "browser.cdp_runtime")
 	if !ok {
-		t.Fatalf("expected browser playwright runtime requirement")
+		t.Fatalf("expected browser cdp runtime requirement")
 	}
 	if _, ok := findRequirement(spec.Requirements, "browser.config_enabled"); ok {
 		t.Fatalf("did not expect browser config enabled requirement")
@@ -182,9 +189,9 @@ func TestResolveEffectiveToolSpecBrowserLegacyTypeIsIgnored(t *testing.T) {
 		},
 	})
 	spec := resolveEffectiveToolSpec(specBrowser().toDTO(), snapshot)
-	requirement, ok := findRequirement(spec.Requirements, "browser.playwright_runtime")
+	requirement, ok := findRequirement(spec.Requirements, "browser.cdp_runtime")
 	if !ok {
-		t.Fatalf("expected browser playwright runtime requirement")
+		t.Fatalf("expected browser cdp runtime requirement")
 	}
 	if _, ok := findRequirement(spec.Requirements, "browser.type_supported"); ok {
 		t.Fatalf("did not expect browser type requirement")

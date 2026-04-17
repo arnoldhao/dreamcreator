@@ -9,6 +9,10 @@ type ConnectorType string
 
 const (
 	ConnectorGoogle      ConnectorType = "google"
+	ConnectorGitHub      ConnectorType = "github"
+	ConnectorReddit      ConnectorType = "reddit"
+	ConnectorZhihu       ConnectorType = "zhihu"
+	ConnectorX           ConnectorType = "x"
 	ConnectorXiaohongshu ConnectorType = "xiaohongshu"
 	ConnectorBilibili    ConnectorType = "bilibili"
 )

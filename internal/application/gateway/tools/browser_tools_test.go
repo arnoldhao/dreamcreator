@@ -51,9 +51,6 @@ func TestResolveBrowserRuntimeConfigDefaults(t *testing.T) {
 	if !resolved.Enabled {
 		t.Fatalf("expected browser enabled by default")
 	}
-	if !resolved.EvaluateEnabled {
-		t.Fatalf("expected evaluateEnabled default true")
-	}
 	if resolved.DefaultProfile != defaultBrowserProfileDreamCreator {
 		t.Fatalf("expected default profile %q, got %q", defaultBrowserProfileDreamCreator, resolved.DefaultProfile)
 	}
@@ -70,11 +67,8 @@ func TestResolveBrowserRuntimeConfigReadsBrowserSettings(t *testing.T) {
 
 	resolved := resolveBrowserRuntimeConfig(map[string]any{
 		"browser": map[string]any{
-			"enabled":         false,
-			"evaluateEnabled": false,
-			"headless":        true,
-			"noSandbox":       true,
-			"extraArgs":       []any{"--window-size=1280,900"},
+			"enabled":  false,
+			"headless": true,
 			"ssrfPolicy": map[string]any{
 				"dangerouslyAllowPrivateNetwork": false,
 				"allowedHostnames":               []any{"localhost"},
@@ -85,17 +79,8 @@ func TestResolveBrowserRuntimeConfigReadsBrowserSettings(t *testing.T) {
 	if resolved.Enabled {
 		t.Fatalf("expected enabled false")
 	}
-	if resolved.EvaluateEnabled {
-		t.Fatalf("expected evaluateEnabled false")
-	}
 	if !resolved.Headless {
 		t.Fatalf("expected headless true")
-	}
-	if !resolved.NoSandbox {
-		t.Fatalf("expected noSandbox true")
-	}
-	if len(resolved.ExtraArgs) != 1 || resolved.ExtraArgs[0] != "--window-size=1280,900" {
-		t.Fatalf("expected extraArgs from config")
 	}
 	if resolved.SSRFRules.DangerouslyAllowPrivateNetwork {
 		t.Fatalf("expected ssrf dangerous allow false")
@@ -373,8 +358,8 @@ func TestResolveBrowserNodeOutputReturnsNilOnInvalidJSON(t *testing.T) {
 func TestIsBrowserSnapshotForAIUnavailable(t *testing.T) {
 	t.Parallel()
 
-	if !isBrowserSnapshotForAIUnavailable(errors.New("Playwright _snapshotForAI is not available")) {
-		t.Fatalf("expected _snapshotForAI error to be treated as unavailable")
+	if !isBrowserSnapshotForAIUnavailable(errors.New("browser snapshotForAI is unavailable")) {
+		t.Fatalf("expected snapshotForAI unavailable error to be treated as unavailable")
 	}
 	if isBrowserSnapshotForAIUnavailable(errors.New("network timeout")) {
 		t.Fatalf("expected unrelated error to remain actionable")

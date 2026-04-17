@@ -1,5 +1,4 @@
 import * as React from "react";
-import { Events } from "@wailsio/runtime";
 import { CircleOff, ExternalLink, Eye, Link2, Loader2, Plug2, RefreshCw, Search, Trash2 } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
@@ -15,13 +14,16 @@ import {
 } from "@/shared/ui/settings-layout";
 import { useI18n } from "@/shared/i18n";
 import {
+  useCancelConnectorConnect,
   useClearConnector,
-  useConnectConnector,
+  useConnectorConnectSession,
+  useFinishConnectorConnect,
   useConnectors,
   useOpenConnectorSite,
+  useStartConnectorConnect,
 } from "@/shared/query/connectors";
 import { messageBus } from "@/shared/message";
-import type { Connector } from "@/shared/contracts/connectors";
+import type { Connector, ConnectorConnectSession, FinishConnectorConnectResult } from "@/shared/contracts/connectors";
 import { cn } from "@/lib/utils";
 
 const STATUS_META: Record<string, { label: string; className: string; icon: React.ComponentType<{ className?: string }> }> = {
@@ -42,7 +44,7 @@ const STATUS_META: Record<string, { label: string; className: string; icon: Reac
   },
 };
 
-type ConnectorGroup = "search_engine" | "video" | "other";
+type ConnectorGroup = "search_engine" | "community" | "video" | "developer" | "other";
 
 type ConnectorMeta = {
   group: ConnectorGroup;
@@ -50,11 +52,15 @@ type ConnectorMeta = {
   fallbackLabel: string;
 };
 
-const CONNECTOR_GROUP_ORDER: ConnectorGroup[] = ["search_engine", "video", "other"];
+const CONNECTOR_GROUP_ORDER: ConnectorGroup[] = ["search_engine", "community", "video", "developer", "other"];
 
 const CONNECTOR_META: Record<string, ConnectorMeta> = {
   google: { group: "search_engine", labelKey: "settings.connectors.item.google", fallbackLabel: "Google" },
-  xiaohongshu: { group: "search_engine", labelKey: "settings.connectors.item.xiaohongshu", fallbackLabel: "Xiaohongshu" },
+  github: { group: "developer", labelKey: "settings.connectors.item.github", fallbackLabel: "GitHub" },
+  reddit: { group: "community", labelKey: "settings.connectors.item.reddit", fallbackLabel: "Reddit" },
+  zhihu: { group: "search_engine", labelKey: "settings.connectors.item.zhihu", fallbackLabel: "Zhihu" },
+  x: { group: "community", labelKey: "settings.connectors.item.x", fallbackLabel: "X" },
+  xiaohongshu: { group: "community", labelKey: "settings.connectors.item.xiaohongshu", fallbackLabel: "Xiaohongshu" },
   bilibili: { group: "video", labelKey: "settings.connectors.item.bilibili", fallbackLabel: "Bilibili" },
 };
 
@@ -81,7 +87,7 @@ const resolveConnectorMeta = (connectorType: string): ConnectorMeta | null => {
 
 const resolveConnectorGroup = (connector: Connector): ConnectorGroup => {
   const rawGroup = connector.group?.trim().toLowerCase();
-  if (rawGroup === "search_engine" || rawGroup === "video" || rawGroup === "other") {
+  if (rawGroup === "search_engine" || rawGroup === "community" || rawGroup === "video" || rawGroup === "developer" || rawGroup === "other") {
     return rawGroup;
   }
   const meta = resolveConnectorMeta(connector.type);
@@ -91,7 +97,9 @@ const resolveConnectorGroup = (connector: Connector): ConnectorGroup => {
 export function ConnectorsSection() {
   const { t } = useI18n();
   const connectors = useConnectors();
-  const connectConnector = useConnectConnector();
+  const startConnectorConnect = useStartConnectorConnect();
+  const finishConnectorConnect = useFinishConnectorConnect();
+  const cancelConnectorConnect = useCancelConnectorConnect();
   const clearConnector = useClearConnector();
   const openConnectorSite = useOpenConnectorSite();
 
@@ -99,9 +107,11 @@ export function ConnectorsSection() {
   const [query, setQuery] = React.useState("");
   const [loginDialogOpen, setLoginDialogOpen] = React.useState(false);
   const [loginTarget, setLoginTarget] = React.useState<Connector | null>(null);
+  const [loginSessionId, setLoginSessionId] = React.useState("");
+  const [loginResult, setLoginResult] = React.useState<FinishConnectorConnectResult | null>(null);
   const [loginError, setLoginError] = React.useState("");
-  const [needsInstall, setNeedsInstall] = React.useState(false);
   const [cookiesDialogOpen, setCookiesDialogOpen] = React.useState(false);
+  const loginSession = useConnectorConnectSession({ sessionId: loginSessionId }, loginDialogOpen && loginSessionId.trim().length > 0);
 
   const items = connectors.data ?? [];
   const resolveConnectorLabel = React.useCallback(
@@ -120,8 +130,12 @@ export function ConnectorsSection() {
       switch (group) {
         case "search_engine":
           return t("settings.connectors.group.searchEngine");
+        case "community":
+          return t("settings.connectors.group.community");
         case "video":
           return t("settings.connectors.group.video");
+        case "developer":
+          return t("settings.connectors.group.developer");
         default:
           return t("settings.connectors.group.other");
       }
@@ -198,46 +212,155 @@ export function ConnectorsSection() {
   const selected = items.find((item) => item.id === selectedId) ?? null;
   const status = STATUS_META[selected?.status ?? "disconnected"] ?? STATUS_META.disconnected;
 
-  const isBusy = connectConnector.isPending || openConnectorSite.isPending;
-  const isLoginRunning = connectConnector.isPending;
+  const isBusy =
+    startConnectorConnect.isPending ||
+    finishConnectorConnect.isPending ||
+    cancelConnectorConnect.isPending ||
+    openConnectorSite.isPending ||
+    clearConnector.isPending;
+  const isLoginRunning =
+    startConnectorConnect.isPending ||
+    finishConnectorConnect.isPending ||
+    cancelConnectorConnect.isPending;
   const isOpenRunning = openConnectorSite.isPending;
 
-  const resolveLoginError = (error: unknown) => {
+  const resolveLoginError = React.useCallback((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
-    if (message.toLowerCase().includes("playwright not installed")) {
-      setNeedsInstall(true);
-      return t("settings.connectors.playwrightMissing");
+    if (message.toLowerCase().includes("no supported browser detected")) {
+      return t("settings.connectors.browserMissing");
+    }
+    if (message.toLowerCase().includes("connector browser session ended")) {
+      return t("settings.connectors.browserSessionEnded");
+    }
+    if (message.toLowerCase().includes("connector session not found")) {
+      return t("settings.connectors.loginSessionMissing");
     }
     return error instanceof Error ? error.message : t("settings.connectors.loginError");
-  };
+  }, [t]);
 
-  const runConnect = async (connector: Connector) => {
-    setLoginError("");
-    setNeedsInstall(false);
+  const toLoginResult = React.useCallback((session: ConnectorConnectSession): FinishConnectorConnectResult => {
+    return {
+      sessionId: session.sessionId,
+      saved: session.saved,
+      rawCookiesCount: session.rawCookiesCount,
+      filteredCookiesCount: session.filteredCookiesCount,
+      domains: session.domains,
+      reason: session.reason,
+      connector: session.connector,
+    };
+  }, []);
+
+  const disposeLoginSession = React.useCallback(async (sessionId: string) => {
+    const trimmed = sessionId.trim();
+    if (!trimmed) {
+      return;
+    }
     try {
-      await connectConnector.mutateAsync({ id: connector.id });
-      setLoginDialogOpen(false);
-      setLoginTarget(null);
+      await cancelConnectorConnect.mutateAsync({ sessionId: trimmed });
+    } catch {
+      // ignore disposal failures; a fresh connect attempt will replace stale sessions
+    }
+  }, [cancelConnectorConnect]);
+
+  const resetLoginState = React.useCallback(() => {
+    setLoginDialogOpen(false);
+    setLoginTarget(null);
+    setLoginSessionId("");
+    setLoginResult(null);
+    setLoginError("");
+  }, []);
+
+  const handleCancelLogin = React.useCallback(async () => {
+    const sessionId = loginSessionId.trim();
+    if (sessionId) {
+      try {
+        await disposeLoginSession(sessionId);
+      } catch (error) {
+        messageBus.publishToast({
+          intent: "danger",
+          title: t("settings.connectors.loginTitle"),
+          description: resolveLoginError(error),
+        });
+      }
+    }
+    resetLoginState();
+  }, [disposeLoginSession, loginSessionId, resetLoginState, resolveLoginError, t]);
+
+  const handleConnect = async (connector: Connector) => {
+    setLoginTarget(connector);
+    setLoginDialogOpen(true);
+    setLoginSessionId("");
+    setLoginResult(null);
+    setLoginError("");
+    try {
+      const result = await startConnectorConnect.mutateAsync({ id: connector.id });
+      setLoginSessionId(result.sessionId);
     } catch (error) {
       setLoginError(resolveLoginError(error));
     }
   };
 
-  const handleConnect = async (connector: Connector) => {
-    setLoginTarget(connector);
+  const handleFinishLogin = async () => {
+    const sessionId = loginSessionId.trim();
+    if (!sessionId) {
+      setLoginError(t("settings.connectors.loginSessionMissing"));
+      return;
+    }
     setLoginError("");
-    setNeedsInstall(false);
-    setLoginDialogOpen(true);
-    await runConnect(connector);
+    try {
+      const result = await finishConnectorConnect.mutateAsync({ sessionId });
+      setLoginResult(result);
+      await disposeLoginSession(sessionId);
+      setLoginSessionId("");
+      if (!result.saved) {
+        setLoginError(t("settings.connectors.noCookiesRead"));
+        return;
+      }
+      resetLoginState();
+    } catch (error) {
+      setLoginError(resolveLoginError(error));
+    }
   };
+
+  React.useEffect(() => {
+    const session = loginSession.data;
+    if (!session || loginSessionId.trim().length === 0 || isLoginRunning) {
+      return;
+    }
+    if (session.state === "running") {
+      return;
+    }
+
+    const sessionId = session.sessionId;
+    setLoginResult(toLoginResult(session));
+    void disposeLoginSession(sessionId);
+    setLoginSessionId("");
+
+    if (session.state === "completed" && session.saved) {
+      resetLoginState();
+      return;
+    }
+
+    if (session.state === "completed") {
+      setLoginError(t("settings.connectors.noCookiesRead"));
+      return;
+    }
+
+    if (session.error) {
+      setLoginError(session.error);
+      return;
+    }
+
+    setLoginError(t("settings.connectors.loginError"));
+  }, [disposeLoginSession, isLoginRunning, loginSession.data, loginSessionId, resetLoginState, t, toLoginResult]);
 
   const resolveOpenError = (error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     if (message.toLowerCase().includes("no cookies")) {
       return t("settings.connectors.noCookies");
     }
-    if (message.toLowerCase().includes("playwright not installed")) {
-      return t("settings.connectors.playwrightMissing");
+    if (message.toLowerCase().includes("no supported browser detected")) {
+      return t("settings.connectors.browserMissing");
     }
     return error instanceof Error ? error.message : t("settings.connectors.openSiteError");
   };
@@ -254,20 +377,23 @@ export function ConnectorsSection() {
     }
   };
 
-  const handleOpenExternalTools = () => {
-    Events.Emit("settings:navigate", "external-tools");
-  };
-
   const rowClassName = SETTINGS_ROW_CLASS;
-  const dialogStatus = needsInstall
-    ? t("settings.connectors.installRequiredStatus")
-    : isLoginRunning
-      ? t("settings.connectors.loginRunning")
-      : t("settings.connectors.loginDone");
+  const dialogStatus = startConnectorConnect.isPending
+    ? t("settings.connectors.loginLaunching")
+    : finishConnectorConnect.isPending
+      ? t("settings.connectors.loginReadingCookies")
+      : cancelConnectorConnect.isPending
+        ? t("settings.connectors.loginClosingBrowser")
+        : loginResult
+          ? t("settings.connectors.loginCompleted")
+        : loginSessionId
+          ? t("settings.connectors.loginReady")
+          : t("settings.connectors.loginIdle");
   const selectedLabel = selected ? resolveConnectorLabel(selected) : "";
   const cookiesCount = selected?.cookiesCount ?? selected?.cookies?.length ?? 0;
   const cookiesList = selected?.cookies ?? [];
   const isConnected = (selected?.status ?? "disconnected") === "connected";
+  const loginDomainsLabel = loginResult?.domains && loginResult.domains.length > 0 ? loginResult.domains.join(", ") : "-";
 
   return (
     <div className="connectors-card flex min-h-0 min-w-0 flex-1">
@@ -387,6 +513,17 @@ export function ConnectorsSection() {
 
                   <div className={rowClassName}>
                     <div className={SETTINGS_ROW_LABEL_CLASS}>
+                      {t("settings.connectors.detail.scope")}
+                    </div>
+                    <div className="max-w-[60%] text-right text-xs text-muted-foreground">
+                      {selected.domains && selected.domains.length > 0 ? selected.domains.join(", ") : "-"}
+                    </div>
+                  </div>
+
+                  <SettingsSeparator />
+
+                  <div className={rowClassName}>
+                    <div className={SETTINGS_ROW_LABEL_CLASS}>
                       {t("settings.connectors.detail.actions")}
                     </div>
                     <div className="flex items-center gap-2">
@@ -443,8 +580,12 @@ export function ConnectorsSection() {
       <Dialog
         open={loginDialogOpen}
         onOpenChange={(open) => {
-          if (!isBusy) {
-            setLoginDialogOpen(open);
+          if (open) {
+            setLoginDialogOpen(true);
+            return;
+          }
+          if (!isLoginRunning) {
+            void handleCancelLogin();
           }
         }}
       >
@@ -454,9 +595,7 @@ export function ConnectorsSection() {
               {t("settings.connectors.loginTitle")}
             </DialogTitle>
             <DialogDescription>
-              {needsInstall
-                ? t("settings.connectors.installDescription")
-                : t("settings.connectors.loginDescription")}
+              {t("settings.connectors.loginDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 text-sm text-muted-foreground">
@@ -464,6 +603,19 @@ export function ConnectorsSection() {
               {t("settings.connectors.loginTarget")}: {loginTarget ? resolveConnectorLabel(loginTarget) : "-"}
             </div>
             <div>{dialogStatus}</div>
+            {loginResult ? (
+              <div className="rounded-md border border-border/70 bg-muted/40 p-3 text-xs text-muted-foreground">
+                <div>
+                  {t("settings.connectors.cookiesRead")}: {loginResult.rawCookiesCount}
+                </div>
+                <div>
+                  {t("settings.connectors.cookiesSaved")}: {loginResult.filteredCookiesCount}
+                </div>
+                <div>
+                  {t("settings.connectors.cookiesDomains")}: {loginDomainsLabel}
+                </div>
+              </div>
+            ) : null}
             {loginError ? (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
                 {loginError}
@@ -474,13 +626,12 @@ export function ConnectorsSection() {
             </div>
           </div>
           <DialogFooter>
-            {needsInstall ? (
-              <Button variant="outline" className="h-7" onClick={handleOpenExternalTools} disabled={isBusy}>
-                {t("settings.connectors.openExternalTools")}
-              </Button>
-            ) : null}
-            <Button variant="outline" className="h-7" onClick={() => setLoginDialogOpen(false)} disabled={isBusy}>
-              {t("common.close")}
+            <Button variant="outline" className="h-7" onClick={() => void handleCancelLogin()} disabled={isLoginRunning}>
+              {t("common.cancel")}
+            </Button>
+            <Button className="h-7" onClick={() => void handleFinishLogin()} disabled={isLoginRunning || !loginSessionId}>
+              {finishConnectorConnect.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+              {t("settings.connectors.loginFinish")}
             </Button>
           </DialogFooter>
         </DialogContent>

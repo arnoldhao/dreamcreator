@@ -1,5 +1,5 @@
 export type WebSearchType = "api" | "external_tools";
-export type WebFetchType = "playwright" | "builtin";
+export type SupportedBrowserID = "chrome" | "chromium" | "edge" | "brave";
 
 export type WebSearchFormState = {
   type: WebSearchType;
@@ -15,29 +15,19 @@ export type WebSearchFormState = {
 };
 
 export type WebFetchFormState = {
-  type: WebFetchType;
-  playwrightMarkdown: boolean;
-  acceptMarkdown: boolean;
-  enableUserAgent: boolean;
-  userAgent: string;
-  acceptLanguage: string;
+  headless: boolean;
+  preferredBrowser: SupportedBrowserID;
   timeoutSeconds: string;
   maxChars: string;
-  maxRedirects: string;
-  retryMax: string;
-  headersJson: string;
 };
 
 export type BrowserControlFormState = {
   enabled: boolean;
-  evaluateEnabled: boolean;
   headless: boolean;
-  noSandbox: boolean;
-  snapshotDefaultMode: string;
+  preferredBrowser: SupportedBrowserID;
   ssrfDangerouslyAllowPrivateNetwork: boolean;
   ssrfAllowedHostnamesJson: string;
   ssrfHostnameAllowlistJson: string;
-  extraArgsJson: string;
 };
 
 export type WebSearchProviderOption = {
@@ -92,15 +82,12 @@ export const normalizeWebSearchType = (value: string): WebSearchType => {
   return "api";
 };
 
-export const normalizeWebFetchType = (value: string): WebFetchType => {
+export const normalizePreferredBrowser = (value: string): SupportedBrowserID => {
   const normalized = value.trim().toLowerCase();
-  if (normalized === "playwright") {
-    return "playwright";
+  if (normalized === "chromium" || normalized === "edge" || normalized === "brave") {
+    return normalized;
   }
-  if (normalized === "builtin") {
-    return "builtin";
-  }
-  return "builtin";
+  return "chrome";
 };
 
 export const parseNumberInput = (value: string) => {
@@ -176,17 +163,6 @@ export const readObjectValue = (source: Record<string, unknown> | undefined, key
   return undefined;
 };
 
-export const stringifyObjectValue = (source: Record<string, unknown> | undefined) => {
-  if (!source) {
-    return "";
-  }
-  const entries = Object.entries(source).sort(([left], [right]) => left.localeCompare(right));
-  if (entries.length === 0) {
-    return "";
-  }
-  return JSON.stringify(Object.fromEntries(entries));
-};
-
 export const stringifyStringArrayValue = (source: unknown) => {
   if (!Array.isArray(source)) {
     return "";
@@ -198,22 +174,6 @@ export const stringifyStringArrayValue = (source: unknown) => {
     return "";
   }
   return JSON.stringify(values);
-};
-
-export const parseObjectJSON = (raw: string) => {
-  const trimmed = raw.trim();
-  if (!trimmed) {
-    return { value: undefined as Record<string, unknown> | undefined, error: null as string | null };
-  }
-  try {
-    const parsed = JSON.parse(trimmed);
-    if (!isRecord(parsed)) {
-      return { value: undefined, error: "invalid-object" };
-    }
-    return { value: parsed as Record<string, unknown>, error: null };
-  } catch {
-    return { value: undefined, error: "invalid-json" };
-  }
 };
 
 export const parseStringArrayJSON = (raw: string) => {

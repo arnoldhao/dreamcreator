@@ -248,6 +248,7 @@ const mapGatewayToolRequirement = (requirement: unknown): ToolRequirementStatus 
     name: typeof source.name === "string" && source.name.trim() !== "" ? source.name.trim() : id,
     available: source.available !== false,
     reason: typeof source.reason === "string" ? source.reason.trim() : "",
+    data: source.data,
   };
 };
 

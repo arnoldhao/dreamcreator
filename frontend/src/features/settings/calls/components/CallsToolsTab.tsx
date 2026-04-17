@@ -52,11 +52,9 @@ import {
 } from "../utils/gateway-tool-utils";
 import {
   DEFAULT_WEB_SEARCH_PROVIDERS,
-  normalizeWebFetchType,
+  normalizePreferredBrowser,
   normalizeWebSearchType,
-  parseNonNegativeNumberInput,
   parseNumberInput,
-  parseObjectJSON,
   parseStringArrayJSON,
   readBoolValue,
   readNumberValue,
@@ -66,13 +64,53 @@ import {
   readWebSearchProviderApiKeys,
   resolveWebSearchAPIKeyPlaceholder,
   serializeWebSearchProviderApiKeys,
-  stringifyObjectValue,
   stringifyStringArrayValue,
   type BrowserControlFormState,
   type WebFetchFormState,
   type WebSearchFormState,
   type WebSearchProviderOption,
 } from "../utils/web-tool-settings-utils";
+
+type RuntimeBrowserCandidate = {
+  id: string;
+  label: string;
+  available: boolean;
+  execPath: string;
+  error: string;
+};
+
+type RuntimeDetectionRow = {
+  label: string;
+  value: string;
+  badge?: "not_installed" | "not_detected";
+};
+
+const BROWSER_LABELS: Record<string, string> = {
+  chrome: "Chrome",
+  chromium: "Chromium",
+  edge: "Edge",
+  brave: "Brave",
+};
+
+const normalizeRuntimeBrowserCandidates = (value: unknown): RuntimeBrowserCandidate[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.flatMap((item) => {
+    if (!isRecord(item)) {
+      return [];
+    }
+    const id = readStringValue(item, "id", "").trim().toLowerCase();
+    const fallbackLabel = id ? (BROWSER_LABELS[id] ?? id) : "Browser";
+    return [{
+      id,
+      label: readStringValue(item, "label", fallbackLabel).trim() || fallbackLabel,
+      available: readBoolValue(item, "available", false),
+      execPath: readStringValue(item, "execPath", "").trim(),
+      error: readStringValue(item, "error", "").trim(),
+    }];
+  });
+};
 
 export function CallsToolsTab() {
   const { t } = useI18n();
@@ -109,6 +147,34 @@ export function CallsToolsTab() {
     (category: string) => t(`settings.tools.category.${category}`),
     [t]
   );
+  const resolveRequirementName = React.useCallback(
+    (requirementID: string, fallbackName: string) => {
+      switch (requirementID) {
+        case "browser.cdp_runtime":
+        case "web_fetch.local_browser":
+          return t("settings.tools.requirements.localCDPBrowser");
+        default:
+          return fallbackName;
+      }
+    },
+    [t]
+  );
+  const resolveRequirementReason = React.useCallback(
+    (reason: string) => {
+      const normalized = reason.trim().toLowerCase();
+      switch (normalized) {
+        case "browser executable not found":
+          return t("settings.tools.runtimeDetection.notInstalled");
+        case "no supported browser detected":
+          return t("settings.tools.runtimeDetection.noneDetected");
+        case "browser process exited":
+          return t("settings.tools.reason.browserProcessExited");
+        default:
+          return reason || t("settings.tools.reason.unavailable");
+      }
+    },
+    [t]
+  );
   const resolveToolDependencies = React.useCallback(
     (tool: ToolItem) => {
       const dependencies: ToolDependencyStatus[] =
@@ -116,10 +182,10 @@ export function CallsToolsTab() {
           ? []
           : tool.requirements.map((requirement) => {
               const fallbackName = requirement.name || requirement.id;
-              const fallbackReason = requirement.reason || t("settings.tools.reason.unavailable");
+              const fallbackReason = resolveRequirementReason(requirement.reason || "");
               return {
                 id: requirement.id,
-                name: fallbackName,
+                name: resolveRequirementName(requirement.id, fallbackName),
                 ok: requirement.available,
                 reason: fallbackReason,
               };
@@ -146,7 +212,7 @@ export function CallsToolsTab() {
       });
       return dependencies;
     },
-    [t]
+    [resolveRequirementName, resolveRequirementReason, t]
   );
   const renderToolStatusBadge = React.useCallback(
     (status: ReturnType<typeof resolveToolStatus> | null) => {
@@ -367,34 +433,20 @@ export function CallsToolsTab() {
   );
   const skipNextWebSearchBlurSaveRef = React.useRef(false);
 
-  const initialWebFetchForm = React.useMemo<WebFetchFormState>(() => {
-    const headers = readObjectValue(webFetchConfig, "headers");
-    const playwright = readObjectValue(webFetchConfig, "playwright");
-    return {
-      type: normalizeWebFetchType(readStringValue(webFetchConfig, "type", "builtin")),
-      playwrightMarkdown: readBoolValue(playwright, "markdown", true),
-      acceptMarkdown: readBoolValue(webFetchConfig, "acceptMarkdown", true),
-      enableUserAgent: readBoolValue(webFetchConfig, "enableUserAgent", true),
-      userAgent: readStringValue(webFetchConfig, "userAgent", ""),
-      acceptLanguage: readStringValue(webFetchConfig, "acceptLanguage", ""),
-      timeoutSeconds: readNumberValue(webFetchConfig, "timeoutSeconds"),
-      maxChars: readNumberValue(webFetchConfig, "maxChars"),
-      maxRedirects: readNumberValue(webFetchConfig, "maxRedirects"),
-      retryMax: readNumberValue(webFetchConfig, "retryMax"),
-      headersJson: stringifyObjectValue(headers),
-    };
-  }, [webFetchConfig]);
+  const initialWebFetchForm = React.useMemo<WebFetchFormState>(() => ({
+    headless: readBoolValue(webFetchConfig, "headless", true),
+    preferredBrowser: normalizePreferredBrowser(readStringValue(webFetchConfig, "preferredBrowser", "chrome")),
+    timeoutSeconds: readNumberValue(webFetchConfig, "timeoutSeconds"),
+    maxChars: readNumberValue(webFetchConfig, "maxChars"),
+  }), [webFetchConfig]);
   const [webFetchForm, setWebFetchForm] = React.useState<WebFetchFormState>(initialWebFetchForm);
   const skipNextWebFetchBlurSaveRef = React.useRef(false);
   const initialBrowserForm = React.useMemo<BrowserControlFormState>(() => {
-    const snapshotDefaults = readObjectValue(browserConfig, "snapshotDefaults");
     const ssrfPolicy = readObjectValue(browserConfig, "ssrfPolicy");
     return {
       enabled: readBoolValue(browserConfig, "enabled", true),
-      evaluateEnabled: readBoolValue(browserConfig, "evaluateEnabled", true),
-      headless: readBoolValue(browserConfig, "headless", false),
-      noSandbox: readBoolValue(browserConfig, "noSandbox", false),
-      snapshotDefaultMode: readStringValue(snapshotDefaults, "mode", ""),
+      headless: readBoolValue(browserConfig, "headless", true),
+      preferredBrowser: normalizePreferredBrowser(readStringValue(browserConfig, "preferredBrowser", "chrome")),
       ssrfDangerouslyAllowPrivateNetwork: readBoolValue(
         ssrfPolicy,
         "dangerouslyAllowPrivateNetwork",
@@ -402,7 +454,6 @@ export function CallsToolsTab() {
       ),
       ssrfAllowedHostnamesJson: stringifyStringArrayValue(ssrfPolicy?.allowedHostnames),
       ssrfHostnameAllowlistJson: stringifyStringArrayValue(ssrfPolicy?.hostnameAllowlist),
-      extraArgsJson: stringifyStringArrayValue(browserConfig?.extraArgs),
     };
   }, [browserConfig]);
   const [browserForm, setBrowserForm] = React.useState<BrowserControlFormState>(initialBrowserForm);
@@ -648,15 +699,6 @@ export function CallsToolsTab() {
 
   const handleSaveWebFetch = React.useCallback((formState?: WebFetchFormState) => {
     const currentForm = formState ?? webFetchForm;
-    const parsedHeaders = parseObjectJSON(currentForm.headersJson);
-    if (parsedHeaders.error) {
-      messageBus.publishToast({
-        intent: "danger",
-        title: t("settings.tools.webFetch.headersInvalid"),
-        description: t("settings.tools.webFetch.headersInvalidDesc"),
-      });
-      return false;
-    }
     const nextToolsConfig: Record<string, unknown> = { ...toolsConfig };
     const nextWeb = isRecord(nextToolsConfig.web)
       ? { ...(nextToolsConfig.web as Record<string, unknown>) }
@@ -672,23 +714,17 @@ export function CallsToolsTab() {
         }
         target[key] = value;
       };
-      target.type = normalizeWebFetchType(currentForm.type);
-      target.playwright = {
-        markdown: currentForm.playwrightMarkdown,
-      };
-      target.acceptMarkdown = currentForm.acceptMarkdown;
-      target.enableUserAgent = currentForm.enableUserAgent;
-      setOrDelete("userAgent", currentForm.userAgent.trim());
-      setOrDelete("acceptLanguage", currentForm.acceptLanguage.trim());
+      target.headless = currentForm.headless;
+      target.preferredBrowser = normalizePreferredBrowser(currentForm.preferredBrowser);
       setOrDelete("timeoutSeconds", parseNumberInput(currentForm.timeoutSeconds));
       setOrDelete("maxChars", parseNumberInput(currentForm.maxChars));
-      setOrDelete("maxRedirects", parseNonNegativeNumberInput(currentForm.maxRedirects));
-      setOrDelete("retryMax", parseNonNegativeNumberInput(currentForm.retryMax));
-      if (parsedHeaders.value && Object.keys(parsedHeaders.value).length > 0) {
-        target.headers = parsedHeaders.value;
-      } else {
-        delete target.headers;
-      }
+      delete target.acceptMarkdown;
+      delete target.enableUserAgent;
+      delete target.userAgent;
+      delete target.acceptLanguage;
+      delete target.headers;
+      delete target.maxRedirects;
+      delete target.retryMax;
       delete target.enabled;
     };
     applyWebFetchValues(nextTopLevelFetch);
@@ -709,7 +745,7 @@ export function CallsToolsTab() {
       }
     );
     return true;
-  }, [gatewayToolsQuery, toolsConfig, updateSettings, webFetchForm, t]);
+  }, [gatewayToolsQuery, toolsConfig, updateSettings, webFetchForm]);
 
   const handleSaveBrowser = React.useCallback((formState?: BrowserControlFormState) => {
     const currentForm = formState ?? browserForm;
@@ -731,32 +767,19 @@ export function CallsToolsTab() {
       });
       return false;
     }
-    const parsedExtraArgs = parseStringArrayJSON(currentForm.extraArgsJson);
-    if (parsedExtraArgs.error) {
-      messageBus.publishToast({
-        intent: "danger",
-        title: t("settings.tools.browserControl.arrayInvalid"),
-        description: t("settings.tools.browserControl.arrayInvalidDesc"),
-      });
-      return false;
-    }
     const nextToolsConfig: Record<string, unknown> = { ...toolsConfig };
     const nextBrowser = isRecord(nextToolsConfig.browser)
       ? { ...(nextToolsConfig.browser as Record<string, unknown>) }
       : {};
 
     nextBrowser.enabled = currentForm.enabled;
-    nextBrowser.evaluateEnabled = currentForm.evaluateEnabled;
     nextBrowser.headless = currentForm.headless;
-    nextBrowser.noSandbox = currentForm.noSandbox;
+    nextBrowser.preferredBrowser = normalizePreferredBrowser(currentForm.preferredBrowser);
     delete nextBrowser.executablePath;
-
-    const snapshotMode = currentForm.snapshotDefaultMode.trim();
-    if (snapshotMode) {
-      nextBrowser.snapshotDefaults = { mode: snapshotMode };
-    } else {
-      delete nextBrowser.snapshotDefaults;
-    }
+    delete nextBrowser.evaluateEnabled;
+    delete nextBrowser.noSandbox;
+    delete nextBrowser.snapshotDefaults;
+    delete nextBrowser.extraArgs;
 
     const nextSSRFRules: Record<string, unknown> = {
       dangerouslyAllowPrivateNetwork: currentForm.ssrfDangerouslyAllowPrivateNetwork,
@@ -768,12 +791,6 @@ export function CallsToolsTab() {
       nextSSRFRules.hostnameAllowlist = parsedHostnameAllowlist.value;
     }
     nextBrowser.ssrfPolicy = nextSSRFRules;
-
-    if (parsedExtraArgs.value && parsedExtraArgs.value.length > 0) {
-      nextBrowser.extraArgs = parsedExtraArgs.value;
-    } else {
-      delete nextBrowser.extraArgs;
-    }
 
     nextToolsConfig.browser = nextBrowser;
     const payload = nextToolsConfig;
@@ -861,21 +878,6 @@ export function CallsToolsTab() {
     },
     [handleSaveWebSearch, webSearchDisabled, webSearchForm, webSearchProviderAPIKeys]
   );
-  const handleWebFetchTypeChange = React.useCallback(
-    (nextType: string) => {
-      const normalizedType = normalizeWebFetchType(nextType);
-      if (webFetchForm.type === normalizedType) {
-        return;
-      }
-      const nextForm: WebFetchFormState = { ...webFetchForm, type: normalizedType };
-      setWebFetchForm(nextForm);
-      if (webFetchDisabled) {
-        return;
-      }
-      handleSaveWebFetch(nextForm);
-    },
-    [handleSaveWebFetch, webFetchDisabled, webFetchForm]
-  );
   const renderWebSearchFieldLabel = React.useCallback((label: string, description?: string) => {
     return (
       <div className="flex min-w-0 items-center gap-1.5">
@@ -896,6 +898,48 @@ export function CallsToolsTab() {
             </TooltipContent>
           </Tooltip>
         ) : null}
+      </div>
+    );
+  }, []);
+  const renderRuntimeDetectionCard = React.useCallback((rows: RuntimeDetectionRow[]) => {
+    return (
+      <div className="rounded-md border border-border/60 bg-muted/25 p-3 text-xs text-muted-foreground">
+        <div className="divide-y divide-border/60">
+          {rows.map((item, index) => {
+            const rowSpacingClass = rows.length === 1
+              ? ""
+              : index === 0
+                ? "pb-2"
+                : index === rows.length - 1
+                  ? "pt-2"
+                  : "py-2";
+            return (
+              <div
+                key={`${item.label}-${item.value}-${index}`}
+                className={`flex min-w-0 items-center justify-between gap-4 ${rowSpacingClass}`}
+              >
+                <span className="min-w-0 flex-1 text-foreground/80">{item.label}</span>
+                {item.badge ? (
+                  <Badge
+                    variant="outline"
+                    className="max-w-[60%] shrink whitespace-nowrap border-border/70 bg-background/80"
+                    title={item.value}
+                  >
+                    <Ban className="mr-1 h-3 w-3 shrink-0" />
+                    <span className="truncate">{item.value}</span>
+                  </Badge>
+                ) : (
+                  <span
+                    className="min-w-0 max-w-[60%] shrink truncate whitespace-nowrap text-right"
+                    title={item.value}
+                  >
+                    {item.value}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   }, []);
@@ -957,14 +1001,49 @@ export function CallsToolsTab() {
               : undefined;
             const hasGatewayConfig = Boolean(gatewayConfig && Object.keys(gatewayConfig).length > 0);
             const toolDependencies = resolveToolDependencies(selectedTool);
-            const browserPlaywrightExecutablePath = isBrowserTool
-              ? (selectedTool.requirements ?? []).find(
-                  (requirement) =>
-                    requirement.id === "browser.playwright_runtime" &&
-                    requirement.available &&
-                    requirement.reason.trim() !== ""
-                )?.reason ?? ""
-              : "";
+            const browserRuntimeRequirement =
+              isBrowserTool || isWebFetchTool
+                ? (selectedTool.requirements ?? []).find((requirement) =>
+                    requirement.id === (isBrowserTool ? "browser.cdp_runtime" : "web_fetch.local_browser")
+                  )
+                : undefined;
+            const browserRuntimeData = browserRuntimeRequirement && isRecord(browserRuntimeRequirement.data)
+              ? (browserRuntimeRequirement.data as Record<string, unknown>)
+              : undefined;
+            const browserCandidates = normalizeRuntimeBrowserCandidates(browserRuntimeData?.candidates);
+            const availableBrowserCandidates = browserCandidates.filter((candidate) => candidate.available);
+            const browserSelectOptions = availableBrowserCandidates;
+            const webFetchPreferredBrowserValue = browserSelectOptions.some(
+              (candidate) => candidate.id === webFetchForm.preferredBrowser
+            )
+              ? webFetchForm.preferredBrowser
+              : (browserSelectOptions[0]?.id ?? "");
+            const browserPreferredBrowserValue = browserSelectOptions.some(
+              (candidate) => candidate.id === browserForm.preferredBrowser
+            )
+              ? browserForm.preferredBrowser
+              : (browserSelectOptions[0]?.id ?? "");
+            const runtimeDetectionRows: RuntimeDetectionRow[] = browserCandidates.map((candidate) => {
+              const normalizedError = candidate.error.trim().toLowerCase();
+              if (candidate.available) {
+                return {
+                  label: candidate.label,
+                  value: candidate.execPath || t("settings.tools.runtimeDetection.detected"),
+                };
+              }
+              if (normalizedError.includes("browser executable not found")) {
+                return {
+                  label: candidate.label,
+                  value: t("settings.tools.runtimeDetection.notInstalled"),
+                  badge: "not_installed",
+                };
+              }
+              return {
+                label: candidate.label,
+                value: t("settings.tools.runtimeDetection.notDetected"),
+                badge: "not_detected",
+              };
+            });
             const webSearchProviderMeta = [
               selectedWebSearchProvider?.apiBaseUrl
                 ? `${t("settings.tools.webSearch.apiBase")}: ${selectedWebSearchProvider.apiBaseUrl}`
@@ -1408,8 +1487,11 @@ export function CallsToolsTab() {
                                   {(selectedTool.requirements ?? [])
                                     .filter((requirement) => !requirement.available)
                                     .map((requirement) => {
-                                      const fallbackName = requirement.name || requirement.id;
-                                      const fallbackReason = requirement.reason || t("settings.tools.reason.unavailable");
+                                      const fallbackName = resolveRequirementName(
+                                        requirement.id,
+                                        requirement.name || requirement.id
+                                      );
+                                      const fallbackReason = resolveRequirementReason(requirement.reason || "");
                                       return (
                                         <p key={requirement.id}>
                                           <span className="font-medium">
@@ -1424,18 +1506,32 @@ export function CallsToolsTab() {
                               <Separator />
                               <div className={webSearchRowClassName}>
                                 {renderWebSearchFieldLabel(
-                                  t("settings.tools.browserControl.evaluateEnabled"),
-                                  t("settings.tools.browserControl.evaluateEnabledDesc")
+                                  t("settings.tools.browserControl.preferredBrowser"),
+                                  t("settings.tools.browserControl.preferredBrowserDesc")
                                 )}
-                                <Switch
-                                  checked={browserForm.evaluateEnabled}
-                                  onCheckedChange={(checked) =>
-                                    setBrowserForm((prev) => ({ ...prev, evaluateEnabled: Boolean(checked) }))
+                                <Select
+                                  value={browserPreferredBrowserValue}
+                                  onChange={(event) =>
+                                    setBrowserForm((prev) => ({
+                                      ...prev,
+                                      preferredBrowser: normalizePreferredBrowser(event.target.value),
+                                    }))
                                   }
                                   onBlur={handleBrowserFieldBlur}
-                                  disabled={browserDisabled}
-                                />
+                                  className={webSearchControlClassName}
+                                  disabled={browserDisabled || browserSelectOptions.length === 0}
+                                >
+                                  {browserSelectOptions.length === 0 ? (
+                                    <option value="">{t("settings.tools.runtimeDetection.noneDetected")}</option>
+                                  ) : browserSelectOptions.map((candidate) => (
+                                    <option key={candidate.id || candidate.label} value={candidate.id}>
+                                      {candidate.label}
+                                    </option>
+                                  ))}
+                                </Select>
                               </div>
+                              <Separator />
+                              {renderRuntimeDetectionCard(runtimeDetectionRows)}
                               <Separator />
                               <div className={webSearchRowClassName}>
                                 {renderWebSearchFieldLabel(
@@ -1449,74 +1545,6 @@ export function CallsToolsTab() {
                                   }
                                   onBlur={handleBrowserFieldBlur}
                                   disabled={browserDisabled}
-                                />
-                              </div>
-                              <Separator />
-                              <div className={webSearchRowClassName}>
-                                {renderWebSearchFieldLabel(
-                                  t("settings.tools.browserControl.noSandbox"),
-                                  t("settings.tools.browserControl.noSandboxDesc")
-                                )}
-                                <Switch
-                                  checked={browserForm.noSandbox}
-                                  onCheckedChange={(checked) =>
-                                    setBrowserForm((prev) => ({ ...prev, noSandbox: Boolean(checked) }))
-                                  }
-                                  onBlur={handleBrowserFieldBlur}
-                                  disabled={browserDisabled}
-                                />
-                              </div>
-                              <Separator />
-                              <div className={webSearchRowClassName}>
-                                {renderWebSearchFieldLabel(
-                                  t("settings.tools.browserControl.snapshotDefaultMode")
-                                )}
-                                <Select
-                                  value={browserForm.snapshotDefaultMode}
-                                  onChange={(event) =>
-                                    setBrowserForm((prev) => ({
-                                      ...prev,
-                                      snapshotDefaultMode: event.target.value,
-                                    }))
-                                  }
-                                  onBlur={handleBrowserFieldBlur}
-                                  className={webSearchControlClassName}
-                                  disabled={browserDisabled}
-                                >
-                                  <option value="">{t("settings.tools.browserControl.snapshotDefaultModeAuto")}</option>
-                                  <option value="efficient">efficient</option>
-                                </Select>
-                              </div>
-                              <Separator />
-                              <div className={webSearchRowClassName}>
-                                {renderWebSearchFieldLabel(
-                                  t("settings.tools.browserControl.extraArgs")
-                                )}
-                                <Input
-                                  value={browserForm.extraArgsJson}
-                                  onChange={(event) =>
-                                    setBrowserForm((prev) => ({ ...prev, extraArgsJson: event.target.value }))
-                                  }
-                                  onBlur={handleBrowserFieldBlur}
-                                  placeholder='["--window-size=1920,1080","--disable-infobars"]'
-                                  className={webSearchControlClassName}
-                                  size="compact"
-                                  disabled={browserDisabled}
-                                />
-                              </div>
-                              <Separator />
-                              <div className={webSearchRowClassName}>
-                                {renderWebSearchFieldLabel(
-                                  t("settings.tools.browserControl.executablePath"),
-                                  t("settings.tools.browserControl.executablePathDesc")
-                                )}
-                                <Input
-                                  value={browserPlaywrightExecutablePath}
-                                  placeholder={t("settings.tools.browserControl.executablePathPending")}
-                                  className={webSearchControlClassName}
-                                  size="compact"
-                                  readOnly
-                                  disabled
                                 />
                               </div>
                               <Separator />
@@ -1663,219 +1691,94 @@ export function CallsToolsTab() {
                             <div className="space-y-3">
                       <div className={webSearchRowClassName}>
                         {renderWebSearchFieldLabel(
-                          t("settings.tools.webFetch.type"),
-                          t("settings.tools.webFetch.typeDesc")
+                          t("settings.tools.webFetch.preferredBrowser"),
+                          t("settings.tools.webFetch.preferredBrowserDesc")
                         )}
-                        <Tabs
-                          value={webFetchForm.type}
-                          onValueChange={handleWebFetchTypeChange}
-                          className={webSearchTabsControlClassName}
+                        <Select
+                          value={webFetchPreferredBrowserValue}
+                          onChange={(event) =>
+                            setWebFetchForm((prev) => ({
+                              ...prev,
+                              preferredBrowser: normalizePreferredBrowser(event.target.value),
+                            }))
+                          }
+                          onBlur={handleWebFetchFieldBlur}
+                          className={webSearchControlClassName}
+                          disabled={webFetchDisabled || browserSelectOptions.length === 0}
                         >
-                          <TabsList className="w-full justify-start sm:w-auto">
-                            <TabsTrigger value="playwright">
-                              {t("settings.tools.webFetch.typeValue.playwright")}
-                            </TabsTrigger>
-                            <TabsTrigger value="builtin">
-                              {t("settings.tools.webFetch.typeValue.builtin")}
-                            </TabsTrigger>
-                          </TabsList>
-                        </Tabs>
+                          {browserSelectOptions.length === 0 ? (
+                            <option value="">{t("settings.tools.runtimeDetection.noneDetected")}</option>
+                          ) : browserSelectOptions.map((candidate) => (
+                            <option key={candidate.id || candidate.label} value={candidate.id}>
+                              {candidate.label}
+                            </option>
+                          ))}
+                        </Select>
                       </div>
-                      {webFetchForm.type === "playwright" ? (
-                        <>
-                          <Separator />
-                          <div className={webSearchRowClassName}>
-                            {renderWebSearchFieldLabel(
-                              t("settings.tools.webFetch.playwrightMarkdown"),
-                              t("settings.tools.webFetch.playwrightMarkdownDesc")
-                            )}
-                            <Switch
-                              checked={webFetchForm.playwrightMarkdown}
-                              onCheckedChange={(checked) =>
-                                setWebFetchForm((prev) => ({ ...prev, playwrightMarkdown: Boolean(checked) }))
-                              }
-                              onBlur={handleWebFetchFieldBlur}
-                              disabled={webFetchDisabled}
-                            />
-                          </div>
-                          <Separator />
-                          <div className="rounded-md border border-border/60 bg-muted/25 p-3 text-xs text-muted-foreground">
-                            <p>
-                              {t("settings.tools.webFetch.playwrightHint")}
-                            </p>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <Separator />
-                          <div className={webSearchRowClassName}>
-                            {renderWebSearchFieldLabel(
-                              t("settings.tools.webFetch.acceptMarkdown"),
-                              t("settings.tools.webFetch.acceptMarkdownDesc")
-                            )}
-                            <Switch
-                              checked={webFetchForm.acceptMarkdown}
-                              onCheckedChange={(checked) =>
-                                setWebFetchForm((prev) => ({ ...prev, acceptMarkdown: Boolean(checked) }))
-                              }
-                              onBlur={handleWebFetchFieldBlur}
-                              disabled={webFetchDisabled}
-                            />
-                          </div>
-                          <Separator />
-                          <div className={webSearchRowClassName}>
-                            {renderWebSearchFieldLabel(
-                              t("settings.tools.webFetch.enableUserAgent"),
-                              t("settings.tools.webFetch.enableUserAgentDesc")
-                            )}
-                            <Switch
-                              checked={webFetchForm.enableUserAgent}
-                              onCheckedChange={(checked) =>
-                                setWebFetchForm((prev) => ({ ...prev, enableUserAgent: Boolean(checked) }))
-                              }
-                              onBlur={handleWebFetchFieldBlur}
-                              disabled={webFetchDisabled}
-                            />
-                          </div>
-                          <Separator />
-                          <div className={webSearchRowClassName}>
-                            {renderWebSearchFieldLabel(t("settings.tools.webFetch.userAgent"))}
-                            <Input
-                              value={webFetchForm.userAgent}
-                              onChange={(event) =>
-                                setWebFetchForm((prev) => ({ ...prev, userAgent: event.target.value }))
-                              }
-                              onBlur={handleWebFetchFieldBlur}
-                              placeholder="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
-                              className={webSearchControlClassName}
-                              size="compact"
-                              disabled={webFetchDisabled || !webFetchForm.enableUserAgent}
-                            />
-                          </div>
-                          <Separator />
-                          <div className={webSearchRowClassName}>
-                            {renderWebSearchFieldLabel(
-                              t("settings.tools.webFetch.acceptLanguage")
-                            )}
-                            <Input
-                              value={webFetchForm.acceptLanguage}
-                              onChange={(event) =>
-                                setWebFetchForm((prev) => ({ ...prev, acceptLanguage: event.target.value }))
-                              }
-                              onBlur={handleWebFetchFieldBlur}
-                              placeholder="en-US,en;q=0.9"
-                              className={webSearchControlClassName}
-                              size="compact"
-                              disabled={webFetchDisabled}
-                            />
-                          </div>
-                          <Separator />
-                          <div className={webSearchRowClassName}>
-                            {renderWebSearchFieldLabel(t("settings.tools.webFetch.timeoutSeconds"))}
-                            <Input
-                              type="number"
-                              min={1}
-                              value={webFetchForm.timeoutSeconds}
-                              onChange={(event) =>
-                                setWebFetchForm((prev) => ({ ...prev, timeoutSeconds: event.target.value }))
-                              }
-                              onBlur={handleWebFetchFieldBlur}
-                              placeholder="20"
-                              className={webSearchControlClassName}
-                              size="compact"
-                              disabled={webFetchDisabled}
-                            />
-                          </div>
-                          <Separator />
-                          <div className={webSearchRowClassName}>
-                            {renderWebSearchFieldLabel(t("settings.tools.webFetch.maxChars"))}
-                            <Input
-                              type="number"
-                              min={1}
-                              value={webFetchForm.maxChars}
-                              onChange={(event) =>
-                                setWebFetchForm((prev) => ({ ...prev, maxChars: event.target.value }))
-                              }
-                              onBlur={handleWebFetchFieldBlur}
-                              placeholder="50000"
-                              className={webSearchControlClassName}
-                              size="compact"
-                              disabled={webFetchDisabled}
-                            />
-                          </div>
-                          <Separator />
-                          <div className={webSearchRowClassName}>
-                            {renderWebSearchFieldLabel(
-                              t("settings.tools.webFetch.maxRedirects"),
-                              t("settings.tools.webFetch.maxRedirectsDesc")
-                            )}
-                            <Input
-                              type="number"
-                              min={0}
-                              value={webFetchForm.maxRedirects}
-                              onChange={(event) =>
-                                setWebFetchForm((prev) => ({ ...prev, maxRedirects: event.target.value }))
-                              }
-                              onBlur={handleWebFetchFieldBlur}
-                              placeholder="3"
-                              className={webSearchControlClassName}
-                              size="compact"
-                              disabled={webFetchDisabled}
-                            />
-                          </div>
-                          <Separator />
-                          <div className={webSearchRowClassName}>
-                            {renderWebSearchFieldLabel(
-                              t("settings.tools.webFetch.retryMax"),
-                              t("settings.tools.webFetch.retryMaxDesc")
-                            )}
-                            <Input
-                              type="number"
-                              min={0}
-                              value={webFetchForm.retryMax}
-                              onChange={(event) =>
-                                setWebFetchForm((prev) => ({ ...prev, retryMax: event.target.value }))
-                              }
-                              onBlur={handleWebFetchFieldBlur}
-                              placeholder="2"
-                              className={webSearchControlClassName}
-                              size="compact"
-                              disabled={webFetchDisabled}
-                            />
-                          </div>
-                          <Separator />
-                          <div className={webSearchRowClassName}>
-                            {renderWebSearchFieldLabel(
-                              t("settings.tools.webFetch.headers"),
-                              t("settings.tools.webFetch.headersDesc")
-                            )}
-                            <Input
-                              value={webFetchForm.headersJson}
-                              onChange={(event) =>
-                                setWebFetchForm((prev) => ({ ...prev, headersJson: event.target.value }))
-                              }
-                              onBlur={handleWebFetchFieldBlur}
-                              placeholder='{"X-Test":"1"}'
-                              className={webSearchControlClassName}
-                              size="compact"
-                              disabled={webFetchDisabled}
-                            />
-                          </div>
-                          <div className="flex justify-center pt-2">
-                            <Button
-                              variant="destructive"
-                              size="compact"
-                              onPointerDown={() => {
-                                skipNextWebFetchBlurSaveRef.current = true;
-                              }}
-                              onClick={handleResetWebFetch}
-                              disabled={webFetchDisabled}
-                            >
-                              {t("common.reset")}
-                            </Button>
-                          </div>
-                        </>
-                      )}
+                      <Separator />
+                      {renderRuntimeDetectionCard(runtimeDetectionRows)}
+                      <Separator />
+                      <div className={webSearchRowClassName}>
+                        {renderWebSearchFieldLabel(
+                          t("settings.tools.webFetch.headless"),
+                          t("settings.tools.webFetch.headlessDesc")
+                        )}
+                        <Switch
+                          checked={webFetchForm.headless}
+                          onCheckedChange={(checked) =>
+                            setWebFetchForm((prev) => ({ ...prev, headless: Boolean(checked) }))
+                          }
+                          onBlur={handleWebFetchFieldBlur}
+                          disabled={webFetchDisabled}
+                        />
+                      </div>
+                      <Separator />
+                      <div className={webSearchRowClassName}>
+                        {renderWebSearchFieldLabel(t("settings.tools.webFetch.timeoutSeconds"))}
+                        <Input
+                          type="number"
+                          min={1}
+                          value={webFetchForm.timeoutSeconds}
+                          onChange={(event) =>
+                            setWebFetchForm((prev) => ({ ...prev, timeoutSeconds: event.target.value }))
+                          }
+                          onBlur={handleWebFetchFieldBlur}
+                          placeholder="20"
+                          className={webSearchControlClassName}
+                          size="compact"
+                          disabled={webFetchDisabled}
+                        />
+                      </div>
+                      <Separator />
+                      <div className={webSearchRowClassName}>
+                        {renderWebSearchFieldLabel(t("settings.tools.webFetch.maxChars"))}
+                        <Input
+                          type="number"
+                          min={1}
+                          value={webFetchForm.maxChars}
+                          onChange={(event) =>
+                            setWebFetchForm((prev) => ({ ...prev, maxChars: event.target.value }))
+                          }
+                          onBlur={handleWebFetchFieldBlur}
+                          placeholder="50000"
+                          className={webSearchControlClassName}
+                          size="compact"
+                          disabled={webFetchDisabled}
+                        />
+                      </div>
+                      <div className="flex justify-center pt-2">
+                        <Button
+                          variant="destructive"
+                          size="compact"
+                          onPointerDown={() => {
+                            skipNextWebFetchBlurSaveRef.current = true;
+                          }}
+                          onClick={handleResetWebFetch}
+                          disabled={webFetchDisabled}
+                        >
+                          {t("common.reset")}
+                        </Button>
+                      </div>
                             </div>
                           </TooltipProvider>
                         </ToolConfigTabPanel>
