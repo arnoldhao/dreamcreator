@@ -398,16 +398,12 @@ func normalizeLanguageTaskThinkingMode(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "off", "none", "disabled", "disable", "false", "0":
 		return "off"
-	case "minimal", "min":
-		return "minimal"
-	case "low", "on", "enabled", "enable", "true", "1":
-		return "low"
-	case "medium", "med":
-		return "medium"
-	case "high", "max":
-		return "high"
-	case "xhigh", "x-high", "x_high", "extra-high", "extra_high", "extra high":
-		return "xhigh"
+	case "minimal", "min",
+		"low", "on", "enabled", "enable", "true", "1",
+		"medium", "med",
+		"high", "max",
+		"xhigh", "x-high", "x_high", "extra-high", "extra_high", "extra high":
+		return "on"
 	default:
 		return ""
 	}

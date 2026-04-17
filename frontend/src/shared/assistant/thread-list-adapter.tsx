@@ -71,18 +71,6 @@ type ThreadMessageDTO = {
   createdAt?: string;
 };
 
-type GenerateThreadTitleRequestDTO = {
-  threadId: string;
-  fallbackTitle?: string;
-};
-
-type GenerateThreadTitleResponseDTO = {
-  threadId?: string;
-  title?: string;
-  titleIsDefault?: boolean;
-  titleChangedBy?: string;
-};
-
 const normalizeTitleChangedBy = (value: unknown): ThreadTitleChangedBy | undefined => {
   if (typeof value !== "string") {
     return undefined;
@@ -850,38 +838,11 @@ export const useThreadListAdapter = ({
           title: thread.title,
         };
       },
-      generateTitle: async (remoteId: string, _messages?: readonly ThreadMessage[]): Promise<AssistantStream> => {
+      generateTitle: async (_remoteId: string, _messages?: readonly ThreadMessage[]): Promise<AssistantStream> => {
         return createAssistantStream(async (controller) => {
-          const resolvedRemoteId = resolveRemoteThreadId(remoteId);
-          if (!resolvedRemoteId) {
-            controller.close();
-            return;
-          }
-
-          try {
-            const response = (await Call.ByName(
-              "dreamcreator/internal/presentation/wails.ThreadHandler.GenerateThreadTitle",
-              {
-                threadId: resolvedRemoteId,
-              } as GenerateThreadTitleRequestDTO
-            )) as GenerateThreadTitleResponseDTO;
-            const title = typeof response.title === "string" ? response.title.trim() : "";
-            const patch: Partial<ThreadSummary> = {};
-            if (title) {
-              patch.title = title;
-              controller.appendText(title);
-            }
-            if (typeof response.titleIsDefault === "boolean") {
-              patch.titleIsDefault = response.titleIsDefault;
-            }
-            const titleChangedBy = normalizeTitleChangedBy(response.titleChangedBy);
-            if (titleChangedBy) {
-              patch.titleChangedBy = titleChangedBy;
-            }
-            if (Object.keys(patch).length > 0) {
-              patchThread(resolvedRemoteId, patch);
-            }
-          } catch {}
+          // DreamCreator already owns automatic thread title generation in the backend.
+          // Keep the assistant-ui hook as a no-op so failed backend attempts do not
+          // trigger an extra frontend-initiated one-shot retry on run end.
           controller.close();
         });
       },

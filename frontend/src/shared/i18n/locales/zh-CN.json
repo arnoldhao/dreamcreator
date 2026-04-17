@@ -1678,6 +1678,7 @@
           "name": "名称",
           "namePlaceholder": "自定义供应商",
           "type": "类型",
+          "compatibility": "兼容协议",
           "endpoint": "访问地址",
           "endpointPlaceholder": "https://api.example.com"
         },
@@ -2135,12 +2136,30 @@
   "settings.debug": {
     "tabs": {
       "overview": "概览",
+      "calls": "调用记录",
       "context": "上下文",
       "channels": "频道",
       "framework": "框架",
       "events": "事件",
       "trace": "运行追踪",
       "prompt": "提示词"
+    },
+    "contextPanel": {
+      "actions": {
+        "filter": "筛选",
+        "clearFilters": "清空筛选"
+      },
+      "filters": {
+        "thread": "对话",
+        "event": "事件",
+        "runId": "运行 ID",
+        "allRuns": "全部运行"
+      },
+      "footer": {
+        "eventCount": "事件数",
+        "firstAt": "最早时间",
+        "lastAt": "最后时间"
+      }
     },
     "status": {
       "title": "网关状态",
@@ -2183,12 +2202,14 @@
       }
     },
     "gateway": {
-      "events": "网关事件",
-      "eventsCount": "事件数",
       "filterAll": "全部事件",
       "eventsEmpty": "暂无网关事件。",
       "eventUnknown": "(未知)",
       "noPayload": "(无载荷)",
+      "detail": {
+        "description": "查看网关事件元数据以及格式化后的载荷。",
+        "payload": "事件载荷"
+      },
       "table": {
         "time": "时间",
         "event": "事件",
@@ -2200,6 +2221,10 @@
     "trace": {
       "error": "加载运行事件失败",
       "empty": "暂无运行事件",
+      "detail": {
+        "description": "查看运行追踪事件元数据以及格式化后的载荷。",
+        "payload": "事件载荷"
+      },
       "table": {
         "current": "当前",
         "runId": "运行 ID",
@@ -2212,13 +2237,115 @@
         "event": "事件",
         "tool": "工具",
         "viewPayload": "查看载荷"
+      }
+    },
+    "calls": {
+      "error": "加载调用记录失败",
+      "actions": {
+        "searchAndFilter": "搜索和筛选",
+        "clearFilters": "清空筛选",
+        "selectCalls": "选择",
+        "selectedCount": "已选 {count} 条",
+        "cancelSelection": "取消",
+        "batch": "批量操作",
+        "copyRecordIds": "复制记录 ID",
+        "copyRunIds": "复制运行 ID",
+        "copyConversationIds": "复制对话 ID"
       },
-      "status": {
-        "completed": "已完成",
-        "running": "运行中",
+      "config": {
+        "title": "记录设置",
+        "saveStrategy": {
+          "label": "保存策略",
+          "options": {
+            "all": "保存全部调用",
+            "errors": "仅保存异常调用",
+            "off": "关闭记录保存"
+          }
+        },
+        "retentionDays": {
+          "label": "保存天数",
+          "days": "{count} 天"
+        },
+        "autoCleanup": {
+          "label": "自动清理",
+          "options": {
+            "hourly": "每小时清理一次",
+            "onWrite": "写入时顺带清理",
+            "off": "关闭自动清理"
+          }
+        },
+        "actions": {
+          "pruneExpired": "立即清理过期记录",
+          "clearAll": "清空全部记录"
+        },
+        "confirm": {
+          "clearTitle": "清空调用记录",
+          "clearDescription": "这会删除当前所有调用记录，且无法恢复。"
+        },
+        "toasts": {
+          "saveFailed": "保存调用记录配置失败",
+          "pruneDone": "已清理过期记录",
+          "pruneDoneDesc": "共清理 {count} 条过期记录",
+          "pruneFailed": "清理过期记录失败",
+          "clearDone": "已清空调用记录",
+          "clearDoneDesc": "共删除 {count} 条调用记录",
+          "clearFailed": "清空调用记录失败"
+        }
+      },
+      "filters": {
+        "allThreads": "全部对话",
+        "allSources": "全部来源",
+        "allStatus": "全部状态",
+        "provider": "供应商",
+        "model": "模型",
+        "runId": "运行 ID",
+        "searchPlaceholder": "搜索对话、运行、模型或供应商"
+      },
+      "table": {
+        "time": "时间",
+        "conversation": "对话",
+        "runId": "运行 ID",
+        "model": "模型",
+        "source": "来源",
+        "operation": "操作",
+        "status": "状态",
+        "duration": "耗时",
+        "tokens": "词元",
+        "totalCalls": "总计 {count} 次调用"
+      },
+      "detail": {
+        "empty": "选择一条调用记录以查看请求和响应载荷。",
+        "description": "查看调用元数据以及格式化后的请求和响应载荷。",
+        "titleFallback": "调用详情",
+        "inspect": "查看运行",
+        "startedAt": "开始时间",
+        "finishedAt": "结束时间",
+        "duration": "耗时",
+        "threadId": "对话 ID",
+        "runId": "运行 ID",
+        "recordId": "记录 ID",
+        "provider": "供应商",
+        "model": "模型",
+        "source": "来源",
+        "operation": "操作",
+        "finishReason": "结束原因",
+        "tokens": "词元",
+        "contextTokens": "上下文词元",
+        "payloadTruncated": "载荷已截断",
+        "boolean": {
+          "true": "是",
+          "false": "否"
+        },
         "error": "错误",
-        "aborted": "已中止",
-        "unknown": "未知"
+        "requestPayload": "请求载荷",
+        "responsePayload": "响应载荷"
+      },
+      "toasts": {
+        "clipboardUnavailable": "当前环境无法访问剪贴板",
+        "copyFailed": "复制选中内容失败",
+        "recordIdsCopied": "已复制 {count} 条记录 ID",
+        "runIdsCopied": "已复制 {count} 条运行 ID",
+        "conversationIdsCopied": "已复制 {count} 条对话 ID"
       }
     },
     "prompt": {
@@ -2229,7 +2356,8 @@
         "history": "历史",
         "user": "用户",
         "assistant": "助手",
-        "tool": "工具"
+        "tool": "工具",
+        "meta": "元信息"
       },
       "messages": {
         "unavailable": "暂无消息快照。请切换到加强模式后重新运行。",
@@ -2241,14 +2369,14 @@
         "runId": "运行 ID",
         "mode": "模式",
         "generatedAt": "生成时间",
-        "promptChars": "提示词字符数"
+        "promptChars": "提示词字符数",
+        "emptyCollections": "暂无工具或技能"
       },
       "tools": "工具",
       "skills": "技能",
       "expandList": "展开列表",
       "collapseList": "收起列表",
       "listEmpty": "(无)",
-      "system": "系统提示词",
       "systemEmpty": "(空)"
     },
     "framework": {
@@ -3208,14 +3336,10 @@
         "structuredOutputAuto": "自动回退",
         "structuredOutputSchema": "仅 JSON Schema",
         "structuredOutputPrompt": "仅提示词 JSON",
-        "thinkingMode": "思考模式",
-        "thinkingModeDescription": "对结构化字幕任务而言，关闭思考模式通常更稳定。",
+        "thinkingMode": "思考",
+        "thinkingModeDescription": "对结构化字幕任务而言，关闭思考通常更稳定。",
         "thinkingOff": "关闭",
-        "thinkingMinimal": "极低",
-        "thinkingLow": "低",
-        "thinkingMedium": "中",
-        "thinkingHigh": "高",
-        "thinkingExtraHigh": "极高",
+        "thinkingOn": "开启",
         "maxTokensFloor": "最小词元预算",
         "maxTokensFloorDescription": "为单个分块保留的最小输出词元预算。",
         "maxTokensCeiling": "最大词元上限",

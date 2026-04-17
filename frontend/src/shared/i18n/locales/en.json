@@ -1678,6 +1678,7 @@
           "name": "Name",
           "namePlaceholder": "Custom provider",
           "type": "Type",
+          "compatibility": "Compatibility",
           "endpoint": "Endpoint",
           "endpointPlaceholder": "Https://API.Example.Com"
         },
@@ -2858,14 +2859,10 @@
         "structuredOutputAuto": "Auto fallback",
         "structuredOutputSchema": "JSON Schema only",
         "structuredOutputPrompt": "Prompt JSON only",
-        "thinkingMode": "Thinking mode",
+        "thinkingMode": "Thinking",
         "thinkingModeDescription": "Structured subtitle tasks are usually most stable with thinking disabled.",
         "thinkingOff": "Off",
-        "thinkingMinimal": "Minimal",
-        "thinkingLow": "Low",
-        "thinkingMedium": "Medium",
-        "thinkingHigh": "High",
-        "thinkingExtraHigh": "Extra high",
+        "thinkingOn": "On",
         "maxTokensFloor": "Max tokens floor",
         "maxTokensFloorDescription": "Minimum output-token budget reserved for a chunk.",
         "maxTokensCeiling": "Max tokens ceiling",
@@ -3553,12 +3550,30 @@
   "settings.debug": {
     "tabs": {
       "overview": "Overview",
+      "calls": "Call records",
       "context": "Context",
       "channels": "Channels",
       "framework": "Framework",
       "events": "Events",
       "trace": "Run trace",
       "prompt": "Prompt"
+    },
+    "contextPanel": {
+      "actions": {
+        "filter": "Filter",
+        "clearFilters": "Clear filters"
+      },
+      "filters": {
+        "thread": "Conversation",
+        "event": "Event",
+        "runId": "Run ID",
+        "allRuns": "All runs"
+      },
+      "footer": {
+        "eventCount": "Events",
+        "firstAt": "First time",
+        "lastAt": "Last time"
+      }
     },
     "status": {
       "title": "Gateway status",
@@ -3601,12 +3616,14 @@
       }
     },
     "gateway": {
-      "events": "Gateway events",
-      "eventsCount": "Events",
       "filterAll": "All events",
       "eventsEmpty": "No Gateway events yet.",
       "eventUnknown": "(Unknown)",
       "noPayload": "(No payload)",
+      "detail": {
+        "description": "Inspect gateway event metadata and formatted payloads.",
+        "payload": "Event payload"
+      },
       "table": {
         "time": "Time",
         "event": "Event",
@@ -3618,6 +3635,10 @@
     "trace": {
       "error": "Failed to load run events",
       "empty": "No run events",
+      "detail": {
+        "description": "Inspect run trace event metadata and formatted payloads.",
+        "payload": "Event payload"
+      },
       "table": {
         "current": "Current",
         "runId": "Run",
@@ -3630,13 +3651,115 @@
         "event": "Event",
         "tool": "Tool",
         "viewPayload": "View payload"
+      }
+    },
+    "calls": {
+      "error": "Failed to load call records",
+      "actions": {
+        "searchAndFilter": "Search and filter",
+        "clearFilters": "Clear filters",
+        "selectCalls": "Select",
+        "selectedCount": "{count} selected",
+        "cancelSelection": "Cancel",
+        "batch": "Batch actions",
+        "copyRecordIds": "Copy record IDs",
+        "copyRunIds": "Copy run IDs",
+        "copyConversationIds": "Copy conversation IDs"
       },
-      "status": {
-        "completed": "Completed",
-        "running": "Running",
+      "config": {
+        "title": "Record settings",
+        "saveStrategy": {
+          "label": "Save strategy",
+          "options": {
+            "all": "Store all calls",
+            "errors": "Store only failed calls",
+            "off": "Disable persistence"
+          }
+        },
+        "retentionDays": {
+          "label": "Retention period",
+          "days": "{count} days"
+        },
+        "autoCleanup": {
+          "label": "Automatic cleanup",
+          "options": {
+            "hourly": "Run hourly cleanup",
+            "onWrite": "Clean during writes",
+            "off": "Disable automatic cleanup"
+          }
+        },
+        "actions": {
+          "pruneExpired": "Prune expired records now",
+          "clearAll": "Clear all records"
+        },
+        "confirm": {
+          "clearTitle": "Clear call records",
+          "clearDescription": "This deletes every stored call record and cannot be undone."
+        },
+        "toasts": {
+          "saveFailed": "Failed to save call-record settings",
+          "pruneDone": "Expired records pruned",
+          "pruneDoneDesc": "Removed {count} expired record(s)",
+          "pruneFailed": "Failed to prune expired records",
+          "clearDone": "Call records cleared",
+          "clearDoneDesc": "Removed {count} call record(s)",
+          "clearFailed": "Failed to clear call records"
+        }
+      },
+      "filters": {
+        "allThreads": "All conversations",
+        "allSources": "All sources",
+        "allStatus": "All status",
+        "provider": "Provider",
+        "model": "Model",
+        "runId": "Run ID",
+        "searchPlaceholder": "Search conversation, run, model, or provider"
+      },
+      "table": {
+        "time": "Time",
+        "conversation": "Conversation",
+        "runId": "Run ID",
+        "model": "Model",
+        "source": "Source",
+        "operation": "Operation",
+        "status": "Status",
+        "duration": "Duration",
+        "tokens": "Tokens",
+        "totalCalls": "Total {count} calls"
+      },
+      "detail": {
+        "empty": "Select a call record to inspect request and response payloads.",
+        "description": "Inspect call metadata and formatted request and response payloads.",
+        "titleFallback": "Call details",
+        "inspect": "Inspect run",
+        "startedAt": "Started at",
+        "finishedAt": "Finished at",
+        "duration": "Duration",
+        "threadId": "Conversation ID",
+        "runId": "Run ID",
+        "recordId": "Record ID",
+        "provider": "Provider",
+        "model": "Model",
+        "source": "Source",
+        "operation": "Operation",
+        "finishReason": "Finish reason",
+        "tokens": "Tokens",
+        "contextTokens": "Context tokens",
+        "payloadTruncated": "Payload truncated",
+        "boolean": {
+          "true": "Yes",
+          "false": "No"
+        },
         "error": "Error",
-        "aborted": "Aborted",
-        "unknown": "Unknown"
+        "requestPayload": "Request payload",
+        "responsePayload": "Response payload"
+      },
+      "toasts": {
+        "clipboardUnavailable": "Clipboard is unavailable in the current environment",
+        "copyFailed": "Failed to copy selected values",
+        "recordIdsCopied": "Copied {count} record ID(s)",
+        "runIdsCopied": "Copied {count} run ID(s)",
+        "conversationIdsCopied": "Copied {count} conversation ID(s)"
       }
     },
     "prompt": {
@@ -3647,7 +3770,8 @@
         "history": "History",
         "user": "User",
         "assistant": "Assistant",
-        "tool": "Tool"
+        "tool": "Tool",
+        "meta": "Meta"
       },
       "messages": {
         "unavailable": "No message snapshot. Switch debug to enhanced and run again.",
@@ -3659,14 +3783,14 @@
         "runId": "Run ID",
         "mode": "Mode",
         "generatedAt": "Generated at",
-        "promptChars": "Prompt chars"
+        "promptChars": "Prompt chars",
+        "emptyCollections": "No tools or skills"
       },
       "tools": "Tools",
       "skills": "Skills",
       "expandList": "Expand list",
       "collapseList": "Collapse list",
       "listEmpty": "(None)",
-      "system": "System prompt",
       "systemEmpty": "(Empty)"
     },
     "framework": {

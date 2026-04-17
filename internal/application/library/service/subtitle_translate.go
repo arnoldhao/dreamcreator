@@ -416,6 +416,7 @@ func (service *LibraryService) translateSubtitleChunk(
 		systemPrompt, userPrompt := buildSubtitleTranslatePrompts(request, chunk, constraints, repairPrompt)
 		result, err := service.runtime.RunOneShot(ctx, runtimedto.RuntimeRunRequest{
 			AssistantID: strings.TrimSpace(request.AssistantID),
+			RunKind:     "one-shot",
 			PromptMode:  "none",
 			Input: runtimedto.RuntimeInput{
 				Messages: []runtimedto.Message{{
@@ -429,10 +430,9 @@ func (service *LibraryService) translateSubtitleChunk(
 			},
 			Metadata: map[string]any{
 				"channel":           "library",
-				"usageSource":       "one-shot",
 				"useQueue":          true,
 				"runLane":           "subagent",
-				"subagent":          true,
+				"oneShotKind":       "subtitle_translate",
 				"temperature":       0.2,
 				"maxTokens":         estimateSubtitleChunkMaxTokensWithRuntime(chunk, runtimeConfig, attempt),
 				"extraSystemPrompt": systemPrompt,
@@ -991,7 +991,7 @@ func resolveSubtitleTaskRuntimeSettings(config library.LanguageTaskRuntimeSettin
 	if mode := strings.TrimSpace(config.StructuredOutputMode); mode != "" {
 		resolved.StructuredOutputMode = mode
 	}
-	if mode := strings.TrimSpace(config.ThinkingMode); mode != "" {
+	if mode := normalizeSubtitleTaskThinkingMode(config.ThinkingMode); mode != "" {
 		resolved.ThinkingMode = mode
 	}
 	if config.MaxTokensFloor > 0 {
@@ -1007,6 +1007,21 @@ func resolveSubtitleTaskRuntimeSettings(config library.LanguageTaskRuntimeSettin
 		resolved.MaxTokensCeiling = resolved.MaxTokensFloor
 	}
 	return resolved
+}
+
+func normalizeSubtitleTaskThinkingMode(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "off", "none", "disabled", "disable", "false", "0":
+		return "off"
+	case "minimal", "min",
+		"low", "on", "enabled", "enable", "true", "1",
+		"medium", "med",
+		"high", "max",
+		"xhigh", "x-high", "x_high", "extra-high", "extra_high", "extra high":
+		return "on"
+	default:
+		return ""
+	}
 }
 
 func buildSubtitleStructuredOutputMetadata(schemaName string, runtimeConfig subtitleTaskRuntimeSettings) map[string]any {

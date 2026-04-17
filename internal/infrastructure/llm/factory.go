@@ -12,12 +12,20 @@ import (
 
 type ChatModelFactory struct {
 	httpClient *http.Client
+	recorder   CallRecorder
 }
 
 func NewChatModelFactory() *ChatModelFactory {
 	return &ChatModelFactory{
 		httpClient: &http.Client{Timeout: defaultHTTPClientTimeout},
 	}
+}
+
+func (factory *ChatModelFactory) SetCallRecorder(recorder CallRecorder) {
+	if factory == nil {
+		return
+	}
+	factory.recorder = recorder
 }
 
 func (factory *ChatModelFactory) NewChatModel(provider providers.Provider, apiKey string, modelName string) (model.BaseChatModel, error) {
@@ -30,11 +38,15 @@ func (factory *ChatModelFactory) NewChatModel(provider providers.Provider, apiKe
 	}
 
 	return NewOpenAICompatibleChatModel(OpenAICompatibleConfig{
-		BaseURL:    baseURL,
-		APIKey:     apiKey,
-		Model:      modelName,
-		ChatPath:   defaultChatPath,
-		HTTPClient: factory.httpClient,
-		Headers:    map[string]string{},
+		BaseURL:               baseURL,
+		APIKey:                apiKey,
+		Model:                 modelName,
+		ProviderID:            provider.ID,
+		ProviderType:          provider.Type,
+		ProviderCompatibility: provider.Compatibility,
+		ChatPath:              defaultChatPath,
+		HTTPClient:            factory.httpClient,
+		Headers:               map[string]string{},
+		Recorder:              factory.recorder,
 	})
 }

@@ -189,3 +189,52 @@ func TestReplaceProviderModelsRecreatesMissingDefaultProvider(t *testing.T) {
 		t.Fatalf("model should be saved after provider recreation: %v", err)
 	}
 }
+
+func TestUpsertProviderPersistsCustomCompatibility(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 4, 17, 2, 0, 0, 0, time.UTC)
+	providerRepo := newProviderRepoStub()
+	service := NewProvidersService(providerRepo, newModelRepoStub(providerRepo), nil, nil, nil)
+	service.now = func() time.Time { return now }
+
+	created, err := service.UpsertProvider(context.Background(), dto.UpsertProviderRequest{
+		Name:          "Custom DeepSeek Gateway",
+		Type:          "openai",
+		Compatibility: "deepseek",
+		Endpoint:      "https://example.com/v1",
+		Enabled:       true,
+	})
+	if err != nil {
+		t.Fatalf("upsert provider: %v", err)
+	}
+	if created.Compatibility != "deepseek" {
+		t.Fatalf("expected compatibility deepseek, got %q", created.Compatibility)
+	}
+
+	saved, err := providerRepo.Get(context.Background(), created.ID)
+	if err != nil {
+		t.Fatalf("get saved provider: %v", err)
+	}
+	if saved.Compatibility != providers.ProviderCompatibilityDeepSeek {
+		t.Fatalf("expected saved compatibility deepseek, got %q", saved.Compatibility)
+	}
+}
+
+func TestUpsertProviderRejectsInvalidCompatibilityForType(t *testing.T) {
+	t.Parallel()
+
+	providerRepo := newProviderRepoStub()
+	service := NewProvidersService(providerRepo, newModelRepoStub(providerRepo), nil, nil, nil)
+
+	_, err := service.UpsertProvider(context.Background(), dto.UpsertProviderRequest{
+		Name:          "Broken Anthropic",
+		Type:          "anthropic",
+		Compatibility: "google",
+		Endpoint:      "https://example.com/v1",
+		Enabled:       true,
+	})
+	if err == nil {
+		t.Fatal("expected invalid anthropic/google compatibility combination to fail")
+	}
+}

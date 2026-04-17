@@ -76,6 +76,7 @@ export function useUpsertProvider() {
                   ...provider,
                   name: request.name,
                   type: request.type,
+                  compatibility: request.compatibility ?? provider.compatibility,
                   endpoint: request.endpoint,
                   enabled: request.enabled,
                 }
@@ -93,6 +94,7 @@ export function useUpsertProvider() {
                     ...entry.provider,
                     name: request.name,
                     type: request.type,
+                    compatibility: request.compatibility ?? entry.provider.compatibility,
                     endpoint: request.endpoint,
                     enabled: request.enabled,
                   },

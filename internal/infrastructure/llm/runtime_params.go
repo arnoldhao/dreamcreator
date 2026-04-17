@@ -16,6 +16,11 @@ type StructuredOutputConfig struct {
 type RuntimeParams struct {
 	ProviderID       string
 	ModelName        string
+	SessionID        string
+	ThreadID         string
+	RunID            string
+	RequestSource    string
+	Operation        string
 	ThinkingLevel    string
 	StructuredOutput StructuredOutputConfig
 }
@@ -26,6 +31,11 @@ func WithRuntimeParams(ctx context.Context, params RuntimeParams) context.Contex
 	normalized := RuntimeParams{
 		ProviderID:       strings.TrimSpace(params.ProviderID),
 		ModelName:        strings.TrimSpace(params.ModelName),
+		SessionID:        strings.TrimSpace(params.SessionID),
+		ThreadID:         strings.TrimSpace(params.ThreadID),
+		RunID:            strings.TrimSpace(params.RunID),
+		RequestSource:    strings.TrimSpace(params.RequestSource),
+		Operation:        strings.TrimSpace(params.Operation),
 		ThinkingLevel:    strings.TrimSpace(params.ThinkingLevel),
 		StructuredOutput: normalizeStructuredOutputConfig(params.StructuredOutput),
 	}

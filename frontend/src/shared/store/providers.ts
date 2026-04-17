@@ -2,6 +2,7 @@ export interface Provider {
   id: string;
   name: string;
   type: string;
+  compatibility: string;
   endpoint: string;
   enabled: boolean;
   builtin: boolean;
@@ -57,6 +58,7 @@ export interface UpsertProviderRequest {
   id?: string;
   name: string;
   type: string;
+  compatibility?: string;
   endpoint: string;
   enabled: boolean;
 }

@@ -24,22 +24,11 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemGroup,
-  ItemTitle,
-} from "@/shared/ui/item";
+import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/shared/ui/item";
 import { Select } from "@/shared/ui/select";
 import { Separator } from "@/shared/ui/separator";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/shared/ui/sidebar";
-import {
-  SETTINGS_ROW_CLASS,
-  SETTINGS_ROW_LABEL_CLASS,
-  SETTINGS_WIDE_CONTROL_WIDTH_CLASS,
-  SettingsSeparator,
-} from "@/shared/ui/settings-layout";
+import { SETTINGS_ROW_CLASS, SETTINGS_ROW_LABEL_CLASS, SETTINGS_WIDE_CONTROL_WIDTH_CLASS, SettingsSeparator } from "@/shared/ui/settings-layout";
 import { Switch } from "@/shared/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
@@ -73,12 +62,14 @@ interface CustomProviderState {
   name: string;
   endpoint: string;
   type: string;
+  compatibility: string;
   isDirty: boolean;
 }
 
 interface NewProviderDraft {
   name: string;
   type: string;
+  compatibility: string;
   endpoint: string;
 }
 
@@ -101,20 +92,32 @@ interface EditableProviderModel {
 }
 
 const PROVIDER_DEFAULTS = [
-  { id: "deepseek", label: "DeepSeek", endpoint: "https://api.deepseek.com", enabled: false, type: "openai" },
-  { id: "openrouter", label: "OpenRouter", endpoint: "https://openrouter.ai/api/v1", enabled: false, type: "openai" },
-  { id: "openai", label: "OpenAI", endpoint: "https://api.openai.com/v1", enabled: false, type: "openai" },
-  { id: "anthropic", label: "Anthropic", endpoint: "https://api.anthropic.com/v1", enabled: false, type: "anthropic" },
-  { id: "google", label: "Google Gemini", endpoint: "https://generativelanguage.googleapis.com/v1beta/openai", enabled: false, type: "openai" },
-  { id: "aihubmix", label: "AIHubMix", endpoint: "https://aihubmix.com/v1", enabled: false, type: "openai" },
-  { id: "moonshotai", label: "Moonshot AI", endpoint: "https://api.moonshot.ai/v1", enabled: false, type: "openai" },
-  { id: "zai", label: "Z.AI", endpoint: "https://api.z.ai/api/paas/v4", enabled: false, type: "openai" },
-  { id: "github-copilot", label: "GitHub Copilot", endpoint: "https://api.githubcopilot.com", enabled: false, type: "openai" },
+  { id: "deepseek", label: "DeepSeek", endpoint: "https://api.deepseek.com", enabled: false, type: "openai", compatibility: "deepseek" },
+  { id: "openrouter", label: "OpenRouter", endpoint: "https://openrouter.ai/api/v1", enabled: false, type: "openai", compatibility: "openrouter" },
+  { id: "openai", label: "OpenAI", endpoint: "https://api.openai.com/v1", enabled: false, type: "openai", compatibility: "openai" },
+  { id: "anthropic", label: "Anthropic", endpoint: "https://api.anthropic.com/v1", enabled: false, type: "anthropic", compatibility: "anthropic" },
+  { id: "google", label: "Google Gemini", endpoint: "https://generativelanguage.googleapis.com/v1beta/openai", enabled: false, type: "openai", compatibility: "google" },
+  { id: "aihubmix", label: "AIHubMix", endpoint: "https://aihubmix.com/v1", enabled: false, type: "openai", compatibility: "openai" },
+  { id: "moonshotai", label: "Moonshot AI", endpoint: "https://api.moonshot.ai/v1", enabled: false, type: "openai", compatibility: "openai" },
+  { id: "zai", label: "Z.AI", endpoint: "https://api.z.ai/api/paas/v4", enabled: false, type: "openai", compatibility: "openai" },
+  { id: "github-copilot", label: "GitHub Copilot", endpoint: "https://api.githubcopilot.com", enabled: false, type: "openai", compatibility: "openai" },
 ];
 const API_TYPE_OPTIONS = [
   { value: "openai", label: "OpenAI" },
   { value: "anthropic", label: "Anthropic" },
 ];
+const API_COMPATIBILITY_OPTIONS: Record<string, Array<{ value: string; label: string }>> = {
+  openai: [
+    { value: "openai", label: "OpenAI Compatible" },
+    { value: "deepseek", label: "DeepSeek Compatible" },
+    { value: "openrouter", label: "OpenRouter Compatible" },
+    { value: "google", label: "Google Gemini Compatible" },
+  ],
+  anthropic: [{ value: "anthropic", label: "Anthropic Compatible" }],
+};
+
+const defaultCompatibilityForType = (type: string) =>
+  API_COMPATIBILITY_OPTIONS[type]?.[0]?.value ?? "openai";
 
 const extractErrorMessage = (error: unknown): string => {
   if (!error) {
@@ -177,6 +180,7 @@ export function ProviderSection() {
   const [newProviderDraft, setNewProviderDraft] = React.useState<NewProviderDraft>({
     name: "",
     type: "openai",
+    compatibility: defaultCompatibilityForType("openai"),
     endpoint: "",
   });
   const syncModels = useSyncProviderModels();
@@ -239,7 +243,7 @@ export function ProviderSection() {
       return providers;
     }
     return providers.filter((provider) => {
-      const haystack = `${provider.name} ${provider.type} ${provider.endpoint}`.toLowerCase();
+      const haystack = `${provider.name} ${provider.type} ${provider.compatibility} ${provider.endpoint}`.toLowerCase();
       return haystack.includes(providerQueryNormalized);
     });
   }, [providers, providerQueryNormalized]);
@@ -259,11 +263,20 @@ export function ProviderSection() {
         name: activeProvider.name,
         endpoint: activeProvider.endpoint,
         type: activeProvider.type,
+        compatibility: activeProvider.compatibility || defaultCompatibilityForType(activeProvider.type),
         isDirty: false,
       };
     });
   }, [activeProvider, activeProviderIsCustom]);
   const typeOptions = React.useMemo(() => API_TYPE_OPTIONS, []);
+  const compatibilityOptions = React.useMemo(
+    () => API_COMPATIBILITY_OPTIONS[customDraft?.type ?? "openai"] ?? API_COMPATIBILITY_OPTIONS.openai,
+    [customDraft?.type]
+  );
+  const newProviderCompatibilityOptions = React.useMemo(
+    () => API_COMPATIBILITY_OPTIONS[newProviderDraft.type] ?? API_COMPATIBILITY_OPTIONS.openai,
+    [newProviderDraft.type]
+  );
   const buildModelDraft = React.useCallback((model?: ProviderModel): EditableProviderModel => {
     modelDraftSequence.current += 1;
     if (!model) {
@@ -415,6 +428,7 @@ export function ProviderSection() {
         id: activeProvider.id,
         name: trimmedName,
         type: nextDraft.type,
+        compatibility: nextDraft.compatibility,
         endpoint: trimmedEndpoint,
         enabled: activeProvider.enabled,
       },
@@ -429,6 +443,7 @@ export function ProviderSection() {
               name: trimmedName,
               endpoint: trimmedEndpoint,
               type: nextDraft.type,
+              compatibility: nextDraft.compatibility,
               isDirty: false,
             };
           });
@@ -737,7 +752,12 @@ export function ProviderSection() {
   };
 
   const resetNewProviderDraft = () => {
-    setNewProviderDraft({ name: "", type: "openai", endpoint: "" });
+    setNewProviderDraft({
+      name: "",
+      type: "openai",
+      compatibility: defaultCompatibilityForType("openai"),
+      endpoint: "",
+    });
   };
 
   const handleCreateDialogOpenChange = (open: boolean) => {
@@ -756,6 +776,7 @@ export function ProviderSection() {
     const result = await createProvider.mutateAsync({
       name: trimmedName,
       type: newProviderDraft.type,
+      compatibility: newProviderDraft.compatibility,
       endpoint: trimmedEndpoint,
       enabled: true,
     });
@@ -964,13 +985,36 @@ export function ProviderSection() {
                           value={customDraft.type}
                           onChange={(event) => {
                             const nextType = event.target.value;
-                            updateCustomDraft({ type: nextType });
-                            commitCustomDraft({ type: nextType });
+                            const nextCompatibility = defaultCompatibilityForType(nextType);
+                            updateCustomDraft({ type: nextType, compatibility: nextCompatibility });
+                            commitCustomDraft({ type: nextType, compatibility: nextCompatibility });
                           }}
                           className={cn(customFieldWidthClass, "text-right")}
                           disabled={updateProvider.isPending}
                         >
                           {typeOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                      <SettingsSeparator />
+                      <div className={configRowClassName}>
+                        <div className={SETTINGS_ROW_LABEL_CLASS}>
+                          {t("settings.provider.custom.fields.compatibility")}
+                        </div>
+                        <Select
+                          value={customDraft.compatibility}
+                          onChange={(event) => {
+                            const nextCompatibility = event.target.value;
+                            updateCustomDraft({ compatibility: nextCompatibility });
+                            commitCustomDraft({ compatibility: nextCompatibility });
+                          }}
+                          className={cn(customFieldWidthClass, "text-right")}
+                          disabled={updateProvider.isPending}
+                        >
+                          {compatibilityOptions.map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}
                             </option>
@@ -1282,12 +1326,36 @@ export function ProviderSection() {
                 </span>
                 <Select
                   value={newProviderDraft.type}
-                  onChange={(event) =>
-                    setNewProviderDraft((prev) => ({ ...prev, type: event.target.value }))
-                  }
+                  onChange={(event) => {
+                    const nextType = event.target.value;
+                    setNewProviderDraft((prev) => ({
+                      ...prev,
+                      type: nextType,
+                      compatibility: defaultCompatibilityForType(nextType),
+                    }));
+                  }}
                   className={cn(customFieldWidthClass, "text-right")}
                 >
                   {typeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <Separator />
+              <div className="flex min-h-9 items-center justify-between gap-4 px-3 py-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t("settings.provider.custom.fields.compatibility")}
+                </span>
+                <Select
+                  value={newProviderDraft.compatibility}
+                  onChange={(event) =>
+                    setNewProviderDraft((prev) => ({ ...prev, compatibility: event.target.value }))
+                  }
+                  className={cn(customFieldWidthClass, "text-right")}
+                >
+                  {newProviderCompatibilityOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>

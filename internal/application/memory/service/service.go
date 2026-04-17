@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 
 	memorydto "dreamcreator/internal/application/memory/dto"
+	"dreamcreator/internal/application/runtimeconfig"
 	settingsdto "dreamcreator/internal/application/settings/dto"
 	domainassistant "dreamcreator/internal/domain/assistant"
 	"dreamcreator/internal/domain/providers"
@@ -43,7 +44,7 @@ const (
 	maxCaptureMax           = 20
 
 	defaultEmbeddingTimeout = 25 * time.Second
-	defaultLLMTimeout       = 30 * time.Second
+	defaultLLMTimeout       = runtimeconfig.DefaultAuxiliaryLLMTimeout
 	defaultMemoryScope      = "assistant"
 	allMemoryScopeToken     = "all"
 )
@@ -235,6 +236,13 @@ func NewMemoryService(
 		now:         time.Now,
 		newID:       uuid.NewString,
 	}
+}
+
+func (service *MemoryService) SetLLMCallRecorder(recorder llm.CallRecorder) {
+	if service == nil || service.chatFactory == nil {
+		return
+	}
+	service.chatFactory.SetCallRecorder(recorder)
 }
 
 func (service *MemoryService) SetPrincipalProfileRefresher(refresher MemoryPrincipalProfileRefresher) {
@@ -1431,6 +1439,15 @@ func (service *MemoryService) HandleAgentEnd(ctx context.Context, request memory
 
 	hookCtx, cancel := context.WithTimeout(ctx, defaultLLMTimeout)
 	defer cancel()
+	hookCtx = llm.WithRuntimeParams(hookCtx, llm.RuntimeParams{
+		SessionID:     strings.TrimSpace(requestIdentity.ThreadID),
+		ThreadID:      strings.TrimSpace(requestIdentity.ThreadID),
+		RunID:         strings.TrimSpace(request.RunID),
+		RequestSource: "memory",
+		Operation:     "memory.extract",
+		ProviderID:    providerID,
+		ModelName:     modelName,
+	})
 	candidates, err := service.extractCandidatesByLLM(hookCtx, providerID, modelName, transcript, maxEntries)
 	if err != nil {
 		return err
@@ -1529,6 +1546,14 @@ func (service *MemoryService) HandleSessionLifecycle(ctx context.Context, reques
 
 	hookCtx, cancel := context.WithTimeout(ctx, defaultLLMTimeout)
 	defer cancel()
+	hookCtx = llm.WithRuntimeParams(hookCtx, llm.RuntimeParams{
+		SessionID:     threadID,
+		ThreadID:      threadID,
+		RequestSource: "memory",
+		Operation:     "memory.summary",
+		ProviderID:    providerID,
+		ModelName:     modelName,
+	})
 	summaryResult, err := service.summarizeSessionByLLM(hookCtx, providerID, modelName, transcript)
 	if err != nil {
 		return err

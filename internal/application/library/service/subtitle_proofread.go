@@ -447,6 +447,7 @@ func (service *LibraryService) proofreadSubtitleChunk(
 		systemPrompt, userPrompt := buildSubtitleProofreadPrompts(request, chunk, constraints, repairPrompt)
 		result, err := service.runtime.RunOneShot(ctx, runtimedto.RuntimeRunRequest{
 			AssistantID: strings.TrimSpace(request.AssistantID),
+			RunKind:     "one-shot",
 			PromptMode:  "none",
 			Input: runtimedto.RuntimeInput{
 				Messages: []runtimedto.Message{{
@@ -460,10 +461,9 @@ func (service *LibraryService) proofreadSubtitleChunk(
 			},
 			Metadata: map[string]any{
 				"channel":           "library",
-				"usageSource":       "one-shot",
 				"useQueue":          true,
 				"runLane":           "subagent",
-				"subagent":          true,
+				"oneShotKind":       "subtitle_proofread",
 				"temperature":       0.1,
 				"maxTokens":         estimateSubtitleChunkMaxTokensWithRuntime(chunk, runtimeConfig, attempt),
 				"extraSystemPrompt": systemPrompt,

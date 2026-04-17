@@ -151,17 +151,34 @@ func TestIngestUsage_StoresInputAndOutputTokens(t *testing.T) {
 func TestResolveUsageSource(t *testing.T) {
 	t.Parallel()
 
-	if got := resolveUsageSource(map[string]any{"titleGeneration": true}, "aui"); got != usageSourceOneShot {
+	if got := resolveUsageSource(map[string]any{}, "aui", "one-shot"); got != usageSourceOneShot {
 		t.Fatalf("expected one-shot source, got %q", got)
 	}
-	if got := resolveUsageSource(map[string]any{"usageSource": "relay"}, "aui"); got != usageSourceRelay {
+	if got := resolveUsageSource(map[string]any{"usageSource": "relay"}, "aui", "one-shot"); got != usageSourceRelay {
 		t.Fatalf("expected relay source override, got %q", got)
 	}
-	if got := resolveUsageSource(map[string]any{}, "aui"); got != usageSourceDialogue {
+	if got := resolveUsageSource(map[string]any{}, "aui", "user"); got != usageSourceDialogue {
 		t.Fatalf("expected dialogue source, got %q", got)
 	}
-	if got := resolveUsageSource(map[string]any{}, ""); got != usageSourceRelay {
+	if got := resolveUsageSource(map[string]any{}, "", "user"); got != usageSourceRelay {
 		t.Fatalf("expected relay default for empty channel, got %q", got)
+	}
+}
+
+func TestResolveLLMOperation_ForOneShotKinds(t *testing.T) {
+	t.Parallel()
+
+	if got := resolveLLMOperation("one-shot", map[string]any{"oneShotKind": "title_generation"}, false); got != "runtime.title_generation" {
+		t.Fatalf("expected title generation operation, got %q", got)
+	}
+	if got := resolveLLMOperation("one-shot", map[string]any{"oneShotKind": "subtitle_translate"}, false); got != "runtime.subtitle_translate" {
+		t.Fatalf("expected subtitle translate operation, got %q", got)
+	}
+	if got := resolveLLMOperation("one-shot", map[string]any{"oneShotKind": "subtitle_proofread"}, false); got != "runtime.subtitle_proofread" {
+		t.Fatalf("expected subtitle proofread operation, got %q", got)
+	}
+	if got := resolveLLMOperation("one-shot", map[string]any{}, false); got != "runtime.one_shot" {
+		t.Fatalf("expected generic one-shot operation, got %q", got)
 	}
 }
 

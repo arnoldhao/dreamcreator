@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"dreamcreator/internal/application/events"
+	llmrecord "dreamcreator/internal/application/llmrecord"
 	"dreamcreator/internal/application/thread/dto"
 	"dreamcreator/internal/application/thread/service"
 	domainthread "dreamcreator/internal/domain/thread"
@@ -31,6 +32,7 @@ type SelectedAttachmentFile struct {
 
 type ThreadHandler struct {
 	service *service.ThreadService
+	calls   *llmrecord.Service
 	bus     events.Bus
 	windows *WindowManager
 }
@@ -40,9 +42,10 @@ const (
 	threadChangePurge  = "purge"
 )
 
-func NewThreadHandler(service *service.ThreadService, bus events.Bus, windows *WindowManager) *ThreadHandler {
+func NewThreadHandler(service *service.ThreadService, calls *llmrecord.Service, bus events.Bus, windows *WindowManager) *ThreadHandler {
 	return &ThreadHandler{
 		service: service,
+		calls:   calls,
 		bus:     bus,
 		windows: windows,
 	}
@@ -75,6 +78,34 @@ func (handler *ThreadHandler) ListThreadRunEvents(ctx context.Context, request d
 
 func (handler *ThreadHandler) GetThreadContextTokens(ctx context.Context, threadID string) (dto.ContextTokensSnapshot, error) {
 	return handler.service.GetContextTokensSnapshot(ctx, threadID)
+}
+
+func (handler *ThreadHandler) ListLLMCallRecords(ctx context.Context, request llmrecord.ListRequest) ([]llmrecord.Record, error) {
+	if handler.calls == nil {
+		return nil, errors.New("llm call record service is not configured")
+	}
+	return handler.calls.List(ctx, request)
+}
+
+func (handler *ThreadHandler) GetLLMCallRecord(ctx context.Context, id string) (llmrecord.Record, error) {
+	if handler.calls == nil {
+		return llmrecord.Record{}, errors.New("llm call record service is not configured")
+	}
+	return handler.calls.Get(ctx, id)
+}
+
+func (handler *ThreadHandler) PruneExpiredLLMCallRecords(ctx context.Context) (int, error) {
+	if handler.calls == nil {
+		return 0, errors.New("llm call record service is not configured")
+	}
+	return handler.calls.PruneExpired(ctx)
+}
+
+func (handler *ThreadHandler) ClearLLMCallRecords(ctx context.Context) (int, error) {
+	if handler.calls == nil {
+		return 0, errors.New("llm call record service is not configured")
+	}
+	return handler.calls.Clear(ctx)
 }
 
 func (handler *ThreadHandler) AppendMessage(ctx context.Context, request dto.AppendMessageRequest) error {

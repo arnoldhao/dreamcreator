@@ -17,14 +17,20 @@ const defaultAnthropicVersion = "2023-06-01"
 type EndpointModelsSyncer struct {
 	httpClient *http.Client
 	now        func() time.Time
-	modelsDev  *ModelsDevSyncer
+	modelsDev  modelsDevMetadataSyncer
 }
 
-func NewEndpointModelsSyncer() *EndpointModelsSyncer {
+type modelsDevMetadataSyncer interface {
+	Sync(ctx context.Context, provider providers.Provider, apiKey string) ([]providers.Model, error)
+	ResolveModelDisplayNames(ctx context.Context, modelIDs []string) (map[string]string, error)
+	ResolveModelCapabilitiesJSON(ctx context.Context, modelIDs []string) (map[string]string, error)
+}
+
+func NewEndpointModelsSyncer(modelsDev modelsDevMetadataSyncer) *EndpointModelsSyncer {
 	return &EndpointModelsSyncer{
 		httpClient: &http.Client{Timeout: 20 * time.Second},
 		now:        time.Now,
-		modelsDev:  NewModelsDevSyncer(),
+		modelsDev:  modelsDev,
 	}
 }
 
@@ -33,12 +39,12 @@ func (syncer *EndpointModelsSyncer) ResolveModelDisplayNames(ctx context.Context
 	if syncer.modelsDev == nil || len(modelIDs) == 0 {
 		return result, nil
 	}
-	metadata, err := syncer.modelsDev.ResolveModelMetadata(ctx, modelIDs)
+	displayNames, err := syncer.modelsDev.ResolveModelDisplayNames(ctx, modelIDs)
 	if err != nil {
 		return nil, err
 	}
-	for key, meta := range metadata {
-		displayName := strings.TrimSpace(meta.DisplayName)
+	for key, displayName := range displayNames {
+		displayName = strings.TrimSpace(displayName)
 		if displayName == "" {
 			continue
 		}
@@ -52,12 +58,12 @@ func (syncer *EndpointModelsSyncer) ResolveModelCapabilitiesJSON(ctx context.Con
 	if syncer.modelsDev == nil || len(modelIDs) == 0 {
 		return result, nil
 	}
-	metadata, err := syncer.modelsDev.ResolveModelMetadata(ctx, modelIDs)
+	capabilitiesByModelID, err := syncer.modelsDev.ResolveModelCapabilitiesJSON(ctx, modelIDs)
 	if err != nil {
 		return nil, err
 	}
-	for key, meta := range metadata {
-		capabilities := strings.TrimSpace(meta.CapabilitiesJSON)
+	for key, capabilities := range capabilitiesByModelID {
+		capabilities = strings.TrimSpace(capabilities)
 		if capabilities == "" {
 			continue
 		}
@@ -100,10 +106,14 @@ func (syncer *EndpointModelsSyncer) Sync(ctx context.Context, provider providers
 		}
 		modelNames = append(modelNames, name)
 	}
-	modelMetadataByID := make(map[string]modelsDevModelMetadata)
+	displayNameByModelID := make(map[string]string)
+	capabilitiesByModelID := make(map[string]string)
 	if syncer.modelsDev != nil {
-		if metadata, err := syncer.modelsDev.ResolveModelMetadata(ctx, modelNames); err == nil {
-			modelMetadataByID = metadata
+		if displayNames, err := syncer.modelsDev.ResolveModelDisplayNames(ctx, modelNames); err == nil {
+			displayNameByModelID = displayNames
+		}
+		if capabilities, err := syncer.modelsDev.ResolveModelCapabilitiesJSON(ctx, modelNames); err == nil {
+			capabilitiesByModelID = capabilities
 		}
 	}
 
@@ -138,14 +148,13 @@ func (syncer *EndpointModelsSyncer) Sync(ctx context.Context, provider providers
 				SupportsVideo:     meta.SupportsVideo,
 			}
 		}
-		if meta, ok := modelMetadataByID[strings.ToLower(name)]; ok {
-			if strings.TrimSpace(meta.DisplayName) != "" {
-				displayName = meta.DisplayName
-			}
-			if strings.TrimSpace(meta.CapabilitiesJSON) != "" {
-				capabilities = meta.CapabilitiesJSON
-			}
-			metaCaps = mergeModelCapabilities(metaCaps, meta.Capabilities)
+		normalizedName := strings.ToLower(strings.TrimSpace(name))
+		if resolvedDisplayName := strings.TrimSpace(displayNameByModelID[normalizedName]); resolvedDisplayName != "" {
+			displayName = resolvedDisplayName
+		}
+		if resolvedCapabilities := strings.TrimSpace(capabilitiesByModelID[normalizedName]); resolvedCapabilities != "" {
+			capabilities = resolvedCapabilities
+			metaCaps = mergeModelCapabilities(metaCaps, parseModelCapabilities(resolvedCapabilities))
 		}
 		if displayName == "" {
 			displayName = name

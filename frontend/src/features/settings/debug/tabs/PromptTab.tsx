@@ -1,31 +1,34 @@
-import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { Button } from "@/shared/ui/button";
-import { SETTINGS_ROW_CLASS, SettingsListCard, SettingsSeparator } from "@/shared/ui/settings-layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 
 import type { PromptTabProps } from "../types";
-import { RunSummaryCard } from "./RunSummaryCard";
 
-const PROMPT_VIEW_VALUES = ["system", "history", "user", "assistant", "tool"] as const;
+const PROMPT_VIEW_VALUES = ["system", "history", "user", "assistant", "tool", "meta"] as const;
 type PromptViewValue = (typeof PROMPT_VIEW_VALUES)[number];
+const DEFAULT_META_LIST_COUNT = 6;
+
+function PromptContentCard(props: { children: ReactNode; className?: string }) {
+  return (
+    <div className={`flex h-full min-h-0 flex-col rounded-lg border bg-card ${props.className ?? ""}`}>
+      {props.children}
+    </div>
+  );
+}
 
 export function PromptTab({
   t,
   selectedRunId,
-  setSelectedRunId,
-  runSummaries,
   runEventsLoading,
   runEventsError,
   selectedPromptRun,
   formatDateTime,
-  statusLabelClass,
-  formatRunStatus,
 }: PromptTabProps) {
+  const [activeView, setActiveView] = useState<PromptViewValue>("system");
   const [toolsExpanded, setToolsExpanded] = useState(false);
   const [skillsExpanded, setSkillsExpanded] = useState(false);
-  const [activeView, setActiveView] = useState<PromptViewValue>("system");
+
   const toolItems = useMemo(() => selectedPromptRun?.payload.tools ?? [], [selectedPromptRun]);
   const skillItems = useMemo(() => selectedPromptRun?.payload.skills ?? [], [selectedPromptRun]);
   const promptMessages = useMemo(() => {
@@ -44,40 +47,78 @@ export function PromptTab({
   const assistantMessages = useMemo(() => promptMessages.filter((item) => item.role === "assistant"), [promptMessages]);
   const toolMessages = useMemo(() => promptMessages.filter((item) => item.role === "tool"), [promptMessages]);
   const historyMessages = useMemo(() => promptMessages.filter((item) => item.role !== "system"), [promptMessages]);
-  const metaRowClassName = `${SETTINGS_ROW_CLASS} py-1.5`;
-  const renderCompactGridList = (items: string[]) => (
-    <div className="max-h-32 overflow-y-auto">
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-8">
+
+  useEffect(() => {
+    setActiveView("system");
+    setToolsExpanded(false);
+    setSkillsExpanded(false);
+  }, [selectedPromptRun?.runId]);
+
+  const renderCompactGridList = (items: string[]) => {
+    if (items.length === 0) {
+      return <div className="text-sm text-muted-foreground">{t("settings.debug.prompt.listEmpty")}</div>;
+    }
+
+    return (
+      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
           <div
             key={item}
-            className="min-w-0 rounded border border-border/60 bg-card px-2 py-1 text-[11px] text-foreground"
+            className="min-w-0 rounded border border-border/60 bg-background px-2 py-1.5 text-[11px] text-foreground"
             title={item}
           >
             <span className="block truncate font-mono">{item}</span>
           </div>
         ))}
       </div>
-    </div>
-  );
+    );
+  };
 
-  useEffect(() => {
-    setToolsExpanded(false);
-    setSkillsExpanded(false);
-    setActiveView("system");
-  }, [selectedPromptRun?.runId]);
+  const renderMetaCollectionSection = (
+    title: string,
+    items: string[],
+    expanded: boolean,
+    onToggle: () => void
+  ) => {
+    if (items.length === 0) {
+      return null;
+    }
+
+    const visibleItems = expanded ? items : items.slice(0, DEFAULT_META_LIST_COUNT);
+    const canToggle = items.length > DEFAULT_META_LIST_COUNT;
+
+    return (
+      <section className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-xs font-medium text-muted-foreground">
+            {title} ({items.length})
+          </div>
+          {canToggle ? (
+            <Button size="compact" variant="ghost" className="h-7 px-2 text-[11px]" onClick={onToggle}>
+              {expanded ? t("settings.debug.prompt.collapseList") : t("settings.debug.prompt.expandList")}
+            </Button>
+          ) : null}
+        </div>
+        {renderCompactGridList(visibleItems)}
+      </section>
+    );
+  };
 
   const renderMessageList = (
     items: Array<{ key: string; role: string; content: string; reasoning: string; toolCallId: string }>,
     emptyText: string
   ) => {
+    if (promptMessages.length === 0) {
+      return <div className="text-sm text-muted-foreground">{t("settings.debug.prompt.messages.unavailable")}</div>;
+    }
     if (items.length === 0) {
       return <div className="text-sm text-muted-foreground">{emptyText}</div>;
     }
+
     return (
       <div className="space-y-2">
         {items.map((item) => (
-          <div key={item.key} className="rounded-md border border-border/60 bg-muted/20 p-2">
+          <div key={item.key} className="rounded-md border border-border/60 bg-muted/20 p-3">
             <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
               <span className="font-mono uppercase">{item.role || "unknown"}</span>
               {item.toolCallId ? (
@@ -87,16 +128,14 @@ export function PromptTab({
               ) : null}
             </div>
             {item.content ? (
-              <pre className="mt-2 max-h-40 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-all rounded-md border border-border/50 bg-card p-2 text-[11px] text-foreground">
+              <pre className="mt-2 overflow-x-hidden whitespace-pre-wrap break-all rounded-md border border-border/50 bg-background p-3 text-[11px] text-foreground">
                 {item.content}
               </pre>
             ) : null}
             {item.reasoning ? (
               <div className="mt-2">
-                <div className="text-[11px] text-muted-foreground">
-                  {t("settings.debug.prompt.messages.reasoning")}
-                </div>
-                <pre className="mt-1 max-h-32 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-all rounded-md border border-border/50 bg-card p-2 text-[11px] text-foreground">
+                <div className="text-[11px] text-muted-foreground">{t("settings.debug.prompt.messages.reasoning")}</div>
+                <pre className="mt-1 overflow-x-hidden whitespace-pre-wrap break-all rounded-md border border-border/50 bg-background p-3 text-[11px] text-foreground">
                   {item.reasoning}
                 </pre>
               </div>
@@ -107,245 +146,156 @@ export function PromptTab({
     );
   };
 
+  const renderEmptyState = (content: ReactNode) => (
+    <TabsContent value="prompt" className="mt-0 flex h-full min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-border/70 bg-background/70 px-4 text-sm text-muted-foreground">
+        {content}
+      </div>
+    </TabsContent>
+  );
+
+  if (runEventsLoading) {
+    return renderEmptyState(t("common.loading"));
+  }
+
+  if (runEventsError) {
+    return renderEmptyState(<span className="text-destructive">{t("settings.debug.trace.error")}</span>);
+  }
+
+  if (!selectedPromptRun) {
+    return renderEmptyState(
+      selectedRunId === "all" ? t("settings.debug.prompt.empty") : t("settings.debug.prompt.emptyForRun")
+    );
+  }
+
   return (
-    <TabsContent value="prompt" className="mt-0 space-y-3">
-      <RunSummaryCard
-        t={t}
-        runSummaries={runSummaries}
-        selectedRunId={selectedRunId}
-        setSelectedRunId={setSelectedRunId}
-        formatDateTime={formatDateTime}
-        statusLabelClass={statusLabelClass}
-        formatRunStatus={formatRunStatus}
-        emptyText={t("settings.debug.trace.empty")}
-      />
-
-      {runEventsLoading ? (
-        <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">{t("common.loading")}</div>
-      ) : runEventsError ? (
-        <div className="rounded-lg border bg-card p-4 text-sm text-destructive">
-          {t("settings.debug.trace.error")}
+    <TabsContent value="prompt" className="mt-0 flex h-full min-h-0 flex-1 flex-col">
+      <Tabs
+        value={activeView}
+        onValueChange={(value) => setActiveView(value as PromptViewValue)}
+        className="flex h-full min-h-0 flex-1 flex-col gap-3"
+      >
+        <div className="flex min-w-0 flex-nowrap items-center overflow-x-auto pb-1 -mb-1">
+          <TabsList className="h-auto shrink-0 rounded-lg bg-muted/60 p-1">
+            <TabsTrigger value="system" className="min-w-0 data-[state=active]:shadow-none">
+              {t("settings.debug.prompt.view.system")}
+            </TabsTrigger>
+            <TabsTrigger value="history" className="min-w-0 data-[state=active]:shadow-none">
+              {t("settings.debug.prompt.view.history")}
+            </TabsTrigger>
+            <TabsTrigger value="user" className="min-w-0 data-[state=active]:shadow-none">
+              {t("settings.debug.prompt.view.user")}
+            </TabsTrigger>
+            <TabsTrigger value="assistant" className="min-w-0 data-[state=active]:shadow-none">
+              {t("settings.debug.prompt.view.assistant")}
+            </TabsTrigger>
+            <TabsTrigger value="tool" className="min-w-0 data-[state=active]:shadow-none">
+              {t("settings.debug.prompt.view.tool")}
+            </TabsTrigger>
+            <TabsTrigger value="meta" className="min-w-0 data-[state=active]:shadow-none">
+              {t("settings.debug.prompt.view.meta")}
+            </TabsTrigger>
+          </TabsList>
         </div>
-      ) : !selectedPromptRun ? (
-        <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
-          {selectedRunId === "all"
-            ? t("settings.debug.prompt.empty")
-            : t("settings.debug.prompt.emptyForRun")}
-        </div>
-      ) : (
-        <>
-          <SettingsListCard contentClassName="text-xs">
-            <div className={metaRowClassName}>
-              <div className="text-sm font-medium text-muted-foreground">{t("settings.debug.prompt.meta.runId")}</div>
-              <div className="max-w-[70%] break-all text-right font-mono text-[11px] text-foreground" title={selectedPromptRun.runId}>
-                {selectedPromptRun.runId}
-              </div>
-            </div>
-            <SettingsSeparator />
 
-            <div className={metaRowClassName}>
-              <div className="text-sm font-medium text-muted-foreground">{t("settings.debug.prompt.meta.mode")}</div>
-              <div className="max-w-[70%] truncate text-right text-foreground" title={selectedPromptRun.payload.mode || "-"}>
-                {selectedPromptRun.payload.mode || "-"}
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <TabsContent value="system" className="mt-0 h-full">
+            <PromptContentCard>
+              <div className="min-h-0 flex-1 overflow-auto p-3">
+                <pre className="min-h-full overflow-x-hidden whitespace-pre-wrap break-all rounded-md border bg-background p-3 text-xs text-foreground">
+                  {selectedPromptRun.payload.prompt || t("settings.debug.prompt.systemEmpty")}
+                </pre>
               </div>
-            </div>
-            <SettingsSeparator />
+            </PromptContentCard>
+          </TabsContent>
 
-            <div className={metaRowClassName}>
-              <div className="text-sm font-medium text-muted-foreground">{t("settings.debug.prompt.meta.generatedAt")}</div>
-              <div
-                className="max-w-[70%] truncate text-right text-foreground"
-                title={formatDateTime(selectedPromptRun.payload.report?.generatedAt)}
-              >
-                {formatDateTime(selectedPromptRun.payload.report?.generatedAt)}
+          <TabsContent value="history" className="mt-0 h-full">
+            <PromptContentCard>
+              <div className="min-h-0 flex-1 overflow-auto p-3 text-xs">
+                {renderMessageList(historyMessages, t("settings.debug.prompt.messages.empty"))}
               </div>
-            </div>
-            <SettingsSeparator />
+            </PromptContentCard>
+          </TabsContent>
 
-            <div className={metaRowClassName}>
-              <div className="text-sm font-medium text-muted-foreground">{t("settings.debug.prompt.meta.promptChars")}</div>
-              <div className="text-right font-mono text-foreground">
-                {selectedPromptRun.payload.promptChars ?? selectedPromptRun.payload.prompt?.length ?? 0}
+          <TabsContent value="user" className="mt-0 h-full">
+            <PromptContentCard>
+              <div className="min-h-0 flex-1 overflow-auto p-3 text-xs">
+                {renderMessageList(userMessages, t("settings.debug.prompt.messages.empty"))}
               </div>
-            </div>
-            <SettingsSeparator />
+            </PromptContentCard>
+          </TabsContent>
 
-            <div className={metaRowClassName}>
-              <div className="text-sm font-medium text-muted-foreground">{t("settings.debug.prompt.tools")}</div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="compact"
-                className="h-auto px-2 py-0.5 text-xs"
-                onClick={() => setToolsExpanded((current) => !current)}
-                aria-label={
-                  toolsExpanded
-                    ? t("settings.debug.prompt.collapseList")
-                    : t("settings.debug.prompt.expandList")
-                }
-              >
-                <span className="font-mono">{toolItems.length}</span>
-                {toolsExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-              </Button>
-            </div>
-            {toolsExpanded ? (
-              <div className="mt-1.5 rounded-md border border-border/60 bg-muted/20 p-2">
-                {toolItems.length === 0 ? (
-                  <div className="text-[11px] text-muted-foreground">{t("settings.debug.prompt.listEmpty")}</div>
+          <TabsContent value="assistant" className="mt-0 h-full">
+            <PromptContentCard>
+              <div className="min-h-0 flex-1 overflow-auto p-3 text-xs">
+                {renderMessageList(assistantMessages, t("settings.debug.prompt.messages.empty"))}
+              </div>
+            </PromptContentCard>
+          </TabsContent>
+
+          <TabsContent value="tool" className="mt-0 h-full">
+            <PromptContentCard>
+              <div className="min-h-0 flex-1 overflow-auto p-3 text-xs">
+                {renderMessageList(toolMessages, t("settings.debug.prompt.messages.empty"))}
+              </div>
+            </PromptContentCard>
+          </TabsContent>
+
+          <TabsContent value="meta" className="mt-0 h-full">
+            <PromptContentCard>
+              <div className="flex h-full min-h-0 flex-col gap-3 overflow-auto p-3">
+                <div className="overflow-hidden rounded-md border border-border/60 bg-background/60">
+                  <div className="divide-y divide-border/70">
+                    <div className="flex items-center justify-between gap-3 px-4 py-3 text-xs">
+                      <span className="text-muted-foreground">{t("settings.debug.prompt.meta.runId")}</span>
+                      <span className="max-w-[70%] break-all text-right font-mono text-foreground">
+                        {selectedPromptRun.runId}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 px-4 py-3 text-xs">
+                      <span className="text-muted-foreground">{t("settings.debug.prompt.meta.mode")}</span>
+                      <span className="max-w-[70%] truncate text-right text-foreground">
+                        {selectedPromptRun.payload.mode || "-"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 px-4 py-3 text-xs">
+                      <span className="text-muted-foreground">{t("settings.debug.prompt.meta.generatedAt")}</span>
+                      <span className="max-w-[70%] truncate text-right text-foreground">
+                        {formatDateTime(selectedPromptRun.payload.report?.generatedAt)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 px-4 py-3 text-xs">
+                      <span className="text-muted-foreground">{t("settings.debug.prompt.meta.promptChars")}</span>
+                      <span className="font-mono text-foreground">
+                        {selectedPromptRun.payload.promptChars ?? selectedPromptRun.payload.prompt?.length ?? 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {toolItems.length === 0 && skillItems.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">{t("settings.debug.prompt.meta.emptyCollections")}</div>
                 ) : (
-                  renderCompactGridList(toolItems)
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {renderMetaCollectionSection(
+                      t("settings.debug.prompt.tools"),
+                      toolItems,
+                      toolsExpanded,
+                      () => setToolsExpanded((current) => !current)
+                    )}
+                    {renderMetaCollectionSection(
+                      t("settings.debug.prompt.skills"),
+                      skillItems,
+                      skillsExpanded,
+                      () => setSkillsExpanded((current) => !current)
+                    )}
+                  </div>
                 )}
               </div>
-            ) : null}
-            <SettingsSeparator />
-
-            <div className={metaRowClassName}>
-              <div className="text-sm font-medium text-muted-foreground">{t("settings.debug.prompt.skills")}</div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="compact"
-                className="h-auto px-2 py-0.5 text-xs"
-                onClick={() => setSkillsExpanded((current) => !current)}
-                aria-label={
-                  skillsExpanded
-                    ? t("settings.debug.prompt.collapseList")
-                    : t("settings.debug.prompt.expandList")
-                }
-              >
-                <span className="font-mono">{skillItems.length}</span>
-                {skillsExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-              </Button>
-            </div>
-            {skillsExpanded ? (
-              <div className="mt-1.5 rounded-md border border-border/60 bg-muted/20 p-2">
-                {skillItems.length === 0 ? (
-                  <div className="text-[11px] text-muted-foreground">{t("settings.debug.prompt.listEmpty")}</div>
-                ) : (
-                  renderCompactGridList(skillItems)
-                )}
-              </div>
-            ) : null}
-          </SettingsListCard>
-
-          <Tabs
-            value={activeView}
-            onValueChange={(value) => setActiveView(value as PromptViewValue)}
-            className="space-y-3"
-          >
-            <TabsList>
-              <TabsTrigger value="system">
-                {t("settings.debug.prompt.view.system")}
-              </TabsTrigger>
-              <TabsTrigger value="history">
-                {t("settings.debug.prompt.view.history")}
-              </TabsTrigger>
-              <TabsTrigger value="user">
-                {t("settings.debug.prompt.view.user")}
-              </TabsTrigger>
-              <TabsTrigger value="assistant">
-                {t("settings.debug.prompt.view.assistant")}
-              </TabsTrigger>
-              <TabsTrigger value="tool">
-                {t("settings.debug.prompt.view.tool")}
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="system" className="mt-0">
-              <div className="rounded-lg border bg-card">
-                <div className="border-b border-border/70 px-3 py-2 text-sm font-medium text-muted-foreground">
-                  {t("settings.debug.prompt.system")}
-                </div>
-                <div className="p-3">
-                  <pre className="max-h-[32rem] overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-all rounded-md border bg-card p-3 text-xs text-foreground">
-                    {selectedPromptRun.payload.prompt || t("settings.debug.prompt.systemEmpty")}
-                  </pre>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="history" className="mt-0">
-              <div className="rounded-lg border bg-card">
-                <div className="border-b border-border/70 px-3 py-2 text-sm font-medium text-muted-foreground">
-                  {t("settings.debug.prompt.view.history")}
-                </div>
-                <div className="max-h-[32rem] overflow-y-auto overflow-x-hidden p-3 text-xs">
-                  {promptMessages.length === 0
-                    ? (
-                        <div className="text-muted-foreground">
-                          {t("settings.debug.prompt.messages.unavailable")}
-                        </div>
-                      )
-                    : renderMessageList(
-                        historyMessages,
-                        t("settings.debug.prompt.messages.empty")
-                      )}
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="user" className="mt-0">
-              <div className="rounded-lg border bg-card">
-                <div className="border-b border-border/70 px-3 py-2 text-sm font-medium text-muted-foreground">
-                  {t("settings.debug.prompt.view.user")}
-                </div>
-                <div className="max-h-[32rem] overflow-y-auto overflow-x-hidden p-3 text-xs">
-                  {promptMessages.length === 0
-                    ? (
-                        <div className="text-muted-foreground">
-                          {t("settings.debug.prompt.messages.unavailable")}
-                        </div>
-                      )
-                    : renderMessageList(
-                        userMessages,
-                        t("settings.debug.prompt.messages.empty")
-                      )}
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="assistant" className="mt-0">
-              <div className="rounded-lg border bg-card">
-                <div className="border-b border-border/70 px-3 py-2 text-sm font-medium text-muted-foreground">
-                  {t("settings.debug.prompt.view.assistant")}
-                </div>
-                <div className="max-h-[32rem] overflow-y-auto overflow-x-hidden p-3 text-xs">
-                  {promptMessages.length === 0
-                    ? (
-                        <div className="text-muted-foreground">
-                          {t("settings.debug.prompt.messages.unavailable")}
-                        </div>
-                      )
-                    : renderMessageList(
-                        assistantMessages,
-                        t("settings.debug.prompt.messages.empty")
-                      )}
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="tool" className="mt-0">
-              <div className="rounded-lg border bg-card">
-                <div className="border-b border-border/70 px-3 py-2 text-sm font-medium text-muted-foreground">
-                  {t("settings.debug.prompt.view.tool")}
-                </div>
-                <div className="max-h-[32rem] overflow-y-auto overflow-x-hidden p-3 text-xs">
-                  {promptMessages.length === 0
-                    ? (
-                        <div className="text-muted-foreground">
-                          {t("settings.debug.prompt.messages.unavailable")}
-                        </div>
-                      )
-                    : renderMessageList(
-                        toolMessages,
-                        t("settings.debug.prompt.messages.empty")
-                      )}
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </>
-      )}
+            </PromptContentCard>
+          </TabsContent>
+        </div>
+      </Tabs>
     </TabsContent>
   );
 }

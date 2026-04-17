@@ -126,10 +126,18 @@ type GatewaySettings struct {
 
 type GatewayRuntimeSettings struct {
 	MaxSteps          int                          `json:"maxSteps"`
+	DebugMode         string                       `json:"debugMode"`
 	RecordPrompt      bool                         `json:"recordPrompt"`
+	CallRecords       GatewayCallRecordsSettings   `json:"callRecords"`
 	ToolLoopDetection GatewayToolLoopSettings      `json:"toolLoopDetection"`
 	ContextWindow     GatewayContextWindowSettings `json:"contextWindow"`
 	Compaction        GatewayCompactionSettings    `json:"compaction"`
+}
+
+type GatewayCallRecordsSettings struct {
+	SaveStrategy  string `json:"saveStrategy"`
+	RetentionDays int    `json:"retentionDays"`
+	AutoCleanup   string `json:"autoCleanup"`
 }
 
 type GatewayToolLoopSettings struct {
@@ -338,10 +346,18 @@ type UpdateGatewaySettingsRequest struct {
 
 type UpdateGatewayRuntimeSettingsRequest struct {
 	MaxSteps          *int                                       `json:"maxSteps,omitempty"`
+	DebugMode         *string                                    `json:"debugMode,omitempty"`
 	RecordPrompt      *bool                                      `json:"recordPrompt,omitempty"`
+	CallRecords       *UpdateGatewayCallRecordsSettingsRequest   `json:"callRecords,omitempty"`
 	ToolLoopDetection *UpdateGatewayToolLoopSettingsRequest      `json:"toolLoopDetection,omitempty"`
 	ContextWindow     *UpdateGatewayContextWindowSettingsRequest `json:"contextWindow,omitempty"`
 	Compaction        *UpdateGatewayCompactionSettingsRequest    `json:"compaction,omitempty"`
+}
+
+type UpdateGatewayCallRecordsSettingsRequest struct {
+	SaveStrategy  *string `json:"saveStrategy,omitempty"`
+	RetentionDays *int    `json:"retentionDays,omitempty"`
+	AutoCleanup   *string `json:"autoCleanup,omitempty"`
 }
 
 type UpdateGatewayToolLoopSettingsRequest struct {

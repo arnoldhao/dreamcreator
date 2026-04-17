@@ -42,14 +42,15 @@ func (repo *SQLiteProviderRepository) List(ctx context.Context) ([]providers.Pro
 	result := make([]providers.Provider, 0, len(rows))
 	for _, row := range rows {
 		provider, err := providers.NewProvider(providers.ProviderParams{
-			ID:        row.ID,
-			Name:      row.Name,
-			Type:      row.Type,
-			Endpoint:  stringOrEmpty(row.Endpoint),
-			Enabled:   row.Enabled,
-			Builtin:   row.Builtin,
-			CreatedAt: &row.CreatedAt,
-			UpdatedAt: &row.UpdatedAt,
+			ID:            row.ID,
+			Name:          row.Name,
+			Type:          row.Type,
+			Compatibility: row.Compatibility,
+			Endpoint:      stringOrEmpty(row.Endpoint),
+			Enabled:       row.Enabled,
+			Builtin:       row.Builtin,
+			CreatedAt:     &row.CreatedAt,
+			UpdatedAt:     &row.UpdatedAt,
 		})
 		if err != nil {
 			return nil, err
@@ -69,34 +70,37 @@ func (repo *SQLiteProviderRepository) Get(ctx context.Context, id string) (provi
 	}
 
 	return providers.NewProvider(providers.ProviderParams{
-		ID:        row.ID,
-		Name:      row.Name,
-		Type:      row.Type,
-		Endpoint:  stringOrEmpty(row.Endpoint),
-		Enabled:   row.Enabled,
-		Builtin:   row.Builtin,
-		CreatedAt: &row.CreatedAt,
-		UpdatedAt: &row.UpdatedAt,
+		ID:            row.ID,
+		Name:          row.Name,
+		Type:          row.Type,
+		Compatibility: row.Compatibility,
+		Endpoint:      stringOrEmpty(row.Endpoint),
+		Enabled:       row.Enabled,
+		Builtin:       row.Builtin,
+		CreatedAt:     &row.CreatedAt,
+		UpdatedAt:     &row.UpdatedAt,
 	})
 }
 
 func (repo *SQLiteProviderRepository) Save(ctx context.Context, provider providers.Provider) error {
 	createdAt, updatedAt := normalizeTimes(provider.CreatedAt, provider.UpdatedAt)
 	row := providerRow{
-		ID:        provider.ID,
-		Name:      provider.Name,
-		Type:      string(provider.Type),
-		Endpoint:  nullString(provider.Endpoint),
-		Enabled:   provider.Enabled,
-		Builtin:   provider.Builtin,
-		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
+		ID:            provider.ID,
+		Name:          provider.Name,
+		Type:          string(provider.Type),
+		Compatibility: string(provider.Compatibility),
+		Endpoint:      nullString(provider.Endpoint),
+		Enabled:       provider.Enabled,
+		Builtin:       provider.Builtin,
+		CreatedAt:     createdAt,
+		UpdatedAt:     updatedAt,
 	}
 
 	_, err := repo.db.NewInsert().Model(&row).
 		On("CONFLICT(id) DO UPDATE").
 		Set("name = EXCLUDED.name").
 		Set("type = EXCLUDED.type").
+		Set("compatibility = EXCLUDED.compatibility").
 		Set("endpoint = EXCLUDED.endpoint").
 		Set("enabled = EXCLUDED.enabled").
 		Set("is_builtin = EXCLUDED.is_builtin").

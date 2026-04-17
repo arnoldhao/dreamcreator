@@ -34,3 +34,19 @@ func TestNormalizeModuleConfigPreservesNewGlossaryProfile(t *testing.T) {
 		t.Fatalf("expected glossary target language all, got %q", profile.TargetLanguage)
 	}
 }
+
+func TestNormalizeModuleConfigCollapsesLegacyThinkingLevelsToOn(t *testing.T) {
+	t.Parallel()
+
+	config := DefaultModuleConfig()
+	config.TaskRuntime.Translate.ThinkingMode = "high"
+	config.TaskRuntime.Proofread.ThinkingMode = "minimal"
+
+	got := NormalizeModuleConfig(config)
+	if got.TaskRuntime.Translate.ThinkingMode != "on" {
+		t.Fatalf("expected translate thinking mode on, got %q", got.TaskRuntime.Translate.ThinkingMode)
+	}
+	if got.TaskRuntime.Proofread.ThinkingMode != "on" {
+		t.Fatalf("expected proofread thinking mode on, got %q", got.TaskRuntime.Proofread.ThinkingMode)
+	}
+}

@@ -466,7 +466,7 @@ export function SettingsApp() {
           isIntegrationActive
             ? "flex min-h-0 flex-1 flex-col overflow-hidden"
             : isDebugActive
-              ? "w-full"
+              ? "flex min-h-0 flex-1 flex-col overflow-hidden"
               : resolvedSection === "memory"
                 ? isMemoryEntriesActive
                   ? "flex min-h-0 h-full w-full flex-1 flex-col overflow-hidden"

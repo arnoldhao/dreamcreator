@@ -1,7 +1,7 @@
 import type { ConnectionStatus, RealtimeEvent } from "@/app/ws/client";
 import type { HealthSnapshotEntity, LogRecordEntity, StatusReportEntity } from "@/entities/observability";
 import type { GatewayEvent } from "@/shared/realtime";
-import type { ThreadRunEvent } from "@/shared/query/threads";
+import type { LLMCallRecord, ThreadRunEvent } from "@/shared/query/threads";
 import type { ChannelDebugSnapshot } from "@/shared/store/channels";
 
 export type TranslateFn = (key: string) => string;
@@ -100,11 +100,8 @@ export type OverviewTabProps = {
 
 export type EventsTabProps = {
   t: TranslateFn;
-  gatewayEventsForThread: GatewayDebugEvent[];
   gatewayFilteredEvents: GatewayDebugEvent[];
-  selectedGatewayEvent: string;
-  setSelectedGatewayEvent: (value: string) => void;
-  gatewayEventOptions: Array<[string, number]>;
+  formatDateTime: (value?: string | number) => string;
   formatRuntimeTime: (value?: string | number) => string;
 };
 
@@ -120,15 +117,10 @@ export type RealtimeLogsCardProps = {
 
 export type RunTraceTabProps = {
   t: TranslateFn;
-  selectedRunId: string;
-  setSelectedRunId: (value: string) => void;
-  runSummaries: RunSummary[];
   filteredRunEvents: ParsedRunEvent[];
   runEventsLoading: boolean;
   runEventsError: boolean;
   formatDateTime: (value?: string | number) => string;
-  statusLabelClass: (status: RunSummary["status"]) => string;
-  formatRunStatus: (status: RunSummary["status"]) => string;
 };
 
 export type RunSummaryCardProps = {
@@ -145,14 +137,10 @@ export type RunSummaryCardProps = {
 export type PromptTabProps = {
   t: TranslateFn;
   selectedRunId: string;
-  setSelectedRunId: (value: string) => void;
-  runSummaries: RunSummary[];
   runEventsLoading: boolean;
   runEventsError: boolean;
   selectedPromptRun: PromptRunSnapshot | null;
   formatDateTime: (value?: string | number) => string;
-  statusLabelClass: (status: RunSummary["status"]) => string;
-  formatRunStatus: (status: RunSummary["status"]) => string;
 };
 
 export type ChannelsTabProps = {
@@ -178,4 +166,31 @@ export type FrameworkTabProps = {
   showDialogPreview: () => void;
   sendOsNotification: () => void;
   publishBackendDebug: () => void;
+};
+
+export type CallRecordsTabProps = {
+  t: TranslateFn;
+  threads: Array<{ id: string; title: string; updatedAt?: string }>;
+  optionRecords: LLMCallRecord[];
+  selectedThreadId: string;
+  setSelectedThreadId: (value: string) => void;
+  callSource: string;
+  setCallSource: (value: string) => void;
+  callStatus: string;
+  setCallStatus: (value: string) => void;
+  providerFilter: string;
+  setProviderFilter: (value: string) => void;
+  modelFilter: string;
+  setModelFilter: (value: string) => void;
+  runFilter: string;
+  setRunFilter: (value: string) => void;
+  records: LLMCallRecord[];
+  selectedRecord: LLMCallRecord | null;
+  setSelectedRecordId: (value: string) => void;
+  isLoading: boolean;
+  hasError: boolean;
+  isDetailLoading: boolean;
+  refresh: () => void;
+  formatDateTime: (value?: string | number) => string;
+  inspectRun: (record: LLMCallRecord) => void;
 };

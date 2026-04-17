@@ -47,6 +47,7 @@ import (
 	gatewayusage "dreamcreator/internal/application/gateway/usage"
 	gatewayvoice "dreamcreator/internal/application/gateway/voice"
 	libraryservice "dreamcreator/internal/application/library/service"
+	llmrecord "dreamcreator/internal/application/llmrecord"
 	memoryservice "dreamcreator/internal/application/memory/service"
 	appnotice "dreamcreator/internal/application/notice"
 	providerservice "dreamcreator/internal/application/providers/service"
@@ -78,6 +79,7 @@ import (
 	"dreamcreator/internal/infrastructure/heartbeatrepo"
 	"dreamcreator/internal/infrastructure/libraryicons"
 	"dreamcreator/internal/infrastructure/libraryrepo"
+	"dreamcreator/internal/infrastructure/llmrecordrepo"
 	"dreamcreator/internal/infrastructure/logging"
 	"dreamcreator/internal/infrastructure/noderepo"
 	"dreamcreator/internal/infrastructure/noticerepo"
@@ -478,7 +480,10 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	usageRepo := usagerepo.NewSQLiteUsageLedgerRepository(database.Bun)
 	usageService := gatewayusage.NewService(usageRepo)
 	telegramBotService.SetModelRepositories(providerRepo, modelRepo)
-	modelSyncer := providersync.NewEndpointModelsSyncer()
+	modelsDevCatalogRepo := providersync.NewSQLiteModelsDevCatalogRepository(database.Bun)
+	modelsDevSyncer := providersync.NewModelsDevSyncer()
+	modelsDevCatalog := providersync.NewModelsDevCatalogService(modelsDevCatalogRepo, modelsDevSyncer)
+	modelSyncer := providersync.NewEndpointModelsSyncer(modelsDevCatalog)
 	logoCache := providersync.NewModelsDevLogoCache()
 	providerService := providerservice.NewProvidersService(providerRepo, modelRepo, secretRepo, modelSyncer, logoCache)
 	if err := providerService.EnsureDefaults(ctx); err != nil {
@@ -486,9 +491,10 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	}
 	providerHandler := wails.NewProviderHandler(providerService, providersUpdatedWindowNotifier{
 		manager: windowManager,
-	}, usageService, providersync.NewModelsDevSyncer(), telemetryService)
+	}, usageService, modelsDevCatalog, telemetryService)
 	app.RegisterService(application.NewService(providerHandler))
 	app.RegisterService(application.NewService(wails.NewSkillsHandler(skillsService)))
+	startModelsDevCatalogSyncWorker(ctx, modelsDevCatalog)
 
 	connectorsRepo := connectorsrepo.NewSQLiteConnectorRepository(database.Bun)
 	connectorsService := connectorsservice.NewConnectorsService(connectorsRepo)
@@ -552,6 +558,8 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	messageRepo := threadrepo.NewSQLiteThreadMessageRepository(database.Bun)
 	runRepo := threadrepo.NewSQLiteThreadRunRepository(database.Bun)
 	runEventRepo := threadrepo.NewSQLiteThreadRunEventRepository(database.Bun)
+	llmCallRecordRepo := llmrecordrepo.NewSQLiteRepository(database.Bun)
+	llmCallRecordService := llmrecord.NewService(llmCallRecordRepo, settingsService)
 	toolService := toolsservice.NewToolService()
 	toolService.SetPolicy(gatewaytools.NewPolicyPipeline(settingsService))
 	toolExecutor := gatewaytools.NewRegistryExecutor()
@@ -613,9 +621,10 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 			"principalId":   principalID,
 		})
 	})
+	memoryService.SetLLMCallRecorder(llmCallRecordService)
 	threadService.SetMemoryLifecycle(memoryService)
 	telegramBotService.SetThreadService(threadService)
-	app.RegisterService(application.NewService(wails.NewThreadHandler(threadService, eventBus, windowManager)))
+	app.RegisterService(application.NewService(wails.NewThreadHandler(threadService, llmCallRecordService, eventBus, windowManager)))
 	app.RegisterService(application.NewService(wails.NewMemoryHandler(memoryService)))
 	agentRepo := agentrepo.NewSQLiteAgentRepository(database.Bun)
 	agentService := agentservice.NewAgentService(agentRepo, threadRepo, runRepo, runEventRepo, assistantRepo)
@@ -629,6 +638,7 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	purgeCtx, purgeCancel := context.WithCancel(ctx)
 	app.OnShutdown(purgeCancel)
 	startThreadPurgeWorker(purgeCtx, threadService)
+	startLLMCallRecordPruneWorker(purgeCtx, llmCallRecordService)
 
 	voiceConfigRepo := voicerepo.NewSQLiteVoiceConfigRepository(database.Bun)
 	ttsJobRepo := voicerepo.NewSQLiteTTSJobRepository(database.Bun)
@@ -696,6 +706,7 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 		memoryService,
 		telemetryService,
 	)
+	runtimeService.SetLLMCallRecorder(llmCallRecordService)
 	libraryService.SetOneShotRuntime(runtimeService)
 	libraryService.RecoverPendingJobs(ctx)
 	threadService.SetTitleRuntime(runtimeService)
@@ -1661,7 +1672,6 @@ func resolveCronRuntimeModelSelection(primary string) *gatewayruntimedto.ModelSe
 	}
 	return nil
 }
-
 func parseCronModelRef(value string) (string, string, bool) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
