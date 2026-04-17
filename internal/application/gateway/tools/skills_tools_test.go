@@ -92,6 +92,22 @@ func (stub *skillsExternalToolsStubForGateway) ToolReadiness(_ context.Context, 
 	return true, "", nil
 }
 
+type skillsPackageAdapterStubForGateway struct {
+	run func(ctx context.Context, workspaceRoot string, timeout time.Duration, args ...string) ([]byte, error)
+}
+
+func (stub *skillsPackageAdapterStubForGateway) Run(
+	ctx context.Context,
+	workspaceRoot string,
+	timeout time.Duration,
+	args ...string,
+) ([]byte, error) {
+	if stub == nil || stub.run == nil {
+		return []byte("ok"), nil
+	}
+	return stub.run(ctx, workspaceRoot, timeout, args...)
+}
+
 type skillsDepsInstallerStub struct {
 	mu         sync.Mutex
 	ready      map[externaltools.ToolName]bool
@@ -213,26 +229,25 @@ func TestSkillManageToolSearchReturnsClawHubUnavailable(t *testing.T) {
 func TestSkillManageToolInstallRequireForceAndRetrySuccess(t *testing.T) {
 	t.Parallel()
 
-	workdir := t.TempDir()
-	scriptPath := filepath.Join(workdir, "clawhub")
-	script := strings.Join([]string{
-		"#!/bin/sh",
-		"for arg in \"$@\"; do",
-		"  if [ \"$arg\" = \"--force\" ]; then",
-		"    exit 0",
-		"  fi",
-		"done",
-		"echo \"Error: Use --force to install suspicious skills in non-interactive mode\"",
-		"exit 1",
-	}, "\n")
-	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
-		t.Fatalf("write script failed: %v", err)
-	}
-
 	repo := newSkillsRepoStub()
 	svc := skillsservice.NewSkillsService(repo, nil)
-	svc.SetExternalTools(&skillsExternalToolsStubForGateway{ready: true, execPath: scriptPath})
+	svc.SetExternalTools(&skillsExternalToolsStubForGateway{ready: true, execPath: "/usr/bin/true"})
 	svc.SetWorkspaceResolver(skillsWorkspaceResolverStubForGateway{})
+	svc.SetPackageAdapter(&skillsPackageAdapterStubForGateway{
+		run: func(_ context.Context, _ string, _ time.Duration, args ...string) ([]byte, error) {
+			for _, arg := range args {
+				if arg == "--force" {
+					return []byte("ok"), nil
+				}
+			}
+			return nil, &skillsservice.ClawHubCommandError{
+				Command: "install web-search-pro",
+				Message: "Use --force to install suspicious skills in non-interactive mode",
+				Code:    skillsservice.ClawHubErrorCodeRequireForce,
+				Hint:    "retry_with_force",
+			}
+		},
+	})
 	handler := runSkillManageTool(svc, nil, nil, nil)
 
 	output, err := handler(context.Background(), `{"action":"install","skill":"web-search-pro"}`)
@@ -272,21 +287,20 @@ func TestSkillManageToolInstallRequireForceAndRetrySuccess(t *testing.T) {
 func TestSkillManageToolInstallRequireForceBlockedByScannerPolicy(t *testing.T) {
 	t.Parallel()
 
-	workdir := t.TempDir()
-	scriptPath := filepath.Join(workdir, "clawhub")
-	script := strings.Join([]string{
-		"#!/bin/sh",
-		"echo \"Error: Use --force to install suspicious skills in non-interactive mode\"",
-		"exit 1",
-	}, "\n")
-	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
-		t.Fatalf("write script failed: %v", err)
-	}
-
 	repo := newSkillsRepoStub()
 	svc := skillsservice.NewSkillsService(repo, nil)
-	svc.SetExternalTools(&skillsExternalToolsStubForGateway{ready: true, execPath: scriptPath})
+	svc.SetExternalTools(&skillsExternalToolsStubForGateway{ready: true, execPath: "/usr/bin/true"})
 	svc.SetWorkspaceResolver(skillsWorkspaceResolverStubForGateway{})
+	svc.SetPackageAdapter(&skillsPackageAdapterStubForGateway{
+		run: func(_ context.Context, _ string, _ time.Duration, _ ...string) ([]byte, error) {
+			return nil, &skillsservice.ClawHubCommandError{
+				Command: "install web-search-pro",
+				Message: "Use --force to install suspicious skills in non-interactive mode",
+				Code:    skillsservice.ClawHubErrorCodeRequireForce,
+				Hint:    "retry_with_force",
+			}
+		},
+	})
 	settings := newSkillsSettingsStub(map[string]any{
 		"skills": map[string]any{
 			"security": map[string]any{
