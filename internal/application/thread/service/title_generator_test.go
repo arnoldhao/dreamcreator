@@ -244,20 +244,20 @@ func TestGenerateThreadTitle_UsesRuntimeOneShotWhenAvailable(t *testing.T) {
 	if runtimeStub.request.Tools.Mode != "disabled" {
 		t.Fatalf("expected runtime tools disabled, got %q", runtimeStub.request.Tools.Mode)
 	}
+	if runtimeStub.request.RunKind != "one-shot" {
+		t.Fatalf("expected one-shot run kind, got %q", runtimeStub.request.RunKind)
+	}
 	if runtimeStub.request.Thinking.Mode != titleRunThinkingLevel {
 		t.Fatalf("unexpected thinking level: %q", runtimeStub.request.Thinking.Mode)
 	}
 	if value, _ := runtimeStub.request.Metadata["maxTokens"].(int); value != titleRunMaxTokens {
 		t.Fatalf("unexpected maxTokens: %v", runtimeStub.request.Metadata["maxTokens"])
 	}
-	if value, _ := runtimeStub.request.Metadata["usageSource"].(string); value != "one-shot" {
-		t.Fatalf("usageSource should be one-shot, got %v", runtimeStub.request.Metadata["usageSource"])
-	}
 	if value, _ := runtimeStub.request.Metadata["runLane"].(string); value != "subagent" {
 		t.Fatalf("runLane should be subagent, got %v", runtimeStub.request.Metadata["runLane"])
 	}
-	if value, _ := runtimeStub.request.Metadata["subagent"].(bool); !value {
-		t.Fatalf("subagent should be true")
+	if value, _ := runtimeStub.request.Metadata["oneShotKind"].(string); value != "title_generation" {
+		t.Fatalf("oneShotKind should be title_generation, got %v", runtimeStub.request.Metadata["oneShotKind"])
 	}
 	if value, _ := runtimeStub.request.Metadata["extraSystemPrompt"].(string); !strings.Contains(value, "Do not copy any user message verbatim") {
 		t.Fatalf("expected extra system prompt, got %q", value)

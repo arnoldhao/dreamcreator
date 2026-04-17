@@ -48,6 +48,51 @@ func TestResolveThinkingLevel(t *testing.T) {
 	})
 }
 
+func TestResolveOneShotThinkingLevel(t *testing.T) {
+	t.Parallel()
+
+	t.Run("request thinking overrides defaults", func(t *testing.T) {
+		t.Parallel()
+		level := resolveOneShotThinkingLevel(runtimedto.ThinkingConfig{Mode: "high"}, map[string]any{
+			"oneShotKind": "title_generation",
+		})
+		if level != "high" {
+			t.Fatalf("expected high, got %q", level)
+		}
+	})
+
+	t.Run("metadata thinking applies before one-shot default", func(t *testing.T) {
+		t.Parallel()
+		level := resolveOneShotThinkingLevel(runtimedto.ThinkingConfig{}, map[string]any{
+			"thinking":    "minimal",
+			"oneShotKind": "subtitle_translate",
+		})
+		if level != "minimal" {
+			t.Fatalf("expected minimal, got %q", level)
+		}
+	})
+
+	t.Run("title generation defaults to off", func(t *testing.T) {
+		t.Parallel()
+		level := resolveOneShotThinkingLevel(runtimedto.ThinkingConfig{}, map[string]any{
+			"oneShotKind": "title_generation",
+		})
+		if level != "off" {
+			t.Fatalf("expected off, got %q", level)
+		}
+	})
+
+	t.Run("generic one-shot defaults to off", func(t *testing.T) {
+		t.Parallel()
+		level := resolveOneShotThinkingLevel(runtimedto.ThinkingConfig{}, map[string]any{
+			"oneShotKind": "subtitle_translate",
+		})
+		if level != "off" {
+			t.Fatalf("expected off, got %q", level)
+		}
+	})
+}
+
 func TestResolveRunFlags_PersistToggles(t *testing.T) {
 	t.Parallel()
 

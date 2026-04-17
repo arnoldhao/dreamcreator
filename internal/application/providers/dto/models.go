@@ -1,13 +1,14 @@
 package dto
 
 type Provider struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Type     string `json:"type"`
-	Endpoint string `json:"endpoint"`
-	Enabled  bool   `json:"enabled"`
-	Builtin  bool   `json:"builtin"`
-	Icon     string `json:"icon"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Type          string `json:"type"`
+	Compatibility string `json:"compatibility"`
+	Endpoint      string `json:"endpoint"`
+	Enabled       bool   `json:"enabled"`
+	Builtin       bool   `json:"builtin"`
+	Icon          string `json:"icon"`
 }
 
 type ProviderModel struct {
@@ -39,11 +40,12 @@ type ProviderSecret struct {
 }
 
 type UpsertProviderRequest struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Type     string `json:"type"`
-	Endpoint string `json:"endpoint"`
-	Enabled  bool   `json:"enabled"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Type          string `json:"type"`
+	Compatibility string `json:"compatibility"`
+	Endpoint      string `json:"endpoint"`
+	Enabled       bool   `json:"enabled"`
 }
 
 type UpdateProviderModelRequest struct {

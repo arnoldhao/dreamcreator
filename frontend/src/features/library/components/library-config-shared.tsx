@@ -382,24 +382,8 @@ export function TaskRuntimeFields(props: {
             label: t("library.config.taskRuntime.thinkingOff"),
           },
           {
-            value: "minimal",
-            label: t("library.config.taskRuntime.thinkingMinimal"),
-          },
-          {
-            value: "low",
-            label: t("library.config.taskRuntime.thinkingLow"),
-          },
-          {
-            value: "medium",
-            label: t("library.config.taskRuntime.thinkingMedium"),
-          },
-          {
-            value: "high",
-            label: t("library.config.taskRuntime.thinkingHigh"),
-          },
-          {
-            value: "xhigh",
-            label: t("library.config.taskRuntime.thinkingExtraHigh"),
+            value: "on",
+            label: t("library.config.taskRuntime.thinkingOn"),
           },
         ],
         (nextValue) => updateField("thinkingMode", nextValue),

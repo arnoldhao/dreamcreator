@@ -132,16 +132,16 @@ function resolveStructuredOutputModeLabel(value: string | undefined) {
 
 function resolveThinkingModeLabel(value: string | undefined) {
   switch (value?.trim()) {
+    case "on":
+    case "enabled":
+    case "enable":
+    case "true":
     case "minimal":
-      return t("library.config.taskRuntime.thinkingMinimal");
     case "low":
-      return t("library.config.taskRuntime.thinkingLow");
     case "medium":
-      return t("library.config.taskRuntime.thinkingMedium");
     case "high":
-      return t("library.config.taskRuntime.thinkingHigh");
     case "xhigh":
-      return t("library.config.taskRuntime.thinkingExtraHigh");
+      return t("library.config.taskRuntime.thinkingOn");
     case "off":
     case "":
     case undefined:

@@ -19,6 +19,7 @@ import (
 	gatewayevents "dreamcreator/internal/application/gateway/events"
 	runtimedto "dreamcreator/internal/application/gateway/runtime/dto"
 	memorydto "dreamcreator/internal/application/memory/dto"
+	"dreamcreator/internal/application/runtimeconfig"
 	appsession "dreamcreator/internal/application/session"
 	"dreamcreator/internal/application/thread/dto"
 	domainassistant "dreamcreator/internal/domain/assistant"
@@ -30,7 +31,7 @@ import (
 const (
 	defaultPurgeDelay          = 7 * 24 * time.Hour
 	defaultThreadTitle         = "New Chat"
-	titleRunTimeout            = 30 * time.Second
+	titleRunTimeout            = runtimeconfig.DefaultAuxiliaryLLMTimeout
 	titleRunThinkingLevel      = "off"
 	titleRunTemperature        = 0.2
 	titleRunMaxTokens          = 256
@@ -45,18 +46,18 @@ const (
 )
 
 type ThreadService struct {
-	threads    thread.Repository
-	messages   thread.MessageRepository
-	runs       thread.RunRepository
-	runEvents  thread.RunEventRepository
-	sessions   SessionService
-	assistants AssistantRepository
-	models     ModelRepository
-	runtime    ThreadTitleRuntime
-	memory     ThreadMemoryLifecycle
+	threads       thread.Repository
+	messages      thread.MessageRepository
+	runs          thread.RunRepository
+	runEvents     thread.RunEventRepository
+	sessions      SessionService
+	assistants    AssistantRepository
+	models        ModelRepository
+	runtime       ThreadTitleRuntime
+	memory        ThreadMemoryLifecycle
 	gatewayEvents *gatewayevents.Broker
-	now        func() time.Time
-	newID      func() string
+	now           func() time.Time
+	newID         func() string
 }
 
 type SessionService interface {
@@ -434,6 +435,7 @@ func (service *ThreadService) generateThreadTitleByRuntime(ctx context.Context, 
 	defer cancel()
 	request := runtimedto.RuntimeRunRequest{
 		AssistantID: assistantID,
+		RunKind:     "one-shot",
 		PromptMode:  domainassistant.PromptModeNone,
 		Input: runtimedto.RuntimeInput{
 			Messages: []runtimedto.Message{{
@@ -449,10 +451,9 @@ func (service *ThreadService) generateThreadTitleByRuntime(ctx context.Context, 
 		},
 		Metadata: map[string]any{
 			"channel":           "aui",
-			"usageSource":       "one-shot",
 			"useQueue":          false,
 			"runLane":           "subagent",
-			"subagent":          true,
+			"oneShotKind":       "title_generation",
 			"temperature":       titleRunTemperature,
 			"maxTokens":         titleRunMaxTokens,
 			"extraSystemPrompt": systemPrompt,
@@ -482,19 +483,19 @@ func (service *ThreadService) generateThreadTitleByRuntime(ctx context.Context, 
 	title := resolveGeneratedTitleFromOneShotResult(result.AssistantMessage)
 	if title == "" {
 		service.publishThreadTitleOneShotEvent(ctx, threadID, threadTitleEventEmpty, threadTitleDebugPayload{
-			ThreadID:        threadID,
-			AssistantID:     assistantID,
-			ModelRef:        threadTitleResultModelRef(modelRef, result.Model),
-			SourceLineCount: len(sourceLines),
-			PromptChars:     len([]rune(userPrompt)),
-			TimeoutMS:       titleRunTimeout.Milliseconds(),
-			Thinking:        titleRunThinkingLevel,
-			Temperature:     titleRunTemperature,
-			MaxTokens:       titleRunMaxTokens,
-			Status:          strings.TrimSpace(result.Status),
-			FinishReason:    strings.TrimSpace(result.FinishReason),
-			ContentChars:    len([]rune(strings.TrimSpace(result.AssistantMessage.Content))),
-			PartsCount:      len(result.AssistantMessage.Parts),
+			ThreadID:         threadID,
+			AssistantID:      assistantID,
+			ModelRef:         threadTitleResultModelRef(modelRef, result.Model),
+			SourceLineCount:  len(sourceLines),
+			PromptChars:      len([]rune(userPrompt)),
+			TimeoutMS:        titleRunTimeout.Milliseconds(),
+			Thinking:         titleRunThinkingLevel,
+			Temperature:      titleRunTemperature,
+			MaxTokens:        titleRunMaxTokens,
+			Status:           strings.TrimSpace(result.Status),
+			FinishReason:     strings.TrimSpace(result.FinishReason),
+			ContentChars:     len([]rune(strings.TrimSpace(result.AssistantMessage.Content))),
+			PartsCount:       len(result.AssistantMessage.Parts),
 			AssistantMessage: cloneRuntimeMessage(result.AssistantMessage),
 		})
 		zap.L().Debug("thread title one-shot runtime returned empty content",
@@ -507,20 +508,20 @@ func (service *ThreadService) generateThreadTitleByRuntime(ctx context.Context, 
 		return ""
 	}
 	service.publishThreadTitleOneShotEvent(ctx, threadID, threadTitleEventCompleted, threadTitleDebugPayload{
-		ThreadID:        threadID,
-		AssistantID:     assistantID,
-		ModelRef:        threadTitleResultModelRef(modelRef, result.Model),
-		SourceLineCount: len(sourceLines),
-		PromptChars:     len([]rune(userPrompt)),
-		TimeoutMS:       titleRunTimeout.Milliseconds(),
-		Thinking:        titleRunThinkingLevel,
-		Temperature:     titleRunTemperature,
-		MaxTokens:       titleRunMaxTokens,
-		Status:          strings.TrimSpace(result.Status),
-		FinishReason:    strings.TrimSpace(result.FinishReason),
-		Title:           title,
-		ContentChars:    len([]rune(strings.TrimSpace(result.AssistantMessage.Content))),
-		PartsCount:      len(result.AssistantMessage.Parts),
+		ThreadID:         threadID,
+		AssistantID:      assistantID,
+		ModelRef:         threadTitleResultModelRef(modelRef, result.Model),
+		SourceLineCount:  len(sourceLines),
+		PromptChars:      len([]rune(userPrompt)),
+		TimeoutMS:        titleRunTimeout.Milliseconds(),
+		Thinking:         titleRunThinkingLevel,
+		Temperature:      titleRunTemperature,
+		MaxTokens:        titleRunMaxTokens,
+		Status:           strings.TrimSpace(result.Status),
+		FinishReason:     strings.TrimSpace(result.FinishReason),
+		Title:            title,
+		ContentChars:     len([]rune(strings.TrimSpace(result.AssistantMessage.Content))),
+		PartsCount:       len(result.AssistantMessage.Parts),
 		AssistantMessage: cloneRuntimeMessage(result.AssistantMessage),
 	})
 	zap.L().Debug("thread title one-shot runtime completed",
@@ -549,24 +550,24 @@ func resolveGeneratedTitleFromOneShotResult(message runtimedto.Message) string {
 }
 
 type threadTitleDebugPayload struct {
-	ThreadID         string               `json:"threadId"`
-	AssistantID      string               `json:"assistantId,omitempty"`
-	ModelRef         string               `json:"modelRef,omitempty"`
-	Reason           string               `json:"reason,omitempty"`
-	SourceLineCount  int                  `json:"sourceLineCount,omitempty"`
-	SourceLines      []string             `json:"sourceLines,omitempty"`
-	PromptChars      int                  `json:"promptChars,omitempty"`
-	TimeoutMS        int64                `json:"timeoutMs,omitempty"`
-	Thinking         string               `json:"thinking,omitempty"`
-	Temperature      float32              `json:"temperature,omitempty"`
-	MaxTokens        int                  `json:"maxTokens,omitempty"`
-	Status           string               `json:"status,omitempty"`
-	FinishReason     string               `json:"finishReason,omitempty"`
-	Error            string               `json:"error,omitempty"`
-	Title            string               `json:"title,omitempty"`
-	ContentChars     int                  `json:"contentChars,omitempty"`
-	PartsCount       int                  `json:"partsCount,omitempty"`
-	AssistantMessage *runtimedto.Message  `json:"assistantMessage,omitempty"`
+	ThreadID         string              `json:"threadId"`
+	AssistantID      string              `json:"assistantId,omitempty"`
+	ModelRef         string              `json:"modelRef,omitempty"`
+	Reason           string              `json:"reason,omitempty"`
+	SourceLineCount  int                 `json:"sourceLineCount,omitempty"`
+	SourceLines      []string            `json:"sourceLines,omitempty"`
+	PromptChars      int                 `json:"promptChars,omitempty"`
+	TimeoutMS        int64               `json:"timeoutMs,omitempty"`
+	Thinking         string              `json:"thinking,omitempty"`
+	Temperature      float32             `json:"temperature,omitempty"`
+	MaxTokens        int                 `json:"maxTokens,omitempty"`
+	Status           string              `json:"status,omitempty"`
+	FinishReason     string              `json:"finishReason,omitempty"`
+	Error            string              `json:"error,omitempty"`
+	Title            string              `json:"title,omitempty"`
+	ContentChars     int                 `json:"contentChars,omitempty"`
+	PartsCount       int                 `json:"partsCount,omitempty"`
+	AssistantMessage *runtimedto.Message `json:"assistantMessage,omitempty"`
 }
 
 func (service *ThreadService) publishThreadTitleOneShotEvent(ctx context.Context, threadID string, eventType string, payload threadTitleDebugPayload) {
@@ -1152,7 +1153,7 @@ func (service *ThreadService) handleSessionLifecycle(ctx context.Context, thread
 			}
 		}
 	}
-	hookCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	hookCtx, cancel := context.WithTimeout(ctx, runtimeconfig.DefaultAuxiliaryLLMTimeout)
 	defer cancel()
 	if err := service.memory.HandleSessionLifecycle(hookCtx, memorydto.SessionLifecycleRequest{
 		Identity: memorydto.MemoryIdentity{

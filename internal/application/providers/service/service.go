@@ -56,13 +56,14 @@ func (service *ProvidersService) ListProviders(ctx context.Context) ([]dto.Provi
 	result := make([]dto.Provider, 0, len(items))
 	for _, item := range items {
 		result = append(result, dto.Provider{
-			ID:       item.ID,
-			Name:     item.Name,
-			Type:     string(item.Type),
-			Endpoint: item.Endpoint,
-			Enabled:  item.Enabled,
-			Builtin:  item.Builtin,
-			Icon:     service.resolveProviderIcon(ctx, item),
+			ID:            item.ID,
+			Name:          item.Name,
+			Type:          string(item.Type),
+			Compatibility: string(item.Compatibility),
+			Endpoint:      item.Endpoint,
+			Enabled:       item.Enabled,
+			Builtin:       item.Builtin,
+			Icon:          service.resolveProviderIcon(ctx, item),
 		})
 	}
 	return result, nil
@@ -78,12 +79,13 @@ func (service *ProvidersService) GetProvider(ctx context.Context, providerID str
 		return dto.Provider{}, err
 	}
 	return dto.Provider{
-		ID:       item.ID,
-		Name:     item.Name,
-		Type:     string(item.Type),
-		Endpoint: item.Endpoint,
-		Enabled:  item.Enabled,
-		Builtin:  item.Builtin,
+		ID:            item.ID,
+		Name:          item.Name,
+		Type:          string(item.Type),
+		Compatibility: string(item.Compatibility),
+		Endpoint:      item.Endpoint,
+		Enabled:       item.Enabled,
+		Builtin:       item.Builtin,
 	}, nil
 }
 
@@ -125,13 +127,14 @@ func (service *ProvidersService) ListEnabledProvidersWithModels(ctx context.Cont
 		}
 		result = append(result, dto.ProviderWithModels{
 			Provider: dto.Provider{
-				ID:       item.ID,
-				Name:     item.Name,
-				Type:     string(item.Type),
-				Endpoint: item.Endpoint,
-				Enabled:  item.Enabled,
-				Builtin:  item.Builtin,
-				Icon:     service.resolveProviderIcon(ctx, item),
+				ID:            item.ID,
+				Name:          item.Name,
+				Type:          string(item.Type),
+				Compatibility: string(item.Compatibility),
+				Endpoint:      item.Endpoint,
+				Enabled:       item.Enabled,
+				Builtin:       item.Builtin,
+				Icon:          service.resolveProviderIcon(ctx, item),
 			},
 			Models: enabledModels,
 		})
@@ -148,6 +151,7 @@ func (service *ProvidersService) UpsertProvider(ctx context.Context, request dto
 	id := strings.TrimSpace(request.ID)
 	createdAt := (*time.Time)(nil)
 	builtin := false
+	compatibility := strings.TrimSpace(request.Compatibility)
 	if id == "" {
 		id = uuid.NewString()
 	} else {
@@ -155,23 +159,36 @@ func (service *ProvidersService) UpsertProvider(ctx context.Context, request dto
 		if err == nil {
 			createdAt = &existing.CreatedAt
 			builtin = existing.Builtin
+			if compatibility == "" {
+				compatibility = string(existing.Compatibility)
+			}
 		} else if err != providers.ErrProviderNotFound {
 			return dto.Provider{}, err
 		} else if isDefaultProviderID(id) {
 			builtin = true
+			if compatibility == "" {
+				if builtinDefault, ok := defaultProviderRequestByID(id); ok {
+					compatibility = builtinDefault.Compatibility
+				}
+			}
 		}
+	}
+	providerCompatibility, err := sanitizeProviderCompatibility(providerType, compatibility)
+	if err != nil {
+		return dto.Provider{}, err
 	}
 
 	now := service.now()
 	provider, err := providers.NewProvider(providers.ProviderParams{
-		ID:        id,
-		Name:      request.Name,
-		Type:      string(providerType),
-		Endpoint:  request.Endpoint,
-		Enabled:   request.Enabled,
-		Builtin:   builtin,
-		CreatedAt: createdAt,
-		UpdatedAt: &now,
+		ID:            id,
+		Name:          request.Name,
+		Type:          string(providerType),
+		Compatibility: string(providerCompatibility),
+		Endpoint:      request.Endpoint,
+		Enabled:       request.Enabled,
+		Builtin:       builtin,
+		CreatedAt:     createdAt,
+		UpdatedAt:     &now,
 	})
 	if err != nil {
 		return dto.Provider{}, err
@@ -182,13 +199,14 @@ func (service *ProvidersService) UpsertProvider(ctx context.Context, request dto
 	}
 
 	return dto.Provider{
-		ID:       provider.ID,
-		Name:     provider.Name,
-		Type:     string(provider.Type),
-		Endpoint: provider.Endpoint,
-		Enabled:  provider.Enabled,
-		Builtin:  provider.Builtin,
-		Icon:     service.resolveProviderIcon(ctx, provider),
+		ID:            provider.ID,
+		Name:          provider.Name,
+		Type:          string(provider.Type),
+		Compatibility: string(provider.Compatibility),
+		Endpoint:      provider.Endpoint,
+		Enabled:       provider.Enabled,
+		Builtin:       provider.Builtin,
+		Icon:          service.resolveProviderIcon(ctx, provider),
 	}, nil
 }
 
@@ -551,15 +569,15 @@ func (service *ProvidersService) EnsureDefaults(ctx context.Context) error {
 
 func defaultProviderRequests() []dto.UpsertProviderRequest {
 	return []dto.UpsertProviderRequest{
-		{ID: "deepseek", Name: "DeepSeek", Type: string(providers.ProviderTypeOpenAI), Endpoint: "https://api.deepseek.com", Enabled: false},
-		{ID: "openrouter", Name: "OpenRouter", Type: string(providers.ProviderTypeOpenAI), Endpoint: "https://openrouter.ai/api/v1", Enabled: false},
-		{ID: "openai", Name: "OpenAI", Type: string(providers.ProviderTypeOpenAI), Endpoint: "https://api.openai.com/v1", Enabled: false},
-		{ID: "anthropic", Name: "Anthropic", Type: string(providers.ProviderTypeAnthropic), Endpoint: "https://api.anthropic.com/v1", Enabled: false},
-		{ID: "google", Name: "Google Gemini", Type: string(providers.ProviderTypeOpenAI), Endpoint: "https://generativelanguage.googleapis.com/v1beta/openai", Enabled: false},
-		{ID: "aihubmix", Name: "AIHubMix", Type: string(providers.ProviderTypeOpenAI), Endpoint: "https://aihubmix.com/v1", Enabled: false},
-		{ID: "moonshotai", Name: "Moonshot AI", Type: string(providers.ProviderTypeOpenAI), Endpoint: "https://api.moonshot.ai/v1", Enabled: false},
-		{ID: "zai", Name: "Z.AI", Type: string(providers.ProviderTypeOpenAI), Endpoint: "https://api.z.ai/api/paas/v4", Enabled: false},
-		{ID: "github-copilot", Name: "GitHub Copilot", Type: string(providers.ProviderTypeOpenAI), Endpoint: "https://api.githubcopilot.com", Enabled: false},
+		{ID: "deepseek", Name: "DeepSeek", Type: string(providers.ProviderTypeOpenAI), Compatibility: string(providers.ProviderCompatibilityDeepSeek), Endpoint: "https://api.deepseek.com", Enabled: false},
+		{ID: "openrouter", Name: "OpenRouter", Type: string(providers.ProviderTypeOpenAI), Compatibility: string(providers.ProviderCompatibilityOpenRouter), Endpoint: "https://openrouter.ai/api/v1", Enabled: false},
+		{ID: "openai", Name: "OpenAI", Type: string(providers.ProviderTypeOpenAI), Compatibility: string(providers.ProviderCompatibilityOpenAI), Endpoint: "https://api.openai.com/v1", Enabled: false},
+		{ID: "anthropic", Name: "Anthropic", Type: string(providers.ProviderTypeAnthropic), Compatibility: string(providers.ProviderCompatibilityAnthropic), Endpoint: "https://api.anthropic.com/v1", Enabled: false},
+		{ID: "google", Name: "Google Gemini", Type: string(providers.ProviderTypeOpenAI), Compatibility: string(providers.ProviderCompatibilityGoogle), Endpoint: "https://generativelanguage.googleapis.com/v1beta/openai", Enabled: false},
+		{ID: "aihubmix", Name: "AIHubMix", Type: string(providers.ProviderTypeOpenAI), Compatibility: string(providers.ProviderCompatibilityOpenAI), Endpoint: "https://aihubmix.com/v1", Enabled: false},
+		{ID: "moonshotai", Name: "Moonshot AI", Type: string(providers.ProviderTypeOpenAI), Compatibility: string(providers.ProviderCompatibilityOpenAI), Endpoint: "https://api.moonshot.ai/v1", Enabled: false},
+		{ID: "zai", Name: "Z.AI", Type: string(providers.ProviderTypeOpenAI), Compatibility: string(providers.ProviderCompatibilityOpenAI), Endpoint: "https://api.z.ai/api/paas/v4", Enabled: false},
+		{ID: "github-copilot", Name: "GitHub Copilot", Type: string(providers.ProviderTypeOpenAI), Compatibility: string(providers.ProviderCompatibilityOpenAI), Endpoint: "https://api.githubcopilot.com", Enabled: false},
 	}
 }
 
@@ -687,14 +705,15 @@ func (service *ProvidersService) ensureProviderExists(ctx context.Context, provi
 	}
 	now := service.now()
 	rebuilt, rebuildErr := providers.NewProvider(providers.ProviderParams{
-		ID:        created.ID,
-		Name:      created.Name,
-		Type:      created.Type,
-		Endpoint:  created.Endpoint,
-		Enabled:   created.Enabled,
-		Builtin:   created.Builtin,
-		CreatedAt: &now,
-		UpdatedAt: &now,
+		ID:            created.ID,
+		Name:          created.Name,
+		Type:          created.Type,
+		Compatibility: created.Compatibility,
+		Endpoint:      created.Endpoint,
+		Enabled:       created.Enabled,
+		Builtin:       created.Builtin,
+		CreatedAt:     &now,
+		UpdatedAt:     &now,
 	})
 	if rebuildErr != nil {
 		return providers.Provider{}, rebuildErr
@@ -711,6 +730,34 @@ func sanitizeProviderType(value string) (providers.ProviderType, error) {
 	default:
 		return "", fmt.Errorf("unsupported provider type: %s", value)
 	}
+}
+
+func sanitizeProviderCompatibility(providerType providers.ProviderType, value string) (providers.ProviderCompatibility, error) {
+	trimmed := strings.ToLower(strings.TrimSpace(value))
+	if trimmed == "" {
+		switch providerType {
+		case providers.ProviderTypeAnthropic:
+			return providers.ProviderCompatibilityAnthropic, nil
+		default:
+			return providers.ProviderCompatibilityOpenAI, nil
+		}
+	}
+	compatibility := providers.ProviderCompatibility(trimmed)
+	switch providerType {
+	case providers.ProviderTypeAnthropic:
+		if compatibility == providers.ProviderCompatibilityAnthropic {
+			return compatibility, nil
+		}
+	case providers.ProviderTypeOpenAI:
+		switch compatibility {
+		case providers.ProviderCompatibilityOpenAI,
+			providers.ProviderCompatibilityDeepSeek,
+			providers.ProviderCompatibilityOpenRouter,
+			providers.ProviderCompatibilityGoogle:
+			return compatibility, nil
+		}
+	}
+	return "", fmt.Errorf("unsupported provider compatibility %q for type %q", value, providerType)
 }
 
 func (service *ProvidersService) resolveProviderIcon(ctx context.Context, provider providers.Provider) string {

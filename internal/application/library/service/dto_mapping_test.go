@@ -314,6 +314,9 @@ func TestToDomainModuleConfigNormalizesLanguageAssetsAndRuntime(t *testing.T) {
 	if got.TaskRuntime.Translate.StructuredOutputMode != "json_schema" {
 		t.Fatalf("expected normalized translate structured output mode, got %q", got.TaskRuntime.Translate.StructuredOutputMode)
 	}
+	if got.TaskRuntime.Proofread.ThinkingMode != "on" {
+		t.Fatalf("expected normalized proofread thinking mode on, got %q", got.TaskRuntime.Proofread.ThinkingMode)
+	}
 	if got.TaskRuntime.Proofread.RetryTokenStep != 512 {
 		t.Fatalf("expected normalized proofread retry token step 512, got %d", got.TaskRuntime.Proofread.RetryTokenStep)
 	}

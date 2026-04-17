@@ -38,12 +38,15 @@ func (factory *ChatModelFactory) NewChatModel(provider providers.Provider, apiKe
 	}
 
 	return NewOpenAICompatibleChatModel(OpenAICompatibleConfig{
-		BaseURL:    baseURL,
-		APIKey:     apiKey,
-		Model:      modelName,
-		ChatPath:   defaultChatPath,
-		HTTPClient: factory.httpClient,
-		Headers:    map[string]string{},
-		Recorder:   factory.recorder,
+		BaseURL:               baseURL,
+		APIKey:                apiKey,
+		Model:                 modelName,
+		ProviderID:            provider.ID,
+		ProviderType:          provider.Type,
+		ProviderCompatibility: provider.Compatibility,
+		ChatPath:              defaultChatPath,
+		HTTPClient:            factory.httpClient,
+		Headers:               map[string]string{},
+		Recorder:              factory.recorder,
 	})
 }

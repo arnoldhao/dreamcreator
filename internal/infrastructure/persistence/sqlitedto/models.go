@@ -330,14 +330,15 @@ type NodeInvokeRow struct {
 type ProviderRow struct {
 	bun.BaseModel `bun:"table:providers"`
 
-	ID        string         `bun:"id,pk"`
-	Name      string         `bun:"name"`
-	Type      string         `bun:"type"`
-	Endpoint  sql.NullString `bun:"endpoint"`
-	Enabled   bool           `bun:"enabled"`
-	Builtin   bool           `bun:"is_builtin"`
-	CreatedAt time.Time      `bun:"created_at"`
-	UpdatedAt time.Time      `bun:"updated_at"`
+	ID            string         `bun:"id,pk"`
+	Name          string         `bun:"name"`
+	Type          string         `bun:"type"`
+	Compatibility string         `bun:"compatibility"`
+	Endpoint      sql.NullString `bun:"endpoint"`
+	Enabled       bool           `bun:"enabled"`
+	Builtin       bool           `bun:"is_builtin"`
+	CreatedAt     time.Time      `bun:"created_at"`
+	UpdatedAt     time.Time      `bun:"updated_at"`
 }
 
 type ProviderSecretRow struct {

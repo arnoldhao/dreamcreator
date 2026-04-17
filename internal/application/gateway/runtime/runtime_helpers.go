@@ -9,6 +9,7 @@ import (
 	"dreamcreator/internal/application/agentruntime"
 	"dreamcreator/internal/application/gateway/queue"
 	runtimedto "dreamcreator/internal/application/gateway/runtime/dto"
+	"dreamcreator/internal/application/runtimeconfig"
 	settingsdto "dreamcreator/internal/application/settings/dto"
 	skillsdto "dreamcreator/internal/application/skills/dto"
 	skillsservice "dreamcreator/internal/application/skills/service"
@@ -20,6 +21,7 @@ import (
 const (
 	defaultSubagentMaxSteps       = 8
 	defaultSubagentTimeoutSeconds = 300
+	runKindOneShot                = "one-shot"
 )
 
 type runFlags struct {
@@ -136,12 +138,12 @@ func resolveRunFlags(metadata map[string]any) runFlags {
 }
 
 func resolveRunKind(request runtimedto.RuntimeRunRequest, flags runFlags) string {
-	kind := strings.ToLower(strings.TrimSpace(request.RunKind))
+	kind := normalizeRunKind(request.RunKind)
 	if kind == "" {
-		kind = strings.ToLower(strings.TrimSpace(resolveMetadataString(request.Metadata, "runKind")))
+		kind = normalizeRunKind(resolveMetadataString(request.Metadata, "runKind"))
 	}
 	switch kind {
-	case "user", "heartbeat", "cron", "subagent":
+	case "user", "heartbeat", "cron", "subagent", runKindOneShot:
 		return kind
 	}
 	if value, ok := resolveMetadataBool(request.Metadata, "heartbeat"); ok && value {
@@ -154,6 +156,80 @@ func resolveRunKind(request runtimedto.RuntimeRunRequest, flags runFlags) string
 		return "subagent"
 	}
 	return "user"
+}
+
+func normalizeRunKind(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "":
+		return ""
+	case "user":
+		return "user"
+	case "heartbeat":
+		return "heartbeat"
+	case "cron":
+		return "cron"
+	case "subagent":
+		return "subagent"
+	case "oneshot", "one-shot", "single", "single-shot":
+		return runKindOneShot
+	default:
+		return strings.ToLower(strings.TrimSpace(value))
+	}
+}
+
+func isOneShotRunKind(runKind string) bool {
+	return normalizeRunKind(runKind) == runKindOneShot
+}
+
+func resolveOneShotPromptMode(requested string) string {
+	mode := strings.ToLower(strings.TrimSpace(requested))
+	if mode == "" {
+		return domainassistant.PromptModeNone
+	}
+	switch mode {
+	case domainassistant.PromptModeFull:
+		return domainassistant.PromptModeFull
+	case domainassistant.PromptModeMinimal:
+		return domainassistant.PromptModeMinimal
+	case domainassistant.PromptModeNone:
+		return domainassistant.PromptModeNone
+	default:
+		return domainassistant.PromptModeNone
+	}
+}
+
+func resolveOneShotOperationKind(metadata map[string]any) string {
+	if metadata == nil {
+		return ""
+	}
+	for _, key := range []string{"oneShotKind", "oneshotKind", "operationKind"} {
+		value := strings.ToLower(strings.TrimSpace(resolveMetadataString(metadata, key)))
+		switch value {
+		case "":
+			continue
+		case "title", "title_generation", "title-generation", "thread_title", "thread-title":
+			return "title_generation"
+		case "subtitle_translate", "subtitle-translate", "translate":
+			return "subtitle_translate"
+		case "subtitle_proofread", "subtitle-proofread", "proofread":
+			return "subtitle_proofread"
+		default:
+			value = strings.ReplaceAll(value, "-", "_")
+			value = strings.ReplaceAll(value, " ", "_")
+			return strings.Trim(value, "_")
+		}
+	}
+	return ""
+}
+
+func resolveOneShotThinkingLevel(config runtimedto.ThinkingConfig, metadata map[string]any) string {
+	if level := resolveThinkingLevel(config, metadata); level != "" {
+		return level
+	}
+	if resolveOneShotOperationKind(metadata) == "title_generation" {
+		return runtimeconfig.DefaultTitleGenerationThinkingMode
+	}
+	return runtimeconfig.DefaultOneShotThinkingMode
 }
 
 func resolvePromptMode(requested string, workspaceMode string, isSubagent bool) string {

@@ -14,13 +14,15 @@ import (
 	"time"
 
 	"github.com/cloudwego/eino/schema"
+
+	domainproviders "dreamcreator/internal/domain/providers"
 )
 
 func TestOpenAICompatibleThinkingEffort(t *testing.T) {
 	t.Parallel()
 
-	t.Run("supported provider includes reasoning effort", func(t *testing.T) {
-		t.Parallel()
+	captureRequest := func(t *testing.T, config OpenAICompatibleConfig, params RuntimeParams) map[string]any {
+		t.Helper()
 		var captured map[string]any
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer r.Body.Close()
@@ -32,92 +34,238 @@ func TestOpenAICompatibleThinkingEffort(t *testing.T) {
 		}))
 		defer server.Close()
 
-		model, err := NewOpenAICompatibleChatModel(OpenAICompatibleConfig{
-			BaseURL: server.URL,
-			Model:   "gpt-5",
-		})
+		config.BaseURL = server.URL
+		model, err := NewOpenAICompatibleChatModel(config)
 		if err != nil {
 			t.Fatalf("new model: %v", err)
 		}
-
-		ctx := WithRuntimeParams(context.Background(), RuntimeParams{
-			ProviderID:    "openai",
-			ThinkingLevel: "high",
-		})
+		ctx := WithRuntimeParams(context.Background(), params)
 		if _, err := model.Generate(ctx, []*schema.Message{{Role: schema.User, Content: "hi"}}); err != nil {
 			t.Fatalf("generate: %v", err)
 		}
+		return captured
+	}
+
+	t.Run("custom openai compatible provider injects reasoning_effort", func(t *testing.T) {
+		t.Parallel()
+		captured := captureRequest(t, OpenAICompatibleConfig{
+			Model:                 "gpt-5.2",
+			ProviderID:            "custom-openai",
+			ProviderType:          domainproviders.ProviderTypeOpenAI,
+			ProviderCompatibility: domainproviders.ProviderCompatibilityOpenAI,
+		}, RuntimeParams{ThinkingLevel: "high"})
 
 		if got, _ := captured["reasoning_effort"].(string); got != "high" {
 			t.Fatalf("expected reasoning_effort=high, got %q", got)
 		}
 	})
 
-	t.Run("unsupported provider omits reasoning effort", func(t *testing.T) {
+	t.Run("openai gpt-5.1 off maps to none", func(t *testing.T) {
 		t.Parallel()
-		var captured map[string]any
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			defer r.Body.Close()
-			if err := json.NewDecoder(r.Body).Decode(&captured); err != nil {
-				t.Fatalf("decode request: %v", err)
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`))
-		}))
-		defer server.Close()
+		captured := captureRequest(t, OpenAICompatibleConfig{
+			Model:                 "gpt-5.1",
+			ProviderID:            "openai",
+			ProviderType:          domainproviders.ProviderTypeOpenAI,
+			ProviderCompatibility: domainproviders.ProviderCompatibilityOpenAI,
+		}, RuntimeParams{ThinkingLevel: "off"})
 
-		model, err := NewOpenAICompatibleChatModel(OpenAICompatibleConfig{
-			BaseURL: server.URL,
-			Model:   "gpt-5",
-		})
-		if err != nil {
-			t.Fatalf("new model: %v", err)
-		}
-
-		ctx := WithRuntimeParams(context.Background(), RuntimeParams{
-			ProviderID:    "deepseek",
-			ThinkingLevel: "high",
-		})
-		if _, err := model.Generate(ctx, []*schema.Message{{Role: schema.User, Content: "hi"}}); err != nil {
-			t.Fatalf("generate: %v", err)
-		}
-
-		if _, exists := captured["reasoning_effort"]; exists {
-			t.Fatalf("reasoning_effort should be omitted for unsupported provider")
+		if got, _ := captured["reasoning_effort"].(string); got != "none" {
+			t.Fatalf("expected reasoning_effort=none, got %q", got)
 		}
 	})
 
-	t.Run("off maps to minimal", func(t *testing.T) {
+	t.Run("legacy gpt-5 omits none because off is unsupported", func(t *testing.T) {
 		t.Parallel()
-		var captured map[string]any
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			defer r.Body.Close()
-			if err := json.NewDecoder(r.Body).Decode(&captured); err != nil {
-				t.Fatalf("decode request: %v", err)
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`))
-		}))
-		defer server.Close()
+		captured := captureRequest(t, OpenAICompatibleConfig{
+			Model:                 "gpt-5",
+			ProviderID:            "openai",
+			ProviderType:          domainproviders.ProviderTypeOpenAI,
+			ProviderCompatibility: domainproviders.ProviderCompatibilityOpenAI,
+		}, RuntimeParams{ThinkingLevel: "off"})
 
-		model, err := NewOpenAICompatibleChatModel(OpenAICompatibleConfig{
-			BaseURL: server.URL,
-			Model:   "gpt-5",
-		})
-		if err != nil {
-			t.Fatalf("new model: %v", err)
+		if _, exists := captured["reasoning_effort"]; exists {
+			t.Fatalf("expected legacy gpt-5 to omit reasoning_effort for off, got %#v", captured["reasoning_effort"])
 		}
+	})
 
-		ctx := WithRuntimeParams(context.Background(), RuntimeParams{
-			ProviderID:    "openai",
-			ThinkingLevel: "off",
-		})
-		if _, err := model.Generate(ctx, []*schema.Message{{Role: schema.User, Content: "hi"}}); err != nil {
-			t.Fatalf("generate: %v", err)
+	t.Run("custom google compatible provider omits none for unsupported models", func(t *testing.T) {
+		t.Parallel()
+		captured := captureRequest(t, OpenAICompatibleConfig{
+			Model:                 "gemini-3-flash-preview",
+			ProviderID:            "custom-google",
+			ProviderType:          domainproviders.ProviderTypeOpenAI,
+			ProviderCompatibility: domainproviders.ProviderCompatibilityGoogle,
+		}, RuntimeParams{ThinkingLevel: "off"})
+
+		if _, exists := captured["reasoning_effort"]; exists {
+			t.Fatalf("google-compatible gemini 3 should omit reasoning_effort for off, got %#v", captured["reasoning_effort"])
 		}
+	})
 
-		if got, _ := captured["reasoning_effort"].(string); got != "minimal" {
-			t.Fatalf("expected reasoning_effort=minimal, got %q", got)
+	t.Run("google-compatible gemini 2.5 flash maps off to none", func(t *testing.T) {
+		t.Parallel()
+		captured := captureRequest(t, OpenAICompatibleConfig{
+			Model:                 "gemini-2.5-flash",
+			ProviderID:            "google",
+			ProviderType:          domainproviders.ProviderTypeOpenAI,
+			ProviderCompatibility: domainproviders.ProviderCompatibilityGoogle,
+		}, RuntimeParams{ThinkingLevel: "off"})
+
+		if got, _ := captured["reasoning_effort"].(string); got != "none" {
+			t.Fatalf("expected reasoning_effort=none, got %q", got)
+		}
+	})
+
+	t.Run("custom openrouter compatible provider injects reasoning object", func(t *testing.T) {
+		t.Parallel()
+		captured := captureRequest(t, OpenAICompatibleConfig{
+			Model:                 "openai/gpt-5.2",
+			ProviderID:            "custom-openrouter",
+			ProviderType:          domainproviders.ProviderTypeOpenAI,
+			ProviderCompatibility: domainproviders.ProviderCompatibilityOpenRouter,
+		}, RuntimeParams{ThinkingLevel: "medium"})
+
+		reasoning, _ := captured["reasoning"].(map[string]any)
+		if got, _ := reasoning["effort"].(string); got != "medium" {
+			t.Fatalf("expected reasoning.effort=medium, got %#v", reasoning["effort"])
+		}
+		if _, exists := captured["reasoning_effort"]; exists {
+			t.Fatalf("openrouter should not use reasoning_effort")
+		}
+	})
+
+	t.Run("custom deepseek compatible provider injects thinking object", func(t *testing.T) {
+		t.Parallel()
+		captured := captureRequest(t, OpenAICompatibleConfig{
+			Model:                 "deepseek-chat",
+			ProviderID:            "custom-deepseek",
+			ProviderType:          domainproviders.ProviderTypeOpenAI,
+			ProviderCompatibility: domainproviders.ProviderCompatibilityDeepSeek,
+		}, RuntimeParams{ThinkingLevel: "high"})
+
+		thinking, _ := captured["thinking"].(map[string]any)
+		if got, _ := thinking["type"].(string); got != "enabled" {
+			t.Fatalf("expected thinking.type=enabled, got %#v", thinking["type"])
+		}
+		if _, exists := captured["reasoning_effort"]; exists {
+			t.Fatalf("deepseek should not use reasoning_effort")
+		}
+	})
+
+	t.Run("custom deepseek compatible provider disables thinking explicitly", func(t *testing.T) {
+		t.Parallel()
+		captured := captureRequest(t, OpenAICompatibleConfig{
+			Model:                 "deepseek-chat",
+			ProviderID:            "custom-deepseek",
+			ProviderType:          domainproviders.ProviderTypeOpenAI,
+			ProviderCompatibility: domainproviders.ProviderCompatibilityDeepSeek,
+		}, RuntimeParams{ThinkingLevel: "off"})
+
+		thinking, _ := captured["thinking"].(map[string]any)
+		if got, _ := thinking["type"].(string); got != "disabled" {
+			t.Fatalf("expected thinking.type=disabled, got %#v", thinking["type"])
+		}
+	})
+
+	t.Run("anthropic compatibility uses thinking budget and omits reasoning_effort", func(t *testing.T) {
+		t.Parallel()
+		captured := captureRequest(t, OpenAICompatibleConfig{
+			Model:                 "claude-sonnet-4-6",
+			ProviderID:            "anthropic",
+			ProviderType:          domainproviders.ProviderTypeAnthropic,
+			ProviderCompatibility: domainproviders.ProviderCompatibilityAnthropic,
+		}, RuntimeParams{ThinkingLevel: "medium"})
+
+		thinking, _ := captured["thinking"].(map[string]any)
+		if got, _ := thinking["type"].(string); got != "enabled" {
+			t.Fatalf("expected thinking.type=enabled, got %#v", thinking["type"])
+		}
+		if got, _ := thinking["budget_tokens"].(float64); got != 4096 {
+			t.Fatalf("expected budget_tokens=4096, got %#v", thinking["budget_tokens"])
+		}
+		if got, _ := captured["temperature"].(float64); got != 1 {
+			t.Fatalf("expected temperature=1 for anthropic thinking, got %#v", captured["temperature"])
+		}
+		if _, exists := captured["reasoning_effort"]; exists {
+			t.Fatalf("anthropic should not use reasoning_effort")
+		}
+	})
+
+	t.Run("anthropic compatibility omits off because disable is undocumented in compatibility mode", func(t *testing.T) {
+		t.Parallel()
+		captured := captureRequest(t, OpenAICompatibleConfig{
+			Model:                 "claude-sonnet-4-5",
+			ProviderID:            "anthropic-custom",
+			ProviderType:          domainproviders.ProviderTypeAnthropic,
+			ProviderCompatibility: domainproviders.ProviderCompatibilityAnthropic,
+		}, RuntimeParams{ThinkingLevel: "off"})
+
+		if _, exists := captured["thinking"]; exists {
+			t.Fatalf("expected anthropic off to omit thinking in compatibility mode, got %#v", captured["thinking"])
+		}
+		if _, exists := captured["reasoning_effort"]; exists {
+			t.Fatalf("expected anthropic off to omit reasoning_effort, got %#v", captured["reasoning_effort"])
+		}
+	})
+
+	t.Run("glm models use thinking enabled toggle", func(t *testing.T) {
+		t.Parallel()
+		captured := captureRequest(t, OpenAICompatibleConfig{
+			Model:                 "glm-4.6",
+			ProviderID:            "custom-glm",
+			ProviderType:          domainproviders.ProviderTypeOpenAI,
+			ProviderCompatibility: domainproviders.ProviderCompatibilityOpenAI,
+		}, RuntimeParams{ThinkingLevel: "high"})
+
+		thinking, _ := captured["thinking"].(map[string]any)
+		if got, _ := thinking["type"].(string); got != "enabled" {
+			t.Fatalf("expected thinking.type=enabled, got %#v", thinking["type"])
+		}
+	})
+
+	t.Run("kimi k2.5 disables thinking with thinking object", func(t *testing.T) {
+		t.Parallel()
+		captured := captureRequest(t, OpenAICompatibleConfig{
+			Model:                 "kimi-k2.5",
+			ProviderID:            "custom-kimi",
+			ProviderType:          domainproviders.ProviderTypeOpenAI,
+			ProviderCompatibility: domainproviders.ProviderCompatibilityOpenAI,
+		}, RuntimeParams{ThinkingLevel: "off"})
+
+		thinking, _ := captured["thinking"].(map[string]any)
+		if got, _ := thinking["type"].(string); got != "disabled" {
+			t.Fatalf("expected thinking.type=disabled, got %#v", thinking["type"])
+		}
+	})
+
+	t.Run("qwen models use enable_thinking flag", func(t *testing.T) {
+		t.Parallel()
+		captured := captureRequest(t, OpenAICompatibleConfig{
+			Model:                 "qwen-plus-2025-04-28",
+			ProviderID:            "custom-qwen",
+			ProviderType:          domainproviders.ProviderTypeOpenAI,
+			ProviderCompatibility: domainproviders.ProviderCompatibilityOpenAI,
+		}, RuntimeParams{ThinkingLevel: "off"})
+
+		if got, ok := captured["enable_thinking"].(bool); !ok || got {
+			t.Fatalf("expected enable_thinking=false, got %#v", captured["enable_thinking"])
+		}
+	})
+
+	t.Run("xai reasoning models omit reasoning control fields", func(t *testing.T) {
+		t.Parallel()
+		captured := captureRequest(t, OpenAICompatibleConfig{
+			Model:                 "grok-4.20-reasoning",
+			ProviderID:            "custom-xai",
+			ProviderType:          domainproviders.ProviderTypeOpenAI,
+			ProviderCompatibility: domainproviders.ProviderCompatibilityOpenAI,
+		}, RuntimeParams{ThinkingLevel: "high"})
+
+		if _, exists := captured["reasoning_effort"]; exists {
+			t.Fatalf("expected xai reasoning model to omit reasoning_effort, got %#v", captured["reasoning_effort"])
+		}
+		if _, exists := captured["thinking"]; exists {
+			t.Fatalf("expected xai reasoning model to omit thinking, got %#v", captured["thinking"])
 		}
 	})
 }

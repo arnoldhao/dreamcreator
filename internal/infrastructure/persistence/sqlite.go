@@ -701,6 +701,7 @@ CREATE TABLE IF NOT EXISTS providers (
 	id TEXT PRIMARY KEY,
 	name TEXT NOT NULL,
 	type TEXT NOT NULL,
+	compatibility TEXT NOT NULL DEFAULT '',
 	endpoint TEXT,
 	enabled BOOLEAN NOT NULL DEFAULT 0,
 	is_builtin BOOLEAN NOT NULL DEFAULT 0,
@@ -736,6 +737,26 @@ CREATE TABLE IF NOT EXISTS provider_models (
 	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS models_dev_catalog (
+	id TEXT PRIMARY KEY,
+	provider_key TEXT NOT NULL,
+	model_name TEXT NOT NULL,
+	display_name TEXT,
+	capabilities_json TEXT,
+	context_window_tokens INTEGER,
+	max_output_tokens INTEGER,
+	supports_tools BOOLEAN,
+	supports_reasoning BOOLEAN,
+	supports_vision BOOLEAN,
+	supports_audio BOOLEAN,
+	supports_video BOOLEAN,
+	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS models_dev_catalog_provider_model_idx ON models_dev_catalog(provider_key, model_name);
+CREATE INDEX IF NOT EXISTS models_dev_catalog_model_name_idx ON models_dev_catalog(model_name);
 
 CREATE TABLE IF NOT EXISTS gateway_pair_requests (
 	id TEXT PRIMARY KEY,
@@ -917,6 +938,7 @@ CREATE TABLE IF NOT EXISTS subagent_runs (
 
 func ensureSQLiteColumns(ctx context.Context, db *sql.DB) error {
 	threadLastInteractivePresent := false
+	providerCompatibilityPresent := false
 	updates := []struct {
 		table     string
 		column    string
@@ -940,6 +962,11 @@ func ensureSQLiteColumns(ctx context.Context, db *sql.DB) error {
 			column:    "kind",
 			statement: "ALTER TABLE thread_messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'chat'",
 		},
+		{
+			table:     "providers",
+			column:    "compatibility",
+			statement: "ALTER TABLE providers ADD COLUMN compatibility TEXT NOT NULL DEFAULT ''",
+		},
 	}
 	for _, item := range updates {
 		hasTable, err := sqliteTableExists(ctx, db, item.table)
@@ -957,6 +984,9 @@ func ensureSQLiteColumns(ctx context.Context, db *sql.DB) error {
 			if item.table == "threads" && item.column == "last_interactive_at" {
 				threadLastInteractivePresent = true
 			}
+			if item.table == "providers" && item.column == "compatibility" {
+				providerCompatibilityPresent = true
+			}
 			continue
 		}
 		if _, err := db.ExecContext(ctx, item.statement); err != nil {
@@ -965,9 +995,27 @@ func ensureSQLiteColumns(ctx context.Context, db *sql.DB) error {
 		if item.table == "threads" && item.column == "last_interactive_at" {
 			threadLastInteractivePresent = true
 		}
+		if item.table == "providers" && item.column == "compatibility" {
+			providerCompatibilityPresent = true
+		}
 	}
 	if threadLastInteractivePresent {
 		if _, err := db.ExecContext(ctx, "UPDATE threads SET last_interactive_at = updated_at WHERE last_interactive_at IS NULL"); err != nil {
+			return err
+		}
+	}
+	if providerCompatibilityPresent {
+		if _, err := db.ExecContext(ctx, `
+UPDATE providers
+SET compatibility = CASE
+	WHEN id = 'deepseek' THEN 'deepseek'
+	WHEN id = 'openrouter' THEN 'openrouter'
+	WHEN id = 'google' THEN 'google'
+	WHEN type = 'anthropic' THEN 'anthropic'
+	ELSE 'openai'
+END
+WHERE TRIM(COALESCE(compatibility, '')) = ''
+`); err != nil {
 			return err
 		}
 	}

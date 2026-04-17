@@ -22,6 +22,7 @@ import (
 	gatewaytools "dreamcreator/internal/application/gateway/tools"
 	gatewayusage "dreamcreator/internal/application/gateway/usage"
 	memorydto "dreamcreator/internal/application/memory/dto"
+	"dreamcreator/internal/application/runtimeconfig"
 	appsession "dreamcreator/internal/application/session"
 	settingsdto "dreamcreator/internal/application/settings/dto"
 	settingsservice "dreamcreator/internal/application/settings/service"
@@ -207,7 +208,7 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 
 	flags := resolveRunFlags(request.Metadata)
 	runKind := resolveRunKind(request, flags)
-	titleGenerationRun, _ := resolveMetadataBool(request.Metadata, "titleGeneration")
+	isOneShotRun := isOneShotRunKind(runKind)
 	gatewaySettings := settingsdto.GatewaySettings{}
 	appLanguage := ""
 	if service.settings != nil {
@@ -273,7 +274,7 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 		}
 		threadItem = item
 	}
-	if !titleGenerationRun && !flags.IsSubagent {
+	if !isOneShotRun && !flags.IsSubagent {
 		if shouldScheduleThreadTitleGenerationAtRequestStart(threadItem, request.Input.Messages) {
 			service.scheduleThreadTitleGenerationAtRequestStart(threadItem, request.Input.Messages)
 		}
@@ -306,7 +307,7 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 
 	promptMode := resolvePromptMode(request.PromptMode, workspaceSnapshot.WorkspaceContext.PromptMode, flags.IsSubagent)
 	extraSystemPrompt := resolveExtraSystemPrompt(request.Metadata)
-	if service.memory != nil && !flags.IsSubagent && !titleGenerationRun {
+	if service.memory != nil && !flags.IsSubagent && !isOneShotRun {
 		recallQuery := resolveMemoryRecallQuery(request.Input.Messages)
 		if recallQuery != "" {
 			memoryIdentity := memorydto.MemoryIdentity{
@@ -359,7 +360,7 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 	)
 	skillItems = limitSkillPromptItems(skillItems, assistantSnapshot.Skills)
 	channel := resolveMetadataString(request.Metadata, "channel")
-	usageSource := resolveUsageSource(request.Metadata, channel)
+	usageSource := resolveUsageSource(request.Metadata, channel, runKind)
 	promptDoc, promptReport, promptSections := buildPromptDocument(promptBuildInput{
 		Mode:              promptMode,
 		RunKind:           runKind,
@@ -392,7 +393,7 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 		ThreadID:         sessionID,
 		RunID:            run.ID,
 		RequestSource:    usageSource,
-		Operation:        resolveLLMOperation(runKind, flags.IsSubagent, titleGenerationRun),
+		Operation:        resolveLLMOperation(runKind, request.Metadata, flags.IsSubagent),
 		ProviderID:       resolvedModel.ProviderID,
 		ModelName:        resolvedModel.ModelName,
 		ThinkingLevel:    thinkingLevel,
@@ -659,7 +660,7 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 	if flags.PersistUsage {
 		service.ingestUsage(runCtx, usage, resolvedModel, channel, usageSource, run.ID)
 	}
-	if service.memory != nil && !flags.IsSubagent && !titleGenerationRun {
+	if service.memory != nil && !flags.IsSubagent && !isOneShotRun {
 		memoryIdentity := memorydto.MemoryIdentity{
 			AssistantID: assistantID,
 			ThreadID:    sessionID,
@@ -674,7 +675,7 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 			Messages: buildMemoryLifecycleMessages(request.Input.Messages, content),
 		}
 		go func() {
-			hookCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			hookCtx, cancel := context.WithTimeout(context.Background(), runtimeconfig.DefaultAuxiliaryLLMTimeout)
 			defer cancel()
 			if err := service.memory.HandleAgentEnd(hookCtx, hookRequest); err != nil {
 				zap.L().Warn("runtime memory agent_end failed",
@@ -686,7 +687,7 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 			}
 		}()
 	}
-	if service.telemetry != nil && runKind == "user" && !flags.IsSubagent && !titleGenerationRun {
+	if service.telemetry != nil && runKind == "user" && !flags.IsSubagent && !isOneShotRun {
 		service.telemetry.TrackUserChatCompleted(runCtx, run.ID)
 	}
 

@@ -14,10 +14,13 @@ import (
 	appevents "dreamcreator/internal/application/events"
 	"dreamcreator/internal/application/gateway/runtime/dto"
 	gatewayusage "dreamcreator/internal/application/gateway/usage"
+	"dreamcreator/internal/application/runtimeconfig"
 	appsession "dreamcreator/internal/application/session"
 	threaddto "dreamcreator/internal/application/thread/dto"
 	"dreamcreator/internal/domain/thread"
 )
+
+const threadTitleGenerationTimeout = runtimeconfig.DefaultAuxiliaryLLMTimeout
 
 func (service *Service) startRun(ctx context.Context, threadID string, agentID string, requestedRunID string, persist bool) (thread.ThreadRun, error) {
 	if persist && service.runs == nil {
@@ -176,7 +179,7 @@ func (service *Service) scheduleThreadTitleGeneration(item thread.Thread, reques
 	}
 	go func(threadID string, requestMessages []threaddto.GenerateThreadTitleMessage) {
 		defer service.unmarkThreadTitleGenerationInFlight(threadID)
-		titleCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		titleCtx, cancel := context.WithTimeout(context.Background(), threadTitleGenerationTimeout)
 		defer cancel()
 		response, err := service.threadTitles.GenerateThreadTitle(titleCtx, threaddto.GenerateThreadTitleRequest{
 			ThreadID: threadID,
@@ -349,13 +352,13 @@ func (service *Service) ingestUsage(ctx context.Context, usage dto.RuntimeUsage,
 	}
 }
 
-func resolveUsageSource(metadata map[string]any, channel string) string {
+func resolveUsageSource(metadata map[string]any, channel string, runKind string) string {
 	for _, key := range []string{"usageSource", "requestSource"} {
 		if source := normalizeUsageSource(resolveMetadataString(metadata, key)); source != usageSourceUnknown {
 			return source
 		}
 	}
-	if value, ok := resolveMetadataBool(metadata, "titleGeneration"); ok && value {
+	if isOneShotRunKind(runKind) || isOneShotRunKind(resolveMetadataString(metadata, "runKind")) {
 		return usageSourceOneShot
 	}
 	if strings.TrimSpace(channel) != "" {
@@ -377,14 +380,21 @@ func normalizeUsageSource(raw string) string {
 	}
 }
 
-func resolveLLMOperation(runKind string, isSubagent bool, titleGeneration bool) string {
-	if titleGeneration {
-		return "runtime.title_generation"
+func resolveLLMOperation(runKind string, metadata map[string]any, isSubagent bool) string {
+	normalizedKind := normalizeRunKind(runKind)
+	if normalizedKind == "" {
+		normalizedKind = normalizeRunKind(resolveMetadataString(metadata, "runKind"))
+	}
+	if isOneShotRunKind(normalizedKind) {
+		if kind := resolveOneShotOperationKind(metadata); kind != "" {
+			return "runtime." + kind
+		}
+		return "runtime.one_shot"
 	}
 	if isSubagent {
 		return "runtime.subagent"
 	}
-	switch strings.ToLower(strings.TrimSpace(runKind)) {
+	switch normalizedKind {
 	case "heartbeat":
 		return "runtime.heartbeat"
 	case "cron":
@@ -394,6 +404,6 @@ func resolveLLMOperation(runKind string, isSubagent bool, titleGeneration bool) 
 	case "user", "":
 		return "runtime.run"
 	default:
-		return "runtime." + strings.ToLower(strings.TrimSpace(runKind))
+		return "runtime." + normalizedKind
 	}
 }

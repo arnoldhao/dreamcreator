@@ -23,18 +23,19 @@ export interface ProviderPreset {
   label: string;
   endpoint: string;
   type: "openai" | "anthropic";
+  compatibility: "openai" | "anthropic" | "deepseek" | "openrouter" | "google";
 }
 
 export const SETUP_STEP_ORDER: SetupStepId[] = ["general", "ai", "dependencies"];
 
 export const PROVIDER_PRESETS: ProviderPreset[] = [
-  { id: "deepseek", label: "DeepSeek", endpoint: "https://api.deepseek.com", type: "openai" },
-  { id: "openrouter", label: "OpenRouter", endpoint: "https://openrouter.ai/api/v1", type: "openai" },
-  { id: "openai", label: "OpenAI", endpoint: "https://api.openai.com/v1", type: "openai" },
-  { id: "anthropic", label: "Anthropic", endpoint: "https://api.anthropic.com/v1", type: "anthropic" },
-  { id: "google", label: "Google Gemini", endpoint: "https://generativelanguage.googleapis.com/v1beta/openai", type: "openai" },
-  { id: "moonshotai", label: "Moonshot AI", endpoint: "https://api.moonshot.ai/v1", type: "openai" },
-  { id: "zai", label: "Z.AI", endpoint: "https://api.z.ai/api/paas/v4", type: "openai" },
+  { id: "deepseek", label: "DeepSeek", endpoint: "https://api.deepseek.com", type: "openai", compatibility: "deepseek" },
+  { id: "openrouter", label: "OpenRouter", endpoint: "https://openrouter.ai/api/v1", type: "openai", compatibility: "openrouter" },
+  { id: "openai", label: "OpenAI", endpoint: "https://api.openai.com/v1", type: "openai", compatibility: "openai" },
+  { id: "anthropic", label: "Anthropic", endpoint: "https://api.anthropic.com/v1", type: "anthropic", compatibility: "anthropic" },
+  { id: "google", label: "Google Gemini", endpoint: "https://generativelanguage.googleapis.com/v1beta/openai", type: "openai", compatibility: "google" },
+  { id: "moonshotai", label: "Moonshot AI", endpoint: "https://api.moonshot.ai/v1", type: "openai", compatibility: "openai" },
+  { id: "zai", label: "Z.AI", endpoint: "https://api.z.ai/api/paas/v4", type: "openai", compatibility: "openai" },
 ];
 
 export const DOWNLOAD_MODE_REQUIRED_TOOLS = ["yt-dlp", "ffmpeg", "bun"] as const;

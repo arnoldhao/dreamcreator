@@ -146,6 +146,10 @@ export function SetupProviderCard({
     const providerId = selectedProvider?.id ?? selectedProviderOption?.id ?? "";
     const providerName = selectedProvider?.name ?? selectedProviderOption?.label ?? "";
     const providerType = selectedProvider?.type ?? selectedProviderOption?.type ?? "openai";
+    const providerCompatibility =
+      selectedProvider?.compatibility ??
+      selectedProviderOption?.compatibility ??
+      (providerType === "anthropic" ? "anthropic" : "openai");
     const endpoint = selectedProvider?.endpoint ?? selectedProviderOption?.endpoint ?? "";
 
     if (!providerId || !providerName || !endpoint) {
@@ -156,6 +160,7 @@ export function SetupProviderCard({
       id: providerId,
       name: providerName,
       type: providerType,
+      compatibility: providerCompatibility,
       endpoint,
       enabled: selectedProvider?.enabled ?? false,
     });
@@ -212,6 +217,7 @@ export function SetupProviderCard({
           id: selectedProvider.id,
           name: selectedProvider.name,
           type: selectedProvider.type,
+          compatibility: selectedProvider.compatibility,
           endpoint: selectedProvider.endpoint,
           enabled: true,
         });
@@ -229,6 +235,7 @@ export function SetupProviderCard({
           id: selectedProvider.id,
           name: selectedProvider.name,
           type: selectedProvider.type,
+          compatibility: selectedProvider.compatibility,
           endpoint: selectedProvider.endpoint,
           enabled: false,
         });

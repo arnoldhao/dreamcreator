@@ -9,6 +9,7 @@ type ProviderOption = {
   label: string;
   endpoint: string;
   type: string;
+  compatibility: string;
 };
 
 type TranslateFn = (key: string) => string;
@@ -41,7 +42,7 @@ export const createManualProxyDraft = (current?: ProxySettings): ProxySettings =
 });
 
 export const resolveProviderOption = (
-  allProviders: Array<{ id: string; name: string; endpoint: string; type: string }>
+  allProviders: Array<{ id: string; name: string; endpoint: string; type: string; compatibility: string }>
 ): ProviderOption[] => {
   const options: ProviderOption[] = [];
   const seen = new Set<string>();
@@ -53,6 +54,7 @@ export const resolveProviderOption = (
       label: matched?.name?.trim() || preset.label,
       endpoint: matched?.endpoint?.trim() || preset.endpoint,
       type: matched?.type?.trim() || preset.type,
+      compatibility: matched?.compatibility?.trim() || preset.compatibility,
     });
     seen.add(preset.id);
   }
@@ -66,6 +68,7 @@ export const resolveProviderOption = (
       label: provider.name,
       endpoint: provider.endpoint,
       type: provider.type,
+      compatibility: provider.compatibility,
     });
   }
 

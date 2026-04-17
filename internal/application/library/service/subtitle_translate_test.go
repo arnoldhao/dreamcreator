@@ -106,6 +106,22 @@ func TestValidateSubtitleTranslateSourceAndTarget(t *testing.T) {
 	})
 }
 
+func TestResolveSubtitleTaskRuntimeSettingsNormalizesLegacyThinkingLevels(t *testing.T) {
+	t.Parallel()
+
+	got := resolveSubtitleTaskRuntimeSettings(library.LanguageTaskRuntimeSettings{
+		StructuredOutputMode: "json_schema",
+		ThinkingMode:         "high",
+		MaxTokensFloor:       1024,
+		MaxTokensCeiling:     4096,
+		RetryTokenStep:       256,
+	})
+
+	if got.ThinkingMode != "on" {
+		t.Fatalf("expected thinking mode on, got %q", got.ThinkingMode)
+	}
+}
+
 func TestBuildSubtitleTranslatePromptsIncludesConstraints(t *testing.T) {
 	t.Parallel()
 

@@ -9,6 +9,7 @@ import (
 	gatewayruntimedto "dreamcreator/internal/application/gateway/runtime/dto"
 	llmrecord "dreamcreator/internal/application/llmrecord"
 	threadservice "dreamcreator/internal/application/thread/service"
+	"dreamcreator/internal/infrastructure/providersync"
 
 	"go.uber.org/zap"
 )
@@ -61,6 +62,38 @@ func startLLMCallRecordPruneWorker(ctx context.Context, service *llmrecord.Servi
 			case <-ticker.C:
 				if _, err := service.RunScheduledCleanup(ctx); err != nil {
 					zap.L().Warn("llm call record prune worker failed", zap.Error(err))
+				}
+			}
+		}
+	}()
+}
+
+func startModelsDevCatalogSyncWorker(ctx context.Context, service *providersync.ModelsDevCatalogService) {
+	if service == nil {
+		return
+	}
+
+	const interval = time.Hour
+
+	go func() {
+		hasEntries, err := service.HasEntries(ctx)
+		if err != nil {
+			zap.L().Warn("models.dev catalog check failed", zap.Error(err))
+		} else if !hasEntries {
+			if _, err := service.Refresh(ctx); err != nil {
+				zap.L().Warn("models.dev catalog initial sync failed", zap.Error(err))
+			}
+		}
+
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if _, err := service.Refresh(ctx); err != nil {
+					zap.L().Warn("models.dev catalog sync failed", zap.Error(err))
 				}
 			}
 		}

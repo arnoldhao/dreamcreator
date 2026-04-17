@@ -117,7 +117,7 @@ func TestProofreadSubtitleChunkPassesStructuredOutputRuntimeConfig(t *testing.T)
 	}
 	runtimeConfig := subtitleTaskRuntimeSettings{
 		StructuredOutputMode: "prompt_only",
-		ThinkingMode:         "minimal",
+		ThinkingMode:         "on",
 		MaxTokensFloor:       2048,
 		MaxTokensCeiling:     4096,
 		RetryTokenStep:       256,
@@ -139,8 +139,8 @@ func TestProofreadSubtitleChunkPassesStructuredOutputRuntimeConfig(t *testing.T)
 	if len(items) != 1 || items[0].Text != "hello world" {
 		t.Fatalf("expected parsed proofread item, got %#v", items)
 	}
-	if runtimeStub.request.Thinking.Mode != "minimal" {
-		t.Fatalf("expected thinking mode minimal, got %q", runtimeStub.request.Thinking.Mode)
+	if runtimeStub.request.Thinking.Mode != "on" {
+		t.Fatalf("expected thinking mode on, got %q", runtimeStub.request.Thinking.Mode)
 	}
 	structuredOutput, _ := runtimeStub.request.Metadata["structuredOutput"].(map[string]any)
 	if mode, _ := structuredOutput["mode"].(string); mode != "prompt_only" {

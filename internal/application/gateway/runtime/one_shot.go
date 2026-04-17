@@ -6,14 +6,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 
-	"dreamcreator/internal/application/agentruntime"
 	assistantdto "dreamcreator/internal/application/assistant/dto"
+	"dreamcreator/internal/application/chatevent"
 	runtimedto "dreamcreator/internal/application/gateway/runtime/dto"
-	settingsdto "dreamcreator/internal/application/settings/dto"
-	tooldto "dreamcreator/internal/application/tools/dto"
+	"dreamcreator/internal/application/runtimeconfig"
 	workspacedto "dreamcreator/internal/application/workspace/dto"
 	"dreamcreator/internal/infrastructure/llm"
 )
@@ -25,13 +23,23 @@ func (service *Service) RunOneShot(ctx context.Context, request runtimedto.Runti
 	if len(request.Input.Messages) == 0 {
 		return runtimedto.RuntimeRunResult{}, errors.New("runtime input messages required")
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		timeoutCtx, cancel := context.WithTimeout(ctx, runtimeconfig.DefaultAuxiliaryLLMTimeout)
+		defer cancel()
+		ctx = timeoutCtx
+	}
 
 	flags := resolveRunFlags(request.Metadata)
-	gatewaySettings := settingsdto.GatewaySettings{}
+	runKind := resolveRunKind(request, flags)
+	if !isOneShotRunKind(runKind) {
+		runKind = runKindOneShot
+	}
 	appLanguage := ""
 	if service.settings != nil {
 		if current, err := service.settings.GetSettings(ctx); err == nil {
-			gatewaySettings = current.Gateway
 			appLanguage = strings.TrimSpace(current.Language)
 		}
 	}
@@ -57,11 +65,11 @@ func (service *Service) RunOneShot(ctx context.Context, request runtimedto.Runti
 		SessionID:        strings.TrimSpace(request.SessionID),
 		ThreadID:         strings.TrimSpace(request.SessionID),
 		RunID:            strings.TrimSpace(request.RunID),
-		RequestSource:    resolveUsageSource(request.Metadata, resolveMetadataString(request.Metadata, "channel")),
-		Operation:        resolveOneShotLLMOperation(request.Metadata),
+		RequestSource:    resolveUsageSource(request.Metadata, resolveMetadataString(request.Metadata, "channel"), runKind),
+		Operation:        resolveLLMOperation(runKind, request.Metadata, flags.IsSubagent),
 		ProviderID:       resolvedModel.ProviderID,
 		ModelName:        resolvedModel.ModelName,
-		ThinkingLevel:    resolveThinkingLevel(request.Thinking, request.Metadata),
+		ThinkingLevel:    resolveOneShotThinkingLevel(request.Thinking, request.Metadata),
 		StructuredOutput: resolveStructuredOutputConfig(request.Metadata),
 	})
 
@@ -73,111 +81,40 @@ func (service *Service) RunOneShot(ctx context.Context, request runtimedto.Runti
 		defer service.queue.ReleaseLane(runLane)
 	}
 
-	promptMode := resolvePromptMode(request.PromptMode, "", flags.IsSubagent)
-	availableToolSpecs := make([]tooldto.ToolSpec, 0)
-	if service.tools != nil {
-		availableToolSpecs = service.tools.ListTools(runCtx)
-	}
-	toolConfig := mergeToolExecutionConfig(request.Tools, assistantSnapshot.Call, flags.IsSubagent)
-	toolSpecs := service.filterToolSpecs(availableToolSpecs, toolConfig, assistantSnapshot.Tools)
-	skillItems := service.resolveSkillPromptItems(
-		runCtx,
-		resolvedModel.ProviderID,
-		assistantSnapshot.Call,
-		assistantSnapshot.Skills,
-		promptMode,
-		flags.IsSubagent,
-		"",
-	)
+	promptMode := resolveOneShotPromptMode(request.PromptMode)
 	promptDoc, _, _ := buildPromptDocument(promptBuildInput{
 		Mode:              promptMode,
-		RunKind:           resolveRunKind(request, flags),
+		RunKind:           runKind,
 		Assistant:         assistantSnapshot,
 		Workspace:         workspacedto.RuntimeSnapshot{},
-		Tools:             toolSpecs,
-		Skills:            skillItems,
-		HeartbeatPrompt:   strings.TrimSpace(gatewaySettings.Heartbeat.Prompt),
-		IsSubagent:        flags.IsSubagent,
+		Tools:             nil,
+		Skills:            nil,
+		HeartbeatPrompt:   "",
+		IsSubagent:        false,
 		ExtraSystemPrompt: resolveExtraSystemPrompt(request.Metadata),
 		Runtime: runtimePromptInfo{
 			Channel: resolveMetadataString(request.Metadata, "channel"),
 			RunID:   strings.TrimSpace(request.RunID),
 		},
 	})
-
-	streamFn := agentruntime.StreamFunction(chatModel.Stream)
-	policyCtx := tooldto.ToolPolicyContext{
-		ProviderID:      strings.TrimSpace(resolvedModel.ProviderID),
-		Source:          "runtime_one_shot",
-		IsSubagent:      flags.IsSubagent,
-		RequireSandbox:  toolConfig.RequireSandbox,
-		RequireApproval: toolConfig.RequireApproval,
+	messages := dtoMessagesToSchema(request.Input.Messages)
+	if systemPrompt := strings.TrimSpace(promptDoc.Content); systemPrompt != "" {
+		messages = append([]*schema.Message{{
+			Role:    schema.System,
+			Content: systemPrompt,
+		}}, messages...)
 	}
-	toolInfos, toolAdapters := service.resolveToolAdapters(runCtx, "", strings.TrimSpace(request.RunID), toolConfig, assistantSnapshot.Tools, policyCtx)
-	if len(toolInfos) > 0 {
-		if toolModel, ok := resolveToolCallingModel(chatModel); ok {
-			if bound, bindErr := toolModel.WithTools(toolInfos); bindErr == nil {
-				streamFn = agentruntime.StreamFunction(bound.Stream)
-			}
-		}
-	}
-
-	controller := agentruntime.NewAgentController()
-	if timeout := resolveLoopTimeout(request.Metadata, flags.IsSubagent); timeout > 0 {
-		controller.SetTimeout(timeout)
-	}
-	maxSteps := resolveLoopMaxSteps(request.Metadata, flags.IsSubagent)
-	if maxSteps <= 0 {
-		if len(toolAdapters) > 0 {
-			maxSteps = 4
-		} else {
-			maxSteps = 1
-		}
-	}
-
-	var toolExecutor *agentruntime.ToolExecutor
-	var toolLoopDetector *agentruntime.ToolLoopDetector
-	if len(toolAdapters) > 0 {
-		toolExecutor = &agentruntime.ToolExecutor{
-			Validator: agentruntime.JSONToolValidator{},
-			Tools:     toolAdapters,
-		}
-		toolLoopDetector = agentruntime.NewToolLoopDetector(resolveToolLoopDetectionConfig(request.Metadata, gatewaySettings.Runtime.ToolLoopDetection))
-	}
-
-	loop := &agentruntime.AgentLoop{
-		StreamFunction: streamFn,
-		ConvertToLlm: func(_ context.Context, state agentruntime.AgentState) ([]*schema.Message, error) {
-			return state.Messages, nil
-		},
-		ToolExecutor: toolExecutor,
-		Controller:   controller,
-		BuildOptions: func() []model.Option {
-			return service.buildChatOptions(runCtx, resolvedModel.Config, request.Metadata)
-		},
-		MaxSteps:         maxSteps,
-		ToolLoopDetector: toolLoopDetector,
-	}
-
-	stream, err := loop.RunStream(runCtx, agentruntime.AgentState{
-		Messages:     dtoMessagesToSchema(request.Input.Messages),
-		SystemPrompt: strings.TrimSpace(promptDoc.Content),
-		IsStreaming:  true,
-	})
+	response, err := chatModel.Generate(runCtx, messages, service.buildChatOptions(runCtx, resolvedModel.Config, request.Metadata)...)
 	if err != nil {
 		return runtimedto.RuntimeRunResult{}, err
 	}
-
-	content, parts, finishReason, usage, err := consumeAgentLoopStream(stream, nil)
-	if err != nil {
-		return runtimedto.RuntimeRunResult{}, err
-	}
+	content, parts, finishReason, usage := buildOneShotResult(response)
 	if flags.PersistUsage {
 		runID := strings.TrimSpace(request.RunID)
 		if runID == "" && service.newID != nil {
 			runID = service.newID()
 		}
-		service.ingestUsage(runCtx, usage, resolvedModel, resolveMetadataString(request.Metadata, "channel"), resolveUsageSource(request.Metadata, resolveMetadataString(request.Metadata, "channel")), runID)
+		service.ingestUsage(runCtx, usage, resolvedModel, resolveMetadataString(request.Metadata, "channel"), resolveUsageSource(request.Metadata, resolveMetadataString(request.Metadata, "channel"), runKind), runID)
 	}
 
 	return runtimedto.RuntimeRunResult{
@@ -197,11 +134,25 @@ func (service *Service) RunOneShot(ctx context.Context, request runtimedto.Runti
 	}, nil
 }
 
-func resolveOneShotLLMOperation(metadata map[string]any) string {
-	if value, ok := resolveMetadataBool(metadata, "titleGeneration"); ok && value {
-		return "runtime.title_generation"
+func buildOneShotResult(message *schema.Message) (string, []chatevent.MessagePart, string, runtimedto.RuntimeUsage) {
+	if message == nil {
+		return "", nil, "", runtimedto.RuntimeUsage{}
 	}
-	return "runtime.one_shot"
+	content := strings.TrimSpace(message.Content)
+	parts := make([]chatevent.MessagePart, 0, 2)
+	if content != "" {
+		parts = append(parts, chatevent.MessagePart{Type: "text", Text: content})
+	}
+	if reasoning := strings.TrimSpace(message.ReasoningContent); reasoning != "" {
+		parts = append(parts, chatevent.MessagePart{Type: "reasoning", Text: reasoning})
+	}
+	finishReason := ""
+	usage := runtimedto.RuntimeUsage{}
+	if message.ResponseMeta != nil {
+		finishReason = strings.TrimSpace(message.ResponseMeta.FinishReason)
+		usage = mergeRuntimeUsage(usage, message.ResponseMeta.Usage)
+	}
+	return content, parts, finishReason, usage
 }
 
 func (service *Service) resolveOneShotAssistantSnapshot(ctx context.Context, assistantID string, appLanguage string) (assistantdto.AssistantSnapshot, error) {

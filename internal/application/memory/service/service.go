@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 
 	memorydto "dreamcreator/internal/application/memory/dto"
+	"dreamcreator/internal/application/runtimeconfig"
 	settingsdto "dreamcreator/internal/application/settings/dto"
 	domainassistant "dreamcreator/internal/domain/assistant"
 	"dreamcreator/internal/domain/providers"
@@ -43,7 +44,7 @@ const (
 	maxCaptureMax           = 20
 
 	defaultEmbeddingTimeout = 25 * time.Second
-	defaultLLMTimeout       = 30 * time.Second
+	defaultLLMTimeout       = runtimeconfig.DefaultAuxiliaryLLMTimeout
 	defaultMemoryScope      = "assistant"
 	allMemoryScopeToken     = "all"
 )

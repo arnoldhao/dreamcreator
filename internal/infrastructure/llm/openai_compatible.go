@@ -15,6 +15,8 @@ import (
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
+
+	domainproviders "dreamcreator/internal/domain/providers"
 )
 
 const (
@@ -26,20 +28,26 @@ const (
 var errStreamIdleTimeout = errors.New("stream idle timeout")
 
 type OpenAICompatibleConfig struct {
-	BaseURL           string
-	APIKey            string
-	Model             string
-	ChatPath          string
-	Headers           map[string]string
-	HTTPClient        *http.Client
-	StreamIdleTimeout time.Duration
-	Recorder          CallRecorder
+	BaseURL               string
+	APIKey                string
+	Model                 string
+	ProviderID            string
+	ProviderType          domainproviders.ProviderType
+	ProviderCompatibility domainproviders.ProviderCompatibility
+	ChatPath              string
+	Headers               map[string]string
+	HTTPClient            *http.Client
+	StreamIdleTimeout     time.Duration
+	Recorder              CallRecorder
 }
 
 type OpenAICompatibleChatModel struct {
 	baseURL           string
 	apiKey            string
 	model             string
+	providerID        string
+	providerType      domainproviders.ProviderType
+	providerCompat    domainproviders.ProviderCompatibility
 	chatPath          string
 	headers           map[string]string
 	client            *http.Client
@@ -68,11 +76,27 @@ func NewOpenAICompatibleChatModel(config OpenAICompatibleConfig) (*OpenAICompati
 	if streamIdleTimeout <= 0 {
 		streamIdleTimeout = defaultStreamIdleTimeout
 	}
+	providerType := config.ProviderType
+	if providerType == "" {
+		providerType = domainproviders.ProviderTypeOpenAI
+	}
+	providerCompat := config.ProviderCompatibility
+	if providerCompat == "" {
+		switch providerType {
+		case domainproviders.ProviderTypeAnthropic:
+			providerCompat = domainproviders.ProviderCompatibilityAnthropic
+		default:
+			providerCompat = domainproviders.ProviderCompatibilityOpenAI
+		}
+	}
 
 	return &OpenAICompatibleChatModel{
 		baseURL:           strings.TrimRight(base, "/"),
 		apiKey:            strings.TrimSpace(config.APIKey),
 		model:             strings.TrimSpace(config.Model),
+		providerID:        strings.TrimSpace(config.ProviderID),
+		providerType:      providerType,
+		providerCompat:    providerCompat,
 		chatPath:          chatPath,
 		headers:           config.Headers,
 		client:            client,
@@ -121,7 +145,12 @@ func (modelClient *OpenAICompatibleChatModel) Generate(ctx context.Context, inpu
 		ToolChoice:  toolChoice,
 	}
 	params := runtimeParamsFromContext(ctx)
-	applyRuntimeParams(params, &payload)
+	applyRuntimeParams(params, providerRequestCompatibility{
+		ProviderID:    modelClient.providerID,
+		ProviderType:  modelClient.providerType,
+		Compatibility: modelClient.providerCompat,
+		ModelName:     modelName,
+	}, &payload)
 
 	body, err := modelClient.executeChatRequest(ctx, payload)
 	if err != nil && shouldRetryWithoutStructuredOutput(err, params.StructuredOutput, payload.ResponseFormat) {
@@ -202,7 +231,12 @@ func (modelClient *OpenAICompatibleChatModel) Stream(ctx context.Context, input 
 		StreamOptions: &openAIStreamOptions{IncludeUsage: true},
 	}
 	params := runtimeParamsFromContext(ctx)
-	applyRuntimeParams(params, &payload)
+	applyRuntimeParams(params, providerRequestCompatibility{
+		ProviderID:    modelClient.providerID,
+		ProviderType:  modelClient.providerType,
+		Compatibility: modelClient.providerCompat,
+		ModelName:     modelName,
+	}, &payload)
 
 	streamCtx, streamCancel := context.WithCancel(ctx)
 	streamClient := cloneStreamHTTPClient(modelClient.client)
@@ -409,18 +443,22 @@ func toOpenAIMessages(input []*schema.Message) []openAIMessage {
 }
 
 type openAIChatRequest struct {
-	Model           string                `json:"model"`
-	Messages        []openAIMessage       `json:"messages"`
-	Temperature     *float32              `json:"temperature,omitempty"`
-	MaxTokens       *int                  `json:"max_tokens,omitempty"`
-	ReasoningEffort string                `json:"reasoning_effort,omitempty"`
-	ResponseFormat  *openAIResponseFormat `json:"response_format,omitempty"`
-	TopP            *float32              `json:"top_p,omitempty"`
-	Stop            []string              `json:"stop,omitempty"`
-	Tools           []openAITool          `json:"tools,omitempty"`
-	ToolChoice      any                   `json:"tool_choice,omitempty"`
-	Stream          bool                  `json:"stream,omitempty"`
-	StreamOptions   *openAIStreamOptions  `json:"stream_options,omitempty"`
+	Model           string                 `json:"model"`
+	Messages        []openAIMessage        `json:"messages"`
+	Temperature     *float32               `json:"temperature,omitempty"`
+	MaxTokens       *int                   `json:"max_tokens,omitempty"`
+	ReasoningEffort string                 `json:"reasoning_effort,omitempty"`
+	Reasoning       *openAIReasoning       `json:"reasoning,omitempty"`
+	Thinking        *openAIThinkingConfig  `json:"thinking,omitempty"`
+	EnableThinking  *bool                  `json:"enable_thinking,omitempty"`
+	OutputConfig    *anthropicOutputConfig `json:"output_config,omitempty"`
+	ResponseFormat  *openAIResponseFormat  `json:"response_format,omitempty"`
+	TopP            *float32               `json:"top_p,omitempty"`
+	Stop            []string               `json:"stop,omitempty"`
+	Tools           []openAITool           `json:"tools,omitempty"`
+	ToolChoice      any                    `json:"tool_choice,omitempty"`
+	Stream          bool                   `json:"stream,omitempty"`
+	StreamOptions   *openAIStreamOptions   `json:"stream_options,omitempty"`
 }
 
 type openAIMessage struct {
@@ -430,6 +468,20 @@ type openAIMessage struct {
 	Reasoning        string           `json:"reasoning,omitempty"`
 	ToolCalls        []openAIToolCall `json:"tool_calls,omitempty"`
 	ToolCallID       string           `json:"tool_call_id,omitempty"`
+}
+
+type openAIReasoning struct {
+	Effort    string `json:"effort,omitempty"`
+	MaxTokens *int   `json:"max_tokens,omitempty"`
+}
+
+type openAIThinkingConfig struct {
+	Type         string `json:"type"`
+	BudgetTokens *int   `json:"budget_tokens,omitempty"`
+}
+
+type anthropicOutputConfig struct {
+	Effort string `json:"effort,omitempty"`
 }
 
 type openAIResponseFormat struct {
@@ -444,20 +496,24 @@ type openAIResponseFormatJSONSchema struct {
 }
 
 func applyRuntimeParamsToRequest(ctx context.Context, payload *openAIChatRequest) {
-	applyRuntimeParams(runtimeParamsFromContext(ctx), payload)
+	applyRuntimeParams(runtimeParamsFromContext(ctx), providerRequestCompatibility{}, payload)
 }
 
-func applyRuntimeParams(params RuntimeParams, payload *openAIChatRequest) {
+type providerRequestCompatibility struct {
+	ProviderID    string
+	ProviderType  domainproviders.ProviderType
+	Compatibility domainproviders.ProviderCompatibility
+	ModelName     string
+}
+
+func applyRuntimeParams(params RuntimeParams, compatibility providerRequestCompatibility, payload *openAIChatRequest) {
 	if payload == nil {
 		return
-	}
-	effort := resolveReasoningEffort(params.ProviderID, params.ThinkingLevel)
-	if effort != "" {
-		payload.ReasoningEffort = effort
 	}
 	if responseFormat := toOpenAIResponseFormat(params.StructuredOutput); responseFormat != nil {
 		payload.ResponseFormat = responseFormat
 	}
+	applyThinkingLevel(params.ThinkingLevel, compatibility, payload)
 }
 
 func toOpenAIResponseFormat(config StructuredOutputConfig) *openAIResponseFormat {
@@ -474,30 +530,158 @@ func toOpenAIResponseFormat(config StructuredOutputConfig) *openAIResponseFormat
 	}
 }
 
-func resolveReasoningEffort(providerID string, thinkingLevel string) string {
-	if !supportsReasoningEffort(providerID) {
-		return ""
+func applyThinkingLevel(level string, compatibility providerRequestCompatibility, payload *openAIChatRequest) {
+	if payload == nil {
+		return
 	}
-	switch strings.ToLower(strings.TrimSpace(thinkingLevel)) {
-	case "off", "minimal":
-		return "minimal"
-	case "low":
-		return "low"
-	case "medium":
-		return "medium"
-	case "high", "xhigh":
-		return "high"
+	payload.ReasoningEffort = ""
+	payload.Reasoning = nil
+	payload.Thinking = nil
+	payload.EnableThinking = nil
+	payload.OutputConfig = nil
+
+	level = normalizeProviderThinkingLevel(level)
+	if level == "" {
+		return
+	}
+
+	profile, ok := resolveModelReasoningProfile(compatibility)
+	if !ok || !reasoningProfileSupportsLevel(profile, level) {
+		return
+	}
+
+	switch profile.ControlProtocol {
+	case ReasoningControlProtocolOpenAIReasoningEffort:
+		applyProfileOpenAIReasoningEffort(level, payload)
+	case ReasoningControlProtocolOpenRouterReasoning:
+		applyProfileOpenRouterReasoning(level, payload)
+	case ReasoningControlProtocolThinkingToggle:
+		applyProfileThinkingToggle(level, payload)
+	case ReasoningControlProtocolAnthropicThinking:
+		applyProfileAnthropicThinking(level, payload)
+	case ReasoningControlProtocolQwenThinkingToggle:
+		applyProfileQwenThinkingToggle(level, payload)
 	default:
-		return ""
+		return
 	}
 }
 
-func supportsReasoningEffort(providerID string) bool {
-	switch strings.ToLower(strings.TrimSpace(providerID)) {
-	case "openai", "openai-codex", "github-copilot":
-		return true
+func applyProfileOpenAIReasoningEffort(level string, payload *openAIChatRequest) {
+	if payload == nil {
+		return
+	}
+	switch level {
+	case "off":
+		payload.ReasoningEffort = "none"
+	case "minimal", "low", "medium", "high", "xhigh":
+		payload.ReasoningEffort = level
+	}
+}
+
+func applyProfileOpenRouterReasoning(level string, payload *openAIChatRequest) {
+	if payload == nil {
+		return
+	}
+	switch level {
+	case "off":
+		payload.Reasoning = &openAIReasoning{Effort: "none"}
+	case "minimal", "low", "medium", "high", "xhigh":
+		payload.Reasoning = &openAIReasoning{Effort: level}
+	}
+}
+
+func applyProfileThinkingToggle(level string, payload *openAIChatRequest) {
+	if payload == nil {
+		return
+	}
+	thinkingType := "enabled"
+	if level == "off" {
+		thinkingType = "disabled"
+	}
+	payload.Thinking = &openAIThinkingConfig{Type: thinkingType}
+}
+
+func applyProfileAnthropicThinking(level string, payload *openAIChatRequest) {
+	if payload == nil {
+		return
+	}
+	budget := anthropicThinkingBudget(level, payload.MaxTokens)
+	if budget == nil {
+		return
+	}
+	payload.Thinking = &openAIThinkingConfig{
+		Type:         "enabled",
+		BudgetTokens: budget,
+	}
+	forceTemperatureOne(payload)
+}
+
+func applyProfileQwenThinkingToggle(level string, payload *openAIChatRequest) {
+	if payload == nil {
+		return
+	}
+	enabled := level != "off"
+	payload.EnableThinking = &enabled
+}
+
+func anthropicThinkingBudget(level string, maxTokens *int) *int {
+	base := 2048
+	switch level {
+	case "minimal":
+		base = 1024
+	case "low":
+		base = 2048
+	case "medium":
+		base = 4096
+	case "high":
+		base = 8192
+	case "xhigh":
+		base = 16384
 	default:
-		return false
+		return nil
+	}
+	if maxTokens == nil || *maxTokens <= 0 {
+		value := base
+		return &value
+	}
+	limit := *maxTokens - 1
+	if limit < 1024 {
+		return nil
+	}
+	if base > limit {
+		base = limit
+	}
+	if base < 1024 {
+		base = 1024
+	}
+	value := base
+	return &value
+}
+
+func forceTemperatureOne(payload *openAIChatRequest) {
+	if payload == nil {
+		return
+	}
+	value := float32(1)
+	payload.Temperature = &value
+}
+
+func normalizeProviderThinkingLevel(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "off", "none", "disabled", "disable", "false", "0":
+		return "off"
+	case "minimal", "min":
+		return "minimal"
+	case "low", "on", "enabled", "enable", "true", "1":
+		return "low"
+	case "medium", "med":
+		return "medium"
+	case "high", "max":
+		return "high"
+	case "xhigh", "ultra":
+		return "xhigh"
+	default:
+		return ""
 	}
 }
 

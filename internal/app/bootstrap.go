@@ -480,7 +480,10 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	usageRepo := usagerepo.NewSQLiteUsageLedgerRepository(database.Bun)
 	usageService := gatewayusage.NewService(usageRepo)
 	telegramBotService.SetModelRepositories(providerRepo, modelRepo)
-	modelSyncer := providersync.NewEndpointModelsSyncer()
+	modelsDevCatalogRepo := providersync.NewSQLiteModelsDevCatalogRepository(database.Bun)
+	modelsDevSyncer := providersync.NewModelsDevSyncer()
+	modelsDevCatalog := providersync.NewModelsDevCatalogService(modelsDevCatalogRepo, modelsDevSyncer)
+	modelSyncer := providersync.NewEndpointModelsSyncer(modelsDevCatalog)
 	logoCache := providersync.NewModelsDevLogoCache()
 	providerService := providerservice.NewProvidersService(providerRepo, modelRepo, secretRepo, modelSyncer, logoCache)
 	if err := providerService.EnsureDefaults(ctx); err != nil {
@@ -488,9 +491,10 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	}
 	providerHandler := wails.NewProviderHandler(providerService, providersUpdatedWindowNotifier{
 		manager: windowManager,
-	}, usageService, providersync.NewModelsDevSyncer(), telemetryService)
+	}, usageService, modelsDevCatalog, telemetryService)
 	app.RegisterService(application.NewService(providerHandler))
 	app.RegisterService(application.NewService(wails.NewSkillsHandler(skillsService)))
+	startModelsDevCatalogSyncWorker(ctx, modelsDevCatalog)
 
 	connectorsRepo := connectorsrepo.NewSQLiteConnectorRepository(database.Bun)
 	connectorsService := connectorsservice.NewConnectorsService(connectorsRepo)
@@ -1668,7 +1672,6 @@ func resolveCronRuntimeModelSelection(primary string) *gatewayruntimedto.ModelSe
 	}
 	return nil
 }
-
 func parseCronModelRef(value string) (string, string, bool) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
