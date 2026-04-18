@@ -262,6 +262,7 @@ func browserActionTabs(state *browserProfileState) map[string]any {
 
 func browserActionOpen(ctx context.Context, payload toolArgs, state *browserProfileState, connectors ConnectorsReader) (map[string]any, error) {
 	targetURL := strings.TrimSpace(getStringArg(payload, "targetUrl", "url"))
+	timeoutMs := resolveBrowserActionTimeoutMs(payload, 30000)
 	if err := assertBrowserURLAllowed(targetURL, state.resolved.SSRFRules); err != nil {
 		return nil, err
 	}
@@ -272,7 +273,7 @@ func browserActionOpen(ctx context.Context, payload toolArgs, state *browserProf
 	if err := addConnectorCookiesToTab(ctx, connectors, tab, targetURL); err != nil {
 		return nil, err
 	}
-	if err := navigateBrowserTab(tab, targetURL, resolveBrowserActionTimeoutMs(payload, 30000)); err != nil {
+	if err := navigateBrowserTab(tab, targetURL, timeoutMs); err != nil {
 		return nil, err
 	}
 	state.mu.Lock()
@@ -287,6 +288,7 @@ func browserActionOpen(ctx context.Context, payload toolArgs, state *browserProf
 
 func browserActionNavigate(ctx context.Context, payload toolArgs, state *browserProfileState, connectors ConnectorsReader) (map[string]any, error) {
 	targetURL := strings.TrimSpace(getStringArg(payload, "targetUrl", "url"))
+	timeoutMs := resolveBrowserActionTimeoutMs(payload, 30000)
 	if err := assertBrowserURLAllowed(targetURL, state.resolved.SSRFRules); err != nil {
 		return nil, err
 	}
@@ -300,7 +302,7 @@ func browserActionNavigate(ctx context.Context, payload toolArgs, state *browser
 	if err := addConnectorCookiesToTab(ctx, connectors, tab, targetURL); err != nil {
 		return nil, err
 	}
-	if err := navigateBrowserTab(tab, targetURL, resolveBrowserActionTimeoutMs(payload, 30000)); err != nil {
+	if err := navigateBrowserTab(tab, targetURL, timeoutMs); err != nil {
 		return nil, err
 	}
 	return map[string]any{"ok": true, "targetId": tab.TargetID, "url": browserTabURL(tab)}, nil
@@ -315,7 +317,10 @@ func browserActionFocus(ctx context.Context, payload toolArgs, state *browserPro
 	if err != nil {
 		return nil, err
 	}
-	if err := chromedp.Run(tab.ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+	timeout := time.Duration(resolveBrowserActionTimeoutMs(payload, 15000)) * time.Millisecond
+	runCtx, cancel := context.WithTimeout(tab.ctx, timeout)
+	defer cancel()
+	if err := chromedp.Run(runCtx, chromedp.ActionFunc(func(ctx context.Context) error {
 		return targetpkg.ActivateTarget(targetpkg.ID(tab.TargetID)).Do(ctx)
 	})); err != nil {
 		return nil, err
@@ -336,7 +341,10 @@ func browserActionClose(_ context.Context, payload toolArgs, state *browserProfi
 		return nil, err
 	}
 	tab.cancel()
-	_ = chromedp.Run(state.runtime.BrowserContext(), chromedp.ActionFunc(func(ctx context.Context) error {
+	timeout := time.Duration(resolveBrowserActionTimeoutMs(payload, 15000)) * time.Millisecond
+	runCtx, cancel := context.WithTimeout(state.runtime.BrowserContext(), timeout)
+	defer cancel()
+	_ = chromedp.Run(runCtx, chromedp.ActionFunc(func(ctx context.Context) error {
 		return targetpkg.CloseTarget(targetpkg.ID(tab.TargetID)).Do(ctx)
 	}))
 	state.mu.Lock()
@@ -513,7 +521,10 @@ func browserActionDialog(ctx context.Context, payload toolArgs, state *browserPr
 	}
 	if accept, ok := getBoolArg(payload, "accept"); ok {
 		promptText := strings.TrimSpace(getStringArg(payload, "promptText"))
-		if err := chromedp.Run(tab.ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		timeout := time.Duration(resolveBrowserActionTimeoutMs(payload, 15000)) * time.Millisecond
+		runCtx, cancel := context.WithTimeout(tab.ctx, timeout)
+		defer cancel()
+		if err := chromedp.Run(runCtx, chromedp.ActionFunc(func(ctx context.Context) error {
 			return pagepkg.HandleJavaScriptDialog(accept).WithPromptText(promptText).Do(ctx)
 		})); err != nil {
 			return nil, err
@@ -729,7 +740,9 @@ func ensureBrowserProfileStarted(state *browserProfileState) error {
 		return nil
 	}
 	userDataDir := filepath.Join(os.TempDir(), "dreamcreator", "browser", state.sessionKey, state.profileName)
-	runtime, err := browsercdp.Start(context.Background(), browsercdp.LaunchOptions{
+	startCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	runtime, err := browsercdp.Start(startCtx, browsercdp.LaunchOptions{
 		PreferredBrowser: state.resolved.PreferredBrowser,
 		Headless:         state.resolved.Headless,
 		UserDataDir:      userDataDir,
@@ -767,7 +780,9 @@ func createBrowserTab(state *browserProfileState) (*browserTabState, error) {
 		cancel: cancel,
 		refs:   map[string]browserSnapshotRef{},
 	}
-	if err := chromedp.Run(tabCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+	runCtx, runCancel := context.WithTimeout(tabCtx, 10*time.Second)
+	defer runCancel()
+	if err := chromedp.Run(runCtx, chromedp.ActionFunc(func(ctx context.Context) error {
 		targetID := string(chromedp.FromContext(ctx).Target.TargetID)
 		tab.TargetID = targetID
 		return nil
@@ -831,11 +846,9 @@ func navigateBrowserTab(tab *browserTabState, targetURL string, timeoutMs int) e
 	timeout := time.Duration(normalizeBrowserTimeoutMs(timeoutMs, 30000)) * time.Millisecond
 	runCtx, cancel := context.WithTimeout(tab.ctx, timeout)
 	defer cancel()
-	if _, err := chromedp.RunResponse(runCtx, chromedp.Navigate(targetURL)); err != nil {
-		return err
-	}
 	var finalURL string
 	if err := chromedp.Run(runCtx,
+		chromedp.Navigate(targetURL),
 		chromedp.WaitReady("body", chromedp.ByQuery),
 		chromedp.Location(&finalURL),
 	); err != nil {
@@ -856,7 +869,9 @@ func addConnectorCookiesToTab(ctx context.Context, connectors ConnectorsReader, 
 	if err != nil || len(cookies) == 0 {
 		return err
 	}
-	return chromedp.Run(tab.ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+	runCtx, cancel := context.WithTimeout(tab.ctx, 10*time.Second)
+	defer cancel()
+	return chromedp.Run(runCtx, chromedp.ActionFunc(func(ctx context.Context) error {
 		return browsercdp.SetCookies(ctx, targetURL, connectorCookiesToRecords(cookies))
 	}))
 }

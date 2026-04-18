@@ -2,11 +2,11 @@ import * as React from "react";
 import type { ToolCallMessagePart, ToolCallMessagePartStatus } from "@assistant-ui/react";
 
 import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
+import { ApprovalCard } from "@/components/tool-ui/approval-card";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/shared/i18n";
 import { messageBus } from "@/shared/message";
 import { requestGateway } from "@/shared/realtime";
-import { Button } from "@/shared/ui/button";
 import { DASHBOARD_PANEL_SURFACE_CLASS } from "@/shared/ui/dashboard";
 
 export type ToolUIFallbackCardProps = {
@@ -136,22 +136,17 @@ export function ToolUIFallbackCard({
     resolvedStatus.type === "requires-action" && approvalID !== "" && approvalDecision === "";
   const isCancelled =
     resolvedStatus.type === "incomplete" && resolvedStatus.reason === "cancelled";
+  const approvalTitle = approval?.action?.trim() || t("chat.tools.approvalTool.title");
+  const approvalToolName = approval?.toolName?.trim() || resolvedToolName;
+  const approvalDescription = `${t("chat.tools.approvalTool.tool")}: ${approvalToolName}`;
 
   const [open, setOpen] = React.useState(false);
-  const [pendingDecision, setPendingDecision] = React.useState<"approve" | "deny" | "">("");
-
-  React.useEffect(() => {
-    if (!requiresApprovalAction) {
-      setPendingDecision("");
-    }
-  }, [requiresApprovalAction, approvalID]);
 
   const resolveApproval = React.useCallback(
     async (decision: "approve" | "deny") => {
-      if (!approvalID || pendingDecision) {
+      if (!approvalID) {
         return;
       }
-      setPendingDecision(decision);
       try {
         await requestGateway("exec.approval.resolve", {
           id: approvalID,
@@ -159,7 +154,6 @@ export function ToolUIFallbackCard({
           reason: decision === "approve" ? "approved by aui fallback" : "denied by aui fallback",
         });
       } catch (error) {
-        setPendingDecision("");
         messageBus.publishToast({
           intent: "danger",
           title: t("chat.tools.approvalTool.resolveError"),
@@ -168,7 +162,7 @@ export function ToolUIFallbackCard({
         });
       }
     },
-    [approvalID, pendingDecision, t]
+    [approvalID, t]
   );
 
   return (
@@ -182,29 +176,17 @@ export function ToolUIFallbackCard({
     >
       <ToolFallback.Trigger toolName={resolvedToolName} status={resolvedStatus} />
       {requiresApprovalAction ? (
-        <div className="flex items-center justify-end gap-2 px-4 pt-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="default"
-            disabled={pendingDecision !== ""}
-            onClick={() => {
-              void resolveApproval("approve");
-            }}
-          >
-            {t("chat.tools.approvalTool.approveAction")}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={pendingDecision !== ""}
-            onClick={() => {
-              void resolveApproval("deny");
-            }}
-          >
-            {t("chat.tools.approvalTool.denyAction")}
-          </Button>
+        <div className="px-4 pt-2">
+          <ApprovalCard
+            id={`exec-approval-${approvalID}`}
+            title={approvalTitle}
+            description={approvalDescription}
+            icon="shield-check"
+            confirmLabel={t("chat.tools.approvalTool.approveAction")}
+            cancelLabel={t("chat.tools.approvalTool.denyAction")}
+            onConfirm={() => resolveApproval("approve")}
+            onCancel={() => resolveApproval("deny")}
+          />
         </div>
       ) : null}
       <ToolFallback.Content>
