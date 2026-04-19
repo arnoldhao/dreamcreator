@@ -35,6 +35,7 @@ const oversizeBaseline = {
   "frontend/src/shared/contracts/library.ts": 1300,
   "internal/application/channels/telegram/bot_service.go": 5000,
   "internal/application/gateway/tools/browser_tools.go": 3150,
+  "internal/application/browsercdp/session.go": 3362,
   "internal/application/library/service/service.go": 2750,
   "internal/application/gateway/cron/scheduler.go": 2650,
   "internal/application/memory/service/service.go": 2300,

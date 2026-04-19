@@ -164,6 +164,7 @@ export type FrameworkTabProps = {
   showToastPreview: () => void;
   showNotificationPreview: () => void;
   showDialogPreview: () => void;
+  showWhatsNewPreview: () => void;
   sendOsNotification: () => void;
   publishBackendDebug: () => void;
 };

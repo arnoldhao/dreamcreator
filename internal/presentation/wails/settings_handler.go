@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	gatewaytools "dreamcreator/internal/application/gateway/tools"
 	"dreamcreator/internal/application/settings/dto"
 	"dreamcreator/internal/application/settings/service"
 	"dreamcreator/internal/domain/settings"
@@ -82,6 +83,19 @@ func (handler *SettingsHandler) UpdateSettings(ctx context.Context, request dto.
 			return dto.Settings{}, err
 		}
 		zap.L().Info("proxy applied", proxyFields(updated.Proxy)...)
+	}
+
+	if hasPrevious && gatewaytools.BrowserToolRuntimeConfigChanged(previousSettings.Tools, updated.Tools) {
+		gatewaytools.CleanupAllBrowserToolSessions()
+		zap.L().Info(
+			"browser tool sessions reset after browser runtime settings change",
+			zap.Bool("previousEnabled", resolveSettingsBrowserBool(previousSettings.Tools, "enabled")),
+			zap.Bool("currentEnabled", resolveSettingsBrowserBool(updated.Tools, "enabled")),
+			zap.Bool("previousHeadless", resolveSettingsBrowserBool(previousSettings.Tools, "headless")),
+			zap.Bool("currentHeadless", resolveSettingsBrowserBool(updated.Tools, "headless")),
+			zap.String("previousPreferredBrowser", resolveSettingsBrowserString(previousSettings.Tools, "preferredBrowser")),
+			zap.String("currentPreferredBrowser", resolveSettingsBrowserString(updated.Tools, "preferredBrowser")),
+		)
 	}
 
 	handler.windows.ApplySettings(updated)
@@ -248,6 +262,24 @@ func proxyFields(proxyDTO dto.Proxy) []zap.Field {
 		zap.String("testMessage", proxyDTO.TestMessage),
 		zap.String("testedAt", proxyDTO.TestedAt),
 	}
+}
+
+func resolveSettingsBrowserBool(config map[string]any, key string) bool {
+	browser, ok := config["browser"].(map[string]any)
+	if !ok || browser == nil {
+		return false
+	}
+	value, _ := browser[key].(bool)
+	return value
+}
+
+func resolveSettingsBrowserString(config map[string]any, key string) string {
+	browser, ok := config["browser"].(map[string]any)
+	if !ok || browser == nil {
+		return ""
+	}
+	value, _ := browser[key].(string)
+	return strings.TrimSpace(value)
 }
 
 func (handler *SettingsHandler) rollbackSettings(ctx context.Context, previous dto.Settings) {

@@ -8,11 +8,10 @@ import (
 type ToolName string
 
 const (
-	ToolYTDLP      ToolName = "yt-dlp"
-	ToolFFmpeg     ToolName = "ffmpeg"
-	ToolBun        ToolName = "bun"
-	ToolClawHub    ToolName = "clawhub"
-	ToolPlaywright ToolName = "playwright"
+	ToolYTDLP   ToolName = "yt-dlp"
+	ToolFFmpeg  ToolName = "ffmpeg"
+	ToolBun     ToolName = "bun"
+	ToolClawHub ToolName = "clawhub"
 )
 
 type ToolKind string

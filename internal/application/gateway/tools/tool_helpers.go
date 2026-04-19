@@ -350,3 +350,21 @@ func getNestedInt(root map[string]any, path ...string) (int, bool) {
 	}
 	return 0, false
 }
+
+func containsString(values []string, needle string) bool {
+	needle = strings.TrimSpace(needle)
+	for _, value := range values {
+		if strings.TrimSpace(value) == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func trimToMaxChars(value string, maxChars int) string {
+	value = strings.TrimSpace(value)
+	if maxChars <= 0 || len(value) <= maxChars {
+		return value
+	}
+	return value[:maxChars]
+}

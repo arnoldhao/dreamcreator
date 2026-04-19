@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"dreamcreator/internal/application/browsercdp"
 	tooldto "dreamcreator/internal/application/tools/dto"
 )
 
@@ -41,9 +42,16 @@ func loadToolRequirementSnapshot(ctx context.Context, settings SettingsReader) t
 
 func resolveEffectiveToolSpec(spec tooldto.ToolSpec, snapshot toolRequirementSnapshot) tooldto.ToolSpec {
 	key := resolveToolRequirementKey(spec)
-	if snapshot.loaded && key == "browser" {
-		if enabled, ok := resolveBrowserConfigBool(snapshot.toolsConfig, "enabled"); ok && !enabled {
-			spec.Enabled = false
+	if snapshot.loaded {
+		switch key {
+		case "browser":
+			if enabled, ok := resolveBrowserConfigBool(snapshot.toolsConfig, "enabled"); ok && !enabled {
+				spec.Enabled = false
+			}
+		case "web_fetch":
+			if enabled, ok := resolveWebFetchConfigBool(snapshot.toolsConfig, "enabled"); ok && !enabled {
+				spec.Enabled = false
+			}
 		}
 	}
 	requirements := resolveToolRequirements(spec, snapshot)
@@ -97,30 +105,56 @@ func resolveToolRequirements(spec tooldto.ToolSpec, snapshot toolRequirementSnap
 		return resolveWebFetchRequirements(snapshot.toolsConfig)
 	case "browser":
 		return resolveBrowserRequirements(snapshot.toolsConfig)
+	case "canvas":
+		return resolveCanvasRequirements()
+	case "nodes":
+		return resolveNodeRequirements()
 	default:
 		return nil
 	}
 }
 
-func resolveBrowserRequirements(_ map[string]any) []tooldto.ToolRequirement {
-	runtimeRequirement := tooldto.ToolRequirement{
-		ID:        "browser.playwright_runtime",
-		Name:      "Playwright runtime",
-		Available: true,
+func resolveBrowserRequirements(config map[string]any) []tooldto.ToolRequirement {
+	resolved := resolveBrowserRuntimeConfig(config)
+	status := browsercdp.ResolveStatus(resolved.PreferredBrowser, resolved.Headless)
+	requirements := []tooldto.ToolRequirement{
+		{
+			ID:        "browser.cdp_runtime",
+			Name:      "Local CDP browser",
+			Available: status.Ready,
+			Reason:    strings.TrimSpace(status.DetectError),
+			Data: map[string]any{
+				"candidates":             status.Candidates,
+				"selectedBrowser":        status.SelectedBrowser,
+				"chosenBrowser":          status.ChosenBrowser,
+				"detectedExecutablePath": status.DetectedExecutablePath,
+				"headless":               status.Headless,
+			},
+		},
 	}
-	available, reason, execPath := resolveBrowserPlaywrightRuntimeAvailability()
-	runtimeRequirement.Available = available
-	if !available {
-		if strings.TrimSpace(reason) != "" {
-			runtimeRequirement.Reason = reason
-		} else {
-			runtimeRequirement.Reason = "Playwright runtime is unavailable"
-		}
-	} else if strings.TrimSpace(execPath) != "" {
-		// Surface resolved Chromium binary path for browser settings content.
-		runtimeRequirement.Reason = strings.TrimSpace(execPath)
+	return requirements
+}
+
+func resolveNodeRequirements() []tooldto.ToolRequirement {
+	return []tooldto.ToolRequirement{
+		{
+			ID:        "nodes.remote_runtime",
+			Name:      "Remote node runtime",
+			Available: false,
+			Reason:    "Remote node runtime is not implemented yet",
+		},
 	}
-	return []tooldto.ToolRequirement{runtimeRequirement}
+}
+
+func resolveCanvasRequirements() []tooldto.ToolRequirement {
+	return []tooldto.ToolRequirement{
+		{
+			ID:        "canvas.remote_runtime",
+			Name:      "Remote node runtime",
+			Available: false,
+			Reason:    "Remote node runtime is not implemented yet",
+		},
+	}
 }
 
 func resolveToolRequirementKey(spec tooldto.ToolSpec) string {
@@ -132,19 +166,21 @@ func resolveToolRequirementKey(spec tooldto.ToolSpec) string {
 }
 
 func resolveWebFetchRequirements(config map[string]any) []tooldto.ToolRequirement {
-	enabled := true
-	if value, ok := resolveWebFetchConfigBool(config, "enabled"); ok {
-		enabled = value
+	status := browsercdp.ResolveStatus(resolveWebFetchPreferredBrowser(config), resolveWebFetchHeadless(config))
+	browserRequirement := tooldto.ToolRequirement{
+		ID:        "web_fetch.local_browser",
+		Name:      "Local CDP browser",
+		Available: status.Ready,
+		Reason:    strings.TrimSpace(status.DetectError),
+		Data: map[string]any{
+			"candidates":             status.Candidates,
+			"selectedBrowser":        status.SelectedBrowser,
+			"chosenBrowser":          status.ChosenBrowser,
+			"detectedExecutablePath": status.DetectedExecutablePath,
+			"headless":               status.Headless,
+		},
 	}
-	requirement := tooldto.ToolRequirement{
-		ID:        "web_fetch.config_enabled",
-		Name:      "Web fetch switch",
-		Available: enabled,
-	}
-	if !enabled {
-		requirement.Reason = "web_fetch is disabled in settings"
-	}
-	return []tooldto.ToolRequirement{requirement}
+	return []tooldto.ToolRequirement{browserRequirement}
 }
 
 func resolveWebSearchRequirements(config map[string]any) []tooldto.ToolRequirement {
@@ -263,4 +299,13 @@ func resolveWebSearchProviderAPIKey(config map[string]any, provider string) stri
 		}
 	}
 	return strings.TrimSpace(apiKey)
+}
+
+func resolveWebSearchProviderString(config map[string]any, provider string, key string) string {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	key = strings.TrimSpace(key)
+	if provider == "" || key == "" {
+		return ""
+	}
+	return getNestedString(config, "web", "search", "providers", provider, key)
 }

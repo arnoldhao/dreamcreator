@@ -21,6 +21,7 @@ type ToolRequirement struct {
 	Name      string `json:"name,omitempty"`
 	Available bool   `json:"available"`
 	Reason    string `json:"reason,omitempty"`
+	Data      any    `json:"data,omitempty"`
 }
 
 type ToolMethodSpec struct {

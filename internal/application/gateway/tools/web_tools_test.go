@@ -3,8 +3,6 @@ package tools
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -28,156 +26,59 @@ func builtinWebFetchSettingsStub() *settingsReaderStub {
 		settings: settingsdto.Settings{
 			Tools: map[string]any{
 				"web_fetch": map[string]any{
-					"type": "builtin",
+					"preferredBrowser": "chrome",
 				},
 			},
 		},
 	}
 }
 
-func TestRunWebFetchTool_DefaultLLMHeaders(t *testing.T) {
+func TestRunWebFetchTool_RejectsNonGETMethods(t *testing.T) {
 	t.Parallel()
 
-	var acceptHeader string
-	var userAgentHeader string
-	var acceptLanguageHeader string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		acceptHeader = r.Header.Get("Accept")
-		userAgentHeader = r.Header.Get("User-Agent")
-		acceptLanguageHeader = r.Header.Get("Accept-Language")
-		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
-		w.Header().Set("x-markdown-tokens", "256")
-		w.Header().Set("content-signal", "ai-input=yes")
-		_, _ = w.Write([]byte("# Hello\n\nworld"))
-	}))
-	defer server.Close()
-
 	handler := runWebFetchTool(builtinWebFetchSettingsStub(), nil)
-	output, err := handler(context.Background(), `{"url":"`+server.URL+`"}`)
+	output, err := handler(context.Background(), `{"url":"https://example.com","method":"POST"}`)
 	if err != nil {
 		t.Fatalf("run web_fetch: %v", err)
-	}
-
-	if !strings.Contains(acceptHeader, "text/markdown") {
-		t.Fatalf("expected markdown accept header, got %q", acceptHeader)
-	}
-	if !strings.Contains(userAgentHeader, "Version/17.0") || !strings.Contains(userAgentHeader, "Safari/605.1.15") {
-		t.Fatalf("expected default user-agent, got %q", userAgentHeader)
-	}
-	if acceptLanguageHeader != "en-US,en;q=0.9" {
-		t.Fatalf("expected default accept-language, got %q", acceptLanguageHeader)
 	}
 
 	var payload webFetchResult
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
 		t.Fatalf("decode result: %v", err)
 	}
-	if payload.MarkdownTokens != 256 {
-		t.Fatalf("unexpected markdownTokens: %d", payload.MarkdownTokens)
-	}
-	if payload.ContentSignal != "ai-input=yes" {
-		t.Fatalf("unexpected content signal: %q", payload.ContentSignal)
-	}
-	if !strings.Contains(strings.ToLower(payload.ContentType), "markdown") {
-		t.Fatalf("expected markdown content type, got %q", payload.ContentType)
-	}
-}
-
-func TestRunWebFetchTool_HeaderSwitches(t *testing.T) {
-	t.Parallel()
-
-	var acceptHeader string
-	var userAgentHeader string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		acceptHeader = r.Header.Get("Accept")
-		userAgentHeader = r.Header.Get("User-Agent")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("<html><title>ok</title></html>"))
-	}))
-	defer server.Close()
-
-	handler := runWebFetchTool(builtinWebFetchSettingsStub(), nil)
-	output, err := handler(context.Background(), `{"url":"`+server.URL+`","acceptMarkdown":false,"enableUserAgent":false}`)
-	if err != nil {
-		t.Fatalf("run web_fetch: %v", err)
-	}
-	if strings.Contains(strings.ToLower(acceptHeader), "text/markdown") {
-		t.Fatalf("expected html accept header, got %q", acceptHeader)
-	}
-	if userAgentHeader != "" {
-		t.Fatalf("expected empty user-agent when disabled, got %q", userAgentHeader)
-	}
-
-	var payload webFetchResult
-	if err := json.Unmarshal([]byte(output), &payload); err != nil {
-		t.Fatalf("decode result: %v", err)
-	}
-	if payload.Status != webStatusOK {
+	if payload.Status != webStatusError {
 		t.Fatalf("unexpected status: %q", payload.Status)
 	}
-	if payload.HTTPStatus != http.StatusOK {
-		t.Fatalf("unexpected http status: %d", payload.HTTPStatus)
+	if payload.Message != "web_fetch only supports GET" {
+		t.Fatalf("unexpected message: %q", payload.Message)
+	}
+	if payload.NextAction != nextActionUseOtherToolsOrSkills {
+		t.Fatalf("unexpected next action: %q", payload.NextAction)
 	}
 }
 
-func TestRunWebFetchTool_ReadsTopLevelWebFetchSettings(t *testing.T) {
+func TestResolveWebFetchPreferredBrowser_ReadsTopLevelConfig(t *testing.T) {
 	t.Parallel()
 
-	var acceptHeader string
-	var userAgentHeader string
-	var acceptLanguageHeader string
-	var customHeader string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		acceptHeader = r.Header.Get("Accept")
-		userAgentHeader = r.Header.Get("User-Agent")
-		acceptLanguageHeader = r.Header.Get("Accept-Language")
-		customHeader = r.Header.Get("X-Test")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	}))
-	defer server.Close()
-
-	handler := runWebFetchTool(&settingsReaderStub{
-		settings: settingsdto.Settings{
-			Tools: map[string]any{
-				"web_fetch": map[string]any{
-					"type":            "builtin",
-					"acceptMarkdown":  false,
-					"enableUserAgent": false,
-					"acceptLanguage":  "en-US,en;q=0.9",
-					"headers": map[string]any{
-						"X-Test": "enabled",
-					},
-				},
-			},
+	preferred := resolveWebFetchPreferredBrowser(map[string]any{
+		"web_fetch": map[string]any{
+			"preferredBrowser": "brave",
 		},
-	}, nil)
-	output, err := handler(context.Background(), `{"url":"`+server.URL+`"}`)
-	if err != nil {
-		t.Fatalf("run web_fetch: %v", err)
-	}
-	if strings.Contains(strings.ToLower(acceptHeader), "text/markdown") {
-		t.Fatalf("expected html accept header from settings, got %q", acceptHeader)
-	}
-	if userAgentHeader != "" {
-		t.Fatalf("expected empty user-agent from settings, got %q", userAgentHeader)
-	}
-	if acceptLanguageHeader != "en-US,en;q=0.9" {
-		t.Fatalf("expected accept-language from settings, got %q", acceptLanguageHeader)
-	}
-	if customHeader != "enabled" {
-		t.Fatalf("expected custom header from settings, got %q", customHeader)
+		"browser": map[string]any{
+			"preferredBrowser": "chrome",
+		},
+	})
+	if preferred != "brave" {
+		t.Fatalf("expected preferred browser brave, got %q", preferred)
 	}
 
-	var payload webFetchResult
-	if err := json.Unmarshal([]byte(output), &payload); err != nil {
-		t.Fatalf("decode result: %v", err)
-	}
-	if payload.Status != webStatusOK {
-		t.Fatalf("unexpected status: %q", payload.Status)
-	}
-	if payload.HTTPStatus != http.StatusOK {
-		t.Fatalf("unexpected http status: %d", payload.HTTPStatus)
+	fallback := resolveWebFetchPreferredBrowser(map[string]any{
+		"browser": map[string]any{
+			"preferredBrowser": "edge",
+		},
+	})
+	if fallback != "edge" {
+		t.Fatalf("expected fallback preferred browser edge, got %q", fallback)
 	}
 }
 
@@ -186,15 +87,9 @@ func TestResolveWebFetchOptions_ReadsTopLevelWebFetchConfig(t *testing.T) {
 
 	options := resolveWebFetchOptions(toolArgs{}, map[string]any{
 		"web_fetch": map[string]any{
-			"timeoutSeconds":  21,
-			"maxChars":        1234,
-			"maxBodyBytes":    4321,
-			"acceptMarkdown":  false,
-			"enableUserAgent": false,
-			"userAgent":       "top-level-agent",
-			"headers": map[string]any{
-				"X-One": "1",
-			},
+			"timeoutSeconds": 21,
+			"maxChars":       1234,
+			"maxBodyBytes":   4321,
 		},
 	}, defaultWebFetchTimeoutSeconds)
 
@@ -207,56 +102,30 @@ func TestResolveWebFetchOptions_ReadsTopLevelWebFetchConfig(t *testing.T) {
 	if options.MaxBodyBytes != 4321 {
 		t.Fatalf("expected maxBodyBytes from web_fetch, got %d", options.MaxBodyBytes)
 	}
-	if options.MaxRedirects != defaultWebFetchMaxRedirects {
-		t.Fatalf("expected default maxRedirects, got %d", options.MaxRedirects)
-	}
-	if options.RetryMax != defaultWebFetchRetryMax {
-		t.Fatalf("expected default retryMax, got %d", options.RetryMax)
-	}
-	if options.AcceptMarkdown {
-		t.Fatalf("expected acceptMarkdown=false from web_fetch")
-	}
-	if options.EnableUserAgent {
-		t.Fatalf("expected enableUserAgent=false from web_fetch")
-	}
-	if options.UserAgent != "top-level-agent" {
-		t.Fatalf("expected userAgent from web_fetch, got %q", options.UserAgent)
-	}
-	if options.Headers["X-One"] != "1" {
-		t.Fatalf("expected headers from web_fetch, got %#v", options.Headers)
-	}
 }
 
-func TestRunWebFetchTool_TruncatesLargeBodiesByMaxBodyBytes(t *testing.T) {
+func TestBuildWebFetchToolResult_AnnotatesCDPSource(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		_, _ = w.Write([]byte(strings.Repeat("a", 512)))
-	}))
-	defer server.Close()
-
-	handler := runWebFetchTool(builtinWebFetchSettingsStub(), nil)
-	output, err := handler(context.Background(), `{"url":"`+server.URL+`","maxBodyBytes":64,"maxChars":200}`)
-	if err != nil {
-		t.Fatalf("run web_fetch: %v", err)
-	}
-
-	var payload webFetchResult
-	if err := json.Unmarshal([]byte(output), &payload); err != nil {
-		t.Fatalf("decode result: %v", err)
-	}
+	payload := buildWebFetchToolResult("https://example.com", webFetchResponse{
+		FinalURL:       "https://example.com/article",
+		Status:         200,
+		ContentType:    "text/markdown",
+		Content:        "# Hello\n\nworld",
+		MarkdownTokens: 4,
+		ContentSignal:  "article_readability",
+	}, nil)
 	if payload.Status != webStatusOK {
 		t.Fatalf("unexpected status: %q", payload.Status)
 	}
-	if !payload.Truncated {
-		t.Fatalf("expected payload to be truncated")
+	if payload.Data["browserSource"] != webFetchTypeCDP {
+		t.Fatalf("expected browser source %q, got %#v", webFetchTypeCDP, payload.Data["browserSource"])
 	}
-	if len(payload.Content) != 64 {
-		t.Fatalf("expected content to be capped at 64 bytes, got %d", len(payload.Content))
+	if payload.ContentSignal != "article_readability" {
+		t.Fatalf("unexpected content signal: %q", payload.ContentSignal)
 	}
-	if payload.Content != strings.Repeat("a", 64) {
-		t.Fatalf("unexpected truncated content length=%d", len(payload.Content))
+	if payload.MarkdownTokens != 4 {
+		t.Fatalf("unexpected markdown tokens: %d", payload.MarkdownTokens)
 	}
 }
 
@@ -281,33 +150,24 @@ Markdown has quickly become the lingua franca for agents.`
 	}
 }
 
-func TestResolveWebFetchTypeDefaultsToBuiltin(t *testing.T) {
+func TestResolveWebFetchTypeDefaultsToCDP(t *testing.T) {
 	t.Parallel()
 
 	fetchType, err := resolveWebFetchType(toolArgs{}, map[string]any{})
 	if err != nil {
 		t.Fatalf("resolve web_fetch type: %v", err)
 	}
-	if fetchType != webFetchTypeBuiltin {
-		t.Fatalf("expected default fetch type builtin, got %q", fetchType)
+	if fetchType != webFetchTypeCDP {
+		t.Fatalf("expected default fetch type cdp, got %q", fetchType)
 	}
 }
 
-func TestResolveWebFetchPlaywrightOptionsDefaultsMarkdownEnabled(t *testing.T) {
-	t.Parallel()
-
-	options := resolveWebFetchPlaywrightOptions(toolArgs{}, map[string]any{})
-	if !options.Markdown {
-		t.Fatalf("expected markdown conversion enabled by default")
-	}
-}
-
-func TestResolveWebFetchTypeOnlyAcceptsBuiltinAndPlaywright(t *testing.T) {
+func TestResolveWebFetchTypeNormalizesLegacyLabelsToCDP(t *testing.T) {
 	t.Parallel()
 
 	fetchType := normalizeWebFetchType("builtin")
-	if fetchType != webFetchTypeBuiltin {
-		t.Fatalf("expected builtin fetch type, got %q", fetchType)
+	if fetchType != webFetchTypeCDP {
+		t.Fatalf("expected builtin label to normalize to cdp, got %q", fetchType)
 	}
 
 	if _, err := resolveWebFetchType(toolArgs{"type": "terminal"}, map[string]any{}); err == nil {
@@ -326,6 +186,21 @@ func TestConnectorTypeForURL(t *testing.T) {
 
 	if connectorType := connectorTypeForURL("https://www.google.com/search?q=test"); connectorType != "google" {
 		t.Fatalf("expected google connector, got %q", connectorType)
+	}
+	if connectorType := connectorTypeForURL("https://www.youtube.com/watch?v=test"); connectorType != "google" {
+		t.Fatalf("expected youtube URLs to use google connector cookies, got %q", connectorType)
+	}
+	if connectorType := connectorTypeForURL("https://github.com/owner/repo"); connectorType != "github" {
+		t.Fatalf("expected github connector, got %q", connectorType)
+	}
+	if connectorType := connectorTypeForURL("https://www.reddit.com/r/golang/comments/test"); connectorType != "reddit" {
+		t.Fatalf("expected reddit connector, got %q", connectorType)
+	}
+	if connectorType := connectorTypeForURL("https://www.zhihu.com/question/123456"); connectorType != "zhihu" {
+		t.Fatalf("expected zhihu connector, got %q", connectorType)
+	}
+	if connectorType := connectorTypeForURL("https://x.com/example/status/1"); connectorType != "x" {
+		t.Fatalf("expected x connector, got %q", connectorType)
 	}
 	if connectorType := connectorTypeForURL("https://www.xiaohongshu.com/explore"); connectorType != "xiaohongshu" {
 		t.Fatalf("expected xiaohongshu connector, got %q", connectorType)

@@ -28,15 +28,23 @@ const (
 )
 
 type Info struct {
-	Kind           Kind
+	Kind              Kind
+	CurrentVersion    string
+	LatestVersion     string
+	Changelog         string
+	DownloadURL       string
+	CheckedAt         time.Time
+	Status            Status
+	Progress          int // 0-100
+	Message           string
+	PreparedVersion   string
+	PreparedChangelog string
+}
+
+type WhatsNew struct {
+	Version        string
 	CurrentVersion string
-	LatestVersion  string
 	Changelog      string
-	DownloadURL    string
-	CheckedAt      time.Time
-	Status         Status
-	Progress       int // 0-100
-	Message        string
 }
 
 func (info Info) IsUpdateAvailable() bool {
@@ -49,6 +57,18 @@ func (info Info) IsChecking() bool {
 
 func (info Info) IsError() bool {
 	return info.Status == StatusError
+}
+
+func (info Info) HasPreparedUpdate() bool {
+	current := NormalizeVersion(info.CurrentVersion)
+	prepared := NormalizeVersion(info.PreparedVersion)
+	return prepared != "" && CompareVersion(prepared, current) > 0
+}
+
+func (info Info) HasRemoteUpdate() bool {
+	current := NormalizeVersion(info.CurrentVersion)
+	latest := NormalizeVersion(info.LatestVersion)
+	return latest != "" && CompareVersion(latest, current) > 0
 }
 
 func NormalizeVersion(version string) string {

@@ -19,6 +19,9 @@ export interface Connector {
   status: ConnectorStatus | string;
   cookiesCount?: number;
   cookies?: ConnectorCookie[];
+  domains?: string[];
+  policyKey?: string;
+  capabilities?: string[];
   lastVerifiedAt?: string;
 }
 
@@ -33,8 +36,49 @@ export interface ClearConnectorRequest {
   id: string;
 }
 
-export interface ConnectConnectorRequest {
+export interface StartConnectorConnectRequest {
   id: string;
+}
+
+export interface StartConnectorConnectResult {
+  sessionId: string;
+  connector: Connector;
+}
+
+export interface FinishConnectorConnectRequest {
+  sessionId: string;
+}
+
+export interface FinishConnectorConnectResult {
+  sessionId: string;
+  saved: boolean;
+  rawCookiesCount: number;
+  filteredCookiesCount: number;
+  domains?: string[];
+  reason?: string;
+  connector: Connector;
+}
+
+export interface CancelConnectorConnectRequest {
+  sessionId: string;
+}
+
+export interface ConnectorConnectSession {
+  sessionId: string;
+  connectorId: string;
+  state: string;
+  saved: boolean;
+  rawCookiesCount: number;
+  filteredCookiesCount: number;
+  domains?: string[];
+  reason?: string;
+  error?: string;
+  lastCookiesAt?: string;
+  connector: Connector;
+}
+
+export interface GetConnectorConnectSessionRequest {
+  sessionId: string;
 }
 
 export interface OpenConnectorSiteRequest {

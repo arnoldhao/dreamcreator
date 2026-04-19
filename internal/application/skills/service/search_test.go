@@ -495,14 +495,8 @@ func TestClassifyClawHubCommandError(t *testing.T) {
 func TestInstallSkillEmitsRealtimeStartedAndCompletedEvents(t *testing.T) {
 	t.Parallel()
 
-	scriptPath := filepath.Join(t.TempDir(), "clawhub")
-	script := "#!/bin/sh\nexit 0\n"
-	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
-		t.Fatalf("write script failed: %v", err)
-	}
-
 	svc := NewSkillsService(newMemorySkillsRepo(), nil)
-	svc.SetExternalTools(&skillsExternalToolsStub{ready: true, execPath: scriptPath})
+	svc.SetPackageAdapter(&skillsPackageAdapterStub{})
 	fixedNow := time.Date(2026, time.March, 17, 12, 0, 0, 0, time.UTC)
 	svc.now = func() time.Time { return fixedNow }
 
@@ -556,14 +550,12 @@ func TestInstallSkillEmitsRealtimeStartedAndCompletedEvents(t *testing.T) {
 func TestInstallSkillEmitsRealtimeFailedEvent(t *testing.T) {
 	t.Parallel()
 
-	scriptPath := filepath.Join(t.TempDir(), "clawhub")
-	script := "#!/bin/sh\necho \"install failed\" 1>&2\nexit 1\n"
-	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
-		t.Fatalf("write script failed: %v", err)
-	}
-
 	svc := NewSkillsService(newMemorySkillsRepo(), nil)
-	svc.SetExternalTools(&skillsExternalToolsStub{ready: true, execPath: scriptPath})
+	svc.SetPackageAdapter(&skillsPackageAdapterStub{
+		run: func(_ context.Context, _ string, _ time.Duration, _ ...string) ([]byte, error) {
+			return nil, errors.New("install failed")
+		},
+	})
 	fixedNow := time.Date(2026, time.March, 17, 12, 0, 1, 0, time.UTC)
 	svc.now = func() time.Time { return fixedNow }
 

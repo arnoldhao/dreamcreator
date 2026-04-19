@@ -14,9 +14,10 @@ import (
 var ErrToolNotFound = errors.New("tool not found")
 
 type ToolDefinition struct {
-	Name   string
-	Type   string
-	Invoke func(ctx context.Context, args string) (string, error)
+	Name       string
+	Type       string
+	SchemaJSON string
+	Invoke     func(ctx context.Context, args string) (string, error)
 }
 
 type ToolExecutor struct {

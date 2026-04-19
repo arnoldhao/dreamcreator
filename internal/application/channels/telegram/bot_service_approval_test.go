@@ -201,7 +201,7 @@ func TestShouldSuppressTelegramResolvedForward(t *testing.T) {
 		reason string
 		want   bool
 	}{
-		{name: "telegram with sender", reason: "telegram:5234834060", want: true},
+		{name: "telegram with sender", reason: "telegram:test-user-001", want: true},
 		{name: "telegram plain", reason: "telegram", want: true},
 		{name: "upper telegram", reason: "TeLeGrAm:1", want: true},
 		{name: "gateway reason", reason: "gateway:web", want: false},

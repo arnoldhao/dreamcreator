@@ -932,11 +932,11 @@
           "groups": {
             "read": {
               "label": "读取",
-              "description": "skills.status/skills.bins/skill_manage.search/skill_manage.list"
+              "description": "skills.status/skills.bins/skills_manage.search/skills_manage.list"
             },
             "package_write": {
               "label": "包管理写入",
-              "description": "skill_manage.install/update/remove/sync"
+              "description": "skills_manage.install/update/remove/sync"
             },
             "deps_write": {
               "label": "依赖写入",
@@ -1046,7 +1046,22 @@
         "updateFailed": "更新工具状态失败"
       },
       "reason": {
-        "unavailable": "缺少运行时依赖，当前不可用。"
+        "unavailable": "缺少运行时依赖，当前不可用。",
+        "browserProcessExited": "浏览器进程已退出。",
+        "remoteNodeRuntimeUnavailable": "暂时不可用：远端 Node 运行时还未实现。",
+        "imageModelNotConfigured": "图像模型尚未配置。",
+        "providerRepositoriesUnavailable": "Provider 仓库当前不可用。",
+        "gatewayControlPlaneDisabled": "Gateway 控制平面已关闭。",
+        "webSearchModeUnsupported": "当前搜索模式不受支持。",
+        "webSearchProviderUnsupported": "{provider} 当前不支持 API 模式。",
+        "webSearchProviderApiKeyMissing": "{provider} 的 API key 缺失。",
+        "webSearchExternalToolsUnavailable": "External tools 模式暂未实现。",
+        "voiceDisabled": "Gateway 语音功能已关闭。",
+        "voiceServiceUnavailable": "语音服务当前不可用。",
+        "ttsProviderApiKeyMissing": "TTS provider 的 API key 缺失。",
+        "ttsVoiceIdMissing": "TTS 的 voice ID 尚未配置。",
+        "ttsEdgeProviderUnavailable": "暂时不可用：Edge-TTS provider 还未实现。",
+        "ttsProviderUnsupported": "当前 TTS provider 不受支持。"
       },
       "builtin": {
         "read": {
@@ -1083,11 +1098,11 @@
         },
         "browser": {
           "name": "浏览器控制",
-          "description": "通过 Playwright 控制页面加载。"
+          "description": "通过本地 CDP 浏览器控制页面加载。"
         },
         "canvas": {
           "name": "画布渲染",
-          "description": "控制节点画布能力（present/hide/navigate/eval/snapshot/a2ui）。"
+          "description": "控制节点画布能力（present/hide/navigate/eval/snapshot/a2ui）。远端 Node 运行时落地前暂不可用。"
         },
         "image": {
           "name": "图像处理",
@@ -1095,7 +1110,7 @@
         },
         "message": {
           "name": "消息发送",
-          "description": "发送频道消息（当前未实现）。"
+          "description": "通过已配置的频道插件发送、删除和管理消息。"
         },
         "gateway": {
           "name": "Gateway 控制",
@@ -1107,27 +1122,27 @@
         },
         "agents_list": {
           "name": "代理列表",
-          "description": "列出代理。"
+          "description": "列出可用于子代理启动的代理配置。"
         },
         "sessions_list": {
           "name": "会话列表",
-          "description": "列出会话。"
+          "description": "列出当前会话。"
         },
         "sessions_history": {
           "name": "会话历史",
-          "description": "获取会话历史。"
+          "description": "读取某个会话的消息历史。"
         },
         "sessions_send": {
           "name": "会话发送",
-          "description": "向会话发送消息。"
+          "description": "向已有会话追加一条消息。"
         },
         "sessions_spawn": {
           "name": "新建会话",
-          "description": "创建新的会话。"
+          "description": "启动一次隔离的子代理运行。"
         },
         "session_status": {
           "name": "会话状态",
-          "description": "获取会话状态。"
+          "description": "获取会话元数据与状态。"
         },
         "external_tools_query": {
           "name": "外部工具查询",
@@ -1139,7 +1154,7 @@
         },
         "skills": {
           "name": "技能",
-          "description": "技能运行工具（状态/命令依赖/依赖安装/配置更新）。"
+          "description": "查看技能运行状态，并更新单个技能的运行依赖或配置。"
         },
         "skill_manage": {
           "name": "技能管理",
@@ -1151,7 +1166,7 @@
         },
         "skills_manage": {
           "name": "技能管理",
-          "description": "管理技能生命周期操作。"
+          "description": "通过 ClawHub 搜索、安装、更新、移除和同步技能包。"
         },
         "skills_policy": {
           "name": "技能策略",
@@ -1159,15 +1174,15 @@
         },
         "subagents": {
           "name": "子代理管理",
-          "description": "管理子代理运行（列表/详情/日志/终止/转向/启动）。"
+          "description": "管理已有子代理运行（列表/详情/日志/终止/转向/发送）。"
         },
         "nodes": {
           "name": "节点调用",
-          "description": "调用节点能力。"
+          "description": "实验性的低层节点 RPC。远端 Node 运行时落地前暂不可用。"
         },
         "tts": {
           "name": "文本转语音",
-          "description": "将文本转换为语音。"
+          "description": "使用当前语音提供方把文本合成为语音音频。"
         },
         "render_chart": {
           "name": "图表渲染",
@@ -1221,6 +1236,14 @@
           "name": "记忆列表",
           "description": "按条件列出近期记忆条目。"
         },
+        "memory_query": {
+          "name": "记忆查询",
+          "description": "通过 recall、list、stats 动作查询长期记忆。"
+        },
+        "memory_manage": {
+          "name": "记忆管理",
+          "description": "创建、更新或删除长期记忆条目。"
+        },
         "subagent_run": {
           "name": "子代理运行",
           "description": "在隔离工作区运行子代理任务。"
@@ -1260,54 +1283,67 @@
         "externalToolsHint": "外部工具模式仍为预留能力，暂时没有可配置项。"
       },
       "webFetch": {
-        "type": "模式",
-        "typeDesc": "在 Playwright 无头浏览器与内置 HTTP 抓取之间切换。",
-        "typeValue": {
-          "playwright": "Playwright",
-          "builtin": "内置"
-        },
-        "playwrightMarkdown": "转换为 Markdown",
-        "playwrightMarkdownDesc": "开启后会将渲染后的 HTML 内容转换为 Markdown。",
-        "playwrightHint": "Playwright 模式会以无头浏览器访问页面，并只读取 Connectors 中已有 Cookies，不会写回或新增 Cookies。",
-        "acceptMarkdown": "优先 Markdown",
-        "acceptMarkdownDesc": "开启后会优先请求 text/markdown，并在服务端回退到 HTML。",
-        "enableUserAgent": "发送 User-Agent",
-        "enableUserAgentDesc": "关闭后将不主动发送 User-Agent。",
-        "userAgent": "User-Agent",
-        "acceptLanguage": "Accept-Language",
+        "preferredBrowser": "默认浏览器",
+        "preferredBrowserDesc": "仅展示本机已检测到的浏览器。",
+        "headless": "无头模式",
+        "headlessDesc": "以无头模式进行网页抓取。",
         "timeoutSeconds": "超时（秒）",
-        "maxChars": "最大字符数",
-        "maxRedirects": "最大重定向次数",
-        "maxRedirectsDesc": "0 表示不跟随重定向。",
-        "retryMax": "最大重试次数",
-        "retryMaxDesc": "仅对可安全重试的方法生效（如 GET/HEAD/OPTIONS）。",
-        "headers": "附加 Headers（JSON）",
-        "headersDesc": "填写 JSON 对象，例如 {\"X-Test\":\"1\"}。会与工具调用参数 headers 合并。",
-        "headersInvalid": "Headers 格式不正确",
-        "headersInvalidDesc": "请填写 JSON 对象，例如 {\"Accept-Language\":\"en-US\"}。"
+        "maxChars": "最大字符数"
       },
       "browserControl": {
         "enabled": "启用",
-        "evaluateEnabled": "允许 Evaluate",
-        "evaluateEnabledDesc": "关闭后禁用 browser evaluate 动作。",
         "ssrfSection": "SSRF 安全",
         "ssrfSectionDesc": "私有网络与主机名白名单配置。",
-        "executablePath": "Playwright Chromium 路径",
-        "executablePathDesc": "由 Playwright 管理，只读不可修改。",
-        "executablePathPending": "等待 Playwright 运行时检查后显示路径。",
+        "preferredBrowser": "默认浏览器",
+        "preferredBrowserDesc": "仅展示本机已检测到的浏览器。",
         "headless": "无头模式",
         "headlessDesc": "以无头模式启动浏览器。",
-        "noSandbox": "关闭沙箱",
-        "noSandboxDesc": "启动 Chrome 时添加 --no-sandbox。",
-        "snapshotDefaultMode": "快照默认模式",
-        "snapshotDefaultModeAuto": "自动",
         "ssrfDangerouslyAllowPrivateNetwork": "允许私有网络",
         "ssrfDangerouslyAllowPrivateNetworkDesc": "允许浏览器访问私有/内网地址。",
         "ssrfAllowedHostnames": "允许的主机名（JSON）",
         "ssrfHostnameAllowlist": "主机名白名单（JSON）",
-        "extraArgs": "额外参数（JSON）",
         "arrayInvalid": "数组格式不正确",
         "arrayInvalidDesc": "请填写 JSON 字符串数组，例如 [\"localhost\",\"metadata.internal\"]。"
+      },
+      "runtimeDetection": {
+        "detected": "已检测到",
+        "notDetected": "未检测到",
+        "notInstalled": "未安装",
+        "noneDetected": "未检测到可用浏览器"
+      },
+      "requirements": {
+        "gatewayControlPlane": "Gateway 控制平面",
+        "localCDPBrowser": "本地 CDP 浏览器",
+        "remoteNodeRuntime": "远端 Node 运行时",
+        "webSearchMode": "搜索模式",
+        "webSearchProvider": "提供方",
+        "webSearchProviderApiKey": "提供方 API Key",
+        "externalToolsRuntime": "外部工具运行时",
+        "imageModel": "图像模型",
+        "voiceService": "语音服务",
+        "voiceFeature": "语音功能",
+        "ttsProvider": "提供方",
+        "ttsProviderApiKey": "提供方 API Key",
+        "ttsVoiceId": "语音 ID",
+        "values": {
+          "available": "可用",
+          "unavailable": "不可用",
+          "configured": "已配置",
+          "notConfigured": "未配置",
+          "enabled": "已启用",
+          "disabled": "已关闭",
+          "detected": "已检测到",
+          "missing": "缺失"
+        },
+        "providers": {
+          "brave": "Brave",
+          "tavily": "Tavily",
+          "perplexity": "Perplexity",
+          "grok": "Grok",
+          "openai": "OpenAI",
+          "elevenlabs": "ElevenLabs",
+          "edge": "Edge-TTS"
+        }
       },
       "detail": {
         "descriptionLabel": "说明",
@@ -1351,31 +1387,46 @@
       "searchPlaceholder": "搜索连接",
       "searchEmpty": "没有匹配的连接。",
       "group.searchEngine": "搜索引擎",
+      "group.community": "社区",
       "group.video": "视频",
+      "group.developer": "开发者",
       "group.other": "其他",
       "item.google": "Google",
+      "item.github": "GitHub",
+      "item.reddit": "Reddit",
+      "item.zhihu": "知乎",
+      "item.x": "X",
       "item.xiaohongshu": "小红书",
       "item.bilibili": "Bilibili",
       "connect": "连接",
       "reconnect": "重新连接",
       "clear": "清除",
       "noCookies": "未配置 cookies",
-      "loginHint": "将打开浏览器窗口。完成登录后关闭窗口即可保存 cookies。",
+      "noCookiesRead": "还没有读取到当前连接的 cookies。请保持登录状态后再次点击完成连接。",
+      "loginHint": "将以临时 profile 打开浏览器窗口。请先在浏览器里完成登录，然后回到这里点击完成连接。",
       "loginTitle": "浏览器登录",
-      "loginDescription": "请在浏览器窗口完成登录，然后关闭窗口。",
-      "installDescription": "需要安装 Playwright 才能打开浏览器。",
+      "loginDescription": "请在浏览器窗口完成登录，然后回到此对话框点击完成连接。",
       "loginTarget": "连接",
-      "loginRunning": "等待浏览器关闭中...",
-      "loginDone": "登录完成。",
+      "loginLaunching": "正在启动浏览器...",
+      "loginReady": "浏览器已打开。完成登录后点击完成连接。",
+      "loginReadingCookies": "正在从浏览器会话读取 cookies...",
+      "loginClosingBrowser": "正在关闭浏览器会话...",
+      "loginCompleted": "连接处理已完成。",
+      "loginIdle": "等待开始连接。",
+      "loginFinish": "完成连接",
       "loginError": "登录失败",
-      "playwrightMissing": "未安装 Playwright，无法打开浏览器。",
-      "openExternalTools": "打开外部工具",
-      "installRequiredStatus": "需要安装 Playwright 才能继续。",
+      "loginSessionMissing": "未找到当前连接会话，请重新开始连接。",
+      "browserSessionEnded": "浏览器会话已结束，请重新开始连接。",
+      "browserMissing": "未检测到可用的本机浏览器。",
+      "cookiesRead": "读取到的 cookies",
+      "cookiesSaved": "保留的 cookies",
+      "cookiesDomains": "命中的域名",
       "status.connected": "已连接",
       "status.expired": "已过期",
       "status.disconnected": "未连接",
       "detail.status": "状态",
       "detail.data": "数据",
+      "detail.scope": "Cookie 范围",
       "detail.actions": "操作",
       "viewCookies": "查看",
       "openSite": "打开站点",
@@ -1720,8 +1771,9 @@
         "current": "当前版本",
         "changelog": "更新日志",
         "check": "检查更新",
-        "install": "安装更新",
-        "restart": "重启生效",
+        "recheck": "重新检查",
+        "downloadAndInstall": "下载并安装",
+        "restartAfterUpdate": "重启后更新",
         "command": "更新操作",
         "status": "状态",
         "downloading": "下载中",
@@ -2390,6 +2442,7 @@
         "notification": "通知",
         "sendOS": "系统消息",
         "dialog": "对话框",
+        "whatsNew": "What's New",
         "publish": "调试事件"
       }
     },
@@ -2427,7 +2480,8 @@
         "action": "知道了",
         "dialogTitle": "危险弹窗",
         "dialogDesc": "用于确认样式的弹窗示例。",
-        "dialogConfirm": "确认"
+        "dialogConfirm": "确认",
+        "whatsNewMarkdown": "## 调试预览\n\n### 布局验证\n- 这一行用于检查标题与正文之间的留白。\n- 这一行用于检查 Markdown 段落节奏。\n- 这一行用于检查内容卡片的圆角边界。\n- 这一行用于检查长内容时的可读性。\n- 这一行用于检查滚动阈值是否生效。\n- 这一行用于检查 dialog 高度是否保持稳定。\n\n### 交互验证\n- 这一行用于检查内容超过一屏后的滚动行为。\n- 这一行用于检查底部按钮区域是否始终可见。\n- 这一行用于检查关闭按钮位置不会被挤压。\n- 这一行用于检查 Markdown 列表渲染效果。\n- 这一行用于检查底部间距是否自然。\n- 这一行确认这是仅供调试使用的预览内容。"
       },
       "realtime": {
         "websocket": "WebSocket",
@@ -4001,6 +4055,14 @@
     "notAvailable": "不可用",
     "justNow": "刚刚"
   },
+  "whatsNew": {
+    "eyebrow": "版本已更新",
+    "currentVersion": "当前版本",
+    "title": "{version} 有这些新内容",
+    "description": "",
+    "emptyState": "当前版本已经更新完成，但暂时没有可展示的更新日志。",
+    "versionLabel": "当前版本：{version}"
+  },
   "gateway": {
     "page": {
       "subtitle": "控制平面概览与诊断信息"
@@ -4053,6 +4115,7 @@
         "productMode": "产品形态",
         "notifications": "通知中心",
         "appUpdate": "应用升级",
+        "restartAndUpdate": "重启后更新",
         "externalToolsUpdate": "工具升级",
         "settings": "设置",
         "open": "打开个人菜单"

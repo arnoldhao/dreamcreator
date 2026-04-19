@@ -11,6 +11,7 @@ export type GatewayToolRequirement = {
   name?: string;
   available: boolean;
   reason?: string;
+  data?: unknown;
 };
 
 export type GatewayToolSpec = {

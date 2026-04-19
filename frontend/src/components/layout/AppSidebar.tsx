@@ -51,7 +51,9 @@ import { SetupCenterDialog, SetupStatusSlot, useSetupCenter, useSetupStatus } fr
 import { useI18n } from "@/shared/i18n";
 import { messageBus } from "@/shared/message";
 import { useCurrentUserProfile } from "@/shared/query/system";
+import { useRestartToApply } from "@/shared/query/update";
 import { cn } from "@/lib/utils";
+import { hasPreparedUpdate, hasRemoteUpdate, type UpdateInfo } from "@/shared/store/update";
 import { useAssistantUiMode } from "@/shared/store/assistantUi";
 import { useSettingsStore } from "@/shared/store/settings";
 import { useThreadStore } from "@/shared/store/threads";
@@ -96,7 +98,7 @@ export interface AppSidebarProps {
   onSelectThread?: (threadId: string) => void;
   highlightThreadActive?: boolean;
   showThreadList?: boolean;
-  isAppUpdateAvailable?: boolean;
+  appUpdateInfo?: UpdateInfo;
   isExternalToolsUpdateAvailable?: boolean;
   noticeUnreadCount?: number;
   isNoticePanelOpen?: boolean;
@@ -482,7 +484,7 @@ export function AppSidebar({
   onSelectThread,
   highlightThreadActive = true,
   showThreadList = true,
-  isAppUpdateAvailable,
+  appUpdateInfo,
   isExternalToolsUpdateAvailable,
   noticeUnreadCount = 0,
   isNoticePanelOpen = false,
@@ -495,6 +497,7 @@ export function AppSidebar({
   const settingsLoading = useSettingsStore((state) => state.isLoading);
   const { open: isSetupCenterOpen, setOpen: setSetupCenterOpen } = useSetupCenter();
   const currentUserProfileQuery = useCurrentUserProfile();
+  const restartToApply = useRestartToApply();
   const [search, setSearch] = React.useState("");
   const deferredSearch = React.useDeferredValue(search);
   const [isProductModeOpen, setIsProductModeOpen] = React.useState(false);
@@ -502,7 +505,17 @@ export function AppSidebar({
   const setupAutoOpenInitializedRef = React.useRef(false);
   const [renderLimit, setRenderLimit] = React.useState(200);
 
-  const hasUpdateMenu = Boolean(isAppUpdateAvailable || isExternalToolsUpdateAvailable);
+  const isAppUpdateReadyToRestart =
+    Boolean(appUpdateInfo) &&
+    appUpdateInfo?.status === "ready_to_restart" &&
+    hasPreparedUpdate(appUpdateInfo);
+  const isAppUpdateMenuVisible =
+    Boolean(appUpdateInfo) &&
+    (isAppUpdateReadyToRestart ||
+      (appUpdateInfo ? hasRemoteUpdate(appUpdateInfo) : false) ||
+      appUpdateInfo?.status === "downloading" ||
+      appUpdateInfo?.status === "installing");
+  const hasUpdateMenu = Boolean(isAppUpdateMenuVisible || isExternalToolsUpdateAvailable);
   const normalizedSearch = deferredSearch.trim().toLowerCase();
   const currentUserProfile = currentUserProfileQuery.data;
   const currentUserName = resolveUserDisplayName(currentUserProfile);
@@ -676,16 +689,36 @@ export function AppSidebar({
     onOpenSettings?.();
   };
 
+  const handleRestartPreparedUpdate = React.useCallback(() => {
+    void restartToApply.mutateAsync().catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      messageBus.publishToast({
+        intent: "warning",
+        title: t("sidebar.footer.menu.restartAndUpdate"),
+        description: message,
+      });
+    });
+  }, [restartToApply, t]);
+
   const updateMenuItems = React.useMemo(
     () =>
       [
-        isAppUpdateAvailable
+        isAppUpdateMenuVisible
           ? {
               key: "app-update",
-              label: t("sidebar.footer.menu.appUpdate"),
+              label: isAppUpdateReadyToRestart
+                ? t("sidebar.footer.menu.restartAndUpdate")
+                : t("sidebar.footer.menu.appUpdate"),
               Icon: ArrowUpCircle,
               iconClassName: "text-primary",
-              onSelect: () => handleSelectSettings("about"),
+              onSelect: () => {
+                if (isAppUpdateReadyToRestart) {
+                  handleRestartPreparedUpdate();
+                  return;
+                }
+                handleSelectSettings("about");
+              },
+              disabled: restartToApply.isPending,
             }
           : null,
         isExternalToolsUpdateAvailable
@@ -695,10 +728,18 @@ export function AppSidebar({
               Icon: Wrench,
               iconClassName: "text-primary",
               onSelect: () => handleSelectSettings("external-tools"),
+              disabled: false,
             }
           : null,
       ].filter((item): item is NonNullable<typeof item> => Boolean(item)),
-    [isAppUpdateAvailable, isExternalToolsUpdateAvailable, t]
+    [
+      handleRestartPreparedUpdate,
+      isAppUpdateMenuVisible,
+      isAppUpdateReadyToRestart,
+      isExternalToolsUpdateAvailable,
+      restartToApply.isPending,
+      t,
+    ]
   );
 
   const handleSelectProductMode = (nextEnabled: boolean) => {
@@ -921,6 +962,7 @@ export function AppSidebar({
                   key={item.key}
                   className={footerDropdownItemClassName}
                   onSelect={item.onSelect}
+                  disabled={item.disabled}
                 >
                   <div className={cn("flex h-4 w-4 shrink-0 items-center justify-center", item.iconClassName)}>
                     <item.Icon className={cn("h-4 w-4", item.iconClassName)} />

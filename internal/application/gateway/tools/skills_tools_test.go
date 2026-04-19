@@ -201,7 +201,7 @@ func (stub *skillsSettingsStub) UpdateSettings(_ context.Context, request settin
 	return copied, nil
 }
 
-func TestSkillManageToolSearchReturnsClawHubUnavailable(t *testing.T) {
+func TestSkillsManageToolSearchReturnsClawHubUnavailable(t *testing.T) {
 	t.Parallel()
 
 	repo := newSkillsRepoStub()
@@ -209,10 +209,10 @@ func TestSkillManageToolSearchReturnsClawHubUnavailable(t *testing.T) {
 	svc.SetExternalTools(&skillsExternalToolsStubForGateway{ready: false})
 	svc.SetWorkspaceResolver(skillsWorkspaceResolverStubForGateway{})
 
-	handler := runSkillManageTool(svc, nil, nil, nil)
+	handler := runSkillsManageTool(svc, nil, nil, nil)
 	output, err := handler(context.Background(), `{"action":"search","query":"demo"}`)
 	if err != nil {
-		t.Fatalf("skill_manage tool failed: %v", err)
+		t.Fatalf("skills_manage tool failed: %v", err)
 	}
 	var payload map[string]any
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
@@ -226,7 +226,7 @@ func TestSkillManageToolSearchReturnsClawHubUnavailable(t *testing.T) {
 	}
 }
 
-func TestSkillManageToolInstallRequireForceAndRetrySuccess(t *testing.T) {
+func TestSkillsManageToolInstallRequireForceAndRetrySuccess(t *testing.T) {
 	t.Parallel()
 
 	repo := newSkillsRepoStub()
@@ -248,11 +248,11 @@ func TestSkillManageToolInstallRequireForceAndRetrySuccess(t *testing.T) {
 			}
 		},
 	})
-	handler := runSkillManageTool(svc, nil, nil, nil)
+	handler := runSkillsManageTool(svc, nil, nil, nil)
 
 	output, err := handler(context.Background(), `{"action":"install","skill":"web-search-pro"}`)
 	if err != nil {
-		t.Fatalf("skill_manage tool install failed: %v", err)
+		t.Fatalf("skills_manage tool install failed: %v", err)
 	}
 	var payload map[string]any
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
@@ -267,13 +267,13 @@ func TestSkillManageToolInstallRequireForceAndRetrySuccess(t *testing.T) {
 	if payload["requiresForce"] != true {
 		t.Fatalf("expected requiresForce=true, got %#v", payload["requiresForce"])
 	}
-	if payload["action"] != "skill_manage.install" {
-		t.Fatalf("expected action skill_manage.install, got %#v", payload["action"])
+	if payload["action"] != "skills_manage.install" {
+		t.Fatalf("expected action skills_manage.install, got %#v", payload["action"])
 	}
 
 	output, err = handler(context.Background(), `{"action":"install","skill":"web-search-pro","force":true}`)
 	if err != nil {
-		t.Fatalf("skill_manage tool install(force) failed: %v", err)
+		t.Fatalf("skills_manage tool install(force) failed: %v", err)
 	}
 	payload = map[string]any{}
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
@@ -284,7 +284,7 @@ func TestSkillManageToolInstallRequireForceAndRetrySuccess(t *testing.T) {
 	}
 }
 
-func TestSkillManageToolInstallRequireForceBlockedByScannerPolicy(t *testing.T) {
+func TestSkillsManageToolInstallRequireForceBlockedByScannerPolicy(t *testing.T) {
 	t.Parallel()
 
 	repo := newSkillsRepoStub()
@@ -312,11 +312,11 @@ func TestSkillManageToolInstallRequireForceBlockedByScannerPolicy(t *testing.T) 
 			},
 		},
 	})
-	handler := runSkillManageTool(svc, nil, settings, nil)
+	handler := runSkillsManageTool(svc, nil, settings, nil)
 
 	output, err := handler(context.Background(), `{"action":"install","skill":"web-search-pro"}`)
 	if err != nil {
-		t.Fatalf("skill_manage tool install failed: %v", err)
+		t.Fatalf("skills_manage tool install failed: %v", err)
 	}
 	var payload map[string]any
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
@@ -330,7 +330,7 @@ func TestSkillManageToolInstallRequireForceBlockedByScannerPolicy(t *testing.T) 
 	}
 }
 
-func TestSkillManageToolForceInstallRequiresApprovalWhenEnabled(t *testing.T) {
+func TestSkillsManageToolForceInstallRequiresApprovalWhenEnabled(t *testing.T) {
 	t.Parallel()
 
 	repo := newSkillsRepoStub()
@@ -348,11 +348,11 @@ func TestSkillManageToolForceInstallRequiresApprovalWhenEnabled(t *testing.T) {
 			},
 		},
 	})
-	handler := runSkillManageTool(svc, nil, settings, nil)
+	handler := runSkillsManageTool(svc, nil, settings, nil)
 
 	output, err := handler(context.Background(), `{"action":"install","skill":"web-search-pro","force":true}`)
 	if err != nil {
-		t.Fatalf("skill_manage tool install failed: %v", err)
+		t.Fatalf("skills_manage tool install failed: %v", err)
 	}
 	var payload map[string]any
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {
@@ -483,7 +483,7 @@ func TestSkillsToolActionModeDeny(t *testing.T) {
 	}
 }
 
-func TestSkillManageToolActionModeAsk(t *testing.T) {
+func TestSkillsManageToolActionModeAsk(t *testing.T) {
 	t.Parallel()
 
 	repo := newSkillsRepoStub()
@@ -497,11 +497,11 @@ func TestSkillManageToolActionModeAsk(t *testing.T) {
 			},
 		},
 	})
-	handler := runSkillManageTool(svc, nil, settings, nil)
+	handler := runSkillsManageTool(svc, nil, settings, nil)
 
 	output, err := handler(context.Background(), `{"action":"install","skill":"skill-a"}`)
 	if err != nil {
-		t.Fatalf("skill_manage tool failed: %v", err)
+		t.Fatalf("skills_manage tool failed: %v", err)
 	}
 	var payload map[string]any
 	if err := json.Unmarshal([]byte(output), &payload); err != nil {

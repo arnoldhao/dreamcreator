@@ -4,8 +4,11 @@ go 1.25.5
 
 require (
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
+	github.com/PuerkitoBio/goquery v1.9.2
 	github.com/asg017/sqlite-vec-go-bindings v0.1.6
 	github.com/bep/debounce v1.2.1
+	github.com/chromedp/cdproto v0.0.0-20250803210736-d308e07a266d
+	github.com/chromedp/chromedp v0.14.2
 	github.com/cloudwego/eino v0.8.6
 	github.com/eino-contrib/jsonschema v1.0.3
 	github.com/fsnotify/fsnotify v1.8.0
@@ -13,7 +16,6 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/mymmrac/telego v1.6.0
 	github.com/ncruces/go-sqlite3 v0.23.3
-	github.com/playwright-community/playwright-go v0.5200.1
 	github.com/tetratelabs/wazero v1.11.0
 	github.com/uptrace/bun v1.2.16
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.16
@@ -34,7 +36,6 @@ require (
 	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.3.0 // indirect
-	github.com/PuerkitoBio/goquery v1.9.2 // indirect
 	github.com/adrg/xdg v0.5.3 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/andybalholm/cascadia v1.3.2 // indirect
@@ -43,11 +44,11 @@ require (
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
+	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/coder/websocket v1.8.14 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
-	github.com/deckarep/golang-set/v2 v2.7.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.9.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
@@ -55,9 +56,11 @@ require (
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.8.0 // indirect
 	github.com/go-git/go-git/v5 v5.17.2 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.5 // indirect
+	github.com/go-json-experiment/json v0.0.0-20251027170946-4849db3c2f7e // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
-	github.com/go-stack/stack v1.8.1 // indirect
+	github.com/gobwas/httphead v0.1.0 // indirect
+	github.com/gobwas/pool v0.2.1 // indirect
+	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/goph/emperror v0.17.2 // indirect

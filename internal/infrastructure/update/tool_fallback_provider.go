@@ -61,8 +61,6 @@ func (provider *ToolFallbackProvider) FetchToolRelease(ctx context.Context, requ
 		return provider.fetchGitHubToolRelease(ctx, request.Name, "oven-sh", "bun")
 	case externaltools.ToolClawHub:
 		return provider.fetchNPMPackageRelease(ctx, request.Name, "clawhub")
-	case externaltools.ToolPlaywright:
-		return softwareupdate.ToolRelease{}, softwareupdate.ErrReleaseNotFound
 	default:
 		return softwareupdate.ToolRelease{}, externaltools.ErrInvalidTool
 	}

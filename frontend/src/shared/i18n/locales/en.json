@@ -932,11 +932,11 @@
           "groups": {
             "read": {
               "label": "Read",
-              "description": "Skills.Status/skills.Bins/skill_manage.Search/skill_manage.List"
+              "description": "Read-only skills status, bins, and package discovery actions."
             },
             "package_write": {
               "label": "Package write",
-              "description": "Skill_manage.Install/update/remove/sync"
+              "description": "Skill package install, update, remove, and sync actions."
             },
             "deps_write": {
               "label": "Dependencies write",
@@ -1046,7 +1046,22 @@
         "updateFailed": "Failed to update tool status"
       },
       "reason": {
-        "unavailable": "Required runtime dependencies are unavailable."
+        "unavailable": "Required runtime dependencies are unavailable.",
+        "browserProcessExited": "Browser process exited.",
+        "remoteNodeRuntimeUnavailable": "Temporarily unavailable: remote node runtime is not implemented yet.",
+        "imageModelNotConfigured": "Image model is not configured.",
+        "providerRepositoriesUnavailable": "Provider repositories are unavailable.",
+        "gatewayControlPlaneDisabled": "Gateway control plane is disabled.",
+        "webSearchModeUnsupported": "Search mode is not supported.",
+        "webSearchProviderUnsupported": "{provider} is not supported in API mode.",
+        "webSearchProviderApiKeyMissing": "{provider} API key is missing.",
+        "webSearchExternalToolsUnavailable": "External tools mode is not implemented yet.",
+        "voiceDisabled": "Gateway voice feature is disabled.",
+        "voiceServiceUnavailable": "Voice service is unavailable.",
+        "ttsProviderApiKeyMissing": "TTS provider API key is missing.",
+        "ttsVoiceIdMissing": "TTS voice ID is not configured.",
+        "ttsEdgeProviderUnavailable": "Temporarily unavailable: Edge-TTS provider is not implemented yet.",
+        "ttsProviderUnsupported": "TTS provider is not supported."
       },
       "builtin": {
         "read": {
@@ -1083,11 +1098,11 @@
         },
         "browser": {
           "name": "Browser control",
-          "description": "Control browser page loading with Playwright."
+          "description": "Control browser page loading through a local CDP browser."
         },
         "canvas": {
           "name": "Canvas rendering",
-          "description": "Control node canvases (present/hide/navigate/eval/snapshot/a2ui)."
+          "description": "Control node canvases (present/hide/navigate/eval/snapshot/a2ui). Temporarily unavailable until remote node runtime support is implemented."
         },
         "image": {
           "name": "Image processing",
@@ -1095,7 +1110,7 @@
         },
         "message": {
           "name": "Message sending",
-          "description": "Send a channel message (not implemented)."
+          "description": "Send, delete, and manage messages through configured channel plugins."
         },
         "gateway": {
           "name": "Gateway control",
@@ -1107,27 +1122,27 @@
         },
         "agents_list": {
           "name": "Agents list",
-          "description": "List agents."
+          "description": "List available agent profiles for subagent spawning."
         },
         "sessions_list": {
           "name": "Sessions list",
-          "description": "List sessions."
+          "description": "List current sessions."
         },
         "sessions_history": {
           "name": "Session history",
-          "description": "Fetch session history."
+          "description": "Read message history for a session."
         },
         "sessions_send": {
           "name": "Session send",
-          "description": "Send a message to a session."
+          "description": "Append a message to an existing session."
         },
         "sessions_spawn": {
           "name": "Session spawn",
-          "description": "Spawn a new session."
+          "description": "Spawn an isolated subagent run."
         },
         "session_status": {
           "name": "Session status",
-          "description": "Get session status."
+          "description": "Get session metadata and status."
         },
         "external_tools_query": {
           "name": "External tools query",
@@ -1139,7 +1154,7 @@
         },
         "skills": {
           "name": "Skills",
-          "description": "Skills runtime tool (status/bins/install/update)."
+          "description": "Inspect skills runtime status and update per-skill runtime dependencies or configuration."
         },
         "skill_manage": {
           "name": "Skill manage",
@@ -1151,7 +1166,7 @@
         },
         "skills_manage": {
           "name": "Skills manage",
-          "description": "Manage skills lifecycle actions."
+          "description": "Search, install, update, remove, and sync skill packages via ClawHub."
         },
         "skills_policy": {
           "name": "Skills policy",
@@ -1159,15 +1174,15 @@
         },
         "subagents": {
           "name": "Subagents",
-          "description": "Manage subagent runs (list/info/log/kill/steer/spawn)."
+          "description": "Manage existing subagent runs (list/info/log/kill/steer/send)."
         },
         "nodes": {
           "name": "Nodes",
-          "description": "Invoke node capability."
+          "description": "Experimental low-level RPC to a registered node. Temporarily unavailable until remote node runtime support is implemented."
         },
         "tts": {
           "name": "Text to speech",
-          "description": "Convert text to speech."
+          "description": "Synthesize speech audio from text with the configured voice provider."
         },
         "render_chart": {
           "name": "Render chart",
@@ -1221,6 +1236,14 @@
           "name": "Memory list",
           "description": "List recent memory entries by filter."
         },
+        "memory_query": {
+          "name": "Memory query",
+          "description": "Query long-term memory with recall, list, and stats actions."
+        },
+        "memory_manage": {
+          "name": "Memory manage",
+          "description": "Create, update, or delete long-term memory entries."
+        },
         "subagent_run": {
           "name": "Subagent run",
           "description": "Run a sub-agent task in an isolated workspace."
@@ -1260,54 +1283,67 @@
         "externalToolsHint": "External tools mode is reserved. No options are available yet."
       },
       "webFetch": {
-        "type": "Mode",
-        "typeDesc": "Switch between Playwright headless browser mode and builtin HTTP fetch mode.",
-        "typeValue": {
-          "playwright": "Playwright",
-          "builtin": "Builtin"
-        },
-        "playwrightMarkdown": "Convert to Markdown",
-        "playwrightMarkdownDesc": "Convert rendered HTML output into Markdown.",
-        "playwrightHint": "Playwright mode runs in headless browser and only reads cookies from connectors. It will not persist new cookies.",
-        "acceptMarkdown": "Prefer Markdown",
-        "acceptMarkdownDesc": "When enabled, requests prefer text/Markdown with HTML fallback.",
-        "enableUserAgent": "Send User-Agent",
-        "enableUserAgentDesc": "When disabled, no explicit User-Agent will be sent.",
-        "userAgent": "User-Agent",
-        "acceptLanguage": "Accept-Language",
+        "preferredBrowser": "Preferred browser",
+        "preferredBrowserDesc": "Show only browsers detected on this machine.",
+        "headless": "Headless",
+        "headlessDesc": "Run web fetch in headless mode.",
         "timeoutSeconds": "Timeout (sec)",
-        "maxChars": "Max chars",
-        "maxRedirects": "Max redirects",
-        "maxRedirectsDesc": "Set 0 to disable redirect following.",
-        "retryMax": "Max retries",
-        "retryMaxDesc": "Applies only to safely retryable methods (E.G. GET/HEAD/OPTIONS).",
-        "headers": "Extra headers (JSON)",
-        "headersDesc": "Provide a JSON object, E.G. {\"X-Test\":\"1\"}. It merges with tool-call headers.",
-        "headersInvalid": "Invalid headers format",
-        "headersInvalidDesc": "Use a JSON object, E.G. {\"Accept-Language\":\"En-US\"}."
+        "maxChars": "Max chars"
       },
       "browserControl": {
         "enabled": "Enabled",
-        "evaluateEnabled": "Allow evaluate",
-        "evaluateEnabledDesc": "Disable browser evaluate actions.",
         "ssrfSection": "SSRF Security",
         "ssrfSectionDesc": "Private network and hostname allowlist options.",
-        "executablePath": "Playwright chromium path",
-        "executablePathDesc": "Managed by Playwright and read-only.",
-        "executablePathPending": "Path will appear after Playwright runtime check.",
+        "preferredBrowser": "Preferred browser",
+        "preferredBrowserDesc": "Show only browsers detected on this machine.",
         "headless": "Headless",
         "headlessDesc": "Start browser in headless mode.",
-        "noSandbox": "No sandbox",
-        "noSandboxDesc": "Pass --no-sandbox to chrome.",
-        "snapshotDefaultMode": "Snapshot default mode",
-        "snapshotDefaultModeAuto": "Auto",
         "ssrfDangerouslyAllowPrivateNetwork": "Allow private network",
         "ssrfDangerouslyAllowPrivateNetworkDesc": "Allow browser navigation to private/internal networks.",
         "ssrfAllowedHostnames": "Allowed hostnames (JSON)",
         "ssrfHostnameAllowlist": "Hostname allowlist (JSON)",
-        "extraArgs": "Extra args (JSON)",
         "arrayInvalid": "Array format is invalid",
         "arrayInvalidDesc": "Use a JSON string array, for example [\"localhost\",\"metadata.Internal\"]."
+      },
+      "runtimeDetection": {
+        "detected": "Detected",
+        "notDetected": "Not detected",
+        "notInstalled": "Not installed",
+        "noneDetected": "No supported browser detected"
+      },
+      "requirements": {
+        "gatewayControlPlane": "Gateway control plane",
+        "localCDPBrowser": "Local CDP browser",
+        "remoteNodeRuntime": "Remote node runtime",
+        "webSearchMode": "Search mode",
+        "webSearchProvider": "Provider",
+        "webSearchProviderApiKey": "Provider API key",
+        "externalToolsRuntime": "External tools runtime",
+        "imageModel": "Image model",
+        "voiceService": "Voice service",
+        "voiceFeature": "Voice feature",
+        "ttsProvider": "Provider",
+        "ttsProviderApiKey": "Provider API key",
+        "ttsVoiceId": "Voice ID",
+        "values": {
+          "available": "Available",
+          "unavailable": "Unavailable",
+          "configured": "Configured",
+          "notConfigured": "Not configured",
+          "enabled": "Enabled",
+          "disabled": "Disabled",
+          "detected": "Detected",
+          "missing": "Missing"
+        },
+        "providers": {
+          "brave": "Brave",
+          "tavily": "Tavily",
+          "perplexity": "Perplexity",
+          "grok": "Grok",
+          "openai": "OpenAI",
+          "elevenlabs": "ElevenLabs",
+          "edge": "Edge-TTS"
+        }
       },
       "detail": {
         "descriptionLabel": "Description",
@@ -1351,31 +1387,46 @@
       "searchPlaceholder": "Search connectors",
       "searchEmpty": "No connectors match your search.",
       "group.searchEngine": "Search engines",
+      "group.community": "Communities",
       "group.video": "Video",
+      "group.developer": "Developer",
       "group.other": "Other",
       "item.google": "Google",
+      "item.github": "GitHub",
+      "item.reddit": "Reddit",
+      "item.zhihu": "Zhihu",
+      "item.x": "X",
       "item.xiaohongshu": "Xiaohongshu",
       "item.bilibili": "Bilibili",
       "connect": "Connect",
       "reconnect": "Reconnect",
       "clear": "Clear",
       "noCookies": "No cookies configured",
-      "loginHint": "A browser window will open. Sign in, then close the window to save cookies.",
+      "noCookiesRead": "No connector cookies were read yet. Stay signed in and click finish again.",
+      "loginHint": "A browser window will open with a temporary profile. Sign in there, then click finish to read and save cookies.",
       "loginTitle": "Browser login",
-      "loginDescription": "Finish login in the browser window, then close it.",
-      "installDescription": "Playwright is required to open the browser.",
+      "loginDescription": "Finish login in the browser window, then click finish in this dialog.",
       "loginTarget": "Connector",
-      "loginRunning": "Waiting for browser to close...",
-      "loginDone": "Login completed.",
+      "loginLaunching": "Launching browser...",
+      "loginReady": "Browser opened. Complete sign-in, then click finish.",
+      "loginReadingCookies": "Reading cookies from the browser session...",
+      "loginClosingBrowser": "Closing the browser session...",
+      "loginCompleted": "Connection processing completed.",
+      "loginIdle": "Waiting to start login.",
+      "loginFinish": "Finish",
       "loginError": "Login failed",
-      "playwrightMissing": "Playwright is not installed. Install it to continue.",
-      "openExternalTools": "Open external tools",
-      "installRequiredStatus": "Install required to continue.",
+      "loginSessionMissing": "The login session was not found. Start the connection again.",
+      "browserSessionEnded": "The browser session has already ended. Start the connection again.",
+      "browserMissing": "No supported local browser was detected.",
+      "cookiesRead": "Cookies read",
+      "cookiesSaved": "Cookies kept",
+      "cookiesDomains": "Matched domains",
       "status.connected": "Connected",
       "status.expired": "Expired",
       "status.disconnected": "Disconnected",
       "detail.status": "Status",
       "detail.data": "Data",
+      "detail.scope": "Cookie scope",
       "detail.actions": "Actions",
       "viewCookies": "View",
       "openSite": "Open site",
@@ -1720,8 +1771,9 @@
         "current": "Current version",
         "changelog": "Release notes",
         "check": "Check for updates",
-        "install": "Install updates",
-        "restart": "Restart to apply",
+        "recheck": "Check again",
+        "downloadAndInstall": "Download and install",
+        "restartAfterUpdate": "Restart to update",
         "command": "Update actions",
         "status": "Status",
         "downloading": "Downloading",
@@ -3524,6 +3576,14 @@
     "notAvailable": "Not available",
     "justNow": "Just now"
   },
+  "whatsNew": {
+    "eyebrow": "Release notes",
+    "currentVersion": "Current version",
+    "title": "What's new in {version}",
+    "description": "",
+    "emptyState": "This version has already been applied, but no release notes are available yet.",
+    "versionLabel": "Current version: {version}"
+  },
   "gateway": {
     "page": {
       "subtitle": "Control plane overview and diagnostics"
@@ -3804,6 +3864,7 @@
         "notification": "Notification",
         "sendOS": "Send OS message",
         "dialog": "Dialog",
+        "whatsNew": "What's new",
         "publish": "Publish debug event"
       }
     },
@@ -3841,7 +3902,8 @@
         "action": "Acknowledge",
         "dialogTitle": "Danger Dialog",
         "dialogDesc": "Use this to verify modal styles.",
-        "dialogConfirm": "Confirm"
+        "dialogConfirm": "Confirm",
+        "whatsNewMarkdown": "## Debug preview\n\n### layout verification\n- this line checks the title-to-body spacing.\n- this line checks paragraph rhythm in markdown.\n- this line checks the rounded container edge.\n- this line checks long-content readability.\n- this line checks the scroll threshold.\n- this line checks whether the dialog height stays stable.\n\n### interaction verification\n- this line checks scrolling after the content grows.\n- this line checks that the footer stays visible.\n- this line checks that the close button does not move.\n- this line checks markdown list rendering.\n- this line checks the spacing near the bottom.\n- this line confirms this preview is debug-only."
       },
       "realtime": {
         "websocket": "WebSocket",
@@ -4041,6 +4103,7 @@
         "productMode": "Product mode",
         "notifications": "Notifications",
         "appUpdate": "App update",
+        "restartAndUpdate": "Restart and update",
         "externalToolsUpdate": "Tool updates",
         "settings": "Settings",
         "open": "Open profile menu"

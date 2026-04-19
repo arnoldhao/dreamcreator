@@ -106,20 +106,20 @@ func (service *SkillsService) SearchSkills(ctx context.Context, request dto.Sear
 	providerID := "clawhub"
 	workspaceRoot, err := service.resolveWorkspaceRoot(ctx, request.AssistantID, request.WorkspaceRoot)
 	if err != nil {
-		service.appendSkillsAuditRecord(ctx, "skill_manage.search", query, assistantID, providerID, err)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.search", query, assistantID, providerID, err)
 		return nil, err
 	}
 	output, err := service.runClawHubCommand(ctx, workspaceRoot, skillsSearchTimeout, "search", "--limit", fmt.Sprintf("%d", limit), query)
 	if err != nil {
-		service.appendSkillsAuditRecord(ctx, "skill_manage.search", query, assistantID, providerID, err)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.search", query, assistantID, providerID, err)
 		return nil, err
 	}
 	results := parseClawHubSearchOutput(output)
 	if len(results) > limit {
-		service.appendSkillsAuditRecord(ctx, "skill_manage.search", query, assistantID, providerID, nil)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.search", query, assistantID, providerID, nil)
 		return results[:limit], nil
 	}
-	service.appendSkillsAuditRecord(ctx, "skill_manage.search", query, assistantID, providerID, nil)
+	service.appendSkillsAuditRecord(ctx, "skills_manage.search", query, assistantID, providerID, nil)
 	return results, nil
 }
 
@@ -132,17 +132,17 @@ func (service *SkillsService) InspectSkill(ctx context.Context, request dto.Insp
 	providerID := "clawhub"
 	workspaceRoot, err := service.resolveWorkspaceRoot(ctx, request.AssistantID, request.WorkspaceRoot)
 	if err != nil {
-		service.appendSkillsAuditRecord(ctx, "skill_manage.inspect", skill, assistantID, providerID, err)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.inspect", skill, assistantID, providerID, err)
 		return dto.SkillDetail{}, err
 	}
 	output, err := service.runClawHubCommand(ctx, workspaceRoot, skillsSearchTimeout, "inspect", skill, "--json", "--files")
 	if err != nil {
-		service.appendSkillsAuditRecord(ctx, "skill_manage.inspect", skill, assistantID, providerID, err)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.inspect", skill, assistantID, providerID, err)
 		return dto.SkillDetail{}, err
 	}
 	detail, err := parseClawHubInspectOutput(output)
 	if err != nil {
-		service.appendSkillsAuditRecord(ctx, "skill_manage.inspect", skill, assistantID, providerID, err)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.inspect", skill, assistantID, providerID, err)
 		return dto.SkillDetail{}, err
 	}
 	if version := service.resolveInstalledSkillVersion(ctx, workspaceRoot, skill); version != "" {
@@ -161,7 +161,7 @@ func (service *SkillsService) InspectSkill(ctx context.Context, request dto.Insp
 	if detail.Name == "" {
 		detail.Name = detail.ID
 	}
-	service.appendSkillsAuditRecord(ctx, "skill_manage.inspect", skill, assistantID, providerID, nil)
+	service.appendSkillsAuditRecord(ctx, "skills_manage.inspect", skill, assistantID, providerID, nil)
 	return detail, nil
 }
 
@@ -174,7 +174,7 @@ func (service *SkillsService) InstallSkill(ctx context.Context, request dto.Inst
 	providerID := "clawhub"
 	workspaceRoot, err := service.resolveWorkspaceRoot(ctx, request.AssistantID, request.WorkspaceRoot)
 	if err != nil {
-		service.appendSkillsAuditRecord(ctx, "skill_manage.install", skill, assistantID, providerID, err)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.install", skill, assistantID, providerID, err)
 		return err
 	}
 	service.emitRealtimeEvent(ctx, SkillsRealtimeEvent{
@@ -206,7 +206,7 @@ func (service *SkillsService) InstallSkill(ctx context.Context, request dto.Inst
 			Force:         request.Force,
 			Error:         err.Error(),
 		})
-		service.appendSkillsAuditRecord(ctx, "skill_manage.install", skill, assistantID, providerID, err)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.install", skill, assistantID, providerID, err)
 		return err
 	}
 	service.recordInstallAttempt(true)
@@ -219,7 +219,7 @@ func (service *SkillsService) InstallSkill(ctx context.Context, request dto.Inst
 		WorkspaceRoot: workspaceRoot,
 		Force:         request.Force,
 	})
-	service.appendSkillsAuditRecord(ctx, "skill_manage.install", skill, assistantID, providerID, nil)
+	service.appendSkillsAuditRecord(ctx, "skills_manage.install", skill, assistantID, providerID, nil)
 	return err
 }
 
@@ -232,7 +232,7 @@ func (service *SkillsService) UpdateSkill(ctx context.Context, request dto.Updat
 	providerID := "clawhub"
 	workspaceRoot, err := service.resolveWorkspaceRoot(ctx, request.AssistantID, request.WorkspaceRoot)
 	if err != nil {
-		service.appendSkillsAuditRecord(ctx, "skill_manage.update", skill, assistantID, providerID, err)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.update", skill, assistantID, providerID, err)
 		return err
 	}
 	service.emitRealtimeEvent(ctx, SkillsRealtimeEvent{
@@ -264,7 +264,7 @@ func (service *SkillsService) UpdateSkill(ctx context.Context, request dto.Updat
 			Force:         request.Force,
 			Error:         err.Error(),
 		})
-		service.appendSkillsAuditRecord(ctx, "skill_manage.update", skill, assistantID, providerID, err)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.update", skill, assistantID, providerID, err)
 		return err
 	}
 	service.recordInstallAttempt(true)
@@ -277,7 +277,7 @@ func (service *SkillsService) UpdateSkill(ctx context.Context, request dto.Updat
 		WorkspaceRoot: workspaceRoot,
 		Force:         request.Force,
 	})
-	service.appendSkillsAuditRecord(ctx, "skill_manage.update", skill, assistantID, providerID, nil)
+	service.appendSkillsAuditRecord(ctx, "skills_manage.update", skill, assistantID, providerID, nil)
 	return err
 }
 
@@ -290,7 +290,7 @@ func (service *SkillsService) RemoveSkill(ctx context.Context, request dto.Remov
 	providerID := "clawhub"
 	workspaceRoot, err := service.resolveWorkspaceRoot(ctx, request.AssistantID, request.WorkspaceRoot)
 	if err != nil {
-		service.appendSkillsAuditRecord(ctx, "skill_manage.remove", skill, assistantID, providerID, err)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.remove", skill, assistantID, providerID, err)
 		return err
 	}
 	service.emitRealtimeEvent(ctx, SkillsRealtimeEvent{
@@ -312,7 +312,7 @@ func (service *SkillsService) RemoveSkill(ctx context.Context, request dto.Remov
 					WorkspaceRoot: workspaceRoot,
 					Error:         cleanupErr.Error(),
 				})
-				service.appendSkillsAuditRecord(ctx, "skill_manage.remove", skill, assistantID, providerID, cleanupErr)
+				service.appendSkillsAuditRecord(ctx, "skills_manage.remove", skill, assistantID, providerID, cleanupErr)
 				return cleanupErr
 			}
 			service.emitRealtimeEvent(ctx, SkillsRealtimeEvent{
@@ -322,7 +322,7 @@ func (service *SkillsService) RemoveSkill(ctx context.Context, request dto.Remov
 				AssistantID:   request.AssistantID,
 				WorkspaceRoot: workspaceRoot,
 			})
-			service.appendSkillsAuditRecord(ctx, "skill_manage.remove", skill, assistantID, providerID, nil)
+			service.appendSkillsAuditRecord(ctx, "skills_manage.remove", skill, assistantID, providerID, nil)
 			return nil
 		}
 		service.emitRealtimeEvent(ctx, SkillsRealtimeEvent{
@@ -333,7 +333,7 @@ func (service *SkillsService) RemoveSkill(ctx context.Context, request dto.Remov
 			WorkspaceRoot: workspaceRoot,
 			Error:         err.Error(),
 		})
-		service.appendSkillsAuditRecord(ctx, "skill_manage.remove", skill, assistantID, providerID, err)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.remove", skill, assistantID, providerID, err)
 		return err
 	}
 	if cleanupErr := service.removeWorkspaceSkillDirectories(ctx, workspaceRoot, skill); cleanupErr != nil {
@@ -345,7 +345,7 @@ func (service *SkillsService) RemoveSkill(ctx context.Context, request dto.Remov
 			WorkspaceRoot: workspaceRoot,
 			Error:         cleanupErr.Error(),
 		})
-		service.appendSkillsAuditRecord(ctx, "skill_manage.remove", skill, assistantID, providerID, cleanupErr)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.remove", skill, assistantID, providerID, cleanupErr)
 		return cleanupErr
 	}
 	service.emitRealtimeEvent(ctx, SkillsRealtimeEvent{
@@ -355,7 +355,7 @@ func (service *SkillsService) RemoveSkill(ctx context.Context, request dto.Remov
 		AssistantID:   request.AssistantID,
 		WorkspaceRoot: workspaceRoot,
 	})
-	service.appendSkillsAuditRecord(ctx, "skill_manage.remove", skill, assistantID, providerID, nil)
+	service.appendSkillsAuditRecord(ctx, "skills_manage.remove", skill, assistantID, providerID, nil)
 	return nil
 }
 
@@ -449,7 +449,7 @@ func (service *SkillsService) SyncSkills(ctx context.Context, request dto.SyncSk
 	}
 	workspaceRoot, err := service.resolveWorkspaceRoot(ctx, request.AssistantID, request.WorkspaceRoot)
 	if err != nil {
-		service.appendSkillsAuditRecord(ctx, "skill_manage.sync", "", assistantID, providerID, err)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.sync", "", assistantID, providerID, err)
 		return nil, err
 	}
 	service.emitRealtimeEvent(ctx, SkillsRealtimeEvent{
@@ -468,7 +468,7 @@ func (service *SkillsService) SyncSkills(ctx context.Context, request dto.SyncSk
 			WorkspaceRoot: workspaceRoot,
 			Error:         err.Error(),
 		})
-		service.appendSkillsAuditRecord(ctx, "skill_manage.sync", "", assistantID, providerID, err)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.sync", "", assistantID, providerID, err)
 		return nil, err
 	}
 	result, err := service.ResolveSkillsForProviderInWorkspace(ctx, dto.ResolveSkillsRequest{
@@ -483,7 +483,7 @@ func (service *SkillsService) SyncSkills(ctx context.Context, request dto.SyncSk
 			WorkspaceRoot: workspaceRoot,
 			Error:         err.Error(),
 		})
-		service.appendSkillsAuditRecord(ctx, "skill_manage.sync", "", assistantID, providerID, err)
+		service.appendSkillsAuditRecord(ctx, "skills_manage.sync", "", assistantID, providerID, err)
 		return nil, err
 	}
 	service.emitRealtimeEvent(ctx, SkillsRealtimeEvent{
@@ -494,7 +494,7 @@ func (service *SkillsService) SyncSkills(ctx context.Context, request dto.SyncSk
 		WorkspaceRoot: workspaceRoot,
 		CatalogCount:  len(result),
 	})
-	service.appendSkillsAuditRecord(ctx, "skill_manage.sync", "", assistantID, providerID, nil)
+	service.appendSkillsAuditRecord(ctx, "skills_manage.sync", "", assistantID, providerID, nil)
 	return result, nil
 }
 

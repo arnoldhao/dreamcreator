@@ -14,6 +14,7 @@ import {
 import { Button } from "@/shared/ui/button";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { TitleBar } from "@/components/layout/TitleBar";
+import { WhatsNewDialog } from "@/features/update/WhatsNewDialog";
 import { useI18n } from "@/shared/i18n";
 import { MessageHost } from "@/shared/message/MessageHost";
 import { cn } from "@/lib/utils";
@@ -43,7 +44,7 @@ export interface AppShellProps {
   onSelectThread?: (threadId: string) => void;
   highlightThreadActive?: boolean;
   showThreadList?: boolean;
-  isAppUpdateAvailable?: boolean;
+  appUpdateInfo?: import("@/shared/store/update").UpdateInfo;
   isExternalToolsUpdateAvailable?: boolean;
   noticeUnreadCount?: number;
   isNoticePanelOpen?: boolean;
@@ -75,7 +76,7 @@ function AppShellLayout({
   onSelectThread,
   highlightThreadActive,
   showThreadList,
-  isAppUpdateAvailable,
+  appUpdateInfo,
   isExternalToolsUpdateAvailable,
   noticeUnreadCount,
   isNoticePanelOpen,
@@ -184,7 +185,7 @@ function AppShellLayout({
           onSelectThread={onSelectThread}
           highlightThreadActive={highlightThreadActive}
           showThreadList={showThreadList}
-          isAppUpdateAvailable={isAppUpdateAvailable}
+          appUpdateInfo={appUpdateInfo}
           isExternalToolsUpdateAvailable={isExternalToolsUpdateAvailable}
           noticeUnreadCount={noticeUnreadCount}
           isNoticePanelOpen={isNoticePanelOpen}
@@ -216,6 +217,7 @@ function AppShellLayout({
           />
         )}
         <MessageHost />
+        <WhatsNewDialog activeWindow={activeWindow} autoOpen={activeWindow === "main"} />
         <div
           className={cn(
             "flex min-h-0 flex-1 flex-col bg-transparent",

@@ -34,6 +34,10 @@ func (handler *UpdateHandler) GetState(_ context.Context) update.Info {
 	return handler.service.State()
 }
 
+func (handler *UpdateHandler) GetWhatsNew(ctx context.Context) (update.WhatsNew, error) {
+	return handler.service.GetWhatsNew(ctx)
+}
+
 func (handler *UpdateHandler) CheckForUpdate(ctx context.Context, currentVersion string) (update.Info, error) {
 	return handler.service.CheckForUpdate(ctx, currentVersion)
 }
@@ -41,7 +45,11 @@ func (handler *UpdateHandler) CheckForUpdate(ctx context.Context, currentVersion
 func (handler *UpdateHandler) DownloadUpdate(ctx context.Context) (update.Info, error) {
 	info, err := handler.service.DownloadUpdate(ctx)
 	if err == nil && handler.telemetry != nil && info.Status == update.StatusReadyToRestart {
-		handler.telemetry.TrackUpdateReadyToRestart(ctx, info.LatestVersion)
+		latestVersion := info.PreparedVersion
+		if latestVersion == "" {
+			latestVersion = info.LatestVersion
+		}
+		handler.telemetry.TrackUpdateReadyToRestart(ctx, latestVersion)
 	}
 	return info, err
 }
@@ -55,4 +63,8 @@ func (handler *UpdateHandler) RestartToApply(ctx context.Context) (update.Info, 
 		}()
 	}
 	return info, err
+}
+
+func (handler *UpdateHandler) DismissWhatsNew(ctx context.Context, version string) error {
+	return handler.service.DismissWhatsNew(ctx, version)
 }

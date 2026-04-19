@@ -24,7 +24,7 @@ import { SettingsCompactListCard, SettingsCompactRow, SettingsCompactSeparator }
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { messageBus } from "@/shared/message";
-import { useUpdateStore } from "@/shared/store/update";
+import { displayUpdateVersion, hasPreparedUpdate, hasRemoteUpdate, useUpdateStore } from "@/shared/store/update";
 import { useCheckForUpdate, useDownloadUpdate, useRestartToApply, useUpdateState } from "@/shared/query/update";
 import { Browser } from "@wailsio/runtime";
 
@@ -44,23 +44,27 @@ export function AboutSection() {
 
   const isChecking = updateInfo.status === "checking" || checkUpdate.isPending;
   const isError = updateInfo.status === "error";
-  const hasUpdate =
-    updateInfo.status === "available" ||
-    updateInfo.status === "downloading" ||
-    updateInfo.status === "installing" ||
-    updateInfo.status === "ready_to_restart";
+  const hasPrepared = hasPreparedUpdate(updateInfo);
+  const hasRemote = hasRemoteUpdate(updateInfo);
+  const hasKnownPendingUpdate = hasPrepared || hasRemote;
   const isDownloading = updateInfo.status === "downloading" || updateInfo.status === "installing";
-  const isReadyToRestart = updateInfo.status === "ready_to_restart";
-  const releaseNotes = (updateInfo.changelog ?? "").trim();
+  const isReadyToRestart = updateInfo.status === "ready_to_restart" && hasPrepared;
+  const releaseNotes = ((isReadyToRestart ? updateInfo.preparedChangelog : updateInfo.changelog) ?? "").trim();
   const hasReleaseNotes = releaseNotes.length > 0;
   const errorMessage = (updateInfo.message ?? "").trim();
-  const hasKnownLatestVersion =
-    updateInfo.latestVersion.trim().length > 0 && updateInfo.latestVersion.trim() !== updateInfo.currentVersion.trim();
-  const showLatestUpdate = hasUpdate || (hasKnownLatestVersion && (isError || updateInfo.status === "available"));
+  const showLatestUpdate = hasKnownPendingUpdate || isDownloading || isReadyToRestart;
   const showStatusRow = isDownloading || (isError && errorMessage.length > 0);
+  const checkLabel = hasKnownPendingUpdate ? t("settings.about.update.recheck") : t("settings.about.update.check");
+  const installLabel = t("settings.about.update.downloadAndInstall");
+  const restartLabel = t("settings.about.update.restartAfterUpdate");
+  const showCheckAction = !isReadyToRestart && !isDownloading;
+  const showInstallAction =
+    !isReadyToRestart &&
+    !isDownloading &&
+    (updateInfo.status === "available" || (isError && hasRemote && !hasPrepared));
 
   const latestLabel = (() => {
-    if (showLatestUpdate) return updateInfo.latestVersion || t("settings.about.update.latestAvailable");
+    if (showLatestUpdate) return displayUpdateVersion(updateInfo) || t("settings.about.update.latestAvailable");
     if (isError) return t("settings.about.update.latestFailed");
     return t("settings.about.update.latestOk");
   })();
@@ -237,25 +241,27 @@ export function AboutSection() {
 
           <SettingsCompactRow label={t("settings.about.update.command")}>
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="compact"
-                      onClick={handleCheck}
-                      disabled={checkUpdate.isPending || isChecking || isDownloading}
-                      aria-label={t("settings.about.update.check")}
-                    >
-                      {isChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                      {t("settings.about.update.check")}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{t("settings.about.update.check")}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              {showCheckAction ? (
+                <TooltipProvider delayDuration={0}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="compact"
+                        onClick={handleCheck}
+                        disabled={checkUpdate.isPending || isChecking || isDownloading}
+                        aria-label={checkLabel}
+                      >
+                        {isChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                        {checkLabel}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{checkLabel}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
 
-              {hasUpdate && !isReadyToRestart ? (
+              {showInstallAction ? (
                 <TooltipProvider delayDuration={0}>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -264,17 +270,17 @@ export function AboutSection() {
                         size="compact"
                         onClick={handleInstall}
                         disabled={downloadUpdate.isPending || isDownloading || restartToApply.isPending}
-                        aria-label={t("settings.about.update.install")}
+                        aria-label={installLabel}
                       >
                         {downloadUpdate.isPending || isDownloading ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Download className="h-4 w-4" />
                         )}
-                        {t("settings.about.update.install")}
+                        {installLabel}
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>{t("settings.about.update.install")}</TooltipContent>
+                    <TooltipContent>{installLabel}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               ) : null}
@@ -288,17 +294,17 @@ export function AboutSection() {
                         size="compact"
                         onClick={handleRestart}
                         disabled={restartToApply.isPending}
-                        aria-label={t("settings.about.update.restart")}
+                        aria-label={restartLabel}
                       >
                         {restartToApply.isPending ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <RefreshCw className="h-4 w-4" />
                         )}
-                        {t("settings.about.update.restart")}
+                        {restartLabel}
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>{t("settings.about.update.restart")}</TooltipContent>
+                    <TooltipContent>{restartLabel}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               ) : null}

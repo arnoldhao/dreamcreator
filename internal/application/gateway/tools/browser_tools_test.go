@@ -9,29 +9,27 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"dreamcreator/internal/application/agentruntime"
+	"dreamcreator/internal/application/browsercdp"
+	"github.com/cloudwego/eino/schema"
 )
 
-func TestResolveBrowserActionDefaultsStatus(t *testing.T) {
+func TestResolveBrowserActionRequiresExplicitAction(t *testing.T) {
 	t.Parallel()
 
-	action, err := resolveBrowserAction(toolArgs{})
-	if err != nil {
-		t.Fatalf("resolve action: %v", err)
-	}
-	if action != "status" {
-		t.Fatalf("expected default action status, got %q", action)
+	_, err := resolveBrowserAction(toolArgs{})
+	if err == nil {
+		t.Fatalf("expected missing action error")
 	}
 }
 
-func TestResolveBrowserActionDefaultsOpenWhenURLPresent(t *testing.T) {
+func TestResolveBrowserActionRequiresExplicitActionEvenWhenURLPresent(t *testing.T) {
 	t.Parallel()
 
-	action, err := resolveBrowserAction(toolArgs{"url": "https://example.com"})
-	if err != nil {
-		t.Fatalf("resolve action: %v", err)
-	}
-	if action != "open" {
-		t.Fatalf("expected default action open with url, got %q", action)
+	_, err := resolveBrowserAction(toolArgs{"targetUrl": "https://example.com"})
+	if err == nil {
+		t.Fatalf("expected missing action error")
 	}
 }
 
@@ -44,6 +42,98 @@ func TestResolveBrowserActionRejectsUnsupportedFetchAlias(t *testing.T) {
 	}
 }
 
+func TestSpecBrowserExposesWorkflowActionsOnly(t *testing.T) {
+	t.Parallel()
+
+	var schema map[string]any
+	if err := json.Unmarshal([]byte(specBrowser().SchemaJSON), &schema); err != nil {
+		t.Fatalf("decode schema: %v", err)
+	}
+	properties, _ := schema["properties"].(map[string]any)
+	actionDef, _ := properties["action"].(map[string]any)
+	rawEnum, _ := actionDef["enum"].([]any)
+	got := make([]string, 0, len(rawEnum))
+	for _, item := range rawEnum {
+		if value, ok := item.(string); ok && value != "" {
+			got = append(got, value)
+		}
+	}
+	want := []string{"open", "navigate", "snapshot", "act", "wait", "scroll", "upload", "dialog", "reset"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("unexpected browser actions: got %v want %v", got, want)
+	}
+}
+
+func TestSpecBrowserDescriptionExplainsSnapshotWorkflow(t *testing.T) {
+	t.Parallel()
+
+	description := specBrowser().Description
+	if !strings.Contains(description, "browser-use style loop") {
+		t.Fatalf("expected browser description to mention browser-use loop, got %q", description)
+	}
+	if !strings.Contains(description, "pass `url` or `targetUrl`") {
+		t.Fatalf("expected browser description to document url alias, got %q", description)
+	}
+	if !strings.Contains(description, "return `stateAvailable`, `itemCount`, and the current page `state`/`items`") {
+		t.Fatalf("expected browser description to explain open/navigate result state, got %q", description)
+	}
+	if !strings.Contains(description, "`stateAvailable=false`") {
+		t.Fatalf("expected browser description to explain stateAvailable fallback, got %q", description)
+	}
+	if !strings.Contains(description, "call `snapshot` to refresh them") {
+		t.Fatalf("expected browser description to explain open/navigate flow, got %q", description)
+	}
+	if !strings.Contains(description, "use `ref` from the latest state") {
+		t.Fatalf("expected browser description to prefer refs, got %q", description)
+	}
+}
+
+func TestSpecBrowserSchemaAcceptsOpenURLAlias(t *testing.T) {
+	t.Parallel()
+
+	validator := agentruntime.JSONToolValidator{
+		Tools: map[string]agentruntime.ToolDefinition{
+			"browser": {
+				Name:       "browser",
+				SchemaJSON: specBrowser().SchemaJSON,
+			},
+		},
+	}
+
+	err := validator.Validate(schema.ToolCall{
+		Function: schema.FunctionCall{
+			Name:      "browser",
+			Arguments: `{"action":"open","url":"https://example.com"}`,
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected open url alias to validate, got %v", err)
+	}
+}
+
+func TestSpecBrowserSchemaAcceptsNavigateURLAlias(t *testing.T) {
+	t.Parallel()
+
+	validator := agentruntime.JSONToolValidator{
+		Tools: map[string]agentruntime.ToolDefinition{
+			"browser": {
+				Name:       "browser",
+				SchemaJSON: specBrowser().SchemaJSON,
+			},
+		},
+	}
+
+	err := validator.Validate(schema.ToolCall{
+		Function: schema.FunctionCall{
+			Name:      "browser",
+			Arguments: `{"action":"navigate","url":"https://example.com"}`,
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected navigate url alias to validate, got %v", err)
+	}
+}
+
 func TestResolveBrowserRuntimeConfigDefaults(t *testing.T) {
 	t.Parallel()
 
@@ -51,17 +141,14 @@ func TestResolveBrowserRuntimeConfigDefaults(t *testing.T) {
 	if !resolved.Enabled {
 		t.Fatalf("expected browser enabled by default")
 	}
-	if !resolved.EvaluateEnabled {
-		t.Fatalf("expected evaluateEnabled default true")
-	}
 	if resolved.DefaultProfile != defaultBrowserProfileDreamCreator {
 		t.Fatalf("expected default profile %q, got %q", defaultBrowserProfileDreamCreator, resolved.DefaultProfile)
 	}
 	if _, ok := resolved.Profiles[defaultBrowserProfileDreamCreator]; !ok {
 		t.Fatalf("expected dreamcreator profile default")
 	}
-	if !resolved.SSRFRules.DangerouslyAllowPrivateNetwork {
-		t.Fatalf("expected ssrf dangerous allow default true")
+	if resolved.SSRFRules.DangerouslyAllowPrivateNetwork {
+		t.Fatalf("expected ssrf dangerous allow default false")
 	}
 }
 
@@ -70,11 +157,8 @@ func TestResolveBrowserRuntimeConfigReadsBrowserSettings(t *testing.T) {
 
 	resolved := resolveBrowserRuntimeConfig(map[string]any{
 		"browser": map[string]any{
-			"enabled":         false,
-			"evaluateEnabled": false,
-			"headless":        true,
-			"noSandbox":       true,
-			"extraArgs":       []any{"--window-size=1280,900"},
+			"enabled":  false,
+			"headless": true,
 			"ssrfPolicy": map[string]any{
 				"dangerouslyAllowPrivateNetwork": false,
 				"allowedHostnames":               []any{"localhost"},
@@ -85,17 +169,8 @@ func TestResolveBrowserRuntimeConfigReadsBrowserSettings(t *testing.T) {
 	if resolved.Enabled {
 		t.Fatalf("expected enabled false")
 	}
-	if resolved.EvaluateEnabled {
-		t.Fatalf("expected evaluateEnabled false")
-	}
 	if !resolved.Headless {
 		t.Fatalf("expected headless true")
-	}
-	if !resolved.NoSandbox {
-		t.Fatalf("expected noSandbox true")
-	}
-	if len(resolved.ExtraArgs) != 1 || resolved.ExtraArgs[0] != "--window-size=1280,900" {
-		t.Fatalf("expected extraArgs from config")
 	}
 	if resolved.SSRFRules.DangerouslyAllowPrivateNetwork {
 		t.Fatalf("expected ssrf dangerous allow false")
@@ -105,6 +180,108 @@ func TestResolveBrowserRuntimeConfigReadsBrowserSettings(t *testing.T) {
 	}
 	if len(resolved.SSRFRules.HostnameAllowlist) != 1 || resolved.SSRFRules.HostnameAllowlist[0] != "*.example.com" {
 		t.Fatalf("expected hostnameAllowlist from config")
+	}
+}
+
+func TestBrowserToolRuntimeConfigChangedDetectsRuntimeChanges(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		previous map[string]any
+		current  map[string]any
+		want     bool
+	}{
+		{
+			name: "same config",
+			previous: map[string]any{
+				"browser": map[string]any{
+					"enabled":          true,
+					"headless":         true,
+					"preferredBrowser": "chrome",
+				},
+			},
+			current: map[string]any{
+				"browser": map[string]any{
+					"enabled":          true,
+					"headless":         true,
+					"preferredBrowser": "chrome",
+				},
+			},
+			want: false,
+		},
+		{
+			name: "headless changed",
+			previous: map[string]any{
+				"browser": map[string]any{
+					"headless": false,
+				},
+			},
+			current: map[string]any{
+				"browser": map[string]any{
+					"headless": true,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "preferred browser changed",
+			previous: map[string]any{
+				"browser": map[string]any{
+					"preferredBrowser": "chrome",
+				},
+			},
+			current: map[string]any{
+				"browser": map[string]any{
+					"preferredBrowser": "brave",
+				},
+			},
+			want: true,
+		},
+		{
+			name: "enabled changed",
+			previous: map[string]any{
+				"browser": map[string]any{
+					"enabled": true,
+				},
+			},
+			current: map[string]any{
+				"browser": map[string]any{
+					"enabled": false,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "ssrf changed only",
+			previous: map[string]any{
+				"browser": map[string]any{
+					"headless": true,
+					"ssrfPolicy": map[string]any{
+						"dangerouslyAllowPrivateNetwork": false,
+					},
+				},
+			},
+			current: map[string]any{
+				"browser": map[string]any{
+					"headless": true,
+					"ssrfPolicy": map[string]any{
+						"dangerouslyAllowPrivateNetwork": true,
+					},
+				},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := BrowserToolRuntimeConfigChanged(tt.previous, tt.current); got != tt.want {
+				t.Fatalf("BrowserToolRuntimeConfigChanged() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -227,7 +404,7 @@ func TestParseBrowserAriaSnapshotRespectsMaxDepth(t *testing.T) {
 func TestBrowserActionActRejectsSelectorForNonWaitBeforeRuntime(t *testing.T) {
 	t.Parallel()
 
-	_, err := browserActionAct(toolArgs{
+	_, err := browserActionAct(context.Background(), toolArgs{
 		"request": map[string]any{
 			"kind":     "click",
 			"selector": "button.save",
@@ -238,6 +415,50 @@ func TestBrowserActionActRejectsSelectorForNonWaitBeforeRuntime(t *testing.T) {
 	}
 	if err.Error() != browserSelectorUnsupportedMessage {
 		t.Fatalf("unexpected selector error: %q", err.Error())
+	}
+}
+
+func TestResolveBrowserActionAcceptsSnapshotAction(t *testing.T) {
+	t.Parallel()
+
+	action, err := resolveBrowserAction(toolArgs{
+		"action": "snapshot",
+	})
+	if err != nil {
+		t.Fatalf("expected snapshot action to be accepted, got %v", err)
+	}
+	if action != "snapshot" {
+		t.Fatalf("unexpected action: got %q want snapshot", action)
+	}
+}
+
+func TestResolveBrowserActionRejectsStateAction(t *testing.T) {
+	t.Parallel()
+
+	_, err := resolveBrowserAction(toolArgs{
+		"action": "state",
+	})
+	if err == nil {
+		t.Fatalf("expected state action to be rejected")
+	}
+	if !strings.Contains(err.Error(), "not supported") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestBrowserActionActRejectsUnsupportedNavigateKind(t *testing.T) {
+	t.Parallel()
+
+	_, err := browserActionAct(context.Background(), toolArgs{
+		"request": map[string]any{
+			"kind": "navigate",
+		},
+	}, &browserProfileState{})
+	if err == nil {
+		t.Fatalf("expected unsupported kind error")
+	}
+	if !strings.Contains(err.Error(), "act kind not supported") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -255,28 +476,21 @@ func TestNormalizeBrowserTimeoutMsClampRange(t *testing.T) {
 	}
 }
 
-func TestTabResultFromEvaluateReturnsStoredValue(t *testing.T) {
+func TestResolveBrowserScrollDeltaDefaultsDown(t *testing.T) {
 	t.Parallel()
 
-	tab := &browserTabState{TargetID: "tab-1"}
-	tab.mu.Lock()
-	tab.evaluateResult = map[string]any{"ok": true, "value": "done"}
-	tab.mu.Unlock()
-
-	result, ok := tabResultFromEvaluate(tab).(map[string]any)
-	if !ok {
-		t.Fatalf("expected evaluate result map")
-	}
-	if value, _ := result["value"].(string); value != "done" {
-		t.Fatalf("expected stored evaluate result, got %#v", result)
+	x, y := resolveBrowserScrollDelta(toolArgs{})
+	if x != 0 || y != 700 {
+		t.Fatalf("expected default down scroll, got %d/%d", x, y)
 	}
 }
 
-func TestTabResultFromEvaluateNilTab(t *testing.T) {
+func TestResolveBrowserScrollDeltaHonorsDirectionAndAmount(t *testing.T) {
 	t.Parallel()
 
-	if result := tabResultFromEvaluate(nil); result != nil {
-		t.Fatalf("expected nil result for nil tab, got %#v", result)
+	x, y := resolveBrowserScrollDelta(toolArgs{"direction": "left", "amount": 320})
+	if x != -320 || y != 0 {
+		t.Fatalf("expected left scroll -320/0, got %d/%d", x, y)
 	}
 }
 
@@ -373,11 +587,55 @@ func TestResolveBrowserNodeOutputReturnsNilOnInvalidJSON(t *testing.T) {
 func TestIsBrowserSnapshotForAIUnavailable(t *testing.T) {
 	t.Parallel()
 
-	if !isBrowserSnapshotForAIUnavailable(errors.New("Playwright _snapshotForAI is not available")) {
-		t.Fatalf("expected _snapshotForAI error to be treated as unavailable")
+	if !isBrowserSnapshotForAIUnavailable(errors.New("browser snapshotForAI is unavailable")) {
+		t.Fatalf("expected snapshotForAI unavailable error to be treated as unavailable")
 	}
 	if isBrowserSnapshotForAIUnavailable(errors.New("network timeout")) {
 		t.Fatalf("expected unrelated error to remain actionable")
+	}
+}
+
+func TestBrowserResultMapPreservesSnapshotPayload(t *testing.T) {
+	t.Parallel()
+
+	result := browserResultMap(browsercdp.ActionResult{
+		OK:           true,
+		TargetID:     "tab-1",
+		URL:          "https://example.com",
+		StateVersion: 7,
+		Items: []browsercdp.SnapshotItem{
+			{Ref: "e1", Role: "button", Name: "Save"},
+		},
+		State: &browsercdp.PageState{
+			Version:    7,
+			URL:        "https://example.com",
+			ItemCount:  1,
+			CapturedAt: "2026-04-18T00:00:00Z",
+		},
+		StateAvailable: true,
+		StateError:     "warning",
+	})
+
+	if _, ok := result["state"]; !ok {
+		t.Fatalf("expected state to be preserved")
+	}
+	if got := result["stateVersion"]; got != float64(7) {
+		t.Fatalf("expected stateVersion to remain, got %#v", got)
+	}
+	if _, ok := result["items"]; !ok {
+		t.Fatalf("expected items to be preserved")
+	}
+	if got := result["stateAvailable"]; got != true {
+		t.Fatalf("expected stateAvailable to remain, got %#v", got)
+	}
+	if got := result["itemCount"]; got != 1 {
+		t.Fatalf("expected itemCount to remain, got %#v", got)
+	}
+	if got := result["stateError"]; got != "warning" {
+		t.Fatalf("expected stateError to remain, got %#v", got)
+	}
+	if got := result["targetId"]; got != "tab-1" {
+		t.Fatalf("expected targetId to remain, got %#v", got)
 	}
 }
 

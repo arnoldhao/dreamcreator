@@ -65,19 +65,15 @@ func RegisterBuiltinTools(ctx context.Context, toolSvc *toolservice.ToolService,
 	registerTool(ctx, toolSvc, executor, specSubagents(), runSubagentsTool(nil))
 	registerTool(ctx, toolSvc, executor, specNodes(), runNodesTool(deps.Nodes))
 	registerTool(ctx, toolSvc, executor, specTTS(), runTTSTool(deps.Voice))
-	registerTool(ctx, toolSvc, executor, specMemoryRecall(), runMemoryRecallTool(deps.Memory))
-	registerTool(ctx, toolSvc, executor, specMemoryStore(), runMemoryStoreTool(deps.Memory))
-	registerTool(ctx, toolSvc, executor, specMemoryForget(), runMemoryForgetTool(deps.Memory))
-	registerTool(ctx, toolSvc, executor, specMemoryUpdate(), runMemoryUpdateTool(deps.Memory))
-	registerTool(ctx, toolSvc, executor, specMemoryStats(), runMemoryStatsTool(deps.Memory))
-	registerTool(ctx, toolSvc, executor, specMemoryList(), runMemoryListTool(deps.Memory))
+	registerTool(ctx, toolSvc, executor, specMemoryQuery(), runMemoryQueryTool(deps.Memory))
+	registerTool(ctx, toolSvc, executor, specMemoryManage(), runMemoryManageTool(deps.Memory))
 	if deps.ExternalTools != nil {
 		registerTool(ctx, toolSvc, executor, specExternalToolsQuery(), runExternalToolsQueryTool(deps.ExternalTools))
 		registerTool(ctx, toolSvc, executor, specExternalToolsManage(), runExternalToolsManageTool(deps.ExternalTools))
 	}
 	if deps.Skills != nil {
 		registerTool(ctx, toolSvc, executor, specSkills(), runSkillsTool(deps.Skills, deps.Assistant, deps.Settings, deps.ExternalTools))
-		registerTool(ctx, toolSvc, executor, specSkillManage(), runSkillManageTool(deps.Skills, deps.Assistant, deps.Settings, deps.ExternalTools))
+		registerTool(ctx, toolSvc, executor, specSkillsManage(), runSkillsManageTool(deps.Skills, deps.Assistant, deps.Settings, deps.ExternalTools))
 	}
 	if deps.Library != nil {
 		registerTool(ctx, toolSvc, executor, specLibrary(), runLibraryGroupTool(deps.Library, "library"))

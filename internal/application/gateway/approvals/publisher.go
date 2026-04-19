@@ -6,6 +6,7 @@ import (
 	"time"
 
 	gatewayevents "dreamcreator/internal/application/gateway/events"
+	domainsession "dreamcreator/internal/domain/session"
 )
 
 type GatewayEventPublisher struct {
@@ -20,11 +21,11 @@ func (publisher *GatewayEventPublisher) Publish(ctx context.Context, eventType s
 	if publisher == nil || publisher.events == nil {
 		return nil
 	}
-	sessionKey := resolveSessionKey(payload)
+	sessionID, sessionKey := resolveSessionIdentity(payload)
 	envelope := gatewayevents.Envelope{
 		Type:       eventType,
 		Topic:      "exec.approval",
-		SessionID:  sessionKey,
+		SessionID:  sessionID,
 		SessionKey: sessionKey,
 		Timestamp:  time.Now(),
 	}
@@ -32,16 +33,27 @@ func (publisher *GatewayEventPublisher) Publish(ctx context.Context, eventType s
 	return err
 }
 
-func resolveSessionKey(payload any) string {
+func resolveSessionIdentity(payload any) (string, string) {
+	sessionKey := ""
 	switch value := payload.(type) {
 	case Request:
-		return strings.TrimSpace(value.SessionKey)
+		sessionKey = strings.TrimSpace(value.SessionKey)
 	case *Request:
 		if value == nil {
-			return ""
+			return "", ""
 		}
-		return strings.TrimSpace(value.SessionKey)
+		sessionKey = strings.TrimSpace(value.SessionKey)
 	default:
-		return ""
+		return "", ""
 	}
+	if parts, _, err := domainsession.NormalizeSessionKey(sessionKey); err == nil {
+		sessionID := strings.TrimSpace(parts.ThreadRef)
+		if sessionID == "" {
+			sessionID = strings.TrimSpace(parts.PrimaryID)
+		}
+		if sessionID != "" {
+			return sessionID, sessionKey
+		}
+	}
+	return sessionKey, sessionKey
 }

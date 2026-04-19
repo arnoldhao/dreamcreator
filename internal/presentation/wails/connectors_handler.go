@@ -36,21 +36,29 @@ func (handler *ConnectorsHandler) ClearConnector(ctx context.Context, request dt
 	return handler.service.ClearConnector(ctx, request)
 }
 
-func (handler *ConnectorsHandler) ConnectConnector(ctx context.Context, request dto.ConnectConnectorRequest) (dto.Connector, error) {
-	result, err := handler.service.ConnectConnector(ctx, request)
+func (handler *ConnectorsHandler) StartConnectorConnect(ctx context.Context, request dto.StartConnectorConnectRequest) (dto.StartConnectorConnectResult, error) {
+	return handler.service.StartConnectorConnect(ctx, request)
+}
+
+func (handler *ConnectorsHandler) FinishConnectorConnect(ctx context.Context, request dto.FinishConnectorConnectRequest) (dto.FinishConnectorConnectResult, error) {
+	result, err := handler.service.FinishConnectorConnect(ctx, request)
 	if err != nil {
-		return dto.Connector{}, err
+		return dto.FinishConnectorConnectResult{}, err
 	}
-	if handler.telemetry != nil && result.Status == "connected" {
-		handler.telemetry.TrackConnectorConnected(ctx, result.Type)
+	if handler.telemetry != nil && result.Saved && result.Connector.Status == "connected" {
+		handler.telemetry.TrackConnectorConnected(ctx, result.Connector.Type)
 	}
 	return result, nil
 }
 
-func (handler *ConnectorsHandler) OpenConnectorSite(ctx context.Context, request dto.OpenConnectorSiteRequest) error {
-	return handler.service.OpenConnectorSite(ctx, request)
+func (handler *ConnectorsHandler) CancelConnectorConnect(ctx context.Context, request dto.CancelConnectorConnectRequest) error {
+	return handler.service.CancelConnectorConnect(ctx, request)
 }
 
-func (handler *ConnectorsHandler) InstallPlaywright(ctx context.Context) error {
-	return handler.service.InstallPlaywright(ctx)
+func (handler *ConnectorsHandler) GetConnectorConnectSession(ctx context.Context, request dto.GetConnectorConnectSessionRequest) (dto.ConnectorConnectSession, error) {
+	return handler.service.GetConnectorConnectSession(ctx, request)
+}
+
+func (handler *ConnectorsHandler) OpenConnectorSite(ctx context.Context, request dto.OpenConnectorSiteRequest) error {
+	return handler.service.OpenConnectorSite(ctx, request)
 }

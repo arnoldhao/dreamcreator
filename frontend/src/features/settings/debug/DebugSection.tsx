@@ -25,6 +25,7 @@ import {
   useRealtimeStore,
 } from "@/shared/realtime";
 import { messageBus } from "@/shared/message";
+import { useUpdateStore } from "@/shared/store/update";
 import { ChannelsTab } from "./tabs/ChannelsTab";
 import { CallRecordsTab } from "./tabs/CallRecordsTab";
 import { EventsTab } from "./tabs/EventsTab";
@@ -270,6 +271,9 @@ export function DebugSection() {
       clearMessages: state.clearMessages,
     }))
   );
+  const currentAppVersion = useUpdateStore((state) => state.info.currentVersion);
+  const latestAppVersion = useUpdateStore((state) => state.info.latestVersion);
+  const openWhatsNewPreview = useUpdateStore((state) => state.openWhatsNewPreview);
   const [selectedTopic, setSelectedTopic] = useState<string>(DEFAULT_DEBUG_TOPICS[0]);
   const [selectedThreadId, setSelectedThreadId] = useState<string>("");
   const [selectedCallThreadId, setSelectedCallThreadId] = useState<string>("");
@@ -491,6 +495,18 @@ export function DebugSection() {
       confirmLabel: t("settings.debug.message.frontend.dialogConfirm"),
     });
   }, [t]);
+
+  const showWhatsNewPreview = useCallback(() => {
+    const version = currentAppVersion.trim() || latestAppVersion.trim() || "2.0.7";
+    openWhatsNewPreview(
+      {
+        version,
+        currentVersion: version,
+        changelog: t("settings.debug.message.frontend.whatsNewMarkdown"),
+      },
+      "settings"
+    );
+  }, [currentAppVersion, latestAppVersion, openWhatsNewPreview, t]);
 
   const statusLabel = useMemo(() => {
     if (status === "connected") {
@@ -1046,6 +1062,7 @@ export function DebugSection() {
             showToastPreview={showToastPreview}
             showNotificationPreview={showNotificationPreview}
             showDialogPreview={showDialogPreview}
+            showWhatsNewPreview={showWhatsNewPreview}
             sendOsNotification={() => {
               void sendOsNotification();
             }}

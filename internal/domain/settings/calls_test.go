@@ -10,21 +10,14 @@ func TestDefaultCallsToolsConfigIncludesWebFetchDefaults(t *testing.T) {
 	if !ok || fetchRaw == nil {
 		t.Fatalf("expected web_fetch defaults")
 	}
-	if fetchRaw["acceptMarkdown"] != true {
-		t.Fatalf("expected acceptMarkdown default true, got %#v", fetchRaw["acceptMarkdown"])
+	if fetchRaw["preferredBrowser"] != "chrome" {
+		t.Fatalf("expected preferredBrowser default chrome, got %#v", fetchRaw["preferredBrowser"])
 	}
-	if fetchRaw["acceptLanguage"] != "en-US,en;q=0.9" {
-		t.Fatalf("expected acceptLanguage default en-US,en;q=0.9, got %#v", fetchRaw["acceptLanguage"])
+	if fetchRaw["headless"] != true {
+		t.Fatalf("expected web_fetch headless default true, got %#v", fetchRaw["headless"])
 	}
-	if fetchRaw["type"] != "builtin" {
-		t.Fatalf("expected type default builtin, got %#v", fetchRaw["type"])
-	}
-	playwrightRaw, ok := fetchRaw["playwright"].(map[string]any)
-	if !ok || playwrightRaw == nil {
-		t.Fatalf("expected playwright defaults")
-	}
-	if playwrightRaw["markdown"] != true {
-		t.Fatalf("expected playwright markdown default true, got %#v", playwrightRaw["markdown"])
+	if _, exists := fetchRaw["type"]; exists {
+		t.Fatalf("expected legacy web_fetch type to be removed")
 	}
 	webRaw, ok := defaults["web"].(map[string]any)
 	if !ok || webRaw == nil {
@@ -46,19 +39,19 @@ func TestDefaultCallsToolsConfigIncludesBrowserDefaults(t *testing.T) {
 	if browserRaw["enabled"] != true {
 		t.Fatalf("expected browser enabled default true, got %#v", browserRaw["enabled"])
 	}
-	if browserRaw["evaluateEnabled"] != true {
-		t.Fatalf("expected browser evaluateEnabled default true, got %#v", browserRaw["evaluateEnabled"])
+	if browserRaw["headless"] != true {
+		t.Fatalf("expected browser headless default true, got %#v", browserRaw["headless"])
 	}
-	if browserRaw["headless"] != false {
-		t.Fatalf("expected browser headless default false, got %#v", browserRaw["headless"])
+	if browserRaw["preferredBrowser"] != "chrome" {
+		t.Fatalf("expected browser preferredBrowser default chrome, got %#v", browserRaw["preferredBrowser"])
 	}
 	ssrfRaw, ok := browserRaw["ssrfPolicy"].(map[string]any)
 	if !ok || ssrfRaw == nil {
 		t.Fatalf("expected browser ssrfPolicy defaults")
 	}
-	if ssrfRaw["dangerouslyAllowPrivateNetwork"] != true {
+	if ssrfRaw["dangerouslyAllowPrivateNetwork"] != false {
 		t.Fatalf(
-			"expected browser ssrfPolicy.dangerouslyAllowPrivateNetwork true, got %#v",
+			"expected browser ssrfPolicy.dangerouslyAllowPrivateNetwork false, got %#v",
 			ssrfRaw["dangerouslyAllowPrivateNetwork"],
 		)
 	}
@@ -72,11 +65,11 @@ func TestNormalizeToolsConfigAddsWebFetchDefaultsWhenMissing(t *testing.T) {
 	if !ok || fetchRaw == nil {
 		t.Fatalf("expected web_fetch config")
 	}
-	if fetchRaw["acceptMarkdown"] != true {
-		t.Fatalf("expected acceptMarkdown default true, got %#v", fetchRaw["acceptMarkdown"])
+	if fetchRaw["preferredBrowser"] != "chrome" {
+		t.Fatalf("expected preferredBrowser default, got %#v", fetchRaw["preferredBrowser"])
 	}
-	if fetchRaw["userAgent"] != "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15" {
-		t.Fatalf("expected userAgent default, got %#v", fetchRaw["userAgent"])
+	if fetchRaw["headless"] != true {
+		t.Fatalf("expected headless default true, got %#v", fetchRaw["headless"])
 	}
 }
 

@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	agentservice "dreamcreator/internal/application/agent/service"
@@ -124,63 +123,6 @@ var (
 	AppName        = "Dream Creator"
 	AppDescription = "An AI assistant for content creators."
 )
-
-type providersUpdatedWindowNotifier struct {
-	manager *wails.WindowManager
-}
-
-func (notifier providersUpdatedWindowNotifier) ProvidersUpdated() {
-	if notifier.manager == nil {
-		return
-	}
-	notifier.manager.EmitProvidersUpdated()
-}
-
-type settingsBroadcastAdapter struct {
-	service *service.SettingsService
-
-	mu      sync.RWMutex
-	applier func(settingsdto.Settings)
-}
-
-func newSettingsBroadcastAdapter(settingsService *service.SettingsService) *settingsBroadcastAdapter {
-	return &settingsBroadcastAdapter{service: settingsService}
-}
-
-func (adapter *settingsBroadcastAdapter) SetApplier(applier func(settingsdto.Settings)) {
-	if adapter == nil {
-		return
-	}
-	adapter.mu.Lock()
-	adapter.applier = applier
-	adapter.mu.Unlock()
-}
-
-func (adapter *settingsBroadcastAdapter) GetSettings(ctx context.Context) (settingsdto.Settings, error) {
-	if adapter == nil || adapter.service == nil {
-		return settingsdto.Settings{}, errors.New("settings service unavailable")
-	}
-	return adapter.service.GetSettings(ctx)
-}
-
-func (adapter *settingsBroadcastAdapter) UpdateSettings(ctx context.Context, request settingsdto.UpdateSettingsRequest) (settingsdto.Settings, error) {
-	if adapter == nil || adapter.service == nil {
-		return settingsdto.Settings{}, errors.New("settings service unavailable")
-	}
-	return adapter.service.UpdateSettings(ctx, request)
-}
-
-func (adapter *settingsBroadcastAdapter) ApplySettings(updated settingsdto.Settings) {
-	if adapter == nil {
-		return
-	}
-	adapter.mu.RLock()
-	applier := adapter.applier
-	adapter.mu.RUnlock()
-	if applier != nil {
-		applier(updated)
-	}
-}
 
 func CreateApplication(assets fs.FS) (*application.App, error) {
 	appVersion := resolveVersion(os.Getenv("APP_ENV"))
@@ -464,7 +406,7 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	startAccentColorWatcher(accentCtx, settingsService, windowManager)
 
 	updateCatalog := buildSoftwareUpdateService(proxyManager)
-	updateService, err := buildUpdateService(proxyManager, eventBus, windowManager, updateCatalog, appVersion)
+	updateService, err := buildUpdateService(ctx, proxyManager, eventBus, windowManager, updateCatalog, appVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -497,7 +439,7 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	startModelsDevCatalogSyncWorker(ctx, modelsDevCatalog)
 
 	connectorsRepo := connectorsrepo.NewSQLiteConnectorRepository(database.Bun)
-	connectorsService := connectorsservice.NewConnectorsService(connectorsRepo)
+	connectorsService := connectorsservice.NewConnectorsService(connectorsRepo, settingsService)
 	if err := connectorsService.EnsureDefaults(ctx); err != nil {
 		return nil, err
 	}
@@ -561,7 +503,8 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	llmCallRecordRepo := llmrecordrepo.NewSQLiteRepository(database.Bun)
 	llmCallRecordService := llmrecord.NewService(llmCallRecordRepo, settingsService)
 	toolService := toolsservice.NewToolService()
-	toolService.SetPolicy(gatewaytools.NewPolicyPipeline(settingsService))
+	toolPolicy := gatewaytools.NewPolicyPipeline(settingsService)
+	toolService.SetPolicy(toolPolicy)
 	toolExecutor := gatewaytools.NewRegistryExecutor()
 	toolService.SetExecutor(toolExecutor)
 	policyAuditStore := toolpolicyrepo.NewSQLitePolicyAuditStore(database.Bun)
@@ -643,6 +586,16 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	voiceConfigRepo := voicerepo.NewSQLiteVoiceConfigRepository(database.Bun)
 	ttsJobRepo := voicerepo.NewSQLiteTTSJobRepository(database.Bun)
 	voiceService := gatewayvoice.NewService(voiceConfigRepo, ttsJobRepo, usageService, settingsService, gatewayServer)
+	builtinRequirementResolver := gatewaytools.NewBuiltinRequirementResolver(gatewaytools.BuiltinRequirementDeps{
+		Settings:   settingsNotifier,
+		Assistants: assistantService,
+		Providers:  providerRepo,
+		Models:     modelRepo,
+		Secrets:    secretRepo,
+		Voice:      voiceService,
+	})
+	toolPolicy.SetRequirementsResolver(builtinRequirementResolver)
+	gatewayToolService.SetRequirementsResolver(builtinRequirementResolver)
 	gatewaymethods.RegisterUsage(gatewayRouter, usageService)
 	gatewaymethods.RegisterVoice(gatewayRouter, voiceService)
 	gatewaytools.RegisterBuiltinTools(ctx, toolService, toolExecutor, gatewaytools.BuiltinToolDeps{
@@ -1313,7 +1266,7 @@ func buildSoftwareUpdateService(proxyManager *proxy.Manager) *softwareupdate.Ser
 	})
 }
 
-func buildUpdateService(proxyManager *proxy.Manager, bus appevents.Bus, notifier applicationupdate.Notifier, catalog *softwareupdate.Service, currentVersion string) (*applicationupdate.Service, error) {
+func buildUpdateService(ctx context.Context, proxyManager *proxy.Manager, bus appevents.Bus, notifier applicationupdate.Notifier, catalog *softwareupdate.Service, currentVersion string) (*applicationupdate.Service, error) {
 	httpClient := proxyManager.HTTPClient()
 	downloader := infrastructureupdate.NewHTTPDownloader(httpClient)
 	installer, err := infrastructureupdate.NewInstaller("")
@@ -1329,6 +1282,9 @@ func buildUpdateService(proxyManager *proxy.Manager, bus appevents.Bus, notifier
 		Notifier:   notifier,
 	})
 	service.SetCurrentVersion(currentVersion)
+	if _, err := service.RestorePreparedUpdate(ctx); err != nil {
+		zap.L().Warn("update: restore prepared update failed", zap.Error(err))
+	}
 	return service, nil
 }
 

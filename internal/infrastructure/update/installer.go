@@ -15,6 +15,9 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
+
+	domainupdate "dreamcreator/internal/domain/update"
 )
 
 var ErrPreparedUpdateNotFound = fmt.Errorf("prepared update not found")
@@ -28,12 +31,14 @@ const (
 )
 
 type PlatformInstaller struct {
-	stateDir       string
-	planPath       string
-	goos           string
-	goarch         string
-	executablePath func() (string, error)
-	startDetached  func(name string, args []string) error
+	stateDir            string
+	planPath            string
+	whatsNewPendingPath string
+	whatsNewSeenPath    string
+	goos                string
+	goarch              string
+	executablePath      func() (string, error)
+	startDetached       func(name string, args []string) error
 }
 
 type stagedPlan struct {
@@ -45,6 +50,13 @@ type stagedPlan struct {
 	RelaunchPath string `json:"relaunchPath"`
 	FallbackPath string `json:"fallbackPath,omitempty"`
 	InstallDir   string `json:"installDir,omitempty"`
+	Version      string `json:"version,omitempty"`
+	Changelog    string `json:"changelog,omitempty"`
+}
+
+type whatsNewSeenState struct {
+	Version string `json:"version"`
+	SeenAt  string `json:"seenAt,omitempty"`
 }
 
 func NewInstaller(statePath string) (*PlatformInstaller, error) {
@@ -61,12 +73,14 @@ func NewInstaller(statePath string) (*PlatformInstaller, error) {
 		return nil, err
 	}
 	return &PlatformInstaller{
-		stateDir:       stateDir,
-		planPath:       filepath.Join(stateDir, "update_install_plan.json"),
-		goos:           runtime.GOOS,
-		goarch:         runtime.GOARCH,
-		executablePath: os.Executable,
-		startDetached:  startDetachedCommand,
+		stateDir:            stateDir,
+		planPath:            filepath.Join(stateDir, "update_install_plan.json"),
+		whatsNewPendingPath: filepath.Join(stateDir, "pending_whats_new.json"),
+		whatsNewSeenPath:    filepath.Join(stateDir, "whats_new_seen.json"),
+		goos:                runtime.GOOS,
+		goarch:              runtime.GOARCH,
+		executablePath:      os.Executable,
+		startDetached:       startDetachedCommand,
 	}, nil
 }
 
@@ -84,7 +98,7 @@ func (installer *PlatformInstaller) SelectDownloadURLs(_ context.Context, urls [
 	return preferWindowsPortableDownloadURLs(urls)
 }
 
-func (installer *PlatformInstaller) Install(ctx context.Context, artifactPath string) error {
+func (installer *PlatformInstaller) Install(ctx context.Context, artifactPath string, prepared domainupdate.Info) error {
 	if installer == nil {
 		return fmt.Errorf("installer not configured")
 	}
@@ -92,18 +106,29 @@ func (installer *PlatformInstaller) Install(ctx context.Context, artifactPath st
 	if normalizedArtifact == "" {
 		return fmt.Errorf("artifact path is empty")
 	}
-	if err := installer.cleanupStagedUpdate(); err != nil {
+
+	previousPlan, err := installer.loadPlan()
+	hasPreviousPlan := err == nil
+	if err != nil && !errors.Is(err, ErrPreparedUpdateNotFound) {
 		return err
 	}
 
+	var installErr error
 	switch installer.goos {
 	case "windows":
-		return installer.prepareWindowsUpdate(normalizedArtifact)
+		installErr = installer.prepareWindowsUpdate(normalizedArtifact, prepared)
 	case "darwin":
-		return installer.prepareMacUpdate(ctx, normalizedArtifact)
+		installErr = installer.prepareMacUpdate(ctx, normalizedArtifact, prepared)
 	default:
-		return fmt.Errorf("update install is not supported on %s", installer.goos)
+		installErr = fmt.Errorf("update install is not supported on %s", installer.goos)
 	}
+	if installErr != nil {
+		return installErr
+	}
+	if hasPreviousPlan && strings.TrimSpace(previousPlan.StageDir) != "" {
+		_ = os.RemoveAll(previousPlan.StageDir)
+	}
+	return nil
 }
 
 func (installer *PlatformInstaller) RestartToApply(_ context.Context) error {
@@ -125,7 +150,7 @@ func (installer *PlatformInstaller) RestartToApply(_ context.Context) error {
 	}
 }
 
-func (installer *PlatformInstaller) prepareWindowsUpdate(artifactPath string) error {
+func (installer *PlatformInstaller) prepareWindowsUpdate(artifactPath string, prepared domainupdate.Info) error {
 	currentExe, err := installer.currentExecutable()
 	if err != nil {
 		return err
@@ -143,6 +168,8 @@ func (installer *PlatformInstaller) prepareWindowsUpdate(artifactPath string) er
 		TargetPath:   currentExe,
 		RelaunchPath: currentExe,
 		InstallDir:   filepath.Dir(currentExe),
+		Version:      strings.TrimSpace(prepared.LatestVersion),
+		Changelog:    prepared.Changelog,
 	}
 
 	switch strings.ToLower(filepath.Ext(artifactName)) {
@@ -168,7 +195,7 @@ func (installer *PlatformInstaller) prepareWindowsUpdate(artifactPath string) er
 	return installer.savePlan(plan)
 }
 
-func (installer *PlatformInstaller) prepareMacUpdate(ctx context.Context, artifactPath string) error {
+func (installer *PlatformInstaller) prepareMacUpdate(ctx context.Context, artifactPath string, prepared domainupdate.Info) error {
 	currentExe, err := installer.currentExecutable()
 	if err != nil {
 		return err
@@ -204,7 +231,110 @@ func (installer *PlatformInstaller) prepareMacUpdate(ctx context.Context, artifa
 		TargetPath:   targetBundle,
 		RelaunchPath: targetBundle,
 		FallbackPath: currentBundle,
+		Version:      strings.TrimSpace(prepared.LatestVersion),
+		Changelog:    prepared.Changelog,
 	})
+}
+
+func (installer *PlatformInstaller) PreparedUpdate(_ context.Context) (domainupdate.Info, bool, error) {
+	if installer == nil {
+		return domainupdate.Info{}, false, fmt.Errorf("installer not configured")
+	}
+	plan, err := installer.loadPlan()
+	if err != nil {
+		if errors.Is(err, ErrPreparedUpdateNotFound) {
+			return domainupdate.Info{}, false, nil
+		}
+		return domainupdate.Info{}, false, err
+	}
+	return domainupdate.Info{
+		Kind:              domainupdate.KindApp,
+		Status:            domainupdate.StatusReadyToRestart,
+		LatestVersion:     strings.TrimSpace(plan.Version),
+		PreparedVersion:   strings.TrimSpace(plan.Version),
+		Changelog:         plan.Changelog,
+		PreparedChangelog: plan.Changelog,
+		Progress:          100,
+	}, true, nil
+}
+
+func (installer *PlatformInstaller) ClearPreparedUpdate(_ context.Context) error {
+	if installer == nil {
+		return fmt.Errorf("installer not configured")
+	}
+	return installer.cleanupStagedUpdate()
+}
+
+func (installer *PlatformInstaller) PendingWhatsNew(_ context.Context) (domainupdate.WhatsNew, bool, error) {
+	if installer == nil {
+		return domainupdate.WhatsNew{}, false, fmt.Errorf("installer not configured")
+	}
+	data, err := os.ReadFile(installer.whatsNewPendingPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return domainupdate.WhatsNew{}, false, nil
+		}
+		return domainupdate.WhatsNew{}, false, err
+	}
+
+	var plan stagedPlan
+	if err := json.Unmarshal(data, &plan); err != nil {
+		return domainupdate.WhatsNew{}, false, err
+	}
+	version := strings.TrimSpace(plan.Version)
+	if version == "" {
+		return domainupdate.WhatsNew{}, false, nil
+	}
+	return domainupdate.WhatsNew{
+		Version:   version,
+		Changelog: plan.Changelog,
+	}, true, nil
+}
+
+func (installer *PlatformInstaller) SeenWhatsNewVersion(_ context.Context) (string, error) {
+	if installer == nil {
+		return "", fmt.Errorf("installer not configured")
+	}
+	data, err := os.ReadFile(installer.whatsNewSeenPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	var seen whatsNewSeenState
+	if err := json.Unmarshal(data, &seen); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(seen.Version), nil
+}
+
+func (installer *PlatformInstaller) MarkWhatsNewSeen(_ context.Context, version string) error {
+	if installer == nil {
+		return fmt.Errorf("installer not configured")
+	}
+	normalized := strings.TrimSpace(version)
+	if normalized == "" {
+		return nil
+	}
+	data, err := json.MarshalIndent(whatsNewSeenState{
+		Version: normalized,
+		SeenAt:  time.Now().UTC().Format(time.RFC3339),
+	}, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(installer.whatsNewSeenPath, data, 0o600); err != nil {
+		return err
+	}
+	pending, found, err := installer.PendingWhatsNew(context.Background())
+	if err != nil {
+		return err
+	}
+	if found && domainupdate.CompareVersion(pending.Version, normalized) <= 0 {
+		_ = os.Remove(installer.whatsNewPendingPath)
+	}
+	return nil
 }
 
 func (installer *PlatformInstaller) restartWindows(plan stagedPlan) error {
@@ -224,6 +354,7 @@ func (installer *PlatformInstaller) restartWindows(plan stagedPlan) error {
 		plan.InstallDir,
 		plan.StageDir,
 		installer.planPath,
+		installer.whatsNewPendingPath,
 	}
 	return installer.startDetached("powershell.exe", args)
 }
@@ -252,6 +383,7 @@ func (installer *PlatformInstaller) restartDarwin(plan stagedPlan) error {
 		fallbackPath,
 		plan.StageDir,
 		installer.planPath,
+		installer.whatsNewPendingPath,
 	}
 	return installer.startDetached("/bin/sh", args)
 }
@@ -563,7 +695,8 @@ const windowsApplyScript = `param(
   [Parameter(Mandatory = $true)][string]$TargetPath,
   [Parameter(Mandatory = $true)][string]$InstallDir,
   [Parameter(Mandatory = $true)][string]$StageDir,
-  [Parameter(Mandatory = $true)][string]$PlanPath
+  [Parameter(Mandatory = $true)][string]$PlanPath,
+  [Parameter(Mandatory = $true)][string]$PendingWhatsNewPath
 )
 
 $ErrorActionPreference = "Stop"
@@ -667,13 +800,18 @@ try {
     }
   }
 
+  try {
+    Copy-Item -LiteralPath $PlanPath -Destination $PendingWhatsNewPath -Force -ErrorAction Stop
+  } catch {
+  }
+
   Start-Process -FilePath $TargetPath -WorkingDirectory $InstallDir | Out-Null
   Remove-Item -LiteralPath $PlanPath -Force -ErrorAction SilentlyContinue
   Remove-Item -LiteralPath $StageDir -Recurse -Force -ErrorAction SilentlyContinue
 } catch {
   try {
     if (Test-Path -LiteralPath $TargetPath) {
-      Start-Process -FilePath $TargetPath -WorkingDirectory $InstallDir | Out-Null
+      Start-Process -FilePath $TargetPath -ArgumentList @("--skip-prepared-update-once") -WorkingDirectory $InstallDir | Out-Null
     }
   } catch {
   }
@@ -691,6 +829,7 @@ RELAUNCH_APP="$4"
 FALLBACK_APP="$5"
 STAGE_DIR="$6"
 PLAN_PATH="$7"
+PENDING_WHATS_NEW_PATH="$8"
 BACKUP_APP="${TARGET_APP}.old"
 
 while kill -0 "$PARENT_PID" 2>/dev/null; do
@@ -699,8 +838,13 @@ done
 
 relaunch_app() {
   APP_PATH="$1"
+  shift || true
   if [ -n "$APP_PATH" ] && [ -d "$APP_PATH" ]; then
-    open "$APP_PATH" >/dev/null 2>&1 || true
+    if [ "$#" -gt 0 ]; then
+      open -a "$APP_PATH" --args "$@" >/dev/null 2>&1 || true
+    else
+      open "$APP_PATH" >/dev/null 2>&1 || true
+    fi
   fi
 }
 
@@ -712,9 +856,9 @@ restore_backup() {
 }
 
 relaunch_fallback() {
-  relaunch_app "$FALLBACK_APP"
+  relaunch_app "$FALLBACK_APP" "--skip-prepared-update-once"
   if [ "$FALLBACK_APP" != "$TARGET_APP" ]; then
-    relaunch_app "$TARGET_APP"
+    relaunch_app "$TARGET_APP" "--skip-prepared-update-once"
   fi
 }
 
@@ -760,6 +904,7 @@ if ! install_direct; then
 fi
 
 /usr/bin/xattr -dr com.apple.quarantine "$TARGET_APP" >/dev/null 2>&1 || true
+cp "$PLAN_PATH" "$PENDING_WHATS_NEW_PATH" >/dev/null 2>&1 || true
 if ! open "$RELAUNCH_APP"; then
   relaunch_fallback
   exit 1
@@ -770,7 +915,12 @@ rm -rf "$STAGE_DIR"
 `
 
 var _ interface {
-	Install(context.Context, string) error
+	Install(context.Context, string, domainupdate.Info) error
 	RestartToApply(context.Context) error
 	SelectDownloadURLs(context.Context, []string) []string
+	PreparedUpdate(context.Context) (domainupdate.Info, bool, error)
+	ClearPreparedUpdate(context.Context) error
+	PendingWhatsNew(context.Context) (domainupdate.WhatsNew, bool, error)
+	SeenWhatsNewVersion(context.Context) (string, error)
+	MarkWhatsNewSeen(context.Context, string) error
 } = (*PlatformInstaller)(nil)

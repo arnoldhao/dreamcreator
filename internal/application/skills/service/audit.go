@@ -48,9 +48,9 @@ func resolveSkillsAuditSourceFromContext(ctx context.Context) string {
 
 func resolveSkillsAuditGroup(action string) string {
 	switch strings.ToLower(strings.TrimSpace(action)) {
-	case "skills.status", "skills.bins", "skill_manage.search", "skill_manage.list":
+	case "skills.status", "skills.bins", "skills_manage.search", "skills_manage.list":
 		return "read"
-	case "skill_manage.install", "skill_manage.update", "skill_manage.remove", "skill_manage.sync":
+	case "skills_manage.install", "skills_manage.update", "skills_manage.remove", "skills_manage.sync":
 		return "package_write"
 	case "skills.install":
 		return "deps_write"
@@ -67,8 +67,8 @@ func resolveSkillsAuditTool(action string) string {
 	switch {
 	case strings.HasPrefix(strings.ToLower(strings.TrimSpace(action)), "skills."):
 		return "skills"
-	case strings.HasPrefix(strings.ToLower(strings.TrimSpace(action)), "skill_manage."):
-		return "skill_manage"
+	case strings.HasPrefix(strings.ToLower(strings.TrimSpace(action)), "skills_manage."):
+		return "skills_manage"
 	default:
 		return ""
 	}

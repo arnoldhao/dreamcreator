@@ -1,10 +1,18 @@
 import * as React from "react";
-import { Check, HelpCircle } from "lucide-react";
+import { HelpCircle } from "lucide-react";
 
 import { Badge } from "@/shared/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/shared/ui/empty";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
-import { Separator } from "@/shared/ui/separator";
+import {
+  SETTINGS_ROW_CONTENT_BASE_CLASS,
+  SETTINGS_ROW_CLASS,
+  SETTINGS_ROW_LABEL_CLASS,
+  SettingsCompactListCard,
+  SettingsCompactRow,
+  SettingsCompactSeparator,
+  SettingsSeparator,
+} from "@/shared/ui/settings-layout";
 import { Switch } from "@/shared/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
@@ -60,12 +68,17 @@ function ToolConfigEmptyIllustration() {
   );
 }
 
-export type ToolDependencyStatus = {
+export type ToolRequirementItem = {
   id: string;
   name: string;
-  ok: boolean;
-  reason: string;
-  badges?: string[];
+  value: string;
+  tone?: "neutral" | "success" | "warning" | "danger";
+};
+
+export type ToolPermissionBadge = {
+  id: string;
+  label: string;
+  tone?: "neutral" | "info" | "warning";
 };
 
 export function ToolDetailLayout({
@@ -76,7 +89,7 @@ export function ToolDetailLayout({
   content: React.ReactNode;
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-0">
       {overview}
       {content}
     </div>
@@ -95,7 +108,7 @@ function ToolIdentityBlock({
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-1.5">
-        <div className="truncate text-sm font-medium text-foreground">{title}</div>
+        <div className="truncate text-xs font-medium text-muted-foreground">{title}</div>
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -117,66 +130,121 @@ function ToolIdentityBlock({
   );
 }
 
+function ToolHeaderMetaRow({
+  label,
+  value,
+}: {
+  label: React.ReactNode;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className={SETTINGS_ROW_CLASS}>
+      <div className={cn(SETTINGS_ROW_LABEL_CLASS, "min-w-0")}>{label}</div>
+      <div className={cn(SETTINGS_ROW_CONTENT_BASE_CLASS, "flex-wrap text-right")}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
 function ToolStatusControlBlock({
   statusBadge,
   enabledLabel,
   enabled,
   disabled,
+  disabledReason,
   onEnabledChange,
 }: {
   statusBadge: React.ReactNode;
   enabledLabel: string;
   enabled: boolean;
   disabled?: boolean;
+  disabledReason?: string;
   onEnabledChange: (enabled: boolean) => void;
 }) {
+  const switchControl = <Switch checked={enabled} disabled={disabled} onCheckedChange={onEnabledChange} />;
   return (
-    <div className="flex items-center gap-3">
+    <div className={cn(SETTINGS_ROW_CONTENT_BASE_CLASS, "items-center")}>
       {statusBadge}
       <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">{enabledLabel}</span>
-        <Switch checked={enabled} disabled={disabled} onCheckedChange={onEnabledChange} />
+        <span>{enabledLabel}</span>
+        {disabled && disabledReason ? (
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex cursor-not-allowed">{switchControl}</span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{disabledReason}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : switchControl}
       </div>
     </div>
   );
 }
 
-function ToolDependencyItem({ item }: { item: ToolDependencyStatus }) {
-  const badges = (item.badges ?? []).map((entry) => entry.trim()).filter((entry) => entry !== "");
+function permissionBadgeClassName(tone: ToolPermissionBadge["tone"]) {
+  switch (tone) {
+    case "info":
+      return "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:border-sky-400/25 dark:bg-sky-400/10 dark:text-sky-200";
+    case "warning":
+      return "border-amber-500/25 bg-amber-500/10 text-amber-800 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100";
+    case "neutral":
+    default:
+      return "border-border/70 bg-muted text-muted-foreground";
+  }
+}
+
+function requirementValueClassName(tone: ToolRequirementItem["tone"]) {
+  switch (tone) {
+    case "success":
+      return "text-emerald-700 dark:text-emerald-300";
+    case "warning":
+      return "text-amber-800 dark:text-amber-100";
+    case "danger":
+      return "text-destructive";
+    case "neutral":
+    default:
+      return "text-muted-foreground";
+  }
+}
+
+function ToolPermissionsValue({ badges }: { badges: ToolPermissionBadge[] }) {
   return (
-    <div className="flex min-w-0 items-center justify-between gap-3 px-3 py-2.5">
-      <div className="truncate text-xs text-muted-foreground">{item.name}</div>
-      {badges.length > 0 ? (
-        <div className="flex flex-wrap items-center justify-end gap-1">
-          {badges.map((badge, index) => (
-            <Badge key={`${item.id}-${badge}-${index}`} variant="outline" className="h-5 px-1.5 text-[10px] font-medium">
-              {badge}
-            </Badge>
-          ))}
-        </div>
-      ) : item.ok ? (
-        <Check className="h-3.5 w-3.5 text-emerald-500" />
-      ) : (
-        <span className="text-xs text-destructive">{item.reason}</span>
-      )}
-    </div>
+    <>
+      {badges.map((badge) => (
+        <Badge
+          key={badge.id}
+          variant="outline"
+          className={cn("h-5 px-1.5 text-[10px] font-medium", permissionBadgeClassName(badge.tone))}
+        >
+          {badge.label}
+        </Badge>
+      ))}
+    </>
   );
 }
 
-function ToolDependenciesBlock({ items }: { items: ToolDependencyStatus[] }) {
+function ToolRequirementCard({ items }: { items: ToolRequirementItem[] }) {
   if (items.length === 0) {
     return null;
   }
   return (
-    <>
-      <Separator />
+    <SettingsCompactListCard>
       {items.map((item, index) => (
         <React.Fragment key={item.id}>
-          <ToolDependencyItem item={item} />
-          {index < items.length - 1 ? <Separator /> : null}
+          {index > 0 ? <SettingsCompactSeparator /> : null}
+          <SettingsCompactRow label={item.name} contentClassName="min-w-0 max-w-[60%] items-start">
+            <span
+              className={cn("min-w-0 shrink break-words text-right leading-5", requirementValueClassName(item.tone))}
+              title={item.value}
+            >
+              {item.value}
+            </span>
+          </SettingsCompactRow>
         </React.Fragment>
       ))}
-    </>
+    </SettingsCompactListCard>
   );
 }
 
@@ -188,8 +256,11 @@ export function ToolOverviewCard({
   enabledLabel,
   enabled,
   enabledDisabled,
+  enabledDisabledReason,
   onEnabledChange,
-  dependencies,
+  permissionsLabel,
+  permissions,
+  requirements,
 }: {
   title: string;
   description: string;
@@ -198,25 +269,32 @@ export function ToolOverviewCard({
   enabledLabel: string;
   enabled: boolean;
   enabledDisabled?: boolean;
+  enabledDisabledReason?: string;
   onEnabledChange: (enabled: boolean) => void;
-  dependencies: ToolDependencyStatus[];
+  permissionsLabel: string;
+  permissions: ToolPermissionBadge[];
+  requirements: ToolRequirementItem[];
 }) {
   return (
-    <Card>
-      <CardContent className="p-0">
-        <div className="flex items-start justify-between gap-4 px-3 py-3">
-          <ToolIdentityBlock title={title} description={description} descriptionLabel={descriptionLabel} />
-          <ToolStatusControlBlock
-            statusBadge={statusBadge}
-            enabledLabel={enabledLabel}
-            enabled={enabled}
-            disabled={enabledDisabled}
-            onEnabledChange={onEnabledChange}
-          />
-        </div>
-        <ToolDependenciesBlock items={dependencies} />
-      </CardContent>
-    </Card>
+    <div className="space-y-2 pb-2 text-sm">
+      <div className={SETTINGS_ROW_CLASS}>
+        <ToolIdentityBlock title={title} description={description} descriptionLabel={descriptionLabel} />
+        <ToolStatusControlBlock
+          statusBadge={statusBadge}
+          enabledLabel={enabledLabel}
+          enabled={enabled}
+          disabled={enabledDisabled}
+          disabledReason={enabledDisabledReason}
+          onEnabledChange={onEnabledChange}
+        />
+      </div>
+      <SettingsSeparator />
+      <ToolHeaderMetaRow
+        label={permissionsLabel}
+        value={<ToolPermissionsValue badges={permissions} />}
+      />
+      {requirements.length > 0 ? <ToolRequirementCard items={requirements} /> : null}
+    </div>
   );
 }
 

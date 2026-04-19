@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/playwright-community/playwright-go"
 
 	"dreamcreator/internal/application/externaltools/dto"
 	"dreamcreator/internal/application/softwareupdate"
@@ -70,16 +69,9 @@ var (
 			SourceRef: "clawhub",
 			Manager:   toolManagerBun,
 		},
-		externaltools.ToolPlaywright: {
-			ToolKind:  string(externaltools.KindRuntime),
-			Kind:      sourceKindRuntime,
-			SourceRef: "playwright-community/playwright-go",
-		},
 	}
 
-	semverTokenPattern            = regexp.MustCompile(`^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$`)
-	playwrightVersionTokenPattern = regexp.MustCompile(`^\d+(?:\.\d+){2,}(?:[-+][0-9A-Za-z.-]+)?$`)
-	playwrightVersionScanPattern  = regexp.MustCompile(`\d+(?:\.\d+){2,}(?:[-+][0-9A-Za-z.-]+)?`)
+	semverTokenPattern = regexp.MustCompile(`^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$`)
 )
 
 type ExternalToolsService struct {
@@ -163,7 +155,6 @@ func (service *ExternalToolsService) EnsureDefaults(ctx context.Context) error {
 		externaltools.ToolFFmpeg,
 		externaltools.ToolBun,
 		externaltools.ToolClawHub,
-		externaltools.ToolPlaywright,
 	}
 	existing, err := service.repo.List(ctx)
 	if err != nil {
@@ -301,17 +292,8 @@ func (service *ExternalToolsService) InstallTool(ctx context.Context, request dt
 	case sourceKindNPMRegistry:
 		return service.installNPMRegistryTool(ctx, toolName, source, request.Version, manager)
 	case sourceKindRuntime:
-		if manager != "" {
-			service.setInstallState(toolName, installStageError, downloadProgressStart, "manager is unsupported for this tool")
-			return dto.ExternalTool{}, fmt.Errorf("manager is unsupported for tool %s", toolName)
-		}
-		switch toolName {
-		case externaltools.ToolPlaywright:
-			return service.installPlaywrightRuntime(ctx)
-		default:
-			service.setInstallState(toolName, installStageError, downloadProgressStart, "invalid tool")
-			return dto.ExternalTool{}, externaltools.ErrInvalidTool
-		}
+		service.setInstallState(toolName, installStageError, downloadProgressStart, "runtime tools are not supported")
+		return dto.ExternalTool{}, externaltools.ErrInvalidTool
 	default:
 		service.setInstallState(toolName, installStageError, downloadProgressStart, "unsupported source")
 		return dto.ExternalTool{}, fmt.Errorf("unsupported source for tool %s", toolName)
@@ -408,13 +390,9 @@ func (service *ExternalToolsService) RemoveTool(ctx context.Context, request dto
 	if name == "" {
 		return externaltools.ErrInvalidTool
 	}
-	toolName := externaltools.ToolName(name)
 	tool, err := service.repo.Get(ctx, name)
 	if err != nil && err != externaltools.ErrToolNotFound {
 		return err
-	}
-	if toolName == externaltools.ToolPlaywright {
-		_ = uninstallPlaywrightRuntime()
 	}
 	if err == nil && tool.ExecPath != "" {
 		_ = os.RemoveAll(filepath.Dir(tool.ExecPath))
@@ -1190,134 +1168,6 @@ func (service *ExternalToolsService) installNPMRegistryTool(ctx context.Context,
 	service.setInstallState(name, installStageDone, verifyProgressEnd, "")
 	_ = cleanupOldToolVersions(baseDir, name, version)
 	return toExternalToolDTO(tool), nil
-}
-
-func (service *ExternalToolsService) installPlaywrightRuntime(ctx context.Context) (dto.ExternalTool, error) {
-	service.setInstallState(externaltools.ToolPlaywright, installStageDownloading, downloadProgressStart, "")
-	stopProgress := make(chan struct{})
-	var stopProgressOnce sync.Once
-	stopProgressTicker := func() {
-		stopProgressOnce.Do(func() {
-			close(stopProgress)
-		})
-	}
-	defer stopProgressTicker()
-
-	go func() {
-		ticker := time.NewTicker(350 * time.Millisecond)
-		defer ticker.Stop()
-		progress := downloadProgressStart
-		ceiling := downloadProgressEnd - 2
-		for {
-			select {
-			case <-stopProgress:
-				return
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				if progress >= ceiling {
-					continue
-				}
-				progress += 2
-				if progress > ceiling {
-					progress = ceiling
-				}
-				service.setInstallState(externaltools.ToolPlaywright, installStageDownloading, progress, "")
-			}
-		}
-	}()
-
-	if err := playwright.Install(&playwright.RunOptions{
-		Browsers: []string{"chromium"},
-		Verbose:  false,
-		Stdout:   io.Discard,
-		Stderr:   io.Discard,
-	}); err != nil {
-		stopProgressTicker()
-		service.setInstallState(externaltools.ToolPlaywright, installStageError, downloadProgressStart, err.Error())
-		return dto.ExternalTool{}, err
-	}
-	stopProgressTicker()
-	service.setInstallState(externaltools.ToolPlaywright, installStageDownloading, downloadProgressEnd, "")
-	service.setInstallState(externaltools.ToolPlaywright, installStageVerifying, verifyProgressStart, "")
-	execPath, version, err := resolvePlaywrightRuntime(ctx)
-	if err != nil {
-		service.setInstallState(externaltools.ToolPlaywright, installStageError, verifyProgressStart, err.Error())
-		return dto.ExternalTool{}, err
-	}
-	now := service.now()
-	tool, err := externaltools.NewExternalTool(externaltools.ExternalToolParams{
-		Name:        string(externaltools.ToolPlaywright),
-		ExecPath:    execPath,
-		Version:     version,
-		Status:      string(externaltools.StatusInstalled),
-		InstalledAt: &now,
-		UpdatedAt:   &now,
-	})
-	if err != nil {
-		return dto.ExternalTool{}, err
-	}
-	if err := service.repo.Save(ctx, tool); err != nil {
-		service.setInstallState(externaltools.ToolPlaywright, installStageError, verifyProgressEnd, err.Error())
-		return dto.ExternalTool{}, err
-	}
-	service.setInstallState(externaltools.ToolPlaywright, installStageDone, verifyProgressEnd, "")
-	return toExternalToolDTO(tool), nil
-}
-
-func resolvePlaywrightRuntime(ctx context.Context) (string, string, error) {
-	pw, err := playwright.Run(&playwright.RunOptions{
-		Verbose:             false,
-		Stdout:              io.Discard,
-		Stderr:              io.Discard,
-		SkipInstallBrowsers: true,
-	})
-	if err != nil {
-		return "", "", err
-	}
-	defer pw.Stop()
-	execPath := strings.TrimSpace(pw.Chromium.ExecutablePath())
-	if execPath == "" {
-		return "", "", fmt.Errorf("playwright chromium executable path is empty")
-	}
-	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-		Headless: playwright.Bool(true),
-		Args:     []string{"--headless=new"},
-	})
-	if err != nil {
-		return "", "", err
-	}
-	browserVersion := strings.TrimSpace(browser.Version())
-	if closeErr := browser.Close(); closeErr != nil {
-		return "", "", closeErr
-	}
-	version := browserVersion
-	if version != "" {
-		if parsedVersion, parseErr := parsePlaywrightVersion(version); parseErr == nil {
-			version = parsedVersion
-		}
-	}
-	if strings.TrimSpace(version) == "" {
-		resolvedVersion, err := resolveVersion(ctx, externaltools.ToolPlaywright, execPath)
-		if err != nil {
-			return execPath, "", nil
-		}
-		version = resolvedVersion
-	}
-	return execPath, strings.TrimSpace(version), nil
-}
-
-func uninstallPlaywrightRuntime() error {
-	driver, err := playwright.NewDriver(&playwright.RunOptions{
-		Verbose:             false,
-		Stdout:              io.Discard,
-		Stderr:              io.Discard,
-		SkipInstallBrowsers: true,
-	})
-	if err != nil {
-		return err
-	}
-	return driver.Uninstall()
 }
 
 func executableNameForBinary(name string) string {
@@ -2292,8 +2142,6 @@ func resolveVersion(ctx context.Context, name externaltools.ToolName, execPath s
 		args = []string{"-version"}
 	case externaltools.ToolClawHub:
 		args = []string{"--cli-version"}
-	case externaltools.ToolPlaywright:
-		args = []string{"--version"}
 	default:
 		args = []string{"--version"}
 	}
@@ -2319,8 +2167,6 @@ func resolveVersion(ctx context.Context, name externaltools.ToolName, execPath s
 		return parseFFmpegVersion(text)
 	case externaltools.ToolClawHub:
 		return parseClawHubVersion(text)
-	case externaltools.ToolPlaywright:
-		return parsePlaywrightVersion(text)
 	default:
 		return strings.Fields(text)[0], nil
 	}
@@ -2348,20 +2194,6 @@ func parseClawHubVersion(output string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("clawhub version not found")
-}
-
-func parsePlaywrightVersion(output string) (string, error) {
-	for _, token := range strings.Fields(output) {
-		candidate := strings.Trim(strings.TrimSpace(token), ",;:()[]{}")
-		candidate = strings.TrimPrefix(strings.TrimPrefix(candidate, "v"), "V")
-		if playwrightVersionTokenPattern.MatchString(candidate) {
-			return candidate, nil
-		}
-	}
-	if matched := strings.TrimSpace(playwrightVersionScanPattern.FindString(output)); matched != "" {
-		return matched, nil
-	}
-	return "", fmt.Errorf("playwright version not found")
 }
 
 func percent(written int64, total int64) int {

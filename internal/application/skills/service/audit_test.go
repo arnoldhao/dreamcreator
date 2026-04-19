@@ -47,7 +47,7 @@ func TestPruneSkillsAuditEntriesByRetention(t *testing.T) {
 			"timestamp": now.AddDate(0, 0, -1).Format(time.RFC3339),
 		},
 		map[string]any{
-			"action":    "skill_manage.search",
+			"action":    "skills_manage.search",
 			"timestamp": now.AddDate(0, 0, -30).Format(time.RFC3339),
 		},
 	}

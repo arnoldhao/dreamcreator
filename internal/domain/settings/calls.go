@@ -1,27 +1,18 @@
 package settings
 
-import domainweb "dreamcreator/internal/domain/web"
-
 const DefaultBrowserColor = "#FF4500"
 
 func DefaultCallsToolsConfig() map[string]any {
 	defaultWebFetch := map[string]any{
-		"type":            "builtin",
-		"acceptMarkdown":  true,
-		"enableUserAgent": true,
-		"userAgent":       domainweb.DefaultBrowserRequestUserAgent,
-		"acceptLanguage":  domainweb.DefaultBrowserRequestAcceptLanguage,
-		"playwright": map[string]any{
-			"markdown": true,
-		},
+		"headless":         true,
+		"preferredBrowser": "chrome",
 	}
 	defaultBrowser := map[string]any{
-		"enabled":         true,
-		"evaluateEnabled": true,
-		"headless":        false,
-		"noSandbox":       false,
+		"enabled":          true,
+		"headless":         true,
+		"preferredBrowser": "chrome",
 		"ssrfPolicy": map[string]any{
-			"dangerouslyAllowPrivateNetwork": true,
+			"dangerouslyAllowPrivateNetwork": false,
 		},
 	}
 	return map[string]any{
