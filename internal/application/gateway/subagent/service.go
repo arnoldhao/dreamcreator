@@ -37,8 +37,7 @@ var subagentToolDenyAlways = []string{
 	"whatsapp_login",
 	"session_status",
 	"cron",
-	"memory_recall",
-	"memory_list",
+	"memory_query",
 	"sessions_send",
 }
 

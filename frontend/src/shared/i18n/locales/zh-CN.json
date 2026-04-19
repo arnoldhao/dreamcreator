@@ -932,11 +932,11 @@
           "groups": {
             "read": {
               "label": "读取",
-              "description": "skills.status/skills.bins/skill_manage.search/skill_manage.list"
+              "description": "skills.status/skills.bins/skills_manage.search/skills_manage.list"
             },
             "package_write": {
               "label": "包管理写入",
-              "description": "skill_manage.install/update/remove/sync"
+              "description": "skills_manage.install/update/remove/sync"
             },
             "deps_write": {
               "label": "依赖写入",
@@ -1047,7 +1047,21 @@
       },
       "reason": {
         "unavailable": "缺少运行时依赖，当前不可用。",
-        "browserProcessExited": "浏览器进程已退出。"
+        "browserProcessExited": "浏览器进程已退出。",
+        "remoteNodeRuntimeUnavailable": "暂时不可用：远端 Node 运行时还未实现。",
+        "imageModelNotConfigured": "图像模型尚未配置。",
+        "providerRepositoriesUnavailable": "Provider 仓库当前不可用。",
+        "gatewayControlPlaneDisabled": "Gateway 控制平面已关闭。",
+        "webSearchModeUnsupported": "当前搜索模式不受支持。",
+        "webSearchProviderUnsupported": "{provider} 当前不支持 API 模式。",
+        "webSearchProviderApiKeyMissing": "{provider} 的 API key 缺失。",
+        "webSearchExternalToolsUnavailable": "External tools 模式暂未实现。",
+        "voiceDisabled": "Gateway 语音功能已关闭。",
+        "voiceServiceUnavailable": "语音服务当前不可用。",
+        "ttsProviderApiKeyMissing": "TTS provider 的 API key 缺失。",
+        "ttsVoiceIdMissing": "TTS 的 voice ID 尚未配置。",
+        "ttsEdgeProviderUnavailable": "暂时不可用：Edge-TTS provider 还未实现。",
+        "ttsProviderUnsupported": "当前 TTS provider 不受支持。"
       },
       "builtin": {
         "read": {
@@ -1088,7 +1102,7 @@
         },
         "canvas": {
           "name": "画布渲染",
-          "description": "控制节点画布能力（present/hide/navigate/eval/snapshot/a2ui）。"
+          "description": "控制节点画布能力（present/hide/navigate/eval/snapshot/a2ui）。远端 Node 运行时落地前暂不可用。"
         },
         "image": {
           "name": "图像处理",
@@ -1096,7 +1110,7 @@
         },
         "message": {
           "name": "消息发送",
-          "description": "发送频道消息（当前未实现）。"
+          "description": "通过已配置的频道插件发送、删除和管理消息。"
         },
         "gateway": {
           "name": "Gateway 控制",
@@ -1108,27 +1122,27 @@
         },
         "agents_list": {
           "name": "代理列表",
-          "description": "列出代理。"
+          "description": "列出可用于子代理启动的代理配置。"
         },
         "sessions_list": {
           "name": "会话列表",
-          "description": "列出会话。"
+          "description": "列出当前会话。"
         },
         "sessions_history": {
           "name": "会话历史",
-          "description": "获取会话历史。"
+          "description": "读取某个会话的消息历史。"
         },
         "sessions_send": {
           "name": "会话发送",
-          "description": "向会话发送消息。"
+          "description": "向已有会话追加一条消息。"
         },
         "sessions_spawn": {
           "name": "新建会话",
-          "description": "创建新的会话。"
+          "description": "启动一次隔离的子代理运行。"
         },
         "session_status": {
           "name": "会话状态",
-          "description": "获取会话状态。"
+          "description": "获取会话元数据与状态。"
         },
         "external_tools_query": {
           "name": "外部工具查询",
@@ -1140,7 +1154,7 @@
         },
         "skills": {
           "name": "技能",
-          "description": "技能运行工具（状态/命令依赖/依赖安装/配置更新）。"
+          "description": "查看技能运行状态，并更新单个技能的运行依赖或配置。"
         },
         "skill_manage": {
           "name": "技能管理",
@@ -1152,7 +1166,7 @@
         },
         "skills_manage": {
           "name": "技能管理",
-          "description": "管理技能生命周期操作。"
+          "description": "通过 ClawHub 搜索、安装、更新、移除和同步技能包。"
         },
         "skills_policy": {
           "name": "技能策略",
@@ -1160,15 +1174,15 @@
         },
         "subagents": {
           "name": "子代理管理",
-          "description": "管理子代理运行（列表/详情/日志/终止/转向/启动）。"
+          "description": "管理已有子代理运行（列表/详情/日志/终止/转向/发送）。"
         },
         "nodes": {
           "name": "节点调用",
-          "description": "调用节点能力。"
+          "description": "实验性的低层节点 RPC。远端 Node 运行时落地前暂不可用。"
         },
         "tts": {
           "name": "文本转语音",
-          "description": "将文本转换为语音。"
+          "description": "使用当前语音提供方把文本合成为语音音频。"
         },
         "render_chart": {
           "name": "图表渲染",
@@ -1221,6 +1235,14 @@
         "memory_list": {
           "name": "记忆列表",
           "description": "按条件列出近期记忆条目。"
+        },
+        "memory_query": {
+          "name": "记忆查询",
+          "description": "通过 recall、list、stats 动作查询长期记忆。"
+        },
+        "memory_manage": {
+          "name": "记忆管理",
+          "description": "创建、更新或删除长期记忆条目。"
         },
         "subagent_run": {
           "name": "子代理运行",
@@ -1290,7 +1312,38 @@
         "noneDetected": "未检测到可用浏览器"
       },
       "requirements": {
-        "localCDPBrowser": "本地 CDP 浏览器"
+        "gatewayControlPlane": "Gateway 控制平面",
+        "localCDPBrowser": "本地 CDP 浏览器",
+        "remoteNodeRuntime": "远端 Node 运行时",
+        "webSearchMode": "搜索模式",
+        "webSearchProvider": "提供方",
+        "webSearchProviderApiKey": "提供方 API Key",
+        "externalToolsRuntime": "外部工具运行时",
+        "imageModel": "图像模型",
+        "voiceService": "语音服务",
+        "voiceFeature": "语音功能",
+        "ttsProvider": "提供方",
+        "ttsProviderApiKey": "提供方 API Key",
+        "ttsVoiceId": "语音 ID",
+        "values": {
+          "available": "可用",
+          "unavailable": "不可用",
+          "configured": "已配置",
+          "notConfigured": "未配置",
+          "enabled": "已启用",
+          "disabled": "已关闭",
+          "detected": "已检测到",
+          "missing": "缺失"
+        },
+        "providers": {
+          "brave": "Brave",
+          "tavily": "Tavily",
+          "perplexity": "Perplexity",
+          "grok": "Grok",
+          "openai": "OpenAI",
+          "elevenlabs": "ElevenLabs",
+          "edge": "Edge-TTS"
+        }
       },
       "detail": {
         "descriptionLabel": "说明",

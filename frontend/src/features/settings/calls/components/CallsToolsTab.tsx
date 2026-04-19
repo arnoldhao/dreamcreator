@@ -24,13 +24,18 @@ import type { GatewayToolMethodSpec } from "@/shared/store/gatewayTools";
 import { CallsCard } from "./CallsCard";
 import { ToolMethodIOPanel } from "./ToolMethodIOPanel";
 import {
+  normalizeRuntimeBrowserCandidates,
+  type RuntimeDetectionRow,
+} from "./calls-tools-runtime-detection";
+import {
   ToolConfigCard,
   ToolConfigEmptyState,
   ToolConfigTabPanel,
   ToolContentTabs,
-  type ToolDependencyStatus,
   ToolDetailLayout,
   ToolIOTabPanel,
+  type ToolPermissionBadge,
+  type ToolRequirementItem,
   ToolOverviewCard,
 } from "./tool-detail-layout";
 import type { ToolItem } from "../types";
@@ -71,47 +76,6 @@ import {
   type WebSearchProviderOption,
 } from "../utils/web-tool-settings-utils";
 
-type RuntimeBrowserCandidate = {
-  id: string;
-  label: string;
-  available: boolean;
-  execPath: string;
-  error: string;
-};
-
-type RuntimeDetectionRow = {
-  label: string;
-  value: string;
-  badge?: "not_installed" | "not_detected";
-};
-
-const BROWSER_LABELS: Record<string, string> = {
-  chrome: "Chrome",
-  chromium: "Chromium",
-  edge: "Edge",
-  brave: "Brave",
-};
-
-const normalizeRuntimeBrowserCandidates = (value: unknown): RuntimeBrowserCandidate[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.flatMap((item) => {
-    if (!isRecord(item)) {
-      return [];
-    }
-    const id = readStringValue(item, "id", "").trim().toLowerCase();
-    const fallbackLabel = id ? (BROWSER_LABELS[id] ?? id) : "Browser";
-    return [{
-      id,
-      label: readStringValue(item, "label", fallbackLabel).trim() || fallbackLabel,
-      available: readBoolValue(item, "available", false),
-      execPath: readStringValue(item, "execPath", "").trim(),
-      error: readStringValue(item, "error", "").trim(),
-    }];
-  });
-};
-
 export function CallsToolsTab() {
   const { t } = useI18n();
   const settingsQuery = useSettings();
@@ -147,12 +111,62 @@ export function CallsToolsTab() {
     (category: string) => t(`settings.tools.category.${category}`),
     [t]
   );
+  const resolveWebSearchProviderLabel = React.useCallback(
+    (providerID: string) => {
+      switch (providerID.trim().toLowerCase()) {
+        case "brave":
+          return t("settings.tools.requirements.providers.brave");
+        case "tavily":
+          return t("settings.tools.requirements.providers.tavily");
+        case "perplexity":
+          return t("settings.tools.requirements.providers.perplexity");
+        case "grok":
+          return t("settings.tools.requirements.providers.grok");
+        default:
+          return providerID;
+      }
+    },
+    [t]
+  );
+  const resolveWebSearchModeLabel = React.useCallback(
+    (mode: string) => {
+      return normalizeWebSearchType(mode) === "external_tools"
+        ? t("settings.tools.webSearch.typeValue.externalTools")
+        : t("settings.tools.webSearch.typeValue.api");
+    },
+    [t]
+  );
   const resolveRequirementName = React.useCallback(
     (requirementID: string, fallbackName: string) => {
       switch (requirementID) {
+        case "gateway.control_plane_enabled":
+          return t("settings.tools.requirements.gatewayControlPlane");
         case "browser.cdp_runtime":
         case "web_fetch.local_browser":
           return t("settings.tools.requirements.localCDPBrowser");
+        case "web_search.mode_supported":
+          return t("settings.tools.requirements.webSearchMode");
+        case "web_search.provider_supported":
+          return t("settings.tools.requirements.webSearchProvider");
+        case "web_search.provider_api_key":
+          return t("settings.tools.requirements.webSearchProviderApiKey");
+        case "web_search.external_tools_supported":
+          return t("settings.tools.requirements.externalToolsRuntime");
+        case "image.model_runtime":
+          return t("settings.tools.requirements.imageModel");
+        case "tts.voice_service":
+          return t("settings.tools.requirements.voiceService");
+        case "tts.voice_enabled":
+          return t("settings.tools.requirements.voiceFeature");
+        case "tts.provider_supported":
+          return t("settings.tools.requirements.ttsProvider");
+        case "tts.provider_api_key":
+          return t("settings.tools.requirements.ttsProviderApiKey");
+        case "tts.voice_id":
+          return t("settings.tools.requirements.ttsVoiceId");
+        case "canvas.remote_runtime":
+        case "nodes.remote_runtime":
+          return t("settings.tools.requirements.remoteNodeRuntime");
         default:
           return fallbackName;
       }
@@ -161,7 +175,24 @@ export function CallsToolsTab() {
   );
   const resolveRequirementReason = React.useCallback(
     (reason: string) => {
-      const normalized = reason.trim().toLowerCase();
+      const trimmed = reason.trim();
+      const normalized = trimmed.toLowerCase();
+      const providerUnsupportedMatch = trimmed.match(/^(.+?)\s+is not supported in api mode$/i);
+      if (providerUnsupportedMatch) {
+        return t("settings.tools.reason.webSearchProviderUnsupported").replace(
+          "{provider}",
+          resolveWebSearchProviderLabel(providerUnsupportedMatch[1]?.trim() || "")
+        );
+      }
+      const providerAPIKeyMissingMatch = normalized === "tts provider api key is missing"
+        ? null
+        : trimmed.match(/^(.+?)\s+api key is missing$/i);
+      if (providerAPIKeyMissingMatch) {
+        return t("settings.tools.reason.webSearchProviderApiKeyMissing").replace(
+          "{provider}",
+          resolveWebSearchProviderLabel(providerAPIKeyMissingMatch[1]?.trim() || "")
+        );
+      }
       switch (normalized) {
         case "browser executable not found":
           return t("settings.tools.runtimeDetection.notInstalled");
@@ -169,50 +200,66 @@ export function CallsToolsTab() {
           return t("settings.tools.runtimeDetection.noneDetected");
         case "browser process exited":
           return t("settings.tools.reason.browserProcessExited");
+        case "image model is not configured":
+          return t("settings.tools.reason.imageModelNotConfigured");
+        case "provider repositories are unavailable":
+          return t("settings.tools.reason.providerRepositoriesUnavailable");
+        case "control plane is disabled":
+          return t("settings.tools.reason.gatewayControlPlaneDisabled");
+        case "search mode is not supported":
+          return t("settings.tools.reason.webSearchModeUnsupported");
+        case "external tools mode is not implemented":
+          return t("settings.tools.reason.webSearchExternalToolsUnavailable");
+        case "remote node runtime is not implemented yet":
+          return t("settings.tools.reason.remoteNodeRuntimeUnavailable");
+        case "voice is disabled":
+          return t("settings.tools.reason.voiceDisabled");
+        case "voice service unavailable":
+          return t("settings.tools.reason.voiceServiceUnavailable");
+        case "tts provider api key is missing":
+          return t("settings.tools.reason.ttsProviderApiKeyMissing");
+        case "tts voice id is not configured":
+          return t("settings.tools.reason.ttsVoiceIdMissing");
+        case "edge-tts provider is not implemented yet":
+          return t("settings.tools.reason.ttsEdgeProviderUnavailable");
+        case "tts provider is not supported":
+          return t("settings.tools.reason.ttsProviderUnsupported");
         default:
           return reason || t("settings.tools.reason.unavailable");
       }
     },
-    [t]
+    [resolveWebSearchProviderLabel, t]
   );
-  const resolveToolDependencies = React.useCallback(
+  const resolveToolPermissionBadges = React.useCallback(
     (tool: ToolItem) => {
-      const dependencies: ToolDependencyStatus[] =
-        !tool.requirements || tool.requirements.length === 0
-          ? []
-          : tool.requirements.map((requirement) => {
-              const fallbackName = requirement.name || requirement.id;
-              const fallbackReason = resolveRequirementReason(requirement.reason || "");
-              return {
-                id: requirement.id,
-                name: resolveRequirementName(requirement.id, fallbackName),
-                ok: requirement.available,
-                reason: fallbackReason,
-              };
-            });
       const riskLevel = (tool.riskLevel ?? "").trim().toLowerCase();
       const needsApproval = tool.requiresApproval === true || riskLevel === "high";
       const needsSandbox = tool.requiresSandbox === true || riskLevel === "high";
-      const permissionBadges: string[] = [];
+      const permissionBadges: ToolPermissionBadge[] = [];
       if (needsApproval) {
-        permissionBadges.push(t("settings.tools.detail.permissions.badges.approval"));
+        permissionBadges.push({
+          id: "approval",
+          label: t("settings.tools.detail.permissions.badges.approval"),
+          tone: "warning",
+        });
       }
       if (needsSandbox) {
-        permissionBadges.push(t("settings.tools.detail.permissions.badges.sandbox"));
+        permissionBadges.push({
+          id: "sandbox",
+          label: t("settings.tools.detail.permissions.badges.sandbox"),
+          tone: "info",
+        });
       }
       if (permissionBadges.length === 0) {
-        permissionBadges.push(t("settings.tools.detail.permissions.badges.none"));
+        permissionBadges.push({
+          id: "none",
+          label: t("settings.tools.detail.permissions.badges.none"),
+          tone: "neutral",
+        });
       }
-      dependencies.push({
-        id: "__permission__",
-        name: t("settings.tools.detail.permissions.label"),
-        ok: true,
-        reason: "",
-        badges: permissionBadges,
-      });
-      return dependencies;
+      return permissionBadges;
     },
-    [resolveRequirementName, resolveRequirementReason, t]
+    [t]
   );
   const renderToolStatusBadge = React.useCallback(
     (status: ReturnType<typeof resolveToolStatus> | null) => {
@@ -242,6 +289,17 @@ export function CallsToolsTab() {
     const base = toolItems.filter((tool) => baseToolIds.includes(normalizeToolId(tool.id)));
     return base.length > 0 ? base : toolItems;
   }, [toolItems]);
+  const isInitialToolsLoad = gatewayToolsQuery.isLoading && filteredTools.length === 0;
+  const toolsLoadError = React.useMemo(() => {
+    if (!gatewayToolsQuery.isError || filteredTools.length > 0) {
+      return "";
+    }
+    const error = gatewayToolsQuery.error;
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return String(error ?? "").trim();
+  }, [filteredTools.length, gatewayToolsQuery.error, gatewayToolsQuery.isError]);
   const groupedTools = React.useMemo(() => {
     const groups = new Map<string, ToolItem[]>();
     filteredTools.forEach((tool) => {
@@ -458,6 +516,117 @@ export function CallsToolsTab() {
   }, [browserConfig]);
   const [browserForm, setBrowserForm] = React.useState<BrowserControlFormState>(initialBrowserForm);
   const skipNextBrowserBlurSaveRef = React.useRef(false);
+
+  const resolveRequirementValue = React.useCallback(
+    (requirement: ToolItem["requirements"][number]) => {
+      const fallbackReason = resolveRequirementReason(requirement.reason || "");
+      const requirementData = isRecord(requirement.data) ? requirement.data : undefined;
+      const resolveProviderLabel = (providerID: string) => {
+        switch (providerID) {
+          case "openai":
+            return t("settings.tools.requirements.providers.openai");
+          case "elevenlabs":
+            return t("settings.tools.requirements.providers.elevenlabs");
+          case "edge":
+            return t("settings.tools.requirements.providers.edge");
+          default:
+            return providerID;
+        }
+      };
+      switch (requirement.id) {
+        case "gateway.control_plane_enabled":
+          return requirement.available
+            ? t("settings.tools.requirements.values.enabled")
+            : t("settings.tools.requirements.values.disabled");
+        case "browser.cdp_runtime":
+        case "web_fetch.local_browser":
+          return requirement.available
+            ? t("settings.tools.requirements.values.detected")
+            : fallbackReason;
+        case "web_search.mode_supported": {
+          const mode = readStringValue(requirementData, "mode", readStringValue(webSearchConfig, "type", webSearchForm.type));
+          return requirement.available
+            ? resolveWebSearchModeLabel(mode)
+            : (fallbackReason || t("settings.tools.requirements.values.unavailable"));
+        }
+        case "web_search.provider_supported": {
+          const providerID = readStringValue(requirementData, "providerId", webSearchForm.provider).trim().toLowerCase();
+          const providerLabel = providerID ? resolveWebSearchProviderLabel(providerID) : "";
+          return requirement.available
+            ? (providerLabel || t("settings.tools.requirements.values.available"))
+            : (fallbackReason || providerLabel || t("settings.tools.requirements.values.unavailable"));
+        }
+        case "web_search.provider_api_key":
+          return requirement.available
+            ? t("settings.tools.requirements.values.configured")
+            : t("settings.tools.requirements.values.missing");
+        case "web_search.external_tools_supported":
+          return requirement.available
+            ? t("settings.tools.requirements.values.available")
+            : (fallbackReason || t("settings.tools.requirements.values.unavailable"));
+        case "image.model_runtime":
+          return requirement.available
+            ? t("settings.tools.requirements.values.configured")
+            : t("settings.tools.requirements.values.notConfigured");
+        case "tts.voice_enabled":
+          return requirement.available
+            ? t("settings.tools.requirements.values.enabled")
+            : t("settings.tools.requirements.values.disabled");
+        case "tts.provider_supported": {
+          const providerID = readStringValue(requirementData, "providerId", "").trim().toLowerCase();
+          const providerLabel = providerID ? resolveProviderLabel(providerID) : "";
+          return requirement.available
+            ? (providerLabel || t("settings.tools.requirements.values.available"))
+            : (fallbackReason || providerLabel || t("settings.tools.requirements.values.unavailable"));
+        }
+        case "tts.provider_api_key":
+          return requirement.available
+            ? t("settings.tools.requirements.values.configured")
+            : t("settings.tools.requirements.values.missing");
+        case "tts.voice_id": {
+          const voiceID = readStringValue(requirementData, "value", "").trim();
+          return requirement.available
+            ? (voiceID || t("settings.tools.requirements.values.configured"))
+            : t("settings.tools.requirements.values.notConfigured");
+        }
+        case "tts.voice_service":
+          return requirement.available
+            ? t("settings.tools.requirements.values.available")
+            : fallbackReason;
+        default:
+          return requirement.available
+            ? t("settings.tools.requirements.values.available")
+            : (fallbackReason || t("settings.tools.requirements.values.unavailable"));
+      }
+    },
+    [
+      resolveRequirementReason,
+      resolveWebSearchModeLabel,
+      resolveWebSearchProviderLabel,
+      t,
+      webSearchConfig,
+      webSearchForm.provider,
+      webSearchForm.type,
+    ]
+  );
+  const resolveToolRequirements = React.useCallback(
+    (tool: ToolItem) => {
+      const requirements: ToolRequirementItem[] =
+        !tool.requirements || tool.requirements.length === 0
+          ? []
+          : tool.requirements.map((requirement) => {
+              const fallbackName = requirement.name || requirement.id;
+              return {
+                id: requirement.id,
+                name: resolveRequirementName(requirement.id, fallbackName),
+                value: resolveRequirementValue(requirement),
+                tone: requirement.available ? "success" : "danger",
+              };
+            });
+      return requirements;
+    },
+    [resolveRequirementName, resolveRequirementValue]
+  );
 
   React.useEffect(() => {
     setWebSearchForm(initialWebSearchForm);
@@ -1038,7 +1207,15 @@ export function CallsToolsTab() {
   return (
     <CallsCard
       leftList={
-        filteredTools.length === 0 ? (
+        isInitialToolsLoad ? (
+          <div className="p-3 text-sm text-muted-foreground">
+            {t("settings.gateway.tools.loading")}
+          </div>
+        ) : toolsLoadError ? (
+          <div className="p-3 text-sm text-destructive">
+            {toolsLoadError}
+          </div>
+        ) : filteredTools.length === 0 ? (
           <div className="p-3 text-sm text-muted-foreground">
             {t("settings.tools.list.empty")}
           </div>
@@ -1077,7 +1254,15 @@ export function CallsToolsTab() {
         )
       }
       rightContent={
-        !selectedTool ? (
+        isInitialToolsLoad ? (
+          <div className="p-4 text-sm text-muted-foreground">
+            {t("settings.gateway.tools.loading")}
+          </div>
+        ) : toolsLoadError ? (
+          <div className="p-4 text-sm text-destructive">
+            {toolsLoadError}
+          </div>
+        ) : !selectedTool ? (
           <div className="p-4 text-sm text-muted-foreground">
             {t("settings.tools.list.empty")}
           </div>
@@ -1088,11 +1273,18 @@ export function CallsToolsTab() {
             const isWebFetchTool = selectedTool.id === "web_fetch";
             const isGatewayTool = selectedTool.id === "gateway";
             const isBrowserTool = selectedTool.id === "browser";
+            const isCanvasTool = selectedTool.id === "canvas";
+            const isNodesTool = selectedTool.id === "nodes";
             const gatewayConfig = isGatewayTool && isRecord(toolsConfig.gateway)
               ? (toolsConfig.gateway as Record<string, unknown>)
               : undefined;
             const hasGatewayConfig = Boolean(gatewayConfig && Object.keys(gatewayConfig).length > 0);
-            const toolDependencies = resolveToolDependencies(selectedTool);
+            const toolRequirements = resolveToolRequirements(selectedTool);
+            const toolPermissions = resolveToolPermissionBadges(selectedTool);
+            const toolToggleDisabledReason = (isCanvasTool || isNodesTool)
+              ? t("settings.tools.reason.remoteNodeRuntimeUnavailable")
+              : undefined;
+            const toolToggleDisabled = gatewayToolEnablePending || isCanvasTool || isNodesTool;
             const browserRuntimeRequirement =
               isBrowserTool || isWebFetchTool
                 ? (selectedTool.requirements ?? []).find((requirement) =>
@@ -1158,11 +1350,14 @@ export function CallsToolsTab() {
                         statusBadge={renderToolStatusBadge(status)}
                         enabledLabel={t("settings.tools.detail.enabled")}
                         enabled={selectedTool.available}
-                        enabledDisabled={gatewayToolEnablePending}
+                        enabledDisabled={toolToggleDisabled}
+                        enabledDisabledReason={toolToggleDisabledReason}
                         onEnabledChange={(enabled) => {
                           void handleToggleToolEnabled(selectedTool, enabled);
                         }}
-                        dependencies={toolDependencies}
+                        permissionsLabel={t("settings.tools.detail.permissions.label")}
+                        permissions={toolPermissions}
+                        requirements={toolRequirements}
                       />
                     }
                     content={
@@ -1214,11 +1409,14 @@ export function CallsToolsTab() {
                         statusBadge={renderToolStatusBadge(status)}
                         enabledLabel={t("settings.tools.detail.enabled")}
                         enabled={selectedTool.available}
-                        enabledDisabled={gatewayToolEnablePending}
+                        enabledDisabled={toolToggleDisabled}
+                        enabledDisabledReason={toolToggleDisabledReason}
                         onEnabledChange={(enabled) => {
                           void handleToggleToolEnabled(selectedTool, enabled);
                         }}
-                        dependencies={toolDependencies}
+                        permissionsLabel={t("settings.tools.detail.permissions.label")}
+                        permissions={toolPermissions}
+                        requirements={toolRequirements}
                       />
                     }
                     content={
@@ -1486,11 +1684,14 @@ export function CallsToolsTab() {
                         statusBadge={renderToolStatusBadge(status)}
                         enabledLabel={t("settings.tools.detail.enabled")}
                         enabled={selectedTool.available}
-                        enabledDisabled={gatewayToolEnablePending}
+                        enabledDisabled={toolToggleDisabled}
+                        enabledDisabledReason={toolToggleDisabledReason}
                         onEnabledChange={(enabled) => {
                           void handleToggleToolEnabled(selectedTool, enabled);
                         }}
-                        dependencies={toolDependencies}
+                        permissionsLabel={t("settings.tools.detail.permissions.label")}
+                        permissions={toolPermissions}
+                        requirements={toolRequirements}
                       />
                     }
                     content={
@@ -1554,7 +1755,9 @@ export function CallsToolsTab() {
                         enabled={browserForm.enabled}
                         enabledDisabled={browserDisabled}
                         onEnabledChange={handleToggleBrowserEnabled}
-                        dependencies={toolDependencies}
+                        permissionsLabel={t("settings.tools.detail.permissions.label")}
+                        permissions={toolPermissions}
+                        requirements={toolRequirements}
                       />
                     }
                     content={
@@ -1567,28 +1770,6 @@ export function CallsToolsTab() {
                         <ToolConfigTabPanel>
                           <TooltipProvider delayDuration={0}>
                             <div className="space-y-3">
-                              {(selectedTool.requirements ?? []).some((requirement) => !requirement.available) ? (
-                                <div className="space-y-1 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
-                                  {(selectedTool.requirements ?? [])
-                                    .filter((requirement) => !requirement.available)
-                                    .map((requirement) => {
-                                      const fallbackName = resolveRequirementName(
-                                        requirement.id,
-                                        requirement.name || requirement.id
-                                      );
-                                      const fallbackReason = resolveRequirementReason(requirement.reason || "");
-                                      return (
-                                        <p key={requirement.id}>
-                                          <span className="font-medium">
-                                            {fallbackName}:
-                                          </span>{" "}
-                                          {fallbackReason}
-                                        </p>
-                                      );
-                                    })}
-                                  </div>
-                              ) : null}
-                              <Separator />
                               <div className={webSearchRowClassName}>
                                 {renderWebSearchFieldLabel(
                                   t("settings.tools.browserControl.preferredBrowser"),
@@ -1744,11 +1925,14 @@ export function CallsToolsTab() {
                         statusBadge={renderToolStatusBadge(status)}
                         enabledLabel={t("settings.tools.detail.enabled")}
                         enabled={selectedTool.available}
-                        enabledDisabled={gatewayToolEnablePending}
+                        enabledDisabled={toolToggleDisabled}
+                        enabledDisabledReason={toolToggleDisabledReason}
                         onEnabledChange={(enabled) => {
                           void handleToggleToolEnabled(selectedTool, enabled);
                         }}
-                        dependencies={toolDependencies}
+                        permissionsLabel={t("settings.tools.detail.permissions.label")}
+                        permissions={toolPermissions}
+                        requirements={toolRequirements}
                       />
                     }
                     content={

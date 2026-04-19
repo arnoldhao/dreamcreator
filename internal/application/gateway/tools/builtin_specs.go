@@ -1063,7 +1063,7 @@ func specAgentsList() toolSpec {
 	return toolSpec{
 		ID:          "agents_list",
 		Name:        "agents_list",
-		Description: "List agents.",
+		Description: "List available agent profiles for subagent spawning.",
 		Category:    "sessions",
 		Enabled:     true,
 	}
@@ -1073,7 +1073,7 @@ func specSessionsList() toolSpec {
 	return toolSpec{
 		ID:          "sessions_list",
 		Name:        "sessions_list",
-		Description: "List sessions.",
+		Description: "List current sessions.",
 		Category:    "sessions",
 		Enabled:     true,
 	}
@@ -1083,7 +1083,7 @@ func specSessionsHistory() toolSpec {
 	return toolSpec{
 		ID:          "sessions_history",
 		Name:        "sessions_history",
-		Description: "Fetch session history.",
+		Description: "Read message history for a session.",
 		Category:    "sessions",
 		SchemaJSON: schemaJSON(map[string]any{
 			"type": "object",
@@ -1101,7 +1101,7 @@ func specSessionsSend() toolSpec {
 	return toolSpec{
 		ID:          "sessions_send",
 		Name:        "sessions_send",
-		Description: "Send a message to a session.",
+		Description: "Append a message to an existing session.",
 		Category:    "sessions",
 		RiskLevel:   "medium",
 		SchemaJSON: schemaJSON(map[string]any{
@@ -1146,7 +1146,7 @@ func specSessionStatus() toolSpec {
 	return toolSpec{
 		ID:          "session_status",
 		Name:        "session_status",
-		Description: "Get session status.",
+		Description: "Get session metadata and status.",
 		Category:    "sessions",
 		SchemaJSON: schemaJSON(map[string]any{
 			"type": "object",
@@ -1211,7 +1211,7 @@ func specSkills() toolSpec {
 	return toolSpec{
 		ID:          "skills",
 		Name:        "skills",
-		Description: "Skills runtime tool: status/bins + dependency install + per-skill runtime config update. Not for package search/install.",
+		Description: "Inspect skills runtime status and update per-skill runtime dependencies or configuration.",
 		Category:    "skills",
 		RiskLevel:   "medium",
 		SchemaJSON: schemaJSON(map[string]any{
@@ -1295,12 +1295,12 @@ func specSkills() toolSpec {
 	}
 }
 
-func specSkillManage() toolSpec {
+func specSkillsManage() toolSpec {
 	actions := []string{"list", "search", "install", "update", "remove", "sync"}
 	return toolSpec{
-		ID:          "skill_manage",
-		Name:        "skill_manage",
-		Description: "Skills package management tool via ClawHub/SkillHub (list/search/install/update/remove/sync). Use for discovery and package lifecycle.",
+		ID:          "skills_manage",
+		Name:        "skills_manage",
+		Description: "Search, install, update, remove, and sync skill packages via ClawHub.",
 		Category:    "skills",
 		RiskLevel:   "medium",
 		SchemaJSON: schemaJSON(map[string]any{
@@ -1363,7 +1363,7 @@ func specSubagents() toolSpec {
 	return toolSpec{
 		ID:          "subagents",
 		Name:        "subagents",
-		Description: "Manage subagent runs (list/info/log/kill/steer/send).",
+		Description: "Manage existing subagent runs (list/info/log/kill/steer/send).",
 		Category:    "sessions",
 		SchemaJSON: schemaJSON(map[string]any{
 			"type": "object",
@@ -1382,7 +1382,7 @@ func specNodes() toolSpec {
 	return toolSpec{
 		ID:          "nodes",
 		Name:        "nodes",
-		Description: "Invoke node capability.",
+		Description: "Experimental low-level RPC to a registered node. Temporarily unavailable until remote node runtime support is implemented; prefer specialized tools like canvas or browser when available.",
 		Category:    "nodes",
 		RiskLevel:   "medium",
 		SchemaJSON: schemaJSON(map[string]any{
@@ -1390,10 +1390,14 @@ func specNodes() toolSpec {
 			"properties": map[string]any{
 				"nodeId":     map[string]any{"type": "string"},
 				"capability": map[string]any{"type": "string"},
+				"action":     map[string]any{"type": "string"},
+				"args":       map[string]any{"type": "string"},
 				"payload":    map[string]any{"type": "object"},
+				"timeoutMs":  map[string]any{"type": "integer"},
 			},
+			"required": []string{"nodeId", "capability"},
 		}),
-		Enabled: true,
+		Enabled: false,
 	}
 }
 
@@ -1401,7 +1405,7 @@ func specTTS() toolSpec {
 	return toolSpec{
 		ID:          "tts",
 		Name:        "tts",
-		Description: "Text-to-speech conversion.",
+		Description: "Synthesize speech audio from text with the configured voice provider.",
 		Category:    "voice",
 		SchemaJSON: schemaJSON(map[string]any{
 			"type": "object",
@@ -1417,15 +1421,20 @@ func specTTS() toolSpec {
 	}
 }
 
-func specMemoryRecall() toolSpec {
+func specMemoryQuery() toolSpec {
 	return toolSpec{
-		ID:          "memory_recall",
-		Name:        "memory_recall",
-		Description: "Search long-term memory with hybrid retrieval.",
+		ID:          "memory_query",
+		Name:        "memory_query",
+		Description: "Query long-term memory with recall, list, and stats actions.",
 		Category:    "memory",
 		SchemaJSON: schemaJSON(map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
+				"action": map[string]any{
+					"type": "string",
+					"enum": []string{"recall", "list", "stats"},
+				},
 				"query":       map[string]any{"type": "string"},
 				"limit":       map[string]any{"type": "integer"},
 				"topK":        map[string]any{"type": "integer"},
@@ -1440,21 +1449,40 @@ func specMemoryRecall() toolSpec {
 				"peerKind":    map[string]any{"type": "string"},
 				"peerId":      map[string]any{"type": "string"},
 			},
-			"required": []string{"query"},
+			"required": []string{"action"},
+			"allOf": []any{
+				map[string]any{
+					"if": map[string]any{
+						"properties": map[string]any{
+							"action": map[string]any{"const": "recall"},
+						},
+					},
+					"then": map[string]any{
+						"required": []string{"query"},
+					},
+				},
+			},
 		}),
 		Enabled: true,
 	}
 }
 
-func specMemoryStore() toolSpec {
+func specMemoryManage() toolSpec {
 	return toolSpec{
-		ID:          "memory_store",
-		Name:        "memory_store",
-		Description: "Store a long-term memory entry.",
+		ID:          "memory_manage",
+		Name:        "memory_manage",
+		Description: "Create, update, or delete long-term memory entries.",
 		Category:    "memory",
 		SchemaJSON: schemaJSON(map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
+				"action": map[string]any{
+					"type": "string",
+					"enum": []string{"store", "update", "forget"},
+				},
+				"memoryId":    map[string]any{"type": "string"},
+				"id":          map[string]any{"type": "string"},
 				"text":        map[string]any{"type": "string"},
 				"content":     map[string]any{"type": "string"},
 				"category":    map[string]any{"type": "string"},
@@ -1463,35 +1491,7 @@ func specMemoryStore() toolSpec {
 				"threadId":    map[string]any{"type": "string"},
 				"scope":       map[string]any{"type": "string"},
 				"metadata":    map[string]any{"type": "object"},
-				"channel":     map[string]any{"type": "string"},
-				"accountId":   map[string]any{"type": "string"},
-				"userId":      map[string]any{"type": "string"},
-				"groupId":     map[string]any{"type": "string"},
-				"peerKind":    map[string]any{"type": "string"},
-				"peerId":      map[string]any{"type": "string"},
-			},
-			"required": []string{"text"},
-		}),
-		Enabled: true,
-	}
-}
-
-func specMemoryForget() toolSpec {
-	return toolSpec{
-		ID:          "memory_forget",
-		Name:        "memory_forget",
-		Description: "Forget memory entries by id or query.",
-		Category:    "memory",
-		SchemaJSON: schemaJSON(map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"memoryId":    map[string]any{"type": "string"},
-				"id":          map[string]any{"type": "string"},
 				"query":       map[string]any{"type": "string"},
-				"assistantId": map[string]any{"type": "string"},
-				"threadId":    map[string]any{"type": "string"},
-				"category":    map[string]any{"type": "string"},
-				"scope":       map[string]any{"type": "string"},
 				"limit":       map[string]any{"type": "integer"},
 				"channel":     map[string]any{"type": "string"},
 				"accountId":   map[string]any{"type": "string"},
@@ -1500,87 +1500,48 @@ func specMemoryForget() toolSpec {
 				"peerKind":    map[string]any{"type": "string"},
 				"peerId":      map[string]any{"type": "string"},
 			},
-		}),
-		Enabled: true,
-	}
-}
-
-func specMemoryUpdate() toolSpec {
-	return toolSpec{
-		ID:          "memory_update",
-		Name:        "memory_update",
-		Description: "Update an existing memory entry.",
-		Category:    "memory",
-		SchemaJSON: schemaJSON(map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"memoryId":    map[string]any{"type": "string"},
-				"id":          map[string]any{"type": "string"},
-				"text":        map[string]any{"type": "string"},
-				"content":     map[string]any{"type": "string"},
-				"category":    map[string]any{"type": "string"},
-				"confidence":  map[string]any{"type": "number"},
-				"assistantId": map[string]any{"type": "string"},
-				"threadId":    map[string]any{"type": "string"},
-				"scope":       map[string]any{"type": "string"},
-				"metadata":    map[string]any{"type": "object"},
-				"channel":     map[string]any{"type": "string"},
-				"accountId":   map[string]any{"type": "string"},
-				"userId":      map[string]any{"type": "string"},
-				"groupId":     map[string]any{"type": "string"},
-				"peerKind":    map[string]any{"type": "string"},
-				"peerId":      map[string]any{"type": "string"},
-			},
-		}),
-		Enabled: true,
-	}
-}
-
-func specMemoryStats() toolSpec {
-	return toolSpec{
-		ID:          "memory_stats",
-		Name:        "memory_stats",
-		Description: "Show memory statistics.",
-		Category:    "memory",
-		SchemaJSON: schemaJSON(map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"assistantId": map[string]any{"type": "string"},
-				"threadId":    map[string]any{"type": "string"},
-				"scope":       map[string]any{"type": "string"},
-				"channel":     map[string]any{"type": "string"},
-				"accountId":   map[string]any{"type": "string"},
-				"userId":      map[string]any{"type": "string"},
-				"groupId":     map[string]any{"type": "string"},
-				"peerKind":    map[string]any{"type": "string"},
-				"peerId":      map[string]any{"type": "string"},
-			},
-		}),
-		Enabled: true,
-	}
-}
-
-func specMemoryList() toolSpec {
-	return toolSpec{
-		ID:          "memory_list",
-		Name:        "memory_list",
-		Description: "List recent memory entries.",
-		Category:    "memory",
-		SchemaJSON: schemaJSON(map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"assistantId": map[string]any{"type": "string"},
-				"threadId":    map[string]any{"type": "string"},
-				"category":    map[string]any{"type": "string"},
-				"scope":       map[string]any{"type": "string"},
-				"limit":       map[string]any{"type": "integer"},
-				"offset":      map[string]any{"type": "integer"},
-				"channel":     map[string]any{"type": "string"},
-				"accountId":   map[string]any{"type": "string"},
-				"userId":      map[string]any{"type": "string"},
-				"groupId":     map[string]any{"type": "string"},
-				"peerKind":    map[string]any{"type": "string"},
-				"peerId":      map[string]any{"type": "string"},
+			"required": []string{"action"},
+			"allOf": []any{
+				map[string]any{
+					"if": map[string]any{
+						"properties": map[string]any{
+							"action": map[string]any{"const": "store"},
+						},
+					},
+					"then": map[string]any{
+						"anyOf": []any{
+							map[string]any{"required": []string{"text"}},
+							map[string]any{"required": []string{"content"}},
+						},
+					},
+				},
+				map[string]any{
+					"if": map[string]any{
+						"properties": map[string]any{
+							"action": map[string]any{"const": "update"},
+						},
+					},
+					"then": map[string]any{
+						"anyOf": []any{
+							map[string]any{"required": []string{"memoryId"}},
+							map[string]any{"required": []string{"id"}},
+						},
+					},
+				},
+				map[string]any{
+					"if": map[string]any{
+						"properties": map[string]any{
+							"action": map[string]any{"const": "forget"},
+						},
+					},
+					"then": map[string]any{
+						"anyOf": []any{
+							map[string]any{"required": []string{"memoryId"}},
+							map[string]any{"required": []string{"id"}},
+							map[string]any{"required": []string{"query"}},
+						},
+					},
+				},
 			},
 		}),
 		Enabled: true,

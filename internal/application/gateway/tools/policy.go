@@ -8,11 +8,19 @@ import (
 )
 
 type PolicyPipeline struct {
-	settings SettingsReader
+	settings             SettingsReader
+	requirementsResolver ToolRequirementResolver
 }
 
 func NewPolicyPipeline(settings SettingsReader) *PolicyPipeline {
 	return &PolicyPipeline{settings: settings}
+}
+
+func (pipeline *PolicyPipeline) SetRequirementsResolver(resolver ToolRequirementResolver) {
+	if pipeline == nil {
+		return
+	}
+	pipeline.requirementsResolver = resolver
 }
 
 func (pipeline *PolicyPipeline) Decide(ctx context.Context, spec tooldto.ToolSpec, policyCtx tooldto.ToolPolicyContext) (tooldto.ToolPolicyDecision, error) {
@@ -24,7 +32,7 @@ func (pipeline *PolicyPipeline) Decide(ctx context.Context, spec tooldto.ToolSpe
 		}, nil
 	}
 	snapshot := loadToolRequirementSnapshot(ctx, pipeline.settings)
-	effectiveSpec := resolveEffectiveToolSpec(spec, snapshot)
+	effectiveSpec := resolveEffectiveToolSpecWithResolver(ctx, spec, snapshot, pipeline.requirementsResolver)
 	if !effectiveSpec.Enabled {
 		reason := "tool requirements unavailable"
 		if requirement, ok := firstUnavailableToolRequirement(effectiveSpec.Requirements); ok {

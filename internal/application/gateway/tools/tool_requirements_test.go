@@ -5,10 +5,24 @@ import (
 	"strings"
 	"testing"
 
+	gatewayvoice "dreamcreator/internal/application/gateway/voice"
 	settingsdto "dreamcreator/internal/application/settings/dto"
 	tooldto "dreamcreator/internal/application/tools/dto"
 	toolservice "dreamcreator/internal/application/tools/service"
+	"dreamcreator/internal/domain/providers"
 )
+
+type voiceStatusStub struct {
+	status gatewayvoice.TTSStatusResponse
+	err    error
+}
+
+func (stub voiceStatusStub) Status(context.Context) (gatewayvoice.TTSStatusResponse, error) {
+	if stub.err != nil {
+		return gatewayvoice.TTSStatusResponse{}, stub.err
+	}
+	return stub.status, nil
+}
 
 func TestResolveEffectiveToolSpecWebSearchAPIMissingKeyDisablesTool(t *testing.T) {
 	t.Parallel()
@@ -217,6 +231,280 @@ func TestResolveEffectiveToolSpecGatewayRequiresControlPlane(t *testing.T) {
 	}
 	if requirement.Available {
 		t.Fatalf("expected gateway control plane requirement to be unavailable")
+	}
+}
+
+func TestResolveEffectiveToolSpecNodesRemainsDisabledUntilRemoteRuntimeExists(t *testing.T) {
+	t.Parallel()
+
+	snapshot := loadToolRequirementSnapshot(context.Background(), gatewayToolSettingsStub{
+		settings: settingsdto.Settings{
+			Gateway: settingsdto.GatewaySettings{ControlPlaneEnabled: true},
+			Tools:   map[string]any{},
+		},
+	})
+	spec := resolveEffectiveToolSpec(specNodes().toDTO(), snapshot)
+	if spec.Enabled {
+		t.Fatalf("expected nodes tool disabled while remote node runtime is unavailable")
+	}
+	requirement, ok := findRequirement(spec.Requirements, "nodes.remote_runtime")
+	if !ok {
+		t.Fatalf("expected remote node runtime requirement")
+	}
+	if requirement.Available {
+		t.Fatalf("expected remote node runtime requirement to be unavailable")
+	}
+	if !strings.Contains(strings.ToLower(requirement.Reason), "not implemented") {
+		t.Fatalf("unexpected requirement reason: %q", requirement.Reason)
+	}
+}
+
+func TestResolveEffectiveToolSpecCanvasRemainsDisabledUntilRemoteRuntimeExists(t *testing.T) {
+	t.Parallel()
+
+	snapshot := loadToolRequirementSnapshot(context.Background(), gatewayToolSettingsStub{
+		settings: settingsdto.Settings{
+			Gateway: settingsdto.GatewaySettings{ControlPlaneEnabled: true},
+			Tools:   map[string]any{},
+		},
+	})
+	spec := resolveEffectiveToolSpec(specCanvas().toDTO(), snapshot)
+	if spec.Enabled {
+		t.Fatalf("expected canvas tool disabled while remote node runtime is unavailable")
+	}
+	requirement, ok := findRequirement(spec.Requirements, "canvas.remote_runtime")
+	if !ok {
+		t.Fatalf("expected canvas remote runtime requirement")
+	}
+	if requirement.Available {
+		t.Fatalf("expected canvas remote runtime requirement to be unavailable")
+	}
+	if !strings.Contains(strings.ToLower(requirement.Reason), "not implemented") {
+		t.Fatalf("unexpected requirement reason: %q", requirement.Reason)
+	}
+}
+
+func TestResolveEffectiveToolSpecImageRequiresConfiguredModel(t *testing.T) {
+	t.Parallel()
+
+	snapshot := loadToolRequirementSnapshot(context.Background(), gatewayToolSettingsStub{
+		settings: settingsdto.Settings{
+			Gateway: settingsdto.GatewaySettings{ControlPlaneEnabled: true},
+			Tools:   map[string]any{},
+		},
+	})
+	resolver := NewBuiltinRequirementResolver(BuiltinRequirementDeps{
+		Providers: imageProviderRepoStub{items: map[string]providers.Provider{}},
+		Models:    imageModelRepoStub{items: map[string][]providers.Model{}},
+		Secrets:   imageSecretRepoStub{items: map[string]providers.ProviderSecret{}},
+	})
+	spec := resolveEffectiveToolSpecWithResolver(context.Background(), specImage().toDTO(), snapshot, resolver)
+	if spec.Enabled {
+		t.Fatalf("expected image tool disabled without a configured model")
+	}
+	requirement, ok := findRequirement(spec.Requirements, imageRequirementID)
+	if !ok {
+		t.Fatalf("expected image model requirement")
+	}
+	if requirement.Available {
+		t.Fatalf("expected image model requirement to be unavailable")
+	}
+	if !strings.Contains(strings.ToLower(requirement.Reason), "image model") {
+		t.Fatalf("unexpected requirement reason: %q", requirement.Reason)
+	}
+}
+
+func TestResolveEffectiveToolSpecImageStaysEnabledWithConfiguredModel(t *testing.T) {
+	t.Parallel()
+
+	snapshot := loadToolRequirementSnapshot(context.Background(), gatewayToolSettingsStub{
+		settings: settingsdto.Settings{
+			Gateway: settingsdto.GatewaySettings{ControlPlaneEnabled: true},
+			Tools:   map[string]any{},
+		},
+	})
+	resolver := NewBuiltinRequirementResolver(BuiltinRequirementDeps{
+		Providers: imageProviderRepoStub{items: map[string]providers.Provider{
+			"openai": {
+				ID:       "openai",
+				Enabled:  true,
+				Type:     providers.ProviderTypeOpenAI,
+				Endpoint: "https://api.openai.com/v1",
+			},
+		}},
+		Models: imageModelRepoStub{items: map[string][]providers.Model{
+			"openai": {
+				{
+					ID:             "gpt-4o",
+					Name:           "gpt-4o",
+					Enabled:        true,
+					SupportsVision: ptrBool(true),
+				},
+			},
+		}},
+		Secrets: imageSecretRepoStub{items: map[string]providers.ProviderSecret{
+			"openai": {ProviderID: "openai", APIKey: "test-key"},
+		}},
+	})
+	spec := resolveEffectiveToolSpecWithResolver(context.Background(), specImage().toDTO(), snapshot, resolver)
+	if !spec.Enabled {
+		t.Fatalf("expected image tool to stay enabled with a configured model")
+	}
+	requirement, ok := findRequirement(spec.Requirements, imageRequirementID)
+	if !ok {
+		t.Fatalf("expected image model requirement")
+	}
+	if !requirement.Available {
+		t.Fatalf("expected image model requirement to be available")
+	}
+}
+
+func TestResolveEffectiveToolSpecTTSRequiresRunnableProvider(t *testing.T) {
+	t.Parallel()
+
+	snapshot := loadToolRequirementSnapshot(context.Background(), gatewayToolSettingsStub{
+		settings: settingsdto.Settings{
+			Gateway: settingsdto.GatewaySettings{ControlPlaneEnabled: true},
+			Tools:   map[string]any{},
+		},
+	})
+	resolver := NewBuiltinRequirementResolver(BuiltinRequirementDeps{
+		Voice: voiceStatusStub{
+			status: gatewayvoice.TTSStatusResponse{
+				Enabled: true,
+				Config: gatewayvoice.TTSConfig{
+					ProviderID: "edge",
+				},
+				Providers: []gatewayvoice.TTSProviderCatalogItem{
+					{ProviderID: "edge", DisplayName: "Edge-TTS", Available: true},
+				},
+			},
+		},
+	})
+	spec := resolveEffectiveToolSpecWithResolver(context.Background(), specTTS().toDTO(), snapshot, resolver)
+	if spec.Enabled {
+		t.Fatalf("expected tts tool disabled when only edge placeholder provider is selected")
+	}
+	requirement, ok := findRequirement(spec.Requirements, ttsProviderRequirementID)
+	if !ok {
+		t.Fatalf("expected tts provider requirement")
+	}
+	if requirement.Available {
+		t.Fatalf("expected tts provider requirement to be unavailable")
+	}
+	if !strings.Contains(strings.ToLower(requirement.Reason), "edge-tts") {
+		t.Fatalf("unexpected requirement reason: %q", requirement.Reason)
+	}
+}
+
+func TestResolveEffectiveToolSpecTTSStaysEnabledWithConfiguredProvider(t *testing.T) {
+	t.Parallel()
+
+	snapshot := loadToolRequirementSnapshot(context.Background(), gatewayToolSettingsStub{
+		settings: settingsdto.Settings{
+			Gateway: settingsdto.GatewaySettings{ControlPlaneEnabled: true},
+			Tools:   map[string]any{},
+		},
+	})
+	resolver := NewBuiltinRequirementResolver(BuiltinRequirementDeps{
+		Voice: voiceStatusStub{
+			status: gatewayvoice.TTSStatusResponse{
+				Enabled: true,
+				Config: gatewayvoice.TTSConfig{
+					ProviderID: "openai",
+				},
+				Providers: []gatewayvoice.TTSProviderCatalogItem{
+					{ProviderID: "openai", DisplayName: "OpenAI", Available: true},
+				},
+			},
+		},
+	})
+	spec := resolveEffectiveToolSpecWithResolver(context.Background(), specTTS().toDTO(), snapshot, resolver)
+	if !spec.Enabled {
+		t.Fatalf("expected tts tool to stay enabled with a configured provider")
+	}
+	requirement, ok := findRequirement(spec.Requirements, ttsProviderAPIKeyRequirementID)
+	if !ok {
+		t.Fatalf("expected tts provider api key requirement")
+	}
+	if !requirement.Available {
+		t.Fatalf("expected tts provider api key requirement to be available")
+	}
+}
+
+func TestResolveEffectiveToolSpecTTSVoiceFeatureDisabled(t *testing.T) {
+	t.Parallel()
+
+	snapshot := loadToolRequirementSnapshot(context.Background(), gatewayToolSettingsStub{
+		settings: settingsdto.Settings{
+			Gateway: settingsdto.GatewaySettings{ControlPlaneEnabled: true},
+			Tools:   map[string]any{},
+		},
+	})
+	resolver := NewBuiltinRequirementResolver(BuiltinRequirementDeps{
+		Voice: voiceStatusStub{
+			status: gatewayvoice.TTSStatusResponse{
+				Enabled: false,
+				Config: gatewayvoice.TTSConfig{
+					ProviderID: "openai",
+				},
+				Providers: []gatewayvoice.TTSProviderCatalogItem{
+					{ProviderID: "openai", DisplayName: "OpenAI", Available: true},
+				},
+			},
+		},
+	})
+	spec := resolveEffectiveToolSpecWithResolver(context.Background(), specTTS().toDTO(), snapshot, resolver)
+	if spec.Enabled {
+		t.Fatalf("expected tts tool disabled when voice feature is disabled")
+	}
+	requirement, ok := findRequirement(spec.Requirements, ttsVoiceEnabledRequirementID)
+	if !ok {
+		t.Fatalf("expected tts voice feature requirement")
+	}
+	if requirement.Available {
+		t.Fatalf("expected tts voice feature requirement to be unavailable")
+	}
+	if !strings.Contains(strings.ToLower(requirement.Reason), "voice is disabled") {
+		t.Fatalf("unexpected requirement reason: %q", requirement.Reason)
+	}
+}
+
+func TestResolveEffectiveToolSpecTTSElevenLabsRequiresVoiceID(t *testing.T) {
+	t.Parallel()
+
+	snapshot := loadToolRequirementSnapshot(context.Background(), gatewayToolSettingsStub{
+		settings: settingsdto.Settings{
+			Gateway: settingsdto.GatewaySettings{ControlPlaneEnabled: true},
+			Tools:   map[string]any{},
+		},
+	})
+	resolver := NewBuiltinRequirementResolver(BuiltinRequirementDeps{
+		Voice: voiceStatusStub{
+			status: gatewayvoice.TTSStatusResponse{
+				Enabled: true,
+				Config: gatewayvoice.TTSConfig{
+					ProviderID: "elevenlabs",
+				},
+				Providers: []gatewayvoice.TTSProviderCatalogItem{
+					{ProviderID: "elevenlabs", DisplayName: "ElevenLabs", Available: true},
+				},
+			},
+		},
+	})
+	spec := resolveEffectiveToolSpecWithResolver(context.Background(), specTTS().toDTO(), snapshot, resolver)
+	if spec.Enabled {
+		t.Fatalf("expected tts tool disabled when elevenlabs voice id is missing")
+	}
+	requirement, ok := findRequirement(spec.Requirements, ttsVoiceIDRequirementID)
+	if !ok {
+		t.Fatalf("expected tts voice id requirement")
+	}
+	if requirement.Available {
+		t.Fatalf("expected tts voice id requirement to be unavailable")
+	}
+	if !strings.Contains(strings.ToLower(requirement.Reason), "voice id") {
+		t.Fatalf("unexpected requirement reason: %q", requirement.Reason)
 	}
 }
 

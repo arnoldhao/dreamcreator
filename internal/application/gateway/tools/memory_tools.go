@@ -11,6 +11,56 @@ import (
 	domainsession "dreamcreator/internal/domain/session"
 )
 
+func runMemoryQueryTool(memory *memoryservice.MemoryService) func(ctx context.Context, args string) (string, error) {
+	recallHandler := runMemoryRecallTool(memory)
+	listHandler := runMemoryListTool(memory)
+	statsHandler := runMemoryStatsTool(memory)
+	return func(ctx context.Context, args string) (string, error) {
+		payload, err := parseToolArgs(args)
+		if err != nil {
+			return "", err
+		}
+		action := strings.ToLower(strings.TrimSpace(getStringArg(payload, "action", "type")))
+		switch action {
+		case "recall", "search":
+			return recallHandler(ctx, args)
+		case "list":
+			return listHandler(ctx, args)
+		case "stats", "status":
+			return statsHandler(ctx, args)
+		case "":
+			return "", errors.New("action is required")
+		default:
+			return "", errors.New("unsupported memory_query action")
+		}
+	}
+}
+
+func runMemoryManageTool(memory *memoryservice.MemoryService) func(ctx context.Context, args string) (string, error) {
+	storeHandler := runMemoryStoreTool(memory)
+	updateHandler := runMemoryUpdateTool(memory)
+	forgetHandler := runMemoryForgetTool(memory)
+	return func(ctx context.Context, args string) (string, error) {
+		payload, err := parseToolArgs(args)
+		if err != nil {
+			return "", err
+		}
+		action := strings.ToLower(strings.TrimSpace(getStringArg(payload, "action", "type")))
+		switch action {
+		case "store", "create":
+			return storeHandler(ctx, args)
+		case "update":
+			return updateHandler(ctx, args)
+		case "forget", "delete", "remove":
+			return forgetHandler(ctx, args)
+		case "":
+			return "", errors.New("action is required")
+		default:
+			return "", errors.New("unsupported memory_manage action")
+		}
+	}
+}
+
 func runMemoryRecallTool(memory *memoryservice.MemoryService) func(ctx context.Context, args string) (string, error) {
 	return func(ctx context.Context, args string) (string, error) {
 		if memory == nil {

@@ -305,7 +305,7 @@ func formatSkillsSection(skills []skillsdto.SkillPromptItem) string {
 	if len(skills) == 0 {
 		lines = append(lines,
 			"- (none currently eligible)",
-			"- Use `skill_manage.search` to discover skills, `skill_manage.install` to install, then `skills.status` to refresh.",
+			"- Use `skills_manage.search` to discover skills, `skills_manage.install` to install, then `skills.status` to refresh.",
 		)
 		return joinLines(lines)
 	}
@@ -348,8 +348,8 @@ func skillsSectionPreambleLines() []string {
 		"Skills protocol:",
 		"- First scan the available skills list.",
 		"- If one skill clearly matches, read its `SKILL.md` before acting.",
-		"- If no skill currently matches the task, call `skill_manage` instead of shell commands.",
-		"- Recommended flow: `skills.status` -> `skill_manage.search`/`skill_manage.install` -> `skills.status`.",
+		"- If no skill currently matches the task, call `skills_manage` instead of shell commands.",
+		"- Recommended flow: `skills.status` -> `skills_manage.search`/`skills_manage.install` -> `skills.status`.",
 		"- If status reports missing runtime dependencies, call `skills.install`, then re-check with `skills.status`.",
 		"- Use `skills.update` for per-skill settings (enabled/apiKey/env/config) when required.",
 		"Available skills:",

@@ -932,11 +932,11 @@
           "groups": {
             "read": {
               "label": "Read",
-              "description": "Skills.Status/skills.Bins/skill_manage.Search/skill_manage.List"
+              "description": "Read-only skills status, bins, and package discovery actions."
             },
             "package_write": {
               "label": "Package write",
-              "description": "Skill_manage.Install/update/remove/sync"
+              "description": "Skill package install, update, remove, and sync actions."
             },
             "deps_write": {
               "label": "Dependencies write",
@@ -1047,7 +1047,21 @@
       },
       "reason": {
         "unavailable": "Required runtime dependencies are unavailable.",
-        "browserProcessExited": "Browser process exited."
+        "browserProcessExited": "Browser process exited.",
+        "remoteNodeRuntimeUnavailable": "Temporarily unavailable: remote node runtime is not implemented yet.",
+        "imageModelNotConfigured": "Image model is not configured.",
+        "providerRepositoriesUnavailable": "Provider repositories are unavailable.",
+        "gatewayControlPlaneDisabled": "Gateway control plane is disabled.",
+        "webSearchModeUnsupported": "Search mode is not supported.",
+        "webSearchProviderUnsupported": "{provider} is not supported in API mode.",
+        "webSearchProviderApiKeyMissing": "{provider} API key is missing.",
+        "webSearchExternalToolsUnavailable": "External tools mode is not implemented yet.",
+        "voiceDisabled": "Gateway voice feature is disabled.",
+        "voiceServiceUnavailable": "Voice service is unavailable.",
+        "ttsProviderApiKeyMissing": "TTS provider API key is missing.",
+        "ttsVoiceIdMissing": "TTS voice ID is not configured.",
+        "ttsEdgeProviderUnavailable": "Temporarily unavailable: Edge-TTS provider is not implemented yet.",
+        "ttsProviderUnsupported": "TTS provider is not supported."
       },
       "builtin": {
         "read": {
@@ -1088,7 +1102,7 @@
         },
         "canvas": {
           "name": "Canvas rendering",
-          "description": "Control node canvases (present/hide/navigate/eval/snapshot/a2ui)."
+          "description": "Control node canvases (present/hide/navigate/eval/snapshot/a2ui). Temporarily unavailable until remote node runtime support is implemented."
         },
         "image": {
           "name": "Image processing",
@@ -1096,7 +1110,7 @@
         },
         "message": {
           "name": "Message sending",
-          "description": "Send a channel message (not implemented)."
+          "description": "Send, delete, and manage messages through configured channel plugins."
         },
         "gateway": {
           "name": "Gateway control",
@@ -1108,27 +1122,27 @@
         },
         "agents_list": {
           "name": "Agents list",
-          "description": "List agents."
+          "description": "List available agent profiles for subagent spawning."
         },
         "sessions_list": {
           "name": "Sessions list",
-          "description": "List sessions."
+          "description": "List current sessions."
         },
         "sessions_history": {
           "name": "Session history",
-          "description": "Fetch session history."
+          "description": "Read message history for a session."
         },
         "sessions_send": {
           "name": "Session send",
-          "description": "Send a message to a session."
+          "description": "Append a message to an existing session."
         },
         "sessions_spawn": {
           "name": "Session spawn",
-          "description": "Spawn a new session."
+          "description": "Spawn an isolated subagent run."
         },
         "session_status": {
           "name": "Session status",
-          "description": "Get session status."
+          "description": "Get session metadata and status."
         },
         "external_tools_query": {
           "name": "External tools query",
@@ -1140,7 +1154,7 @@
         },
         "skills": {
           "name": "Skills",
-          "description": "Skills runtime tool (status/bins/install/update)."
+          "description": "Inspect skills runtime status and update per-skill runtime dependencies or configuration."
         },
         "skill_manage": {
           "name": "Skill manage",
@@ -1152,7 +1166,7 @@
         },
         "skills_manage": {
           "name": "Skills manage",
-          "description": "Manage skills lifecycle actions."
+          "description": "Search, install, update, remove, and sync skill packages via ClawHub."
         },
         "skills_policy": {
           "name": "Skills policy",
@@ -1160,15 +1174,15 @@
         },
         "subagents": {
           "name": "Subagents",
-          "description": "Manage subagent runs (list/info/log/kill/steer/spawn)."
+          "description": "Manage existing subagent runs (list/info/log/kill/steer/send)."
         },
         "nodes": {
           "name": "Nodes",
-          "description": "Invoke node capability."
+          "description": "Experimental low-level RPC to a registered node. Temporarily unavailable until remote node runtime support is implemented."
         },
         "tts": {
           "name": "Text to speech",
-          "description": "Convert text to speech."
+          "description": "Synthesize speech audio from text with the configured voice provider."
         },
         "render_chart": {
           "name": "Render chart",
@@ -1221,6 +1235,14 @@
         "memory_list": {
           "name": "Memory list",
           "description": "List recent memory entries by filter."
+        },
+        "memory_query": {
+          "name": "Memory query",
+          "description": "Query long-term memory with recall, list, and stats actions."
+        },
+        "memory_manage": {
+          "name": "Memory manage",
+          "description": "Create, update, or delete long-term memory entries."
         },
         "subagent_run": {
           "name": "Subagent run",
@@ -1290,7 +1312,38 @@
         "noneDetected": "No supported browser detected"
       },
       "requirements": {
-        "localCDPBrowser": "Local CDP browser"
+        "gatewayControlPlane": "Gateway control plane",
+        "localCDPBrowser": "Local CDP browser",
+        "remoteNodeRuntime": "Remote node runtime",
+        "webSearchMode": "Search mode",
+        "webSearchProvider": "Provider",
+        "webSearchProviderApiKey": "Provider API key",
+        "externalToolsRuntime": "External tools runtime",
+        "imageModel": "Image model",
+        "voiceService": "Voice service",
+        "voiceFeature": "Voice feature",
+        "ttsProvider": "Provider",
+        "ttsProviderApiKey": "Provider API key",
+        "ttsVoiceId": "Voice ID",
+        "values": {
+          "available": "Available",
+          "unavailable": "Unavailable",
+          "configured": "Configured",
+          "notConfigured": "Not configured",
+          "enabled": "Enabled",
+          "disabled": "Disabled",
+          "detected": "Detected",
+          "missing": "Missing"
+        },
+        "providers": {
+          "brave": "Brave",
+          "tavily": "Tavily",
+          "perplexity": "Perplexity",
+          "grok": "Grok",
+          "openai": "OpenAI",
+          "elevenlabs": "ElevenLabs",
+          "edge": "Edge-TTS"
+        }
       },
       "detail": {
         "descriptionLabel": "Description",

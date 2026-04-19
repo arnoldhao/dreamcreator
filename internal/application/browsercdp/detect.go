@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -29,13 +30,39 @@ type Candidate struct {
 	Error     string    `json:"error,omitempty"`
 }
 
+var (
+	detectCandidatesCacheMu        sync.RWMutex
+	detectCandidatesCache          []Candidate
+	detectCandidatesCacheExpiresAt time.Time
+	detectCandidatesCacheLoaded    bool
+	detectCandidatesCacheTTL       = 5 * time.Second
+	detectCandidatesNow            = time.Now
+	detectCandidatesScan           = scanCandidates
+)
+
 func DetectCandidates() []Candidate {
-	order := []BrowserID{BrowserChrome, BrowserChromium, BrowserEdge, BrowserBrave}
-	result := make([]Candidate, 0, len(order))
-	for _, id := range order {
-		result = append(result, detectCandidate(id))
+	now := detectCandidatesNow()
+	detectCandidatesCacheMu.RLock()
+	if detectCandidatesCacheLoaded && now.Before(detectCandidatesCacheExpiresAt) {
+		cached := cloneCandidates(detectCandidatesCache)
+		detectCandidatesCacheMu.RUnlock()
+		return cached
 	}
-	return result
+	detectCandidatesCacheMu.RUnlock()
+
+	detectCandidatesCacheMu.Lock()
+	defer detectCandidatesCacheMu.Unlock()
+
+	now = detectCandidatesNow()
+	if detectCandidatesCacheLoaded && now.Before(detectCandidatesCacheExpiresAt) {
+		return cloneCandidates(detectCandidatesCache)
+	}
+
+	result := detectCandidatesScan()
+	detectCandidatesCache = cloneCandidates(result)
+	detectCandidatesCacheExpiresAt = now.Add(detectCandidatesCacheTTL)
+	detectCandidatesCacheLoaded = true
+	return cloneCandidates(result)
 }
 
 func ChooseCandidate(candidates []Candidate, preferred string) (Candidate, bool) {
@@ -91,6 +118,32 @@ func detectCandidate(id BrowserID) Candidate {
 	}
 	candidate.Error = "browser executable not found"
 	return candidate
+}
+
+func scanCandidates() []Candidate {
+	order := []BrowserID{BrowserChrome, BrowserChromium, BrowserEdge, BrowserBrave}
+	result := make([]Candidate, 0, len(order))
+	for _, id := range order {
+		result = append(result, detectCandidate(id))
+	}
+	return result
+}
+
+func cloneCandidates(source []Candidate) []Candidate {
+	if len(source) == 0 {
+		return []Candidate{}
+	}
+	result := make([]Candidate, len(source))
+	copy(result, source)
+	return result
+}
+
+func resetDetectCandidatesCache() {
+	detectCandidatesCacheMu.Lock()
+	defer detectCandidatesCacheMu.Unlock()
+	detectCandidatesCache = nil
+	detectCandidatesCacheExpiresAt = time.Time{}
+	detectCandidatesCacheLoaded = false
 }
 
 func labelForID(id BrowserID) string {

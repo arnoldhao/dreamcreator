@@ -233,7 +233,7 @@ func TestBuildPromptDocument_FullIncludesToolingToolCallStyleAndSkillsMandatory(
 	if !strings.Contains(skills, "## Skills (mandatory)") {
 		t.Fatalf("expected mandatory skills heading, got %q", skills)
 	}
-	if !strings.Contains(skills, "Recommended flow: `skills.status` -> `skill_manage.search`/`skill_manage.install` -> `skills.status`.") {
+	if !strings.Contains(skills, "Recommended flow: `skills.status` -> `skills_manage.search`/`skills_manage.install` -> `skills.status`.") {
 		t.Fatalf("expected skills tool protocol rule, got %q", skills)
 	}
 }

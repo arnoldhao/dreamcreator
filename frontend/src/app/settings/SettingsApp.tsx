@@ -37,6 +37,7 @@ import {
   useTestProxy,
   useUpdateSettings,
 } from "@/shared/query/settings";
+import { useGatewayTools } from "@/shared/query/tools";
 import { useI18n } from "@/shared/i18n";
 import { useAssistantUiMode } from "@/shared/store/assistantUi";
 import { useDebugMode } from "@/shared/store/debug";
@@ -167,6 +168,7 @@ export function SettingsApp() {
   const { enabled: debugEnabled } = useDebugMode();
   const { enabled: assistantUiEnabled } = useAssistantUiMode();
   const isWindows = System.IsWindows();
+  useGatewayTools(assistantUiEnabled);
 
   const [activeSection, setActiveSection] = React.useState<SettingsSectionId>("gateway");
   const [memoryTab, setMemoryTab] = React.useState<MemoryTabId>("summary");

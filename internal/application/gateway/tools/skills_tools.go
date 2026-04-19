@@ -152,8 +152,12 @@ func runSkillsTool(skills *skillsservice.SkillsService, assistants *assistantser
 	return runSkillsToolWithName("skills", skills, assistants, settings, externalTools)
 }
 
+func runSkillsManageTool(skills *skillsservice.SkillsService, assistants *assistantservice.AssistantService, settings SettingsReader, externalTools skillsExternalToolInstaller) func(ctx context.Context, args string) (string, error) {
+	return runSkillsToolWithName("skills_manage", skills, assistants, settings, externalTools)
+}
+
 func runSkillManageTool(skills *skillsservice.SkillsService, assistants *assistantservice.AssistantService, settings SettingsReader, externalTools skillsExternalToolInstaller) func(ctx context.Context, args string) (string, error) {
-	return runSkillsToolWithName("skill_manage", skills, assistants, settings, externalTools)
+	return runSkillsManageTool(skills, assistants, settings, externalTools)
 }
 
 func runSkillsToolWithName(toolName string, skills *skillsservice.SkillsService, assistants *assistantservice.AssistantService, settings SettingsReader, externalTools skillsExternalToolInstaller) func(ctx context.Context, args string) (string, error) {
@@ -832,7 +836,7 @@ func canonicalSkillsAction(toolName string, action string) string {
 		default:
 			return ""
 		}
-	case "skill_manage":
+	case "skill_manage", "skills_manage":
 		switch normalized {
 		case "list":
 			return "catalog"
@@ -873,20 +877,20 @@ func normalizeSkillsActionKey(toolName string, action string) string {
 		default:
 			return normalized
 		}
-	case "skill_manage":
+	case "skill_manage", "skills_manage":
 		switch normalized {
 		case "catalog":
-			return "skill_manage.list"
+			return "skills_manage.list"
 		case "search_packages":
-			return "skill_manage.search"
+			return "skills_manage.search"
 		case "install_package":
-			return "skill_manage.install"
+			return "skills_manage.install"
 		case "update_package":
-			return "skill_manage.update"
+			return "skills_manage.update"
 		case "remove_package":
-			return "skill_manage.remove"
+			return "skills_manage.remove"
 		case "sync_packages":
-			return "skill_manage.sync"
+			return "skills_manage.sync"
 		default:
 			return normalized
 		}
@@ -900,7 +904,7 @@ func validateSkillsToolArgs(toolName string, payload toolArgs) error {
 		return nil
 	}
 	allowed := allowedSkillsToolArgs
-	if strings.EqualFold(strings.TrimSpace(toolName), "skill_manage") {
+	if strings.EqualFold(strings.TrimSpace(toolName), "skill_manage") || strings.EqualFold(strings.TrimSpace(toolName), "skills_manage") {
 		allowed = allowedSkillManageToolArgs
 	}
 	unknown := make([]string, 0)
@@ -1148,9 +1152,9 @@ func marshalSkillsResult(result skillsToolResult) string {
 
 func resolveSkillsActionGroup(action string) string {
 	switch strings.ToLower(strings.TrimSpace(action)) {
-	case "skills.status", "skills.bins", "skill_manage.search", "skill_manage.list":
+	case "skills.status", "skills.bins", "skills_manage.search", "skills_manage.list":
 		return "read"
-	case "skill_manage.install", "skill_manage.update", "skill_manage.remove", "skill_manage.sync":
+	case "skills_manage.install", "skills_manage.update", "skills_manage.remove", "skills_manage.sync":
 		return "package_write"
 	case "skills.install":
 		return "deps_write"

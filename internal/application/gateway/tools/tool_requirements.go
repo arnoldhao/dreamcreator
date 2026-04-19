@@ -105,6 +105,10 @@ func resolveToolRequirements(spec tooldto.ToolSpec, snapshot toolRequirementSnap
 		return resolveWebFetchRequirements(snapshot.toolsConfig)
 	case "browser":
 		return resolveBrowserRequirements(snapshot.toolsConfig)
+	case "canvas":
+		return resolveCanvasRequirements()
+	case "nodes":
+		return resolveNodeRequirements()
 	default:
 		return nil
 	}
@@ -129,6 +133,28 @@ func resolveBrowserRequirements(config map[string]any) []tooldto.ToolRequirement
 		},
 	}
 	return requirements
+}
+
+func resolveNodeRequirements() []tooldto.ToolRequirement {
+	return []tooldto.ToolRequirement{
+		{
+			ID:        "nodes.remote_runtime",
+			Name:      "Remote node runtime",
+			Available: false,
+			Reason:    "Remote node runtime is not implemented yet",
+		},
+	}
+}
+
+func resolveCanvasRequirements() []tooldto.ToolRequirement {
+	return []tooldto.ToolRequirement{
+		{
+			ID:        "canvas.remote_runtime",
+			Name:      "Remote node runtime",
+			Available: false,
+			Reason:    "Remote node runtime is not implemented yet",
+		},
+	}
 }
 
 func resolveToolRequirementKey(spec tooldto.ToolSpec) string {

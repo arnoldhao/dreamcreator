@@ -19,10 +19,14 @@ func runNodesTool(nodes *gatewaynodes.Service) func(ctx context.Context, args st
 			return "", err
 		}
 		nodeID := getStringArg(payload, "nodeId", "nodeID")
-		capability := getStringArg(payload, "capability", "action")
+		capability := getStringArg(payload, "capability")
 		if nodeID == "" {
 			return "", errors.New("nodeId is required")
 		}
+		if capability == "" {
+			return "", errors.New("capability is required")
+		}
+		timeoutMs, _ := getIntArg(payload, "timeoutMs", "timeout_ms")
 		argsJSON := strings.TrimSpace(getStringArg(payload, "args"))
 		if argsJSON == "" {
 			if payloadMap := getMapArg(payload, "payload"); payloadMap != nil {
@@ -36,6 +40,7 @@ func runNodesTool(nodes *gatewaynodes.Service) func(ctx context.Context, args st
 			Capability: capability,
 			Action:     getStringArg(payload, "action"),
 			Args:       argsJSON,
+			TimeoutMs:  timeoutMs,
 		}
 		result, err := nodes.Invoke(ctx, request)
 		if err != nil {

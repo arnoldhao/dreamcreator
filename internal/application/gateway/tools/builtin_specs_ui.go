@@ -276,7 +276,7 @@ func specCanvas() toolSpec {
 	return toolSpec{
 		ID:          "canvas",
 		Name:        "canvas",
-		Description: "Control node canvases (present/hide/navigate/eval/snapshot/a2ui).",
+		Description: "Control node canvases (present/hide/navigate/eval/snapshot/a2ui). Temporarily unavailable until remote node runtime support is implemented.",
 		Category:    "ui",
 		SchemaJSON: schemaJSON(map[string]any{
 			"type": "object",
@@ -318,7 +318,7 @@ func specCanvas() toolSpec {
 			},
 			"required": []string{"action"},
 		}),
-		Enabled: true,
+		Enabled: false,
 	}
 }
 

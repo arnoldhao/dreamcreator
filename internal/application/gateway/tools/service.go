@@ -16,14 +16,15 @@ import (
 )
 
 type Service struct {
-	tools     *toolservice.ToolService
-	approvals *gatewayapprovals.Service
-	sandbox   *gatewaysandbox.Service
-	settings  SettingsReader
-	audit     PolicyAuditStore
-	events    *gatewayevents.Broker
-	now       func() time.Time
-	newID     func() string
+	tools                *toolservice.ToolService
+	approvals            *gatewayapprovals.Service
+	sandbox              *gatewaysandbox.Service
+	settings             SettingsReader
+	audit                PolicyAuditStore
+	events               *gatewayevents.Broker
+	requirementsResolver ToolRequirementResolver
+	now                  func() time.Time
+	newID                func() string
 }
 
 type PolicyAuditStore interface {
@@ -43,6 +44,13 @@ func NewService(tools *toolservice.ToolService, approvals *gatewayapprovals.Serv
 	}
 }
 
+func (service *Service) SetRequirementsResolver(resolver ToolRequirementResolver) {
+	if service == nil {
+		return
+	}
+	service.requirementsResolver = resolver
+}
+
 func (service *Service) ListTools(ctx context.Context) []tooldto.ToolSpec {
 	if service == nil || service.tools == nil {
 		return nil
@@ -54,7 +62,7 @@ func (service *Service) ListTools(ctx context.Context) []tooldto.ToolSpec {
 	snapshot := loadToolRequirementSnapshot(ctx, service.settings)
 	result := make([]tooldto.ToolSpec, 0, len(specs))
 	for _, spec := range specs {
-		resolved := resolveEffectiveToolSpec(spec, snapshot)
+		resolved := resolveEffectiveToolSpecWithResolver(ctx, spec, snapshot, service.requirementsResolver)
 		resolved = resolveDynamicToolSpec(ctx, resolved, service.settings)
 		result = append(result, resolved)
 	}
@@ -98,6 +106,7 @@ func (service *Service) InvokeWithPolicy(ctx context.Context, request tooldto.To
 	if err != nil {
 		return tooldto.ToolsInvokeResponse{}, err
 	}
+	spec = resolveEffectiveToolSpecWithResolver(ctx, spec, loadToolRequirementSnapshot(ctx, service.settings), service.requirementsResolver)
 	spec = resolveDynamicToolSpec(ctx, spec, service.settings)
 	service.auditDecision(ctx, spec, decision, policyCtx)
 	response := tooldto.ToolsInvokeResponse{
