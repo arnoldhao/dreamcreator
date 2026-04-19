@@ -1771,8 +1771,9 @@
         "current": "Current version",
         "changelog": "Release notes",
         "check": "Check for updates",
-        "install": "Install updates",
-        "restart": "Restart to apply",
+        "recheck": "Check again",
+        "downloadAndInstall": "Download and install",
+        "restartAfterUpdate": "Restart to update",
         "command": "Update actions",
         "status": "Status",
         "downloading": "Downloading",
@@ -3575,6 +3576,14 @@
     "notAvailable": "Not available",
     "justNow": "Just now"
   },
+  "whatsNew": {
+    "eyebrow": "Release notes",
+    "currentVersion": "Current version",
+    "title": "What's new in {version}",
+    "description": "",
+    "emptyState": "This version has already been applied, but no release notes are available yet.",
+    "versionLabel": "Current version: {version}"
+  },
   "gateway": {
     "page": {
       "subtitle": "Control plane overview and diagnostics"
@@ -3855,6 +3864,7 @@
         "notification": "Notification",
         "sendOS": "Send OS message",
         "dialog": "Dialog",
+        "whatsNew": "What's new",
         "publish": "Publish debug event"
       }
     },
@@ -3892,7 +3902,8 @@
         "action": "Acknowledge",
         "dialogTitle": "Danger Dialog",
         "dialogDesc": "Use this to verify modal styles.",
-        "dialogConfirm": "Confirm"
+        "dialogConfirm": "Confirm",
+        "whatsNewMarkdown": "## Debug preview\n\n### layout verification\n- this line checks the title-to-body spacing.\n- this line checks paragraph rhythm in markdown.\n- this line checks the rounded container edge.\n- this line checks long-content readability.\n- this line checks the scroll threshold.\n- this line checks whether the dialog height stays stable.\n\n### interaction verification\n- this line checks scrolling after the content grows.\n- this line checks that the footer stays visible.\n- this line checks that the close button does not move.\n- this line checks markdown list rendering.\n- this line checks the spacing near the bottom.\n- this line confirms this preview is debug-only."
       },
       "realtime": {
         "websocket": "WebSocket",
@@ -4092,6 +4103,7 @@
         "productMode": "Product mode",
         "notifications": "Notifications",
         "appUpdate": "App update",
+        "restartAndUpdate": "Restart and update",
         "externalToolsUpdate": "Tool updates",
         "settings": "Settings",
         "open": "Open profile menu"

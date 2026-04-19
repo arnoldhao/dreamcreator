@@ -38,9 +38,16 @@ type installerStub struct {
 	restarted             bool
 	selectedDownloadURLs  []string
 	selectDownloadInvoked bool
+	preparedInfo          domainupdate.Info
+	hasPreparedInfo       bool
+	clearPreparedInvoked  bool
+	pendingWhatsNew       domainupdate.WhatsNew
+	hasPendingWhatsNew    bool
+	seenWhatsNewVersion   string
+	markSeenVersion       string
 }
 
-func (stub installerStub) Install(_ context.Context, _ string) error {
+func (stub installerStub) Install(_ context.Context, _ string, _ domainupdate.Info) error {
 	return stub.installErr
 }
 
@@ -57,6 +64,28 @@ func (stub *installerStub) SelectDownloadURLs(_ context.Context, urls []string) 
 	return urls
 }
 
+func (stub *installerStub) PreparedUpdate(_ context.Context) (domainupdate.Info, bool, error) {
+	return stub.preparedInfo, stub.hasPreparedInfo, nil
+}
+
+func (stub *installerStub) ClearPreparedUpdate(_ context.Context) error {
+	stub.clearPreparedInvoked = true
+	return nil
+}
+
+func (stub *installerStub) PendingWhatsNew(_ context.Context) (domainupdate.WhatsNew, bool, error) {
+	return stub.pendingWhatsNew, stub.hasPendingWhatsNew, nil
+}
+
+func (stub *installerStub) SeenWhatsNewVersion(_ context.Context) (string, error) {
+	return stub.seenWhatsNewVersion, nil
+}
+
+func (stub *installerStub) MarkWhatsNewSeen(_ context.Context, version string) error {
+	stub.markSeenVersion = version
+	return nil
+}
+
 func (stub *catalogProviderStub) FetchCatalog(_ context.Context, _ softwareupdate.Request) (softwareupdate.Catalog, error) {
 	stub.fetchCount++
 	if stub.err != nil {
@@ -69,6 +98,25 @@ func newCatalogService(provider *catalogProviderStub) *softwareupdate.Service {
 	return softwareupdate.NewService(softwareupdate.ServiceParams{
 		CatalogProvider: provider,
 	})
+}
+
+type appVersionProviderStub struct {
+	release softwareupdate.AppRelease
+	err     error
+}
+
+func (stub appVersionProviderStub) FetchAppRelease(_ context.Context, _ softwareupdate.AppRequest) (softwareupdate.AppRelease, error) {
+	if stub.err != nil {
+		return softwareupdate.AppRelease{}, stub.err
+	}
+	return stub.release, nil
+}
+
+func (stub appVersionProviderStub) FetchAppReleaseByVersion(_ context.Context, _ string) (softwareupdate.AppRelease, error) {
+	if stub.err != nil {
+		return softwareupdate.AppRelease{}, stub.err
+	}
+	return stub.release, nil
 }
 
 func buildCatalog(version string, downloadURL string) softwareupdate.Catalog {
@@ -307,5 +355,226 @@ func TestRestartToApplyPublishesErrorWhenInstallerFails(t *testing.T) {
 	}
 	if info.Message != restartErr.Error() {
 		t.Fatalf("expected error message %q, got %q", restartErr.Error(), info.Message)
+	}
+}
+
+func TestRestorePreparedUpdateRestoresReadyState(t *testing.T) {
+	t.Parallel()
+
+	installer := &installerStub{
+		hasPreparedInfo: true,
+		preparedInfo: domainupdate.Info{
+			PreparedVersion:   "1.2.4",
+			PreparedChangelog: "Bug fixes",
+		},
+	}
+	service := NewService(ServiceParams{Installer: installer})
+	service.SetCurrentVersion("1.2.3")
+
+	info, err := service.RestorePreparedUpdate(context.Background())
+	if err != nil {
+		t.Fatalf("restore prepared update failed: %v", err)
+	}
+	if info.Status != domainupdate.StatusReadyToRestart {
+		t.Fatalf("expected ready_to_restart status, got %q", info.Status)
+	}
+	if info.PreparedVersion != "1.2.4" {
+		t.Fatalf("expected prepared version 1.2.4, got %q", info.PreparedVersion)
+	}
+	if info.PreparedChangelog != "Bug fixes" {
+		t.Fatalf("expected prepared changelog to be restored, got %q", info.PreparedChangelog)
+	}
+}
+
+func TestRestorePreparedUpdateClearsStalePreparedPlan(t *testing.T) {
+	t.Parallel()
+
+	installer := &installerStub{
+		hasPreparedInfo: true,
+		preparedInfo: domainupdate.Info{
+			PreparedVersion: "1.2.3",
+		},
+	}
+	service := NewService(ServiceParams{Installer: installer})
+	service.SetCurrentVersion("1.2.3")
+
+	info, err := service.RestorePreparedUpdate(context.Background())
+	if err != nil {
+		t.Fatalf("restore prepared update failed: %v", err)
+	}
+	if !installer.clearPreparedInvoked {
+		t.Fatal("expected stale prepared update to be cleared")
+	}
+	if info.PreparedVersion != "" {
+		t.Fatalf("expected prepared version to be cleared, got %q", info.PreparedVersion)
+	}
+}
+
+func TestCheckForUpdateAutoPreparesLatestVersion(t *testing.T) {
+	t.Parallel()
+
+	file, err := os.CreateTemp(t.TempDir(), "update-*.zip")
+	if err != nil {
+		t.Fatalf("create temp file failed: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close temp file failed: %v", err)
+	}
+
+	provider := &catalogProviderStub{
+		catalog: buildCatalog("1.2.4", "https://example.com/download.zip"),
+	}
+	service := NewService(ServiceParams{
+		Catalog:    newCatalogService(provider),
+		Downloader: &downloaderStub{path: file.Name()},
+		Installer:  &installerStub{},
+	})
+
+	if _, err := service.CheckForUpdate(context.Background(), "1.2.3"); err != nil {
+		t.Fatalf("check for update failed: %v", err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		info := service.State()
+		if info.Status == domainupdate.StatusReadyToRestart {
+			if info.PreparedVersion != "1.2.4" {
+				t.Fatalf("expected prepared version 1.2.4, got %q", info.PreparedVersion)
+			}
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	t.Fatalf("expected auto prepare to reach ready_to_restart, got %q", service.State().Status)
+}
+
+func TestCheckForUpdatePreservesPreparedStateWhenRefreshFails(t *testing.T) {
+	t.Parallel()
+
+	provider := &catalogProviderStub{err: errors.New("manifest unavailable")}
+	service := NewService(ServiceParams{Catalog: newCatalogService(provider)})
+	service.state = domainupdate.Info{
+		Kind:              domainupdate.KindApp,
+		CurrentVersion:    "1.2.3",
+		LatestVersion:     "1.2.4",
+		PreparedVersion:   "1.2.4",
+		PreparedChangelog: "Bug fixes",
+		Status:            domainupdate.StatusReadyToRestart,
+		Progress:          100,
+	}
+
+	info, err := service.CheckForUpdate(context.Background(), "1.2.3")
+	if err == nil {
+		t.Fatal("expected check to fail")
+	}
+	if info.Status != domainupdate.StatusReadyToRestart {
+		t.Fatalf("expected ready_to_restart status, got %q", info.Status)
+	}
+	if info.PreparedVersion != "1.2.4" {
+		t.Fatalf("expected prepared version to be preserved, got %q", info.PreparedVersion)
+	}
+}
+
+func TestDownloadUpdateRestoresPreviousPreparedVersionWhenNewerPrepareFails(t *testing.T) {
+	t.Parallel()
+
+	installerErr := errors.New("prepare latest failed")
+	service := NewService(ServiceParams{
+		Downloader: &downloaderStub{path: "/tmp/dreamcreator-update.zip"},
+		Installer:  &installerStub{installErr: installerErr},
+	})
+	service.state = domainupdate.Info{
+		Kind:              domainupdate.KindApp,
+		CurrentVersion:    "1.2.3",
+		LatestVersion:     "1.2.5",
+		PreparedVersion:   "1.2.4",
+		PreparedChangelog: "Prepared 1.2.4",
+		DownloadURL:       "https://example.com/dreamcreator-update.zip",
+		Status:            domainupdate.StatusAvailable,
+	}
+
+	info, err := service.DownloadUpdate(context.Background())
+	if !errors.Is(err, installerErr) {
+		t.Fatalf("expected installer error, got %v", err)
+	}
+	if info.Status != domainupdate.StatusReadyToRestart {
+		t.Fatalf("expected ready_to_restart status, got %q", info.Status)
+	}
+	if info.PreparedVersion != "1.2.4" {
+		t.Fatalf("expected prepared version 1.2.4 to be preserved, got %q", info.PreparedVersion)
+	}
+	if info.LatestVersion != "1.2.5" {
+		t.Fatalf("expected latest version 1.2.5 to stay visible, got %q", info.LatestVersion)
+	}
+}
+
+func TestGetWhatsNewReturnsPendingPreparedNoticeForCurrentVersion(t *testing.T) {
+	t.Parallel()
+
+	installer := &installerStub{
+		hasPendingWhatsNew: true,
+		pendingWhatsNew: domainupdate.WhatsNew{
+			Version:   "2.0.7",
+			Changelog: "## Prepared update",
+		},
+		seenWhatsNewVersion: "2.0.6",
+	}
+	service := NewService(ServiceParams{Installer: installer})
+	service.SetCurrentVersion("2.0.7")
+
+	notice, err := service.GetWhatsNew(context.Background())
+	if err != nil {
+		t.Fatalf("GetWhatsNew failed: %v", err)
+	}
+	if notice.Version != "2.0.7" {
+		t.Fatalf("expected version 2.0.7, got %q", notice.Version)
+	}
+	if notice.Changelog != "## Prepared update" {
+		t.Fatalf("expected prepared changelog, got %q", notice.Changelog)
+	}
+}
+
+func TestGetWhatsNewFallsBackToCurrentVersionReleaseNotes(t *testing.T) {
+	t.Parallel()
+
+	installer := &installerStub{seenWhatsNewVersion: "2.0.6"}
+	catalog := softwareupdate.NewService(softwareupdate.ServiceParams{
+		AppFallbackProvider: appVersionProviderStub{
+			release: softwareupdate.AppRelease{
+				Version: "2.0.7",
+				Notes:   "## Current release notes",
+			},
+		},
+	})
+	service := NewService(ServiceParams{
+		Catalog:   catalog,
+		Installer: installer,
+	})
+	service.SetCurrentVersion("2.0.7")
+
+	notice, err := service.GetWhatsNew(context.Background())
+	if err != nil {
+		t.Fatalf("GetWhatsNew failed: %v", err)
+	}
+	if notice.Version != "2.0.7" {
+		t.Fatalf("expected version 2.0.7, got %q", notice.Version)
+	}
+	if notice.Changelog != "## Current release notes" {
+		t.Fatalf("expected current release notes, got %q", notice.Changelog)
+	}
+}
+
+func TestDismissWhatsNewMarksSeenVersion(t *testing.T) {
+	t.Parallel()
+
+	installer := &installerStub{}
+	service := NewService(ServiceParams{Installer: installer})
+
+	if err := service.DismissWhatsNew(context.Background(), "2.0.7"); err != nil {
+		t.Fatalf("DismissWhatsNew failed: %v", err)
+	}
+	if installer.markSeenVersion != "2.0.7" {
+		t.Fatalf("expected seen version 2.0.7, got %q", installer.markSeenVersion)
 	}
 }

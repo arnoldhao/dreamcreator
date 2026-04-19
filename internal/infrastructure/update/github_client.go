@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"runtime"
 	"strings"
 	"time"
@@ -16,11 +17,12 @@ const (
 )
 
 type GithubReleaseClient struct {
-	client *http.Client
+	client      *http.Client
+	releasesURL string
 }
 
 func NewGithubReleaseClient(client *http.Client) *GithubReleaseClient {
-	return &GithubReleaseClient{client: client}
+	return &GithubReleaseClient{client: client, releasesURL: defaultReleasesURL}
 }
 
 type githubRelease struct {
@@ -44,27 +46,81 @@ func (client *GithubReleaseClient) FetchLatestRelease(ctx context.Context) (gith
 	if client == nil || client.client == nil {
 		return githubRelease{}, fmt.Errorf("http client not configured")
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, defaultReleasesURL+"/latest", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, client.baseReleasesURL()+"/latest", nil)
 	if err != nil {
 		return githubRelease{}, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 
+	release, err := client.fetchRelease(req, "github latest release")
+	if err != nil {
+		return githubRelease{}, err
+	}
+	if strings.TrimSpace(release.TagName) == "" {
+		return githubRelease{}, fmt.Errorf("no latest release found")
+	}
+	return release, nil
+}
+
+func (client *GithubReleaseClient) FetchReleaseByVersion(ctx context.Context, version string) (githubRelease, error) {
+	if client == nil || client.client == nil {
+		return githubRelease{}, fmt.Errorf("http client not configured")
+	}
+	normalized := strings.TrimSpace(version)
+	if normalized == "" {
+		return githubRelease{}, fmt.Errorf("release version is empty")
+	}
+
+	candidates := []string{normalized}
+	if !strings.HasPrefix(strings.ToLower(normalized), "v") {
+		candidates = append(candidates, "v"+normalized)
+	}
+
+	var lastErr error
+	for _, candidate := range candidates {
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodGet,
+			client.baseReleasesURL()+"/tags/"+url.PathEscape(candidate),
+			nil,
+		)
+		if err != nil {
+			return githubRelease{}, err
+		}
+		req.Header.Set("Accept", "application/vnd.github+json")
+
+		release, err := client.fetchRelease(req, fmt.Sprintf("github release %q", candidate))
+		if err == nil {
+			return release, nil
+		}
+		lastErr = err
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("release %q not found", normalized)
+	}
+	return githubRelease{}, lastErr
+}
+
+func (client *GithubReleaseClient) baseReleasesURL() string {
+	if client == nil || strings.TrimSpace(client.releasesURL) == "" {
+		return defaultReleasesURL
+	}
+	return strings.TrimSpace(client.releasesURL)
+}
+
+func (client *GithubReleaseClient) fetchRelease(req *http.Request, label string) (githubRelease, error) {
 	resp, err := client.client.Do(req)
 	if err != nil {
 		return githubRelease{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return githubRelease{}, fmt.Errorf("github latest release http %d", resp.StatusCode)
+		return githubRelease{}, fmt.Errorf("%s http %d", label, resp.StatusCode)
 	}
 
 	var release githubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
 		return githubRelease{}, err
-	}
-	if strings.TrimSpace(release.TagName) == "" {
-		return githubRelease{}, fmt.Errorf("no latest release found")
 	}
 	return release, nil
 }

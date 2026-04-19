@@ -1,9 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Call } from "@wailsio/runtime";
 
-import { normalizeUpdateInfo, type UpdateInfo } from "@/shared/store/update";
+import {
+  normalizeUpdateInfo,
+  normalizeWhatsNewInfo,
+  type UpdateInfo,
+  type WhatsNewInfo,
+} from "@/shared/store/update";
 
 const UPDATE_QUERY_KEY = ["update-state"];
+const WHATS_NEW_QUERY_KEY = ["whats-new"];
 
 export function useUpdateState() {
   return useQuery({
@@ -58,4 +64,30 @@ export function useRestartToApply() {
   });
 }
 
-export { UPDATE_QUERY_KEY };
+export function useWhatsNew() {
+  return useQuery({
+    queryKey: WHATS_NEW_QUERY_KEY,
+    queryFn: async (): Promise<WhatsNewInfo | null> => {
+      const result = await Call.ByName("dreamcreator/internal/presentation/wails.UpdateHandler.GetWhatsNew");
+      return normalizeWhatsNewInfo(result as Partial<WhatsNewInfo>);
+    },
+    staleTime: Infinity,
+  });
+}
+
+export function useDismissWhatsNew() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (version: string): Promise<void> => {
+      await Call.ByName(
+        "dreamcreator/internal/presentation/wails.UpdateHandler.DismissWhatsNew",
+        version
+      );
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(WHATS_NEW_QUERY_KEY, null);
+    },
+  });
+}
+
+export { UPDATE_QUERY_KEY, WHATS_NEW_QUERY_KEY };

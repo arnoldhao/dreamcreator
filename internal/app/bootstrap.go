@@ -406,7 +406,7 @@ func CreateApplication(assets fs.FS) (*application.App, error) {
 	startAccentColorWatcher(accentCtx, settingsService, windowManager)
 
 	updateCatalog := buildSoftwareUpdateService(proxyManager)
-	updateService, err := buildUpdateService(proxyManager, eventBus, windowManager, updateCatalog, appVersion)
+	updateService, err := buildUpdateService(ctx, proxyManager, eventBus, windowManager, updateCatalog, appVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -1266,7 +1266,7 @@ func buildSoftwareUpdateService(proxyManager *proxy.Manager) *softwareupdate.Ser
 	})
 }
 
-func buildUpdateService(proxyManager *proxy.Manager, bus appevents.Bus, notifier applicationupdate.Notifier, catalog *softwareupdate.Service, currentVersion string) (*applicationupdate.Service, error) {
+func buildUpdateService(ctx context.Context, proxyManager *proxy.Manager, bus appevents.Bus, notifier applicationupdate.Notifier, catalog *softwareupdate.Service, currentVersion string) (*applicationupdate.Service, error) {
 	httpClient := proxyManager.HTTPClient()
 	downloader := infrastructureupdate.NewHTTPDownloader(httpClient)
 	installer, err := infrastructureupdate.NewInstaller("")
@@ -1282,6 +1282,9 @@ func buildUpdateService(proxyManager *proxy.Manager, bus appevents.Bus, notifier
 		Notifier:   notifier,
 	})
 	service.SetCurrentVersion(currentVersion)
+	if _, err := service.RestorePreparedUpdate(ctx); err != nil {
+		zap.L().Warn("update: restore prepared update failed", zap.Error(err))
+	}
 	return service, nil
 }
 

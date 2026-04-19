@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"log"
 	"os"
@@ -20,6 +21,14 @@ func main() {
 			os.Exit(1)
 		}
 	}()
+
+	appliedPreparedUpdate, err := app.TryApplyPreparedUpdateOnLaunch(context.Background(), os.Args[1:])
+	if err != nil {
+		log.Fatal(err)
+	}
+	if appliedPreparedUpdate {
+		return
+	}
 
 	application, err := app.CreateApplication(assets)
 	if err != nil {

@@ -393,12 +393,6 @@ export function MainApp() {
       </div>
     ) : undefined;
 
-  const isAppUpdateAvailable =
-    updateInfo.status === "available" ||
-    updateInfo.status === "downloading" ||
-    updateInfo.status === "installing" ||
-    updateInfo.status === "ready_to_restart";
-
   const isExternalToolsUpdateAvailable = useMemo(() => {
     const tools = externalTools.data ?? [];
     const updates = externalToolUpdates.data ?? [];
@@ -444,7 +438,7 @@ export function MainApp() {
       onSelectThread={assistantUiEnabled ? handleSelectThread : undefined}
       highlightThreadActive={assistantUiEnabled && visibleActiveTarget.type === "thread"}
       showThreadList={assistantUiEnabled}
-      isAppUpdateAvailable={isAppUpdateAvailable}
+      appUpdateInfo={updateInfo}
       isExternalToolsUpdateAvailable={isExternalToolsUpdateAvailable}
       showTitleBarBorder={showTitleBarBorder}
       contentScrollable={!isMainFamilyPage}

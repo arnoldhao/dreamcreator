@@ -2,6 +2,7 @@ package softwareupdate
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +20,10 @@ type CatalogProvider interface {
 
 type AppFallbackProvider interface {
 	FetchAppRelease(ctx context.Context, request AppRequest) (AppRelease, error)
+}
+
+type appVersionFallbackProvider interface {
+	FetchAppReleaseByVersion(ctx context.Context, version string) (AppRelease, error)
 }
 
 type ToolFallbackProvider interface {
@@ -164,6 +169,38 @@ func (service *Service) ResolveAppRelease(ctx context.Context, request AppReques
 	return release, nil
 }
 
+func (service *Service) ResolveAppReleaseByVersion(ctx context.Context, version string) (AppRelease, error) {
+	normalizedVersion := normalizeAppReleaseVersion(version)
+	if service == nil || normalizedVersion == "" {
+		return AppRelease{}, ErrReleaseNotFound
+	}
+
+	snapshot, err := service.EnsureCatalog(ctx, time.Minute, Request{AppVersion: normalizedVersion})
+	if err == nil && snapshot.Catalog.App != nil && sameAppReleaseVersion(snapshot.Catalog.App.Version, normalizedVersion) {
+		release := *snapshot.Catalog.App
+		release.ResolvedBy = SourceManifest
+		return release, nil
+	}
+
+	resolver, ok := service.appFallbackProvider.(appVersionFallbackProvider)
+	if !ok || resolver == nil {
+		if err != nil {
+			return AppRelease{}, err
+		}
+		return AppRelease{}, ErrReleaseNotFound
+	}
+
+	release, fallbackErr := resolver.FetchAppReleaseByVersion(ctx, normalizedVersion)
+	if fallbackErr != nil {
+		if err != nil {
+			return AppRelease{}, err
+		}
+		return AppRelease{}, fallbackErr
+	}
+	release.ResolvedBy = SourceFallback
+	return release, nil
+}
+
 func (service *Service) ResolveToolRelease(ctx context.Context, request ToolRequest) (ToolRelease, error) {
 	if service == nil {
 		return ToolRelease{}, ErrReleaseNotFound
@@ -238,6 +275,18 @@ func (service *Service) StartSchedule(ctx context.Context, initialDelay time.Dur
 			}
 		}
 	}()
+}
+
+func normalizeAppReleaseVersion(version string) string {
+	trimmed := strings.TrimSpace(version)
+	trimmed = strings.TrimPrefix(strings.TrimPrefix(trimmed, "v"), "V")
+	return trimmed
+}
+
+func sameAppReleaseVersion(left string, right string) bool {
+	normalizedLeft := normalizeAppReleaseVersion(left)
+	normalizedRight := normalizeAppReleaseVersion(right)
+	return normalizedLeft != "" && normalizedLeft == normalizedRight
 }
 
 func (service *Service) StopSchedule() {

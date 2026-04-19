@@ -12,6 +12,18 @@ func (client *GithubReleaseClient) FetchAppRelease(ctx context.Context, request 
 	if err != nil {
 		return softwareupdate.AppRelease{}, err
 	}
+	return client.toAppRelease(release), nil
+}
+
+func (client *GithubReleaseClient) FetchAppReleaseByVersion(ctx context.Context, version string) (softwareupdate.AppRelease, error) {
+	release, err := client.FetchReleaseByVersion(ctx, version)
+	if err != nil {
+		return softwareupdate.AppRelease{}, err
+	}
+	return client.toAppRelease(release), nil
+}
+
+func (client *GithubReleaseClient) toAppRelease(release githubRelease) softwareupdate.AppRelease {
 	assetURL := selectAsset(release.Assets)
 	sources := make([]softwareupdate.DownloadSource, 0, 2)
 	if strings.TrimSpace(assetURL) != "" {
@@ -42,5 +54,5 @@ func (client *GithubReleaseClient) FetchAppRelease(ctx context.Context, request 
 		Asset: softwareupdate.Asset{
 			Sources: sources,
 		},
-	}, nil
+	}
 }

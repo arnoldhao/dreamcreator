@@ -18,6 +18,7 @@ export function FrameworkTab({
   showToastPreview,
   showNotificationPreview,
   showDialogPreview,
+  showWhatsNewPreview,
   sendOsNotification,
   publishBackendDebug,
 }: FrameworkTabProps) {
@@ -58,6 +59,10 @@ export function FrameworkTab({
             <Button variant="destructive" size="compact" onClick={showDialogPreview}>
               <ShieldAlert className="mr-1 h-4 w-4" />
               {t("settings.debug.framework.actions.dialog")}
+            </Button>
+            <Button variant="outline" size="compact" onClick={showWhatsNewPreview}>
+              <Sparkles className="mr-1 h-4 w-4" />
+              {t("settings.debug.framework.actions.whatsNew")}
             </Button>
           </div>
         </SettingsCompactRow>
