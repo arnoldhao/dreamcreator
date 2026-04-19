@@ -235,7 +235,7 @@ func runWebFetchTool(settings SettingsReader, connectors ConnectorsReader) func(
 		}
 
 		options := resolveWebFetchOptions(payload, config, defaultWebFetchTimeoutSeconds)
-		cookies, err := resolveConnectorCookiesForURL(ctx, connectors, targetURL)
+		cookies, err := browsercdp.ResolveConnectorCookiesForURL(ctx, connectors, targetURL)
 		if err != nil {
 			return "", err
 		}
@@ -268,7 +268,7 @@ func runWebSearchTool(settings SettingsReader, connectors ConnectorsReader) func
 func fetchWithCDP(
 	ctx context.Context,
 	targetURL string,
-	cookies []connectorsdto.ConnectorCookie,
+	cookies []appcookies.Record,
 	options webFetchOptions,
 	preferredBrowser string,
 	headless bool,
@@ -298,7 +298,7 @@ func fetchWithCDP(
 	}
 	if len(cookies) > 0 {
 		tasks = append(tasks, chromedp.ActionFunc(func(ctx context.Context) error {
-			return browsercdp.SetCookies(ctx, targetURL, connectorCookiesToRecords(cookies))
+			return browsercdp.SetCookies(ctx, targetURL, cookies)
 		}))
 	}
 	if err := chromedp.Run(tabCtx, tasks); err != nil {
@@ -687,54 +687,8 @@ func resolveWebFetchOptions(payload toolArgs, config map[string]any, fallbackTim
 	}
 }
 
-func resolveConnectorCookiesForURL(ctx context.Context, connectors ConnectorsReader, rawURL string) ([]connectorsdto.ConnectorCookie, error) {
-	if connectors == nil {
-		return nil, nil
-	}
-	items, err := connectors.ListConnectors(ctx)
-	if err != nil {
-		return nil, err
-	}
-	for _, item := range items {
-		policy, ok := sitepolicy.ForConnectorType(item.Type)
-		if !ok || !sitepolicy.MatchDomains(rawURL, policy.Domains) {
-			continue
-		}
-		records := make([]connectorsdto.ConnectorCookie, 0, len(item.Cookies))
-		for _, cookie := range item.Cookies {
-			records = append(records, cookie)
-		}
-		return records, nil
-	}
-	return nil, nil
-}
-
-func connectorCookiesToRecords(cookies []connectorsdto.ConnectorCookie) []appcookies.Record {
-	if len(cookies) == 0 {
-		return nil
-	}
-	result := make([]appcookies.Record, 0, len(cookies))
-	for _, item := range cookies {
-		result = append(result, appcookies.Record{
-			Name:     item.Name,
-			Value:    item.Value,
-			Domain:   item.Domain,
-			Path:     item.Path,
-			Expires:  item.Expires,
-			HttpOnly: item.HttpOnly,
-			Secure:   item.Secure,
-			SameSite: item.SameSite,
-		})
-	}
-	return result
-}
-
 func connectorTypeForURL(rawURL string) string {
-	policy, ok := sitepolicy.ForURL(rawURL)
-	if !ok {
-		return ""
-	}
-	return policy.ConnectorType
+	return browsercdp.ConnectorTypeForURL(rawURL)
 }
 
 func resolveWebFetchConfigBool(config map[string]any, key string) (bool, bool) {

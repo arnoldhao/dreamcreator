@@ -12,7 +12,7 @@ func DefaultCallsToolsConfig() map[string]any {
 		"headless":         true,
 		"preferredBrowser": "chrome",
 		"ssrfPolicy": map[string]any{
-			"dangerouslyAllowPrivateNetwork": true,
+			"dangerouslyAllowPrivateNetwork": false,
 		},
 	}
 	return map[string]any{

@@ -450,7 +450,7 @@ export function CallsToolsTab() {
       ssrfDangerouslyAllowPrivateNetwork: readBoolValue(
         ssrfPolicy,
         "dangerouslyAllowPrivateNetwork",
-        true
+        false
       ),
       ssrfAllowedHostnamesJson: stringifyStringArrayValue(ssrfPolicy?.allowedHostnames),
       ssrfHostnameAllowlistJson: stringifyStringArrayValue(ssrfPolicy?.hostnameAllowlist),
@@ -878,6 +878,98 @@ export function CallsToolsTab() {
     },
     [handleSaveWebSearch, webSearchDisabled, webSearchForm, webSearchProviderAPIKeys]
   );
+  const handleWebSearchProviderChange = React.useCallback(
+    (nextProvider: string) => {
+      const nextProviderApiKey = resolveWebSearchDraftApiKey(nextProvider);
+      const nextForm: WebSearchFormState = {
+        ...webSearchForm,
+        provider: nextProvider,
+        apiKey: nextProviderApiKey,
+      };
+      setWebSearchForm(nextForm);
+      if (webSearchDisabled) {
+        return;
+      }
+      handleSaveWebSearch(nextForm, webSearchProviderAPIKeys);
+    },
+    [
+      handleSaveWebSearch,
+      resolveWebSearchDraftApiKey,
+      webSearchDisabled,
+      webSearchForm,
+      webSearchProviderAPIKeys,
+    ]
+  );
+  const handleBrowserPreferredBrowserChange = React.useCallback(
+    (value: string) => {
+      const nextForm: BrowserControlFormState = {
+        ...browserForm,
+        preferredBrowser: normalizePreferredBrowser(value),
+      };
+      setBrowserForm(nextForm);
+      if (browserDisabled) {
+        return;
+      }
+      handleSaveBrowser(nextForm);
+    },
+    [browserDisabled, browserForm, handleSaveBrowser]
+  );
+  const handleBrowserHeadlessChange = React.useCallback(
+    (checked: boolean) => {
+      const nextForm: BrowserControlFormState = {
+        ...browserForm,
+        headless: Boolean(checked),
+      };
+      setBrowserForm(nextForm);
+      if (browserDisabled) {
+        return;
+      }
+      handleSaveBrowser(nextForm);
+    },
+    [browserDisabled, browserForm, handleSaveBrowser]
+  );
+  const handleBrowserPrivateNetworkChange = React.useCallback(
+    (checked: boolean) => {
+      const nextForm: BrowserControlFormState = {
+        ...browserForm,
+        ssrfDangerouslyAllowPrivateNetwork: Boolean(checked),
+      };
+      setBrowserForm(nextForm);
+      if (browserDisabled) {
+        return;
+      }
+      handleSaveBrowser(nextForm);
+    },
+    [browserDisabled, browserForm, handleSaveBrowser]
+  );
+  const handleWebFetchPreferredBrowserChange = React.useCallback(
+    (value: string) => {
+      const nextForm: WebFetchFormState = {
+        ...webFetchForm,
+        preferredBrowser: normalizePreferredBrowser(value),
+      };
+      setWebFetchForm(nextForm);
+      if (webFetchDisabled) {
+        return;
+      }
+      handleSaveWebFetch(nextForm);
+    },
+    [handleSaveWebFetch, webFetchDisabled, webFetchForm]
+  );
+  const handleWebFetchHeadlessChange = React.useCallback(
+    (checked: boolean) => {
+      const nextForm: WebFetchFormState = {
+        ...webFetchForm,
+        headless: Boolean(checked),
+      };
+      setWebFetchForm(nextForm);
+      if (webFetchDisabled) {
+        return;
+      }
+      handleSaveWebFetch(nextForm);
+    },
+    [handleSaveWebFetch, webFetchDisabled, webFetchForm]
+  );
   const renderWebSearchFieldLabel = React.useCallback((label: string, description?: string) => {
     return (
       <div className="flex min-w-0 items-center gap-1.5">
@@ -1170,15 +1262,8 @@ export function CallsToolsTab() {
                             <Select
                               value={webSearchForm.provider}
                               onChange={(event) => {
-                                const nextProvider = event.target.value;
-                                const nextProviderApiKey = resolveWebSearchDraftApiKey(nextProvider);
-                                setWebSearchForm((prev) => ({
-                                  ...prev,
-                                  provider: nextProvider,
-                                  apiKey: nextProviderApiKey,
-                                }));
+                                handleWebSearchProviderChange(event.target.value);
                               }}
-                              onBlur={handleWebSearchFieldBlur}
                               className={webSearchControlClassName}
                               disabled={webSearchDisabled}
                             >
@@ -1511,13 +1596,9 @@ export function CallsToolsTab() {
                                 )}
                                 <Select
                                   value={browserPreferredBrowserValue}
-                                  onChange={(event) =>
-                                    setBrowserForm((prev) => ({
-                                      ...prev,
-                                      preferredBrowser: normalizePreferredBrowser(event.target.value),
-                                    }))
-                                  }
-                                  onBlur={handleBrowserFieldBlur}
+                                  onChange={(event) => {
+                                    handleBrowserPreferredBrowserChange(event.target.value);
+                                  }}
                                   className={webSearchControlClassName}
                                   disabled={browserDisabled || browserSelectOptions.length === 0}
                                 >
@@ -1540,10 +1621,7 @@ export function CallsToolsTab() {
                                 )}
                                 <Switch
                                   checked={browserForm.headless}
-                                  onCheckedChange={(checked) =>
-                                    setBrowserForm((prev) => ({ ...prev, headless: Boolean(checked) }))
-                                  }
-                                  onBlur={handleBrowserFieldBlur}
+                                  onCheckedChange={handleBrowserHeadlessChange}
                                   disabled={browserDisabled}
                                 />
                               </div>
@@ -1568,13 +1646,7 @@ export function CallsToolsTab() {
                                     )}
                                     <Switch
                                       checked={browserForm.ssrfDangerouslyAllowPrivateNetwork}
-                                      onCheckedChange={(checked) =>
-                                        setBrowserForm((prev) => ({
-                                          ...prev,
-                                          ssrfDangerouslyAllowPrivateNetwork: Boolean(checked),
-                                        }))
-                                      }
-                                      onBlur={handleBrowserFieldBlur}
+                                      onCheckedChange={handleBrowserPrivateNetworkChange}
                                       disabled={browserDisabled}
                                     />
                                   </div>
@@ -1696,13 +1768,9 @@ export function CallsToolsTab() {
                         )}
                         <Select
                           value={webFetchPreferredBrowserValue}
-                          onChange={(event) =>
-                            setWebFetchForm((prev) => ({
-                              ...prev,
-                              preferredBrowser: normalizePreferredBrowser(event.target.value),
-                            }))
-                          }
-                          onBlur={handleWebFetchFieldBlur}
+                          onChange={(event) => {
+                            handleWebFetchPreferredBrowserChange(event.target.value);
+                          }}
                           className={webSearchControlClassName}
                           disabled={webFetchDisabled || browserSelectOptions.length === 0}
                         >
@@ -1725,10 +1793,7 @@ export function CallsToolsTab() {
                         )}
                         <Switch
                           checked={webFetchForm.headless}
-                          onCheckedChange={(checked) =>
-                            setWebFetchForm((prev) => ({ ...prev, headless: Boolean(checked) }))
-                          }
-                          onBlur={handleWebFetchFieldBlur}
+                          onCheckedChange={handleWebFetchHeadlessChange}
                           disabled={webFetchDisabled}
                         />
                       </div>

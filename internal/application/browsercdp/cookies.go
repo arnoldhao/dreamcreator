@@ -14,6 +14,38 @@ import (
 )
 
 func SetCookies(ctx context.Context, targetURL string, records []appcookies.Record) error {
+	params := buildCookieParams(targetURL, records)
+	if len(params) == 0 {
+		return nil
+	}
+	return network.SetCookies(params).Do(ctx)
+}
+
+func SetCookiesOnBrowser(ctx context.Context, targetURL string, records []appcookies.Record) error {
+	params := buildCookieParams(targetURL, records)
+	if len(params) == 0 {
+		return nil
+	}
+	return storage.SetCookies(params).Do(ctx)
+}
+
+func GetAllCookies(ctx context.Context) ([]appcookies.Record, error) {
+	items, err := network.GetCookies().Do(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return mapCDPCookies(items), nil
+}
+
+func GetStorageCookies(ctx context.Context) ([]appcookies.Record, error) {
+	items, err := storage.GetCookies().Do(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return mapCDPCookies(items), nil
+}
+
+func buildCookieParams(targetURL string, records []appcookies.Record) []*network.CookieParam {
 	if len(records) == 0 {
 		return nil
 	}
@@ -52,26 +84,7 @@ func SetCookies(ctx context.Context, targetURL string, records []appcookies.Reco
 		}
 		params = append(params, param)
 	}
-	if len(params) == 0 {
-		return nil
-	}
-	return network.SetCookies(params).Do(ctx)
-}
-
-func GetAllCookies(ctx context.Context) ([]appcookies.Record, error) {
-	items, err := network.GetCookies().Do(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return mapCDPCookies(items), nil
-}
-
-func GetStorageCookies(ctx context.Context) ([]appcookies.Record, error) {
-	items, err := storage.GetCookies().Do(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return mapCDPCookies(items), nil
+	return params
 }
 
 func mapCDPCookies(items []*network.Cookie) []appcookies.Record {

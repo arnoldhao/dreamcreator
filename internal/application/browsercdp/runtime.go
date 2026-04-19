@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/chromedp/chromedp"
+	"go.uber.org/zap"
 )
 
 type LaunchOptions struct {
@@ -51,6 +52,7 @@ type Runtime struct {
 	allocCancel   context.CancelFunc
 	browserCtx    context.Context
 	browserCancel context.CancelFunc
+	stopping      bool
 	stopped       chan struct{}
 }
 
@@ -117,10 +119,11 @@ func Start(ctx context.Context, options LaunchOptions) (*Runtime, error) {
 		"--metrics-recording-only",
 		"--password-store=basic",
 		"--use-mock-keychain",
-		"about:blank",
 	}
 	if options.Headless {
 		args = append([]string{"--headless=new", "--hide-scrollbars", "--mute-audio"}, args...)
+	} else {
+		args = append([]string{"--no-startup-window"}, args...)
 	}
 	if options.NoSandbox {
 		args = append([]string{"--no-sandbox"}, args...)
@@ -131,31 +134,86 @@ func Start(ctx context.Context, options LaunchOptions) (*Runtime, error) {
 		}
 	}
 
-	cmd := exec.CommandContext(ctx, candidate.ExecPath, args...)
+	cmd := exec.Command(candidate.ExecPath, args...)
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	cmd.SysProcAttr = &syscall.SysProcAttr{}
+	zap.L().Info(
+		"browser runtime launch started",
+		zap.String("preferredBrowser", strings.TrimSpace(options.PreferredBrowser)),
+		zap.String("chosenBrowser", string(candidate.ID)),
+		zap.String("execPath", candidate.ExecPath),
+		zap.Bool("headless", options.Headless),
+		zap.String("userDataDir", userDataDir),
+		zap.Int("cdpPort", port),
+	)
 	if err := cmd.Start(); err != nil {
+		zap.L().Warn(
+			"browser runtime launch failed",
+			zap.String("preferredBrowser", strings.TrimSpace(options.PreferredBrowser)),
+			zap.String("chosenBrowser", string(candidate.ID)),
+			zap.String("execPath", candidate.ExecPath),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
-	if err := WaitForCDP("127.0.0.1", port, 10*time.Second); err != nil {
+	if err := WaitForCDP(ctx, "127.0.0.1", port, 10*time.Second); err != nil {
+		zap.L().Warn(
+			"browser runtime cdp wait failed",
+			zap.String("preferredBrowser", strings.TrimSpace(options.PreferredBrowser)),
+			zap.String("chosenBrowser", string(candidate.ID)),
+			zap.String("execPath", candidate.ExecPath),
+			zap.Int("cdpPort", port),
+			zap.Error(err),
+		)
 		_ = cmd.Process.Kill()
 		return nil, err
 	}
+	zap.L().Info(
+		"browser runtime cdp ready",
+		zap.String("preferredBrowser", strings.TrimSpace(options.PreferredBrowser)),
+		zap.String("chosenBrowser", string(candidate.ID)),
+		zap.String("execPath", candidate.ExecPath),
+		zap.Int("cdpPort", port),
+	)
 	wsURL, err := fetchWebSocketURL(ctx, port)
 	if err != nil {
+		zap.L().Warn(
+			"browser runtime websocket resolve failed",
+			zap.String("preferredBrowser", strings.TrimSpace(options.PreferredBrowser)),
+			zap.String("chosenBrowser", string(candidate.ID)),
+			zap.String("execPath", candidate.ExecPath),
+			zap.Int("cdpPort", port),
+			zap.Error(err),
+		)
 		_ = cmd.Process.Kill()
 		return nil, err
 	}
 	allocCtx, allocCancel := chromedp.NewRemoteAllocator(context.Background(), wsURL)
 	browserCtx, browserCancel := chromedp.NewContext(allocCtx)
 	if _, err := chromedp.Targets(browserCtx); err != nil {
+		zap.L().Warn(
+			"browser runtime chromedp attach failed",
+			zap.String("preferredBrowser", strings.TrimSpace(options.PreferredBrowser)),
+			zap.String("chosenBrowser", string(candidate.ID)),
+			zap.String("execPath", candidate.ExecPath),
+			zap.String("cdpUrl", wsURL),
+			zap.Error(err),
+		)
 		browserCancel()
 		allocCancel()
 		_ = cmd.Process.Kill()
 		return nil, err
 	}
+	zap.L().Info(
+		"browser runtime ready",
+		zap.String("preferredBrowser", strings.TrimSpace(options.PreferredBrowser)),
+		zap.String("chosenBrowser", string(candidate.ID)),
+		zap.String("execPath", candidate.ExecPath),
+		zap.String("cdpUrl", wsURL),
+		zap.Int("cdpPort", port),
+	)
 
 	runtime := &Runtime{
 		options:       options,
@@ -183,10 +241,20 @@ func Start(ctx context.Context, options LaunchOptions) (*Runtime, error) {
 		_ = cmd.Wait()
 		runtime.mu.Lock()
 		runtime.status.Ready = false
-		if runtime.status.DetectError == "" {
+		stopping := runtime.stopping
+		if !stopping && runtime.status.DetectError == "" {
 			runtime.status.DetectError = "browser process exited"
 		}
 		runtime.mu.Unlock()
+		if !stopping {
+			zap.L().Warn(
+				"browser runtime exited unexpectedly",
+				zap.String("preferredBrowser", strings.TrimSpace(options.PreferredBrowser)),
+				zap.String("chosenBrowser", string(candidate.ID)),
+				zap.String("execPath", candidate.ExecPath),
+				zap.Int("cdpPort", port),
+			)
+		}
 		close(runtime.stopped)
 	}()
 
@@ -226,6 +294,7 @@ func (runtime *Runtime) Stop() {
 	browserCancel := runtime.browserCancel
 	allocCancel := runtime.allocCancel
 	stopped := runtime.stopped
+	runtime.stopping = true
 	runtime.status.Ready = false
 	runtime.mu.Unlock()
 

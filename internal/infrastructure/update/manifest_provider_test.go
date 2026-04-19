@@ -22,7 +22,7 @@ func TestManifestCatalogProviderSelectsCurrentPlatformAssets(t *testing.T) {
 			"channels":{
 				"stable":{
 					"app":{
-						"source":{"provider":"github-release","owner":"arnoldhao","repo":"dreamcreator"},
+							"source":{"provider":"github-release","owner":"example-owner","repo":"dreamcreator"},
 						"version":"1.3.0",
 						"publishedAt":"2026-04-06T00:00:00Z",
 						"platforms":{

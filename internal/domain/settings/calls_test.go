@@ -49,9 +49,9 @@ func TestDefaultCallsToolsConfigIncludesBrowserDefaults(t *testing.T) {
 	if !ok || ssrfRaw == nil {
 		t.Fatalf("expected browser ssrfPolicy defaults")
 	}
-	if ssrfRaw["dangerouslyAllowPrivateNetwork"] != true {
+	if ssrfRaw["dangerouslyAllowPrivateNetwork"] != false {
 		t.Fatalf(
-			"expected browser ssrfPolicy.dangerouslyAllowPrivateNetwork true, got %#v",
+			"expected browser ssrfPolicy.dangerouslyAllowPrivateNetwork false, got %#v",
 			ssrfRaw["dangerouslyAllowPrivateNetwork"],
 		)
 	}

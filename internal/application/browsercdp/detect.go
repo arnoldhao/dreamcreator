@@ -22,11 +22,11 @@ const (
 )
 
 type Candidate struct {
-	ID       BrowserID `json:"id"`
-	Label    string    `json:"label"`
-	ExecPath string    `json:"execPath,omitempty"`
-	Available bool     `json:"available"`
-	Error    string    `json:"error,omitempty"`
+	ID        BrowserID `json:"id"`
+	Label     string    `json:"label"`
+	ExecPath  string    `json:"execPath,omitempty"`
+	Available bool      `json:"available"`
+	Error     string    `json:"error,omitempty"`
 }
 
 func DetectCandidates() []Candidate {
@@ -209,21 +209,34 @@ func compact(values []string) []string {
 	return result
 }
 
-func WaitForCDP(host string, port int, timeout time.Duration) error {
+func WaitForCDP(ctx context.Context, host string, port int, timeout time.Duration) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if timeout <= 0 {
 		timeout = 8 * time.Second
 	}
 	deadline := time.Now().Add(timeout)
 	for {
-		ctx, cancel := context.WithTimeout(context.Background(), 1200*time.Millisecond)
-		err := CheckCDPReady(ctx, host, port)
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		checkCtx, cancel := context.WithTimeout(ctx, 1200*time.Millisecond)
+		err := CheckCDPReady(checkCtx, host, port)
 		cancel()
 		if err == nil {
 			return nil
 		}
 		if time.Now().After(deadline) {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return ctxErr
+			}
 			return err
 		}
-		time.Sleep(250 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(250 * time.Millisecond):
+		}
 	}
 }

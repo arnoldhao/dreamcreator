@@ -404,6 +404,13 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 		defer service.aborts.Unregister(run.ID)
 	}
 	defer cancel()
+	if service.tools != nil && strings.TrimSpace(sessionKey) != "" {
+		defer func() {
+			cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cleanupCancel()
+			service.tools.CleanupRuntimeSession(cleanupCtx, sessionKey)
+		}()
+	}
 
 	if service.queue != nil && flags.UseQueue {
 		ticket, _, err := service.queue.Enqueue(runCtx, queue.EnqueueRequest{

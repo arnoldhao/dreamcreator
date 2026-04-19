@@ -9,6 +9,15 @@ import (
 	sessionapp "dreamcreator/internal/application/session"
 )
 
+const (
+	testTelegramSessionPeerID      = "test-user-001"
+	testTelegramSessionThreadID    = "test-thread-001"
+	testTelegramSessionPeerName    = "Test User"
+	testTelegramSessionPeerNameAlt = "Test User Updated"
+	testTelegramSessionUsername    = "testuser"
+	testTelegramSessionAvatarURL   = "https://example.com/avatars/test-user-001.jpg"
+)
+
 func TestResolveSession_RebuildsCanonicalKeyForCustomChannelSessionKey(t *testing.T) {
 	t.Parallel()
 
@@ -18,16 +27,16 @@ func TestResolveSession_RebuildsCanonicalKeyForCustomChannelSessionKey(t *testin
 	}
 
 	request := runtimedto.RuntimeRunRequest{
-		SessionID:  "telegram:default:private:5234834060:conv:26291424",
-		SessionKey: "telegram:default:private:5234834060:conv:26291424",
+		SessionID:  "telegram:default:private:" + testTelegramSessionPeerID + ":conv:" + testTelegramSessionThreadID,
+		SessionKey: "telegram:default:private:" + testTelegramSessionPeerID + ":conv:" + testTelegramSessionThreadID,
 		Metadata: map[string]any{
 			"channel":       "telegram",
 			"accountId":     "default",
 			"peerKind":      "direct",
-			"peerId":        "5234834060",
-			"peerName":      "Arnold",
-			"peerUsername":  "arnold",
-			"peerAvatarUrl": "https://t.me/i/userpic/320/arnold.jpg",
+			"peerId":        testTelegramSessionPeerID,
+			"peerName":      testTelegramSessionPeerName,
+			"peerUsername":  testTelegramSessionUsername,
+			"peerAvatarUrl": testTelegramSessionAvatarURL,
 		},
 	}
 
@@ -55,13 +64,13 @@ func TestResolveSession_RebuildsCanonicalKeyForCustomChannelSessionKey(t *testin
 	if stored.Origin.AccountID != "default" {
 		t.Fatalf("origin accountId mismatch: %q", stored.Origin.AccountID)
 	}
-	if stored.Origin.PeerID != "5234834060" {
+	if stored.Origin.PeerID != testTelegramSessionPeerID {
 		t.Fatalf("origin peerId mismatch: %q", stored.Origin.PeerID)
 	}
-	if stored.Origin.PeerName != "Arnold" {
+	if stored.Origin.PeerName != testTelegramSessionPeerName {
 		t.Fatalf("origin peerName mismatch: %q", stored.Origin.PeerName)
 	}
-	if stored.Origin.PeerUsername != "arnold" {
+	if stored.Origin.PeerUsername != testTelegramSessionUsername {
 		t.Fatalf("origin peerUsername mismatch: %q", stored.Origin.PeerUsername)
 	}
 	if stored.Origin.PeerAvatarURL == "" {
@@ -78,15 +87,15 @@ func TestPersistSession_UpdatesAssistantIDForExistingSession(t *testing.T) {
 	}
 
 	request := runtimedto.RuntimeRunRequest{
-		SessionID:  "telegram:default:private:5234834060",
-		SessionKey: "telegram:default:private:5234834060",
+		SessionID:  "telegram:default:private:" + testTelegramSessionPeerID,
+		SessionKey: "telegram:default:private:" + testTelegramSessionPeerID,
 		Metadata: map[string]any{
 			"channel":      "telegram",
 			"accountId":    "default",
 			"peerKind":     "direct",
-			"peerId":       "5234834060",
-			"peerName":     "Arnold HAO",
-			"peerUsername": "arnold",
+			"peerId":       testTelegramSessionPeerID,
+			"peerName":     testTelegramSessionPeerNameAlt,
+			"peerUsername": testTelegramSessionUsername,
 		},
 	}
 	sessionID, sessionKey, err := runtimeService.resolveSession(request)
@@ -110,7 +119,7 @@ func TestPersistSession_UpdatesAssistantIDForExistingSession(t *testing.T) {
 	if after.AssistantID != "assistant-123" {
 		t.Fatalf("assistant id was not updated: got %q", after.AssistantID)
 	}
-	if after.Origin.PeerName != "Arnold HAO" {
+	if after.Origin.PeerName != testTelegramSessionPeerNameAlt {
 		t.Fatalf("origin peer name mismatch: got %q", after.Origin.PeerName)
 	}
 }
@@ -124,16 +133,16 @@ func TestPersistSession_PreservesExistingOriginWhenIncomingMetadataIsIncomplete(
 	}
 
 	request := runtimedto.RuntimeRunRequest{
-		SessionID:  "telegram:default:private:5234834060",
-		SessionKey: "telegram:default:private:5234834060",
+		SessionID:  "telegram:default:private:" + testTelegramSessionPeerID,
+		SessionKey: "telegram:default:private:" + testTelegramSessionPeerID,
 		Metadata: map[string]any{
 			"channel":       "telegram",
 			"accountId":     "default",
 			"peerKind":      "direct",
-			"peerId":        "5234834060",
-			"peerName":      "Arnold HAO",
-			"peerUsername":  "arnold",
-			"peerAvatarUrl": "https://t.me/i/userpic/320/arnold.jpg",
+			"peerId":        testTelegramSessionPeerID,
+			"peerName":      testTelegramSessionPeerNameAlt,
+			"peerUsername":  testTelegramSessionUsername,
+			"peerAvatarUrl": testTelegramSessionAvatarURL,
 		},
 	}
 	sessionID, sessionKey, err := runtimeService.resolveSession(request)
@@ -157,10 +166,10 @@ func TestPersistSession_PreservesExistingOriginWhenIncomingMetadataIsIncomplete(
 	if stored.Origin.AccountID != "default" {
 		t.Fatalf("origin accountId should be preserved: got %q", stored.Origin.AccountID)
 	}
-	if stored.Origin.PeerID != "5234834060" {
+	if stored.Origin.PeerID != testTelegramSessionPeerID {
 		t.Fatalf("origin peerId should be preserved: got %q", stored.Origin.PeerID)
 	}
-	if stored.Origin.PeerName != "Arnold HAO" {
+	if stored.Origin.PeerName != testTelegramSessionPeerNameAlt {
 		t.Fatalf("origin peerName should be preserved: got %q", stored.Origin.PeerName)
 	}
 	if stored.Origin.PeerAvatarURL == "" {

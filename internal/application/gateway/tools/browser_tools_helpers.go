@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,6 +16,7 @@ import (
 
 	"dreamcreator/internal/application/browsercdp"
 	gatewaynodes "dreamcreator/internal/application/gateway/nodes"
+	targetpkg "github.com/chromedp/cdproto/target"
 )
 
 const (
@@ -37,37 +37,33 @@ const (
 )
 
 var browserToolActions = []string{
-	"status",
-	"start",
-	"stop",
-	"profiles",
-	"tabs",
 	"open",
-	"focus",
-	"close",
-	"snapshot",
-	"screenshot",
 	"navigate",
-	"console",
-	"pdf",
+	"snapshot",
+	"act",
+	"wait",
+	"scroll",
 	"upload",
 	"dialog",
-	"act",
+	"reset",
 }
 
 var browserSelectorUnsupportedMessage = strings.Join([]string{
 	"Error: 'selector' is not supported. Use 'ref' from snapshot instead.",
 	"",
 	"Example workflow:",
-	"1. snapshot action to get page state with refs",
-	`2. act with ref: "e123" to interact with element`,
+	"1. open or navigate to load the page",
+	"2. read returned items, or run snapshot to get fresh refs",
+	`3. act with ref: "e123" to interact with an element`,
+	"4. after the page changes, read returned items or run snapshot again",
 	"",
 	"This is more reliable for modern SPAs.",
 }, "\n")
 
-var browserWaitRequiresConditionMessage = "wait requires at least one of: timeMs, text, textGone, selector, url, loadState, fn"
+var browserWaitRequiresConditionMessage = "wait requires at least one of: timeMs, text, textGone, selector, url, fn"
+var errBrowserNoOpenTab = errors.New("no browser tab is open")
 var errBrowserSnapshotForAIUnavailable = errors.New("browser snapshotForAI is unavailable")
-var browserActKinds = []string{"click", "type", "press", "hover", "drag", "select", "fill", "resize", "wait", "evaluate", "close"}
+var browserActKinds = []string{"click", "type", "press", "hover", "select", "fill", "resize", "wait", "evaluate", "close"}
 var browserGlobalTabCounter uint64
 
 type browserSnapshotItem struct {
@@ -118,19 +114,108 @@ type browserNodeProxyFile struct {
 }
 
 func resolveBrowserAction(payload toolArgs) (string, error) {
-	rawAction := strings.ToLower(strings.TrimSpace(getStringArg(payload, "action", "method")))
+	rawAction := strings.ToLower(strings.TrimSpace(getStringArg(payload, "action")))
 	if rawAction == "" {
-		if getStringArg(payload, "targetUrl", "url") != "" {
-			rawAction = "open"
-		} else {
-			rawAction = "status"
-		}
+		return "", errors.New("browser action is required")
 	}
 	switch rawAction {
-	case "navigate", "status", "start", "stop", "profiles", "tabs", "open", "focus", "close", "snapshot", "screenshot", "console", "pdf", "upload", "dialog", "act":
+	case "open", "navigate", "snapshot", "act", "wait", "scroll", "upload", "dialog", "reset":
 		return rawAction, nil
 	default:
 		return "", errors.New("browser action not supported: " + rawAction)
+	}
+}
+
+func pickReusableBrowserTargetID(infos []*targetpkg.Info) string {
+	choose := func(requireUnattached bool, preferBlank bool) string {
+		for _, info := range infos {
+			if info == nil || info.Type != "page" {
+				continue
+			}
+			if requireUnattached && info.Attached {
+				continue
+			}
+			if preferBlank && !isReusableBrowserPageURL(info.URL) {
+				continue
+			}
+			return string(info.TargetID)
+		}
+		return ""
+	}
+	for _, candidate := range []string{
+		choose(true, true),
+		choose(true, false),
+		choose(false, true),
+		choose(false, false),
+	} {
+		if strings.TrimSpace(candidate) != "" {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func isReusableBrowserPageURL(rawURL string) bool {
+	trimmed := strings.TrimSpace(strings.ToLower(rawURL))
+	switch trimmed {
+	case "", "about:blank", "chrome://newtab/", "chrome-search://local-ntp/local-ntp.html":
+		return true
+	default:
+		return false
+	}
+}
+
+func shouldTreatBrowserNavigationAsComplete(observedURL string, previousURL string, targetURL string) bool {
+	observed := strings.TrimSpace(observedURL)
+	if observed == "" || observed == "about:blank" {
+		return false
+	}
+	if urlsEqual(observed, targetURL) {
+		return true
+	}
+	previous := strings.TrimSpace(previousURL)
+	if previous == "" || previous == "about:blank" {
+		return true
+	}
+	return !urlsEqual(observed, previous)
+}
+
+func urlsEqual(left string, right string) bool {
+	return strings.TrimSpace(left) == strings.TrimSpace(right)
+}
+
+func shouldResetBrowserProfileAfterError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(strings.TrimSpace(err.Error()))
+	switch {
+	case strings.Contains(message, "browser runtime unavailable"),
+		strings.Contains(message, "context canceled"),
+		strings.Contains(message, "target closed"),
+		strings.Contains(message, "connection closed"),
+		strings.Contains(message, "websocket"),
+		strings.Contains(message, "session closed"),
+		strings.Contains(message, "browser session reset"):
+		return true
+	default:
+		return false
+	}
+}
+
+func shouldDeferBrowserStateCaptureError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(strings.TrimSpace(err.Error()))
+	switch {
+	case strings.Contains(message, "context deadline exceeded"),
+		strings.Contains(message, "execution context was destroyed"),
+		strings.Contains(message, "cannot find context with specified id"),
+		strings.Contains(message, "unique context id not found"):
+		return true
+	default:
+		return false
 	}
 }
 
@@ -325,7 +410,7 @@ func resolveBrowserRuntimeConfig(config map[string]any) browserResolvedConfig {
 			},
 		},
 		SSRFRules: browserSSRFPolicy{
-			DangerouslyAllowPrivateNetwork: true,
+			DangerouslyAllowPrivateNetwork: false,
 			AllowedHostnames:               map[string]struct{}{},
 		},
 	}
@@ -395,6 +480,39 @@ func resolveBrowserActTimeoutMs(request toolArgs, payload toolArgs, fallback int
 		return normalizeBrowserTimeoutMs(timeoutSeconds*1000, fallback)
 	}
 	return resolveBrowserActionTimeoutMs(payload, fallback)
+}
+
+func resolveBrowserSnapshotLimit(payload toolArgs) int {
+	if value, ok := getIntArg(payload, "limit"); ok && value > 0 {
+		return value
+	}
+	return defaultBrowserSnapshotLimit
+}
+
+func resolveBrowserScrollDelta(payload toolArgs) (int, int) {
+	if x, ok := getIntArg(payload, "x"); ok {
+		if y, ok := getIntArg(payload, "y"); ok {
+			return x, y
+		}
+		return x, 0
+	}
+	if y, ok := getIntArg(payload, "y"); ok {
+		return 0, y
+	}
+	amount, ok := getIntArg(payload, "amount")
+	if !ok || amount <= 0 {
+		amount = 700
+	}
+	switch strings.ToLower(strings.TrimSpace(getStringArg(payload, "direction"))) {
+	case "up":
+		return 0, -amount
+	case "left":
+		return -amount, 0
+	case "right":
+		return amount, 0
+	default:
+		return 0, amount
+	}
 }
 
 func normalizeBrowserTimeoutMs(value int, fallback int) int {
@@ -555,15 +673,6 @@ func resolvePathWithinRoot(rootDir string, requestedPath string) (string, error)
 	return candidateAbs, nil
 }
 
-func tabResultFromEvaluate(tab *browserTabState) any {
-	if tab == nil {
-		return nil
-	}
-	tab.mu.RLock()
-	defer tab.mu.RUnlock()
-	return tab.evaluateResult
-}
-
 func isBrowserSnapshotForAIUnavailable(err error) bool {
 	if err == nil {
 		return false
@@ -583,40 +692,17 @@ func toBrowserFriendlyInteractionError(err error, selector string) error {
 		if match := browserStrictModeCountPattern.FindStringSubmatch(message); len(match) >= 2 {
 			count = strings.TrimSpace(match[1])
 		}
-		return fmt.Errorf(`Selector "%s" matched %s elements. Run a new snapshot to get updated refs, or use a different ref.`, selector, count)
+		return fmt.Errorf(`Selector "%s" matched %s elements. Run snapshot again to get updated refs, or use a different ref.`, selector, count)
 	}
 	return err
 }
 
 func assertBrowserURLAllowed(rawURL string, policy browserSSRFPolicy) error {
-	trimmed := strings.TrimSpace(rawURL)
-	if trimmed == "" {
-		return errors.New("targetUrl is required")
-	}
-	parsed, err := url.Parse(trimmed)
-	if err != nil {
-		return fmt.Errorf("invalid url: %w", err)
-	}
-	if !strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https") {
-		return errors.New("only http(s) urls are supported")
-	}
-	hostname := strings.ToLower(strings.TrimSpace(parsed.Hostname()))
-	if hostname == "" {
-		return errors.New("url hostname is required")
-	}
-	if isHostnameExplicitlyAllowed(hostname, policy) {
-		return nil
-	}
-	if policy.DangerouslyAllowPrivateNetwork {
-		return nil
-	}
-	if hostname == "localhost" || strings.HasSuffix(hostname, ".local") || strings.HasSuffix(hostname, ".internal") {
-		return fmt.Errorf("blocked private hostname: %s", hostname)
-	}
-	if ip := net.ParseIP(hostname); ip != nil && isPrivateOrLocalIP(ip) {
-		return fmt.Errorf("blocked private IP: %s", hostname)
-	}
-	return nil
+	return browsercdp.AssertURLAllowed(rawURL, browsercdp.SSRFPolicy{
+		DangerouslyAllowPrivateNetwork: policy.DangerouslyAllowPrivateNetwork,
+		AllowedHostnames:               cloneBrowserAllowedHostnames(policy.AllowedHostnames),
+		HostnameAllowlist:              append([]string(nil), policy.HostnameAllowlist...),
+	})
 }
 
 func isHostnameExplicitlyAllowed(hostname string, policy browserSSRFPolicy) bool {

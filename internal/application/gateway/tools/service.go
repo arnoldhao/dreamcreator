@@ -171,6 +171,13 @@ func (service *Service) InvokeWithPolicy(ctx context.Context, request tooldto.To
 	return response, nil
 }
 
+func (service *Service) CleanupRuntimeSession(_ context.Context, sessionKey string) {
+	if strings.TrimSpace(sessionKey) == "" {
+		return
+	}
+	cleanupBrowserToolSessions(sessionKey)
+}
+
 func (service *Service) auditDecision(ctx context.Context, spec tooldto.ToolSpec, decision tooldto.ToolPolicyDecision, policyCtx tooldto.ToolPolicyContext) {
 	if service == nil || service.audit == nil {
 		return
