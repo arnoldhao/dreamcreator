@@ -3,8 +3,10 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	settingsdto "dreamcreator/internal/application/settings/dto"
 )
@@ -251,5 +253,50 @@ func TestRunWebSearchWithFallbackExternalToolsPlaceholder(t *testing.T) {
 	}
 	if response.WebSearchAvailable {
 		t.Fatalf("expected web_search_available=false for external tools placeholder")
+	}
+}
+
+func TestStoreWebSearchCachePrunesExpiredAndBoundsEntries(t *testing.T) {
+	prefix := fmt.Sprintf("test-web-cache-%d-", time.Now().UnixNano())
+	t.Cleanup(func() {
+		webSearchCache.mu.Lock()
+		for key := range webSearchCache.entries {
+			if strings.HasPrefix(key, prefix) {
+				delete(webSearchCache.entries, key)
+			}
+		}
+		webSearchCache.mu.Unlock()
+	})
+
+	expiredKey := prefix + "expired"
+	webSearchCache.mu.Lock()
+	webSearchCache.entries[expiredKey] = webSearchCacheEntry{
+		value:     webSearchResponse{Query: "expired"},
+		expiresAt: time.Now().Add(-time.Minute),
+		storedAt:  time.Now().Add(-2 * time.Minute),
+	}
+	webSearchCache.mu.Unlock()
+
+	for index := 0; index < maxWebSearchCacheEntries+8; index++ {
+		storeWebSearchCache(
+			fmt.Sprintf("%s%d", prefix, index),
+			webSearchResponse{Query: fmt.Sprintf("query-%d", index)},
+			time.Hour,
+		)
+	}
+
+	webSearchCache.mu.RLock()
+	defer webSearchCache.mu.RUnlock()
+	count := 0
+	if _, ok := webSearchCache.entries[expiredKey]; ok {
+		t.Fatalf("expected expired entry to be pruned on store")
+	}
+	for key := range webSearchCache.entries {
+		if strings.HasPrefix(key, prefix) {
+			count++
+		}
+	}
+	if count > maxWebSearchCacheEntries {
+		t.Fatalf("expected prefixed cache entries to stay within %d, got %d", maxWebSearchCacheEntries, count)
 	}
 }

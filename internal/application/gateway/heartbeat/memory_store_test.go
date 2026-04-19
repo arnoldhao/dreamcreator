@@ -88,3 +88,35 @@ func TestMemoryEventStoreHasDuplicateChecksRetainedWindow(t *testing.T) {
 		t.Fatalf("expected trimmed hash %q to be evicted from recent cache", trimmedHash)
 	}
 }
+
+func TestMemoryEventStorePrunesExpiredSessions(t *testing.T) {
+	store := NewMemoryEventStore()
+	base := time.Date(2026, time.April, 5, 6, 7, 8, 0, time.UTC)
+	store.now = func() time.Time { return base }
+
+	if err := store.Save(context.Background(), Event{
+		ID:         "old",
+		SessionKey: "session-old",
+		CreatedAt:  base,
+	}); err != nil {
+		t.Fatalf("save old session: %v", err)
+	}
+
+	store.now = func() time.Time { return base.Add(memoryEventSessionTTL + time.Minute) }
+	if err := store.Save(context.Background(), Event{
+		ID:         "new",
+		SessionKey: "session-new",
+		CreatedAt:  base.Add(memoryEventSessionTTL + time.Minute),
+	}); err != nil {
+		t.Fatalf("save new session: %v", err)
+	}
+
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+	if _, ok := store.entries["session-old"]; ok {
+		t.Fatalf("expected stale memory-event session to be pruned")
+	}
+	if _, ok := store.entries["session-new"]; !ok {
+		t.Fatalf("expected fresh memory-event session to remain")
+	}
+}

@@ -17,12 +17,21 @@ import (
 const faviconBaseURL = "https://www.google.com/s2/favicons"
 
 type FaviconCache struct {
-	baseDir    string
-	httpClient *http.Client
-	mu         sync.Mutex
-	memory     map[string]string
-	missing    map[string]struct{}
+	baseDir           string
+	httpClient        *http.Client
+	mu                sync.Mutex
+	memory            map[string]string
+	memoryOrder       []string
+	missing           map[string]struct{}
+	missingOrder      []string
+	maxMemoryEntries  int
+	maxMissingEntries int
 }
+
+const (
+	defaultFaviconMemoryEntries  = 256
+	defaultFaviconMissingEntries = 512
+)
 
 func NewFaviconCache() *FaviconCache {
 	baseDir := ""
@@ -30,10 +39,12 @@ func NewFaviconCache() *FaviconCache {
 		baseDir = filepath.Join(cacheDir, "dreamcreator", "library", "favicons")
 	}
 	return &FaviconCache{
-		baseDir:    baseDir,
-		httpClient: &http.Client{Timeout: 2 * time.Second},
-		memory:     map[string]string{},
-		missing:    map[string]struct{}{},
+		baseDir:           baseDir,
+		httpClient:        &http.Client{Timeout: 2 * time.Second},
+		memory:            map[string]string{},
+		missing:           map[string]struct{}{},
+		maxMemoryEntries:  defaultFaviconMemoryEntries,
+		maxMissingEntries: defaultFaviconMissingEntries,
 	}
 }
 
@@ -143,14 +154,53 @@ func (cache *FaviconCache) iconPath(domain string) string {
 
 func (cache *FaviconCache) storeIcon(domain string, icon string) {
 	cache.mu.Lock()
+	if _, exists := cache.memory[domain]; !exists {
+		cache.memoryOrder = append(cache.memoryOrder, domain)
+	}
 	cache.memory[domain] = icon
+	delete(cache.missing, domain)
+	cache.pruneMemoryLocked()
 	cache.mu.Unlock()
 }
 
 func (cache *FaviconCache) markMissing(domain string) {
 	cache.mu.Lock()
+	if _, exists := cache.missing[domain]; !exists {
+		cache.missingOrder = append(cache.missingOrder, domain)
+	}
 	cache.missing[domain] = struct{}{}
+	cache.pruneMissingLocked()
 	cache.mu.Unlock()
+}
+
+func (cache *FaviconCache) pruneMemoryLocked() {
+	if cache.maxMemoryEntries <= 0 {
+		cache.memory = map[string]string{}
+		cache.memoryOrder = nil
+		return
+	}
+	for len(cache.memory) > cache.maxMemoryEntries && len(cache.memoryOrder) > 0 {
+		oldest := cache.memoryOrder[0]
+		cache.memoryOrder = cache.memoryOrder[1:]
+		if _, ok := cache.memory[oldest]; ok {
+			delete(cache.memory, oldest)
+		}
+	}
+}
+
+func (cache *FaviconCache) pruneMissingLocked() {
+	if cache.maxMissingEntries <= 0 {
+		cache.missing = map[string]struct{}{}
+		cache.missingOrder = nil
+		return
+	}
+	for len(cache.missing) > cache.maxMissingEntries && len(cache.missingOrder) > 0 {
+		oldest := cache.missingOrder[0]
+		cache.missingOrder = cache.missingOrder[1:]
+		if _, ok := cache.missing[oldest]; ok {
+			delete(cache.missing, oldest)
+		}
+	}
 }
 
 func normalizeDomain(domain string) string {
