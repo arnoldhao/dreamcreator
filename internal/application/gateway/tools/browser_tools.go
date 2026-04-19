@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -78,7 +76,7 @@ func getBrowserProfileState(sessionKey string, profileName string, resolved brow
 		ProfileName:      profileName,
 		PreferredBrowser: resolved.PreferredBrowser,
 		Headless:         resolved.Headless,
-		UserDataDir:      filepath.Join(os.TempDir(), "dreamcreator", "browser", sessionKey, profileName),
+		UserDataDir:      browsercdp.ResolveProfileUserDataDir(sessionKey, profileName),
 		SSRFRules: browsercdp.SSRFPolicy{
 			DangerouslyAllowPrivateNetwork: resolved.SSRFRules.DangerouslyAllowPrivateNetwork,
 			AllowedHostnames:               cloneBrowserAllowedHostnames(resolved.SSRFRules.AllowedHostnames),

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -1101,7 +1100,7 @@ func normalizeSessionOptions(options SessionOptions) SessionOptions {
 	}
 	options.PreferredBrowser = strings.ToLower(strings.TrimSpace(options.PreferredBrowser))
 	if options.UserDataDir == "" {
-		options.UserDataDir = filepath.Join(os.TempDir(), "dreamcreator", "browser", options.SessionKey, options.ProfileName)
+		options.UserDataDir = ResolveProfileUserDataDir(options.SessionKey, options.ProfileName)
 	}
 	if options.SSRFRules.AllowedHostnames == nil {
 		options.SSRFRules.AllowedHostnames = map[string]struct{}{}
