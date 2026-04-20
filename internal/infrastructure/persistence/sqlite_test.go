@@ -163,3 +163,57 @@ VALUES
 		t.Fatalf("expected custom openai compatibility=openai, got %q", got["custom-openai"])
 	}
 }
+
+func TestEnsureSQLiteColumns_LegacyGatewaySessionsMigrationAddsContextStateColumns(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "legacy-gateway-sessions.db")
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.ExecContext(ctx, `
+CREATE TABLE gateway_sessions (
+	session_id TEXT PRIMARY KEY,
+	session_key TEXT NOT NULL,
+	agent_id TEXT,
+	assistant_id TEXT,
+	title TEXT,
+	status TEXT,
+	origin_json TEXT,
+	context_prompt_tokens INTEGER,
+	context_total_tokens INTEGER,
+	context_window_tokens INTEGER,
+	context_updated_at TIMESTAMP,
+	context_fresh BOOLEAN,
+	compaction_count INTEGER,
+	memory_flush_compaction_count INTEGER,
+	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+`); err != nil {
+		t.Fatalf("create legacy gateway_sessions schema: %v", err)
+	}
+
+	if err := ensureSQLiteColumns(ctx, db); err != nil {
+		t.Fatalf("ensure columns: %v", err)
+	}
+
+	for _, column := range []string{
+		"context_summary",
+		"context_first_kept_message_id",
+		"context_strategy_version",
+		"context_compacted_at",
+	} {
+		hasColumn, err := sqliteTableHasColumn(ctx, db, "gateway_sessions", column)
+		if err != nil {
+			t.Fatalf("check gateway_sessions.%s: %v", column, err)
+		}
+		if !hasColumn {
+			t.Fatalf("expected gateway_sessions.%s to exist", column)
+		}
+	}
+}

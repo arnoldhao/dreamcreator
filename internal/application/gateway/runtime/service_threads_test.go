@@ -14,6 +14,11 @@ type runtimeThreadRepositoryStub struct {
 	item thread.Thread
 }
 
+type runtimeRunRepositoryStub struct {
+	item      thread.ThreadRun
+	saveCount int
+}
+
 func (repo *runtimeThreadRepositoryStub) List(context.Context, bool) ([]thread.Thread, error) {
 	return []thread.Thread{repo.item}, nil
 }
@@ -47,6 +52,31 @@ func (repo *runtimeThreadRepositoryStub) Purge(context.Context, string) error {
 }
 
 func (repo *runtimeThreadRepositoryStub) SetStatus(context.Context, string, thread.Status, time.Time) error {
+	return nil
+}
+
+func (repo *runtimeRunRepositoryStub) Get(_ context.Context, id string) (thread.ThreadRun, error) {
+	if repo.item.ID != id {
+		return thread.ThreadRun{}, thread.ErrRunNotFound
+	}
+	return repo.item, nil
+}
+
+func (repo *runtimeRunRepositoryStub) ListActiveByThread(context.Context, string) ([]thread.ThreadRun, error) {
+	return nil, nil
+}
+
+func (repo *runtimeRunRepositoryStub) ListByAgentID(context.Context, string, int) ([]thread.ThreadRun, error) {
+	return nil, nil
+}
+
+func (repo *runtimeRunRepositoryStub) CountActive(context.Context) (int, error) {
+	return 0, nil
+}
+
+func (repo *runtimeRunRepositoryStub) Save(_ context.Context, run thread.ThreadRun) error {
+	repo.item = run
+	repo.saveCount++
 	return nil
 }
 
@@ -151,5 +181,40 @@ func TestScheduleThreadTitleGenerationAfterRun_WaitsForInFlightGeneration(t *tes
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for deferred title generation request")
+	}
+}
+
+func TestAttachRunUserMessageIDUpdatesStoredRun(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.April, 20, 8, 0, 0, 0, time.UTC)
+	run, err := thread.NewThreadRun(thread.ThreadRunParams{
+		ID:                 "run-1",
+		ThreadID:           "thread-1",
+		AssistantMessageID: "assistant-msg-1",
+		CreatedAt:          &now,
+		UpdatedAt:          &now,
+	})
+	if err != nil {
+		t.Fatalf("new run: %v", err)
+	}
+	repo := &runtimeRunRepositoryStub{item: run}
+	service := &Service{
+		runs: repo,
+		now: func() time.Time {
+			return now.Add(30 * time.Second)
+		},
+	}
+
+	service.attachRunUserMessageID(context.Background(), &run, "user-msg-1")
+
+	if repo.saveCount != 1 {
+		t.Fatalf("expected one save, got %d", repo.saveCount)
+	}
+	if repo.item.UserMessageID != "user-msg-1" {
+		t.Fatalf("expected user message id to be persisted, got %q", repo.item.UserMessageID)
+	}
+	if !repo.item.UpdatedAt.Equal(now.Add(30 * time.Second)) {
+		t.Fatalf("expected updatedAt to advance, got %s", repo.item.UpdatedAt)
 	}
 }

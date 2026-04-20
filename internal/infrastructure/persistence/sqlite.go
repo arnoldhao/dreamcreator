@@ -787,6 +787,10 @@ CREATE TABLE IF NOT EXISTS gateway_sessions (
 	context_window_tokens INTEGER,
 	context_updated_at TIMESTAMP,
 	context_fresh BOOLEAN,
+	context_summary TEXT,
+	context_first_kept_message_id TEXT,
+	context_strategy_version INTEGER,
+	context_compacted_at TIMESTAMP,
 	compaction_count INTEGER,
 	memory_flush_compaction_count INTEGER,
 	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -944,6 +948,26 @@ func ensureSQLiteColumns(ctx context.Context, db *sql.DB) error {
 		column    string
 		statement string
 	}{
+		{
+			table:     "gateway_sessions",
+			column:    "context_summary",
+			statement: "ALTER TABLE gateway_sessions ADD COLUMN context_summary TEXT",
+		},
+		{
+			table:     "gateway_sessions",
+			column:    "context_first_kept_message_id",
+			statement: "ALTER TABLE gateway_sessions ADD COLUMN context_first_kept_message_id TEXT",
+		},
+		{
+			table:     "gateway_sessions",
+			column:    "context_strategy_version",
+			statement: "ALTER TABLE gateway_sessions ADD COLUMN context_strategy_version INTEGER",
+		},
+		{
+			table:     "gateway_sessions",
+			column:    "context_compacted_at",
+			statement: "ALTER TABLE gateway_sessions ADD COLUMN context_compacted_at TIMESTAMP",
+		},
 		{
 			table:     "settings",
 			column:    "color_scheme",

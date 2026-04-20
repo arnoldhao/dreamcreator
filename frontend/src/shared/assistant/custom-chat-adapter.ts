@@ -434,6 +434,19 @@ async function* streamChatUpdatesViaGateway(
     if (activeRunId && update.runId && update.runId !== activeRunId) {
       continue;
     }
+    if (update.usage) {
+      const promptTokens = Number(update.usage.promptTokens ?? 0);
+      const completionTokens = Number(update.usage.completionTokens ?? 0);
+      const totalTokens = Number(update.usage.totalTokens ?? 0);
+      if (promptTokens > 0 || completionTokens > 0 || totalTokens > 0) {
+        useChatRuntimeStore.getState().setRunUsage(threadId, {
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          updatedAt: Date.now(),
+        });
+      }
+    }
     if (update.agentEvent?.event === "context_snapshot" && update.agentEvent.contextTokens) {
       const tokens = update.agentEvent.contextTokens;
       useChatRuntimeStore.getState().setContextTokens(threadId, {

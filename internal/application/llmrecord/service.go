@@ -2,6 +2,7 @@ package llmrecord
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
@@ -277,7 +278,16 @@ func trimPayload(value string) (string, bool) {
 	if len(runes) <= maxPersistedPayloadChars {
 		return trimmed, false
 	}
-	return strings.TrimSpace(string(runes[:maxPersistedPayloadChars])), true
+	preview := strings.TrimSpace(string(runes[:maxPersistedPayloadChars]))
+	payload, err := json.Marshal(map[string]any{
+		"truncated":      true,
+		"originalLength": len(runes),
+		"preview":        preview,
+	})
+	if err != nil {
+		return `{"truncated":true}`, true
+	}
+	return string(payload), true
 }
 
 func parseTimeFilter(value string) (time.Time, error) {

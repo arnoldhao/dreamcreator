@@ -2,7 +2,9 @@ package llmrecord
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -114,6 +116,26 @@ func TestServicePruneExpiredUsesConfiguredRetention(t *testing.T) {
 	}
 	if repo.deleteBeforeCount != 1 {
 		t.Fatalf("expected one retention cleanup call, got %d", repo.deleteBeforeCount)
+	}
+}
+
+func TestTrimPayloadReturnsValidJSONWhenTruncated(t *testing.T) {
+	t.Parallel()
+
+	longPayload := strings.Repeat("x", maxPersistedPayloadChars+32)
+	trimmed, truncated := trimPayload(longPayload)
+	if !truncated {
+		t.Fatal("expected payload to be truncated")
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
+		t.Fatalf("expected valid json payload, got error: %v", err)
+	}
+	if value, _ := decoded["truncated"].(bool); !value {
+		t.Fatalf("expected truncated marker, got %v", decoded["truncated"])
+	}
+	if preview, _ := decoded["preview"].(string); preview == "" {
+		t.Fatal("expected preview to be populated")
 	}
 }
 

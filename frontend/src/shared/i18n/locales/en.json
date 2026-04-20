@@ -4004,6 +4004,10 @@
       "contextTotalUnknown": "N/A",
       "contextUsage": "Context usage",
       "contextUsageShort": "Usage",
+      "lastRunUsage": "Last model call",
+      "lastInputTokens": "Input tokens",
+      "lastOutputTokens": "Output tokens",
+      "lastTotalTokens": "Total tokens",
       "permission": {
         "label": "Permission",
         "standard": "Default permissions",

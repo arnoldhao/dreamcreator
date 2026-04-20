@@ -32,10 +32,7 @@ func BrowserToolRuntimeConfigChanged(previousTools map[string]any, currentTools 
 }
 
 type browserProfileState struct {
-	sessionKey  string
-	profileName string
-	resolved    browserResolvedConfig
-	session     *browsercdp.Session
+	session *browsercdp.Session
 }
 
 func runBrowserTool(settings SettingsReader, connectors ConnectorsReader, nodes *gatewaynodes.Service) func(ctx context.Context, args string) (string, error) {
@@ -87,10 +84,7 @@ func getBrowserProfileState(sessionKey string, profileName string, resolved brow
 		}),
 	}
 	return &browserProfileState{
-		sessionKey:  sessionKey,
-		profileName: profileName,
-		resolved:    resolved,
-		session:     browserToolSessions.GetOrCreate(sessionKey, profileName, options),
+		session: browserToolSessions.GetOrCreate(sessionKey, profileName, options),
 	}
 }
 
@@ -286,9 +280,7 @@ func browserActionReset(payload toolArgs, state *browserProfileState) (map[strin
 	if err != nil {
 		return nil, err
 	}
-	output := browserResultMap(result)
-	output["profile"] = state.profileName
-	return output, nil
+	return browserResultMap(result), nil
 }
 
 func browserCommandOptions(payload toolArgs, fallbackTimeoutMs int) browsercdp.CommandOptions {

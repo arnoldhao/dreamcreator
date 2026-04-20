@@ -128,4 +128,26 @@ describe("stream parser", () => {
       },
     });
   });
+
+  test("preserves runtime end usage separately from context snapshots", () => {
+    const state = createStreamParserState();
+
+    const update = applyStreamEvent(state, {
+      type: "end",
+      usage: {
+        promptTokens: 62085,
+        completionTokens: 1045,
+        totalTokens: 63130,
+        contextTotalTokens: 10260,
+      },
+    });
+
+    expect(update.done).toBe(true);
+    expect(update.usage).toEqual({
+      promptTokens: 62085,
+      completionTokens: 1045,
+      totalTokens: 63130,
+      contextTotalTokens: 10260,
+    });
+  });
 });

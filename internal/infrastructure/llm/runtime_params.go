@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 )
 
 type StructuredOutputConfig struct {
@@ -11,6 +12,13 @@ type StructuredOutputConfig struct {
 	Name   string
 	Schema map[string]any
 	Strict bool
+}
+
+type RuntimeContextSnapshot struct {
+	mu                 sync.RWMutex
+	promptTokens       int
+	totalTokens        int
+	contextWindowToken int
 }
 
 type RuntimeParams struct {
@@ -23,6 +31,7 @@ type RuntimeParams struct {
 	Operation        string
 	ThinkingLevel    string
 	StructuredOutput StructuredOutputConfig
+	ContextSnapshot  *RuntimeContextSnapshot
 }
 
 type runtimeParamsContextKey struct{}
@@ -38,6 +47,7 @@ func WithRuntimeParams(ctx context.Context, params RuntimeParams) context.Contex
 		Operation:        strings.TrimSpace(params.Operation),
 		ThinkingLevel:    strings.TrimSpace(params.ThinkingLevel),
 		StructuredOutput: normalizeStructuredOutputConfig(params.StructuredOutput),
+		ContextSnapshot:  params.ContextSnapshot,
 	}
 	return context.WithValue(ctx, runtimeParamsContextKey{}, normalized)
 }
@@ -122,4 +132,28 @@ func (config StructuredOutputConfig) UsesJSONSchema() bool {
 
 func (config StructuredOutputConfig) AllowsFallback() bool {
 	return normalizeStructuredOutputMode(config.Mode) == "auto"
+}
+
+func NewRuntimeContextSnapshot() *RuntimeContextSnapshot {
+	return &RuntimeContextSnapshot{}
+}
+
+func (snapshot *RuntimeContextSnapshot) Set(promptTokens int, totalTokens int, contextWindowTokens int) {
+	if snapshot == nil {
+		return
+	}
+	snapshot.mu.Lock()
+	defer snapshot.mu.Unlock()
+	snapshot.promptTokens = promptTokens
+	snapshot.totalTokens = totalTokens
+	snapshot.contextWindowToken = contextWindowTokens
+}
+
+func (snapshot *RuntimeContextSnapshot) Snapshot() (int, int, int) {
+	if snapshot == nil {
+		return 0, 0, 0
+	}
+	snapshot.mu.RLock()
+	defer snapshot.mu.RUnlock()
+	return snapshot.promptTokens, snapshot.totalTokens, snapshot.contextWindowToken
 }

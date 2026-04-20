@@ -42,6 +42,18 @@ func TestResolveBrowserActionRejectsUnsupportedFetchAlias(t *testing.T) {
 	}
 }
 
+func TestResolveBrowserActionAcceptsSnapshotAction(t *testing.T) {
+	t.Parallel()
+
+	action, err := resolveBrowserAction(toolArgs{"action": "snapshot"})
+	if err != nil {
+		t.Fatalf("expected snapshot action to be accepted, got %v", err)
+	}
+	if action != "snapshot" {
+		t.Fatalf("unexpected action: got %q want snapshot", action)
+	}
+}
+
 func TestSpecBrowserExposesWorkflowActionsOnly(t *testing.T) {
 	t.Parallel()
 
@@ -77,13 +89,10 @@ func TestSpecBrowserDescriptionExplainsSnapshotWorkflow(t *testing.T) {
 	if !strings.Contains(description, "return `stateAvailable`, `itemCount`, and the current page `state`/`items`") {
 		t.Fatalf("expected browser description to explain open/navigate result state, got %q", description)
 	}
-	if !strings.Contains(description, "`stateAvailable=false`") {
-		t.Fatalf("expected browser description to explain stateAvailable fallback, got %q", description)
+	if !strings.Contains(description, "call `snapshot` to refresh refs") {
+		t.Fatalf("expected browser description to explain snapshot flow, got %q", description)
 	}
-	if !strings.Contains(description, "call `snapshot` to refresh them") {
-		t.Fatalf("expected browser description to explain open/navigate flow, got %q", description)
-	}
-	if !strings.Contains(description, "use `ref` from the latest state") {
+	if !strings.Contains(description, "use `ref` from the latest snapshot") {
 		t.Fatalf("expected browser description to prefer refs, got %q", description)
 	}
 }
@@ -418,17 +427,14 @@ func TestBrowserActionActRejectsSelectorForNonWaitBeforeRuntime(t *testing.T) {
 	}
 }
 
-func TestResolveBrowserActionAcceptsSnapshotAction(t *testing.T) {
+func TestResolveBrowserActionRejectsObserveAction(t *testing.T) {
 	t.Parallel()
 
-	action, err := resolveBrowserAction(toolArgs{
-		"action": "snapshot",
+	_, err := resolveBrowserAction(toolArgs{
+		"action": "observe",
 	})
-	if err != nil {
-		t.Fatalf("expected snapshot action to be accepted, got %v", err)
-	}
-	if action != "snapshot" {
-		t.Fatalf("unexpected action: got %q want snapshot", action)
+	if err == nil {
+		t.Fatalf("expected observe action to be rejected")
 	}
 }
 

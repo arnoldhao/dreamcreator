@@ -18,7 +18,7 @@ func specBrowser() toolSpec {
 	return toolSpec{
 		ID:          "browser",
 		Name:        "browser",
-		Description: "Control a local CDP browser (`open`/`navigate`/`snapshot`/`act`/`wait`/`scroll`/`upload`/`dialog`/`reset`) using a browser-use style loop. For `open` or `navigate`, pass `url` or `targetUrl`; these actions return `stateAvailable`, `itemCount`, and the current page `state`/`items` whenever capture succeeds, so inspect that result before deciding the next action. If `stateAvailable=false` or refs look stale after the page changes, call `snapshot` to refresh them, then continue with `act` using `ref` on the same `targetId`. Do not use raw CSS `selector` for normal interactions; use `ref` from the latest state. Matching connector cookies are injected automatically before navigation.",
+		Description: "Control a local CDP browser (`open`/`navigate`/`snapshot`/`act`/`wait`/`scroll`/`upload`/`dialog`/`reset`) using a browser-use style loop. For `open`, `navigate`, or `snapshot`, pass `url` or `targetUrl` when needed; these actions return `stateAvailable`, `itemCount`, and the current page `state`/`items` whenever capture succeeds, so review that result before deciding the next action. After the page changes, call `snapshot` to refresh refs, then continue with `act` using `ref` on the same `targetId`. Do not use raw CSS `selector` for normal interactions; use `ref` from the latest snapshot. Matching connector cookies are injected automatically before navigation.",
 		Category:    "ui",
 		RiskLevel:   "high",
 		SchemaJSON: schemaJSON(map[string]any{
@@ -44,7 +44,6 @@ func specBrowser() toolSpec {
 					"enum": []string{"sandbox", "host", "node"},
 				},
 				"node":      map[string]any{"type": "string"},
-				"profile":   map[string]any{"type": "string"},
 				"targetUrl": map[string]any{"type": "string"},
 				"targetId":  map[string]any{"type": "string"},
 				"newTab":    map[string]any{"type": "boolean"},

@@ -138,15 +138,6 @@ func Start(ctx context.Context, options LaunchOptions) (*Runtime, error) {
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	cmd.SysProcAttr = &syscall.SysProcAttr{}
-	zap.L().Info(
-		"browser runtime launch started",
-		zap.String("preferredBrowser", strings.TrimSpace(options.PreferredBrowser)),
-		zap.String("chosenBrowser", string(candidate.ID)),
-		zap.String("execPath", candidate.ExecPath),
-		zap.Bool("headless", options.Headless),
-		zap.String("userDataDir", userDataDir),
-		zap.Int("cdpPort", port),
-	)
 	if err := cmd.Start(); err != nil {
 		zap.L().Warn(
 			"browser runtime launch failed",
@@ -170,13 +161,6 @@ func Start(ctx context.Context, options LaunchOptions) (*Runtime, error) {
 		_ = cmd.Process.Kill()
 		return nil, err
 	}
-	zap.L().Info(
-		"browser runtime cdp ready",
-		zap.String("preferredBrowser", strings.TrimSpace(options.PreferredBrowser)),
-		zap.String("chosenBrowser", string(candidate.ID)),
-		zap.String("execPath", candidate.ExecPath),
-		zap.Int("cdpPort", port),
-	)
 	wsURL, err := fetchWebSocketURL(ctx, port)
 	if err != nil {
 		zap.L().Warn(
@@ -206,14 +190,6 @@ func Start(ctx context.Context, options LaunchOptions) (*Runtime, error) {
 		_ = cmd.Process.Kill()
 		return nil, err
 	}
-	zap.L().Info(
-		"browser runtime ready",
-		zap.String("preferredBrowser", strings.TrimSpace(options.PreferredBrowser)),
-		zap.String("chosenBrowser", string(candidate.ID)),
-		zap.String("execPath", candidate.ExecPath),
-		zap.String("cdpUrl", wsURL),
-		zap.Int("cdpPort", port),
-	)
 
 	runtime := &Runtime{
 		options:       options,

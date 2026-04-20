@@ -469,7 +469,6 @@ func (session *Session) Reset(restart bool) (ActionResult, error) {
 }
 
 func (session *Session) Open(ctx context.Context, targetURL string, options CommandOptions) (ActionResult, error) {
-	openStartedAt := time.Now()
 	if err := session.assertURLAllowed(targetURL); err != nil {
 		zap.L().Warn(
 			"browser open blocked by url policy",
@@ -603,19 +602,6 @@ func (session *Session) Open(ctx context.Context, targetURL string, options Comm
 	if result.State != nil {
 		result.State.URL = preferredPageURL(result.State.URL, result.URL)
 	}
-	zap.L().Info(
-		"browser open completed",
-		append(session.logFields(),
-			sanitizedURLField("requestedURL", targetURL),
-			zap.String("targetId", result.TargetID),
-			sanitizedURLField("finalURL", result.URL),
-			zap.Bool("stateAvailable", result.State != nil || result.StateAvailable),
-			zap.Uint64("stateVersion", result.StateVersion),
-			zap.Int("itemCount", resultItemCount(result)),
-			zap.String("stateError", strings.TrimSpace(result.StateError)),
-			zap.Duration("elapsed", time.Since(openStartedAt).Round(time.Millisecond)),
-		)...,
-	)
 	return result, nil
 }
 
@@ -755,19 +741,6 @@ func (session *Session) Navigate(ctx context.Context, targetID string, targetURL
 		}
 	}
 	result.OpenedNewTab = false
-	zap.L().Info(
-		"browser navigate completed",
-		append(session.logFields(),
-			zap.String("targetId", result.TargetID),
-			sanitizedURLField("requestedURL", targetURL),
-			sanitizedURLField("finalURL", result.URL),
-			zap.Bool("stateAvailable", result.StateAvailable),
-			zap.Uint64("stateVersion", result.StateVersion),
-			zap.Int("itemCount", resultItemCount(result)),
-			zap.String("stateError", strings.TrimSpace(result.StateError)),
-			zap.Duration("elapsed", time.Since(navigateStartedAt).Round(time.Millisecond)),
-		)...,
-	)
 	return result, nil
 }
 
@@ -1068,22 +1041,6 @@ func (session *Session) Act(ctx context.Context, request ActRequest) (ActionResu
 	if request.Kind == "evaluate" {
 		result.Result = evaluateResult(tab)
 	}
-	zap.L().Info(
-		"browser act completed",
-		append(session.logFields(),
-			zap.String("kind", strings.TrimSpace(request.Kind)),
-			zap.String("targetId", result.TargetID),
-			sanitizedURLField("previousURL", previousURL),
-			sanitizedURLField("finalURL", result.URL),
-			zap.Bool("openedNewTab", openedNewTab),
-			zap.Bool("navigated", result.Navigated),
-			zap.Bool("stateAvailable", result.StateAvailable),
-			zap.Uint64("stateVersion", result.StateVersion),
-			zap.Int("itemCount", resultItemCount(result)),
-			zap.String("stateError", strings.TrimSpace(result.StateError)),
-			zap.Duration("elapsed", time.Since(actStartedAt).Round(time.Millisecond)),
-		)...,
-	)
 	return result, nil
 }
 
@@ -2335,15 +2292,6 @@ func newTabRunContext(tab *sessionTab, timeout time.Duration) (context.Context, 
 	}
 	runCtx, cancel := context.WithTimeout(baseCtx, timeout)
 	return runCtx, cancel, nil
-}
-
-func rememberTabCleanup(tab *sessionTab, cancel context.CancelFunc) {
-	if tab == nil || cancel == nil {
-		return
-	}
-	tab.mu.Lock()
-	tab.cleanupCancels = append(tab.cleanupCancels, cancel)
-	tab.mu.Unlock()
 }
 
 func cancelTabContexts(tab *sessionTab) {

@@ -18,6 +18,14 @@ export type ChatEvent = {
   toolName?: string;
   inputTextDelta?: string;
   output?: unknown;
+  usage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+    contextPromptTokens?: number;
+    contextTotalTokens?: number;
+    contextWindowTokens?: number;
+  };
 };
 
 export type AgentEvent = {
@@ -105,6 +113,7 @@ export type StreamParserUpdate = {
   content?: ChatModelRunResult["content"];
   status?: MessageStatus;
   errorText?: string;
+  usage?: ChatEvent["usage"];
   dataEventName?: string;
   dataEventPayload?: unknown;
 };
@@ -898,10 +907,11 @@ export const applyStreamEvent = (
     const runId = parseRunIdFromMetadata(event.messageMetadata);
     return runId ? { runId } : {};
   }
-  if (type === "finish") {
+  if (type === "finish" || type === "end") {
     const sourceFlushed = flushPendingSources(state);
     return {
       done: true,
+      ...(event.usage ? { usage: event.usage } : {}),
       ...(sourceFlushed ? { content: buildContent(state.blocks) } : {}),
     };
   }

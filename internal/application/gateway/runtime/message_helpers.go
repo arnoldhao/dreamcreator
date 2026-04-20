@@ -19,90 +19,41 @@ type normalizedMessage struct {
 	role      string
 	content   string
 	partsJSON string
+	parts     []chatevent.MessagePart
 }
 
 func dtoMessagesToSchema(messages []dto.Message) []*schema.Message {
+	return normalizedMessagesToSchema(normalizeIncomingMessages(messages), renderIncomingUserMessageParts)
+}
+
+func storedMessagesToSchema(messages []thread.ThreadMessage) []*schema.Message {
+	return normalizedMessagesToSchema(normalizeStoredMessages(messages), renderStoredUserMessageParts)
+}
+
+func normalizedMessagesToSchema(
+	messages []normalizedMessage,
+	renderUserParts func([]chatevent.MessagePart) string,
+) []*schema.Message {
 	result := make([]*schema.Message, 0, len(messages))
 	for _, message := range messages {
-		role := strings.TrimSpace(message.Role)
+		role := strings.TrimSpace(message.role)
 		if role == "" {
 			continue
 		}
-		content := strings.TrimSpace(message.Content)
-		if len(message.Parts) > 0 {
+		content := strings.TrimSpace(message.content)
+		if len(message.parts) > 0 {
 			if role == "user" {
-				if text := strings.TrimSpace(joinUserMessageParts(message.Parts)); text != "" {
+				if text := strings.TrimSpace(renderUserParts(message.parts)); text != "" {
 					content = text
 				}
 			} else {
-				if text := strings.TrimSpace(joinTextParts(message.Parts)); text != "" {
+				if text := strings.TrimSpace(joinTextParts(message.parts)); text != "" {
 					content = text
 				}
 			}
 			if role == "assistant" {
-				toolParts := extractToolParts(message.Parts)
-				var toolCalls []schema.ToolCall
-				if len(toolParts) > 0 {
-					toolCalls = make([]schema.ToolCall, 0, len(toolParts))
-					for _, toolPart := range toolParts {
-						if toolPart.callID == "" || toolPart.name == "" || !isReplayableToolState(toolPart.state) {
-							continue
-						}
-						arguments := strings.TrimSpace(string(toolPart.inputRaw))
-						if arguments == "" {
-							arguments = "{}"
-						}
-						toolCalls = append(toolCalls, schema.ToolCall{
-							ID:   toolPart.callID,
-							Type: "function",
-							Function: schema.FunctionCall{
-								Name:      toolPart.name,
-								Arguments: arguments,
-							},
-						})
-					}
-				}
-				if content != "" || len(toolCalls) > 0 {
-					result = append(result, &schema.Message{
-						Role:      schema.Assistant,
-						Content:   content,
-						ToolCalls: toolCalls,
-					})
-				}
-				for _, toolPart := range toolParts {
-					toolName := toolPart.name
-					if toolPart.callID == "" || toolName == "" {
-						continue
-					}
-					switch toolPart.state {
-					case "output-available":
-						output := strings.TrimSpace(string(toolPart.outputRaw))
-						if output == "" {
-							output = "null"
-						}
-						result = append(result, schema.ToolMessage(output, toolPart.callID, schema.WithToolName(toolName)))
-					case "output-error":
-						output := strings.TrimSpace(toolPart.errorText)
-						if output == "" {
-							output = strings.TrimSpace(string(toolPart.outputRaw))
-						}
-						if output == "" {
-							output = "tool output error"
-						}
-						result = append(result, schema.ToolMessage(output, toolPart.callID, schema.WithToolName(toolName)))
-					case "input-error":
-						output := strings.TrimSpace(toolPart.errorText)
-						if output == "" {
-							output = "tool input error"
-						}
-						result = append(result, schema.ToolMessage(output, toolPart.callID, schema.WithToolName(toolName)))
-					case "output-denied":
-						output := "tool execution denied"
-						if toolPart.errorText != "" {
-							output = toolPart.errorText
-						}
-						result = append(result, schema.ToolMessage(output, toolPart.callID, schema.WithToolName(toolName)))
-					}
+				if content != "" {
+					result = append(result, schemaMessageWithThreadID(schema.Assistant, content, message.id))
 				}
 				continue
 			}
@@ -110,12 +61,72 @@ func dtoMessagesToSchema(messages []dto.Message) []*schema.Message {
 		if content == "" {
 			continue
 		}
-		result = append(result, &schema.Message{
-			Role:    schema.RoleType(role),
-			Content: content,
-		})
+		result = append(result, schemaMessageWithThreadID(schema.RoleType(role), content, message.id))
 	}
 	return result
+}
+
+func (service *Service) buildPromptInputMessages(
+	ctx context.Context,
+	threadID string,
+	messages []dto.Message,
+	preferStored bool,
+	config promptContextBuildConfig,
+) ([]*schema.Message, promptContextBuildReport, error) {
+	if !preferStored || service == nil || service.messages == nil {
+		base := dtoMessagesToSchema(messages)
+		final := buildPromptMessagesToBudget(base, config)
+		report := promptContextBuildReport{
+			Source:                 "incoming",
+			InputMessageCount:      len(base),
+			BuiltMessageCount:      len(final),
+			ContextWindowTokens:    config.contextWindowTokens,
+			ReserveTokens:          config.reserveTokens,
+			ExtraTokens:            config.extraTokens,
+			AvailablePromptTokens:  resolvePromptMessageBudget(config),
+			InitialEstimatedTokens: estimatePromptMessagesTokens(base),
+			FinalEstimatedTokens:   estimatePromptMessagesTokens(final),
+		}
+		report.BudgetApplied = report.FinalEstimatedTokens != report.InitialEstimatedTokens || report.BuiltMessageCount != report.InputMessageCount
+		return final, report, nil
+	}
+	storedMessages, err := service.messages.ListByThread(ctx, threadID, 0)
+	if err != nil {
+		return nil, promptContextBuildReport{}, err
+	}
+	if len(storedMessages) == 0 {
+		base := dtoMessagesToSchema(messages)
+		final := buildPromptMessagesToBudget(base, config)
+		report := promptContextBuildReport{
+			Source:                 "incoming",
+			InputMessageCount:      len(base),
+			BuiltMessageCount:      len(final),
+			ContextWindowTokens:    config.contextWindowTokens,
+			ReserveTokens:          config.reserveTokens,
+			ExtraTokens:            config.extraTokens,
+			AvailablePromptTokens:  resolvePromptMessageBudget(config),
+			InitialEstimatedTokens: estimatePromptMessagesTokens(base),
+			FinalEstimatedTokens:   estimatePromptMessagesTokens(final),
+		}
+		report.BudgetApplied = report.FinalEstimatedTokens != report.InitialEstimatedTokens || report.BuiltMessageCount != report.InputMessageCount
+		return final, report, nil
+	}
+	resolved, report, err := service.resolveStoredPromptMessages(ctx, threadID, storedMessages)
+	if err != nil {
+		return nil, promptContextBuildReport{}, err
+	}
+	report.ContextWindowTokens = config.contextWindowTokens
+	report.ReserveTokens = config.reserveTokens
+	report.ExtraTokens = config.extraTokens
+	report.AvailablePromptTokens = resolvePromptMessageBudget(config)
+	if report.UsedPersistedSummary {
+		final := buildPromptMessagesToBudget(resolved, config)
+		report.BudgetApplied = len(final) != len(resolved) || estimatePromptMessagesTokens(final) != estimatePromptMessagesTokens(resolved)
+		report.FinalEstimatedTokens = estimatePromptMessagesTokens(final)
+		report.BuiltMessageCount = len(final)
+		return final, report, nil
+	}
+	return resolved, report, nil
 }
 
 func (service *Service) persistIncomingMessages(
@@ -123,13 +134,13 @@ func (service *Service) persistIncomingMessages(
 	threadID string,
 	messages []dto.Message,
 	replaceHistory bool,
-) (bool, error) {
+) (bool, string, error) {
 	if service == nil || service.messages == nil || service.threads == nil {
-		return false, nil
+		return false, "", nil
 	}
 	incomingMessages := normalizeIncomingMessages(messages)
 	if len(incomingMessages) == 0 {
-		return false, nil
+		return false, "", nil
 	}
 	hasIncomingUserMessage := false
 	for _, message := range incomingMessages {
@@ -139,45 +150,48 @@ func (service *Service) persistIncomingMessages(
 		}
 	}
 	if replaceHistory {
-		if err := service.replaceThreadMessages(ctx, threadID, incomingMessages); err != nil {
-			return false, err
+		lastUserMessageID, err := service.replaceThreadMessages(ctx, threadID, incomingMessages)
+		if err != nil {
+			return false, "", err
 		}
+		service.clearCompactedContextState(ctx, threadID)
 		item, err := service.threads.Get(ctx, threadID)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 		item.UpdatedAt = service.now()
-		return hasIncomingUserMessage, service.threads.Save(ctx, item)
+		return hasIncomingUserMessage, lastUserMessageID, service.threads.Save(ctx, item)
 	}
-	persistedUserMessage, err := service.persistIncomingUserMessages(ctx, threadID, incomingMessages)
+	persistedUserMessage, lastUserMessageID, err := service.persistIncomingUserMessages(ctx, threadID, incomingMessages)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	if !persistedUserMessage {
-		return false, nil
+		return false, "", nil
 	}
 	item, err := service.threads.Get(ctx, threadID)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	item.UpdatedAt = service.now()
-	return true, service.threads.Save(ctx, item)
+	return true, lastUserMessageID, service.threads.Save(ctx, item)
 }
 
 func (service *Service) persistIncomingUserMessages(
 	ctx context.Context,
 	threadID string,
 	incomingMessages []normalizedMessage,
-) (bool, error) {
+) (bool, string, error) {
 	existingMessages, err := service.messages.ListByThread(ctx, threadID, 0)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	existingNormalized := normalizeStoredMessages(existingMessages)
 	existingUsers := filterMessagesByRole(existingNormalized, "user")
 	incomingUsers := filterMessagesByRole(incomingMessages, "user")
 	newMessages := diffIncomingMessages(existingUsers, incomingUsers)
 	persistedUserMessage := false
+	lastUserMessageID := ""
 	for _, message := range newMessages {
 		messageID := strings.TrimSpace(message.id)
 		if messageID == "" {
@@ -192,24 +206,26 @@ func (service *Service) persistIncomingUserMessages(
 			CreatedAt: ptrTime(service.now()),
 		})
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 		if err := service.messages.Append(ctx, msg); err != nil {
-			return false, err
+			return false, "", err
 		}
 		persistedUserMessage = true
+		lastUserMessageID = messageID
 	}
-	return persistedUserMessage, nil
+	return persistedUserMessage, lastUserMessageID, nil
 }
 
-func (service *Service) replaceThreadMessages(ctx context.Context, threadID string, incomingMessages []normalizedMessage) error {
+func (service *Service) replaceThreadMessages(ctx context.Context, threadID string, incomingMessages []normalizedMessage) (string, error) {
 	if err := service.messages.DeleteByThread(ctx, threadID); err != nil {
-		return err
+		return "", err
 	}
 	if len(incomingMessages) == 0 {
-		return nil
+		return "", nil
 	}
 	baseTime := service.now()
+	lastUserMessageID := ""
 	for index, message := range incomingMessages {
 		createdAt := baseTime.Add(time.Duration(index) * time.Millisecond)
 		messageID := strings.TrimSpace(message.id)
@@ -225,13 +241,16 @@ func (service *Service) replaceThreadMessages(ctx context.Context, threadID stri
 			CreatedAt: ptrTime(createdAt),
 		})
 		if err != nil {
-			return err
+			return "", err
 		}
 		if err := service.messages.Append(ctx, msg); err != nil {
-			return err
+			return "", err
+		}
+		if message.role == "user" {
+			lastUserMessageID = messageID
 		}
 	}
-	return nil
+	return lastUserMessageID, nil
 }
 
 func (service *Service) persistAssistantMessage(
@@ -292,6 +311,7 @@ func normalizeIncomingMessages(messages []dto.Message) []normalizedMessage {
 			role:      role,
 			content:   content,
 			partsJSON: partsJSON,
+			parts:     cloneMessageParts(message.Parts),
 		})
 	}
 	return result
@@ -315,6 +335,7 @@ func normalizeStoredMessages(messages []thread.ThreadMessage) []normalizedMessag
 			role:      role,
 			content:   content,
 			partsJSON: partsJSON,
+			parts:     parseNormalizedMessageParts(partsJSON),
 		})
 	}
 	return result
@@ -444,7 +465,7 @@ func isReplayableToolState(state string) bool {
 	}
 }
 
-func joinUserMessageParts(parts []chatevent.MessagePart) string {
+func renderIncomingUserMessageParts(parts []chatevent.MessagePart) string {
 	text := strings.TrimSpace(joinTextParts(parts))
 	attachmentPaths := extractAttachmentPaths(parts)
 	if len(attachmentPaths) == 0 {
@@ -465,6 +486,17 @@ func joinUserMessageParts(parts []chatevent.MessagePart) string {
 	return strings.TrimSpace(builder.String())
 }
 
+func renderStoredUserMessageParts(parts []chatevent.MessagePart) string {
+	text := strings.TrimSpace(joinTextParts(parts))
+	if !hasAttachmentParts(parts) {
+		return text
+	}
+	if text == "" {
+		return "Attachments were provided with this message."
+	}
+	return text + "\n\nAttachments were provided with this message."
+}
+
 func joinTextParts(parts []chatevent.MessagePart) string {
 	var builder strings.Builder
 	for _, part := range parts {
@@ -473,6 +505,16 @@ func joinTextParts(parts []chatevent.MessagePart) string {
 		}
 	}
 	return builder.String()
+}
+
+func hasAttachmentParts(parts []chatevent.MessagePart) bool {
+	for _, part := range parts {
+		partType := strings.TrimSpace(part.Type)
+		if partType == "file" || partType == "image" {
+			return true
+		}
+	}
+	return false
 }
 
 func extractAttachmentPaths(parts []chatevent.MessagePart) []string {
@@ -514,6 +556,40 @@ func parseAttachmentPath(raw json.RawMessage) string {
 		return trimmed
 	}
 	return strings.TrimSpace(payload.Filename)
+}
+
+func cloneMessageParts(parts []chatevent.MessagePart) []chatevent.MessagePart {
+	if len(parts) == 0 {
+		return nil
+	}
+	cloned := make([]chatevent.MessagePart, len(parts))
+	copy(cloned, parts)
+	return cloned
+}
+
+func parseNormalizedMessageParts(partsJSON string) []chatevent.MessagePart {
+	trimmed := strings.TrimSpace(partsJSON)
+	if trimmed == "" || trimmed == "[]" {
+		return nil
+	}
+	var parts []chatevent.MessagePart
+	if err := json.Unmarshal([]byte(trimmed), &parts); err != nil {
+		return nil
+	}
+	return parts
+}
+
+func schemaMessageWithThreadID(role schema.RoleType, content string, threadMessageID string) *schema.Message {
+	message := &schema.Message{
+		Role:    role,
+		Content: content,
+	}
+	if trimmed := strings.TrimSpace(threadMessageID); trimmed != "" {
+		message.Extra = map[string]any{
+			promptThreadMessageIDKey: trimmed,
+		}
+	}
+	return message
 }
 
 func ptrTime(value time.Time) *time.Time {

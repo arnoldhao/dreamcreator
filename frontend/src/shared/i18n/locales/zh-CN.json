@@ -2582,6 +2582,10 @@
       "contextTotalUnknown": "不适用",
       "contextUsage": "上下文用量",
       "contextUsageShort": "用量",
+      "lastRunUsage": "最近一次模型调用",
+      "lastInputTokens": "输入词元",
+      "lastOutputTokens": "输出词元",
+      "lastTotalTokens": "总词元",
       "permission": {
         "label": "权限",
         "standard": "默认权限",

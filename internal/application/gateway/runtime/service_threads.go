@@ -61,6 +61,19 @@ func (service *Service) failRun(ctx context.Context, run thread.ThreadRun, err e
 	return service.runs.Save(ctx, run)
 }
 
+func (service *Service) attachRunUserMessageID(ctx context.Context, run *thread.ThreadRun, userMessageID string) {
+	if service == nil || service.runs == nil || run == nil {
+		return
+	}
+	trimmed := strings.TrimSpace(userMessageID)
+	if trimmed == "" {
+		return
+	}
+	run.UserMessageID = trimmed
+	run.UpdatedAt = service.now()
+	_ = service.runs.Save(ctx, *run)
+}
+
 func (service *Service) emitRuntimeEvent(ctx context.Context, run thread.ThreadRun, sessionKey string, event agentruntime.Event) {
 	event.RunID = strings.TrimSpace(run.ID)
 	event.ThreadID = strings.TrimSpace(run.ThreadID)

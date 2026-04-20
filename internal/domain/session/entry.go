@@ -35,6 +35,10 @@ type Entry struct {
 	ContextWindowTokens        int       `json:"contextWindowTokens,omitempty"`
 	ContextUpdatedAt           time.Time `json:"contextUpdatedAt,omitempty"`
 	ContextFresh               bool      `json:"contextFresh,omitempty"`
+	ContextSummary             string    `json:"contextSummary,omitempty"`
+	ContextFirstKeptMessageID  string    `json:"contextFirstKeptMessageId,omitempty"`
+	ContextStrategyVersion     int       `json:"contextStrategyVersion,omitempty"`
+	ContextCompactedAt         time.Time `json:"contextCompactedAt,omitempty"`
 	CompactionCount            int       `json:"compactionCount,omitempty"`
 	MemoryFlushCompactionCount int       `json:"memoryFlushCompactionCount,omitempty"`
 	CreatedAt                  time.Time `json:"createdAt"`

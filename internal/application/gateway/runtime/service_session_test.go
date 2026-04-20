@@ -176,3 +176,53 @@ func TestPersistSession_PreservesExistingOriginWhenIncomingMetadataIsIncomplete(
 		t.Fatalf("origin peerAvatarUrl should be preserved")
 	}
 }
+
+func TestPersistSession_PreservesExistingContextSnapshot(t *testing.T) {
+	t.Parallel()
+
+	sessionService := sessionapp.NewService(sessionapp.NewInMemoryStore())
+	runtimeService := &Service{
+		sessions: sessionService,
+	}
+
+	request := runtimedto.RuntimeRunRequest{
+		SessionID:  "telegram:default:private:" + testTelegramSessionPeerID,
+		SessionKey: "telegram:default:private:" + testTelegramSessionPeerID,
+		Metadata: map[string]any{
+			"channel":   "telegram",
+			"accountId": "default",
+			"peerKind":  "direct",
+			"peerId":    testTelegramSessionPeerID,
+		},
+	}
+	sessionID, sessionKey, err := runtimeService.resolveSession(request)
+	if err != nil {
+		t.Fatalf("resolve session: %v", err)
+	}
+	if err := sessionService.UpdateContextSnapshot(context.Background(), sessionID, sessionapp.ContextSnapshotUpdate{
+		PromptTokens: 4800,
+		TotalTokens:  6200,
+		WindowTokens: 131072,
+		Fresh:        true,
+	}); err != nil {
+		t.Fatalf("update context snapshot: %v", err)
+	}
+
+	runtimeService.persistSession(context.Background(), sessionID, sessionKey, "", "assistant-ctx", map[string]any{
+		"channel": "telegram",
+	})
+
+	stored, err := sessionService.Get(context.Background(), sessionID)
+	if err != nil {
+		t.Fatalf("load session: %v", err)
+	}
+	if stored.ContextPromptTokens != 4800 || stored.ContextTotalTokens != 6200 || stored.ContextWindowTokens != 131072 {
+		t.Fatalf("expected context snapshot to be preserved, got %d/%d/%d", stored.ContextPromptTokens, stored.ContextTotalTokens, stored.ContextWindowTokens)
+	}
+	if !stored.ContextFresh {
+		t.Fatal("expected context freshness to be preserved")
+	}
+	if stored.AssistantID != "assistant-ctx" {
+		t.Fatalf("assistant id mismatch: got %q", stored.AssistantID)
+	}
+}
