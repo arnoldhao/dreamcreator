@@ -100,31 +100,7 @@ func Start(ctx context.Context, options LaunchOptions) (*Runtime, error) {
 		return nil, err
 	}
 
-	args := []string{
-		fmt.Sprintf("--remote-debugging-port=%d", port),
-		fmt.Sprintf("--user-data-dir=%s", userDataDir),
-		"--no-first-run",
-		"--no-default-browser-check",
-		"--disable-background-networking",
-		"--disable-background-timer-throttling",
-		"--disable-backgrounding-occluded-windows",
-		"--disable-breakpad",
-		"--disable-client-side-phishing-detection",
-		"--disable-default-apps",
-		"--disable-features=Translate,OptimizationHints,MediaRouter,AutomationControlled",
-		"--disable-hang-monitor",
-		"--disable-popup-blocking",
-		"--disable-prompt-on-repost",
-		"--disable-sync",
-		"--metrics-recording-only",
-		"--password-store=basic",
-		"--use-mock-keychain",
-	}
-	if options.Headless {
-		args = append([]string{"--headless=new", "--hide-scrollbars", "--mute-audio"}, args...)
-	} else {
-		args = append([]string{"--no-startup-window"}, args...)
-	}
+	args := buildLaunchArgs(port, userDataDir, options)
 	if options.NoSandbox {
 		args = append([]string{"--no-sandbox"}, args...)
 	}
@@ -133,20 +109,12 @@ func Start(ctx context.Context, options LaunchOptions) (*Runtime, error) {
 			args = append(args, trimmed)
 		}
 	}
+	args = appendStartupPageArg(args, options)
 
 	cmd := exec.Command(candidate.ExecPath, args...)
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	cmd.SysProcAttr = &syscall.SysProcAttr{}
-	zap.L().Info(
-		"browser runtime launch started",
-		zap.String("preferredBrowser", strings.TrimSpace(options.PreferredBrowser)),
-		zap.String("chosenBrowser", string(candidate.ID)),
-		zap.String("execPath", candidate.ExecPath),
-		zap.Bool("headless", options.Headless),
-		zap.String("userDataDir", userDataDir),
-		zap.Int("cdpPort", port),
-	)
 	if err := cmd.Start(); err != nil {
 		zap.L().Warn(
 			"browser runtime launch failed",
@@ -170,13 +138,6 @@ func Start(ctx context.Context, options LaunchOptions) (*Runtime, error) {
 		_ = cmd.Process.Kill()
 		return nil, err
 	}
-	zap.L().Info(
-		"browser runtime cdp ready",
-		zap.String("preferredBrowser", strings.TrimSpace(options.PreferredBrowser)),
-		zap.String("chosenBrowser", string(candidate.ID)),
-		zap.String("execPath", candidate.ExecPath),
-		zap.Int("cdpPort", port),
-	)
 	wsURL, err := fetchWebSocketURL(ctx, port)
 	if err != nil {
 		zap.L().Warn(
@@ -206,14 +167,6 @@ func Start(ctx context.Context, options LaunchOptions) (*Runtime, error) {
 		_ = cmd.Process.Kill()
 		return nil, err
 	}
-	zap.L().Info(
-		"browser runtime ready",
-		zap.String("preferredBrowser", strings.TrimSpace(options.PreferredBrowser)),
-		zap.String("chosenBrowser", string(candidate.ID)),
-		zap.String("execPath", candidate.ExecPath),
-		zap.String("cdpUrl", wsURL),
-		zap.Int("cdpPort", port),
-	)
 
 	runtime := &Runtime{
 		options:       options,
@@ -259,6 +212,40 @@ func Start(ctx context.Context, options LaunchOptions) (*Runtime, error) {
 	}()
 
 	return runtime, nil
+}
+
+func buildLaunchArgs(port int, userDataDir string, options LaunchOptions) []string {
+	args := []string{
+		fmt.Sprintf("--remote-debugging-port=%d", port),
+		fmt.Sprintf("--user-data-dir=%s", userDataDir),
+		"--no-first-run",
+		"--no-default-browser-check",
+		"--disable-background-networking",
+		"--disable-background-timer-throttling",
+		"--disable-backgrounding-occluded-windows",
+		"--disable-breakpad",
+		"--disable-client-side-phishing-detection",
+		"--disable-default-apps",
+		"--disable-features=Translate,OptimizationHints,MediaRouter,AutomationControlled",
+		"--disable-hang-monitor",
+		"--disable-popup-blocking",
+		"--disable-prompt-on-repost",
+		"--disable-sync",
+		"--metrics-recording-only",
+		"--password-store=basic",
+		"--use-mock-keychain",
+	}
+	if options.Headless {
+		return append([]string{"--headless=new", "--hide-scrollbars", "--mute-audio"}, args...)
+	}
+	return args
+}
+
+func appendStartupPageArg(args []string, options LaunchOptions) []string {
+	if options.Headless {
+		return args
+	}
+	return append(args, "about:blank")
 }
 
 func (runtime *Runtime) BrowserContext() context.Context {

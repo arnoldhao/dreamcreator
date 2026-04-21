@@ -434,6 +434,7 @@ func (service *ThreadService) generateThreadTitleByRuntime(ctx context.Context, 
 	runCtx, cancel := context.WithTimeout(ctx, titleRunTimeout)
 	defer cancel()
 	request := runtimedto.RuntimeRunRequest{
+		SessionID:   threadID,
 		AssistantID: assistantID,
 		RunKind:     "one-shot",
 		PromptMode:  domainassistant.PromptModeNone,

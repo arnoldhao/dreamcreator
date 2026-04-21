@@ -388,6 +388,7 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 	}
 
 	runCtx, cancel := context.WithCancel(ctx)
+	contextSnapshot := llm.NewRuntimeContextSnapshot()
 	runCtx = llm.WithRuntimeParams(runCtx, llm.RuntimeParams{
 		SessionID:        sessionID,
 		ThreadID:         sessionID,
@@ -398,6 +399,7 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 		ModelName:        resolvedModel.ModelName,
 		ThinkingLevel:    thinkingLevel,
 		StructuredOutput: resolveStructuredOutputConfig(request.Metadata),
+		ContextSnapshot:  contextSnapshot,
 	})
 	if service.aborts != nil {
 		service.aborts.Register(run.ID, cancel)
@@ -434,8 +436,9 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 	}
 
 	persistedIncomingUserMessage := false
+	persistedIncomingUserMessageID := ""
 	if flags.PersistMessages {
-		persisted, err := service.persistIncomingMessages(runCtx, sessionID, request.Input.Messages, request.Input.ReplaceHistory)
+		persisted, userMessageID, err := service.persistIncomingMessages(runCtx, sessionID, request.Input.Messages, request.Input.ReplaceHistory)
 		if err != nil {
 			if flags.PersistRun {
 				_ = service.failRun(runCtx, run, err)
@@ -443,9 +446,13 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 			return dto.RuntimeRunResult{}, err
 		}
 		persistedIncomingUserMessage = persisted
+		persistedIncomingUserMessageID = userMessageID
 		if persistedIncomingUserMessage {
 			service.emitThreadUpdated(runCtx, sessionID, "upsert", "append-message")
 		}
+	}
+	if flags.PersistRun && persistedIncomingUserMessageID != "" {
+		service.attachRunUserMessageID(runCtx, &run, persistedIncomingUserMessageID)
 	}
 	runLane := resolveRunLane(request.Metadata, flags.IsSubagent)
 	if service.queue != nil {
@@ -499,7 +506,22 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 		}
 		service.emitRuntimeEvent(runCtx, run, sessionKey, event)
 	}
-	inputMessages := dtoMessagesToSchema(request.Input.Messages)
+	contextWindowTokens := service.resolveContextWindowTokens(runCtx, resolvedModel.ProviderID, resolvedModel.ModelName, request.Metadata)
+	contextConfig := resolveContextGuardConfig(gatewaySettings.Runtime, contextWindowTokens)
+	contextConfig.extraTokens = estimateToolSpecTokens(toolSpecs)
+	contextLimit := contextConfig.contextWindowTokens
+	inputMessages, promptContextReport, err := service.buildPromptInputMessages(runCtx, sessionID, request.Input.Messages, flags.PersistMessages, promptContextBuildConfig{
+		contextWindowTokens: contextConfig.contextWindowTokens,
+		reserveTokens:       contextConfig.reserveTokens,
+		extraTokens:         contextConfig.extraTokens,
+		systemPrompt:        systemPrompt,
+	})
+	if err != nil {
+		if flags.PersistRun {
+			_ = service.failRun(runCtx, run, err)
+		}
+		return dto.RuntimeRunResult{}, err
+	}
 
 	if flags.PersistEvents {
 		service.emitPromptReport(
@@ -511,15 +533,12 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 			promptDoc,
 			promptReport,
 			promptSections,
+			promptContextReport,
 			inputMessages,
 			toolSpecs,
 			skillItems,
 		)
 	}
-	contextWindowTokens := service.resolveContextWindowTokens(runCtx, resolvedModel.ProviderID, resolvedModel.ModelName, request.Metadata)
-	contextConfig := resolveContextGuardConfig(gatewaySettings.Runtime, contextWindowTokens)
-	contextConfig.extraTokens = estimateToolSpecTokens(toolSpecs)
-	contextLimit := contextConfig.contextWindowTokens
 	guardState := &contextGuardState{}
 	if service.sessions != nil {
 		if sessionEntry, getErr := service.sessions.Get(runCtx, sessionID); getErr == nil {
@@ -546,6 +565,7 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 		StreamFunction: streamFn,
 		TransformContext: func(loopCtx context.Context, state agentruntime.AgentState) (agentruntime.AgentState, error) {
 			updated, report, err := applyContextGuard(loopCtx, state, contextConfig, guardState, hooks)
+			contextSnapshot.Set(report.promptTokens, report.totalTokens, contextLimit)
 			if report.totalTokens > 0 {
 				metadata := map[string]any{}
 				if report.truncatedResults > 0 {
@@ -559,6 +579,9 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 				}
 				if report.compactedResults > 0 {
 					metadata["compactedToolResults"] = report.compactedResults
+				}
+				if report.supersededResults > 0 {
+					metadata["supersededToolResults"] = report.supersededResults
 				}
 				if report.memoryFlushed {
 					metadata["memoryFlushed"] = true
@@ -575,6 +598,7 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 				if err != nil {
 					metadata["blocked"] = true
 				}
+				applyPromptContextMetadata(metadata, promptContextReport)
 				emitEvent(agentruntime.Event{
 					Type: agentruntime.EventContextSnapshot,
 					Step: state.CurrentLoopStep,
@@ -654,6 +678,7 @@ func (service *Service) runWithStream(ctx context.Context, request dto.RuntimeRu
 			}
 			return dto.RuntimeRunResult{}, err
 		}
+		service.persistCompactedContextState(runCtx, sessionID, contextConfig, guardState)
 		service.emitThreadUpdated(runCtx, sessionID, "upsert", "append-message")
 	}
 

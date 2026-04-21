@@ -38,7 +38,10 @@ import { useAssistants, useUpdateAssistant } from "@/shared/query/assistant";
 import { useEnabledProvidersWithModels } from "@/shared/query/providers";
 import { useUpdateSettings } from "@/shared/query/settings";
 import type { Assistant } from "@/shared/store/assistant";
-import { useChatRuntimeStore, type ContextTokenSnapshot } from "@/shared/store/chat-runtime";
+import {
+  useChatRuntimeStore,
+  type ContextTokenSnapshot,
+} from "@/shared/store/chat-runtime";
 import type { ProviderModel, ProviderWithModels } from "@/shared/store/providers";
 import { useSettingsStore } from "@/shared/store/settings";
 import { Button } from "@/shared/ui/button";
@@ -206,6 +209,14 @@ const parseThreadContextSnapshot = (payload: unknown): ContextTokenSnapshot | nu
     contextFresh: data.fresh !== false,
     updatedAt: Number.isFinite(updatedAt) ? updatedAt : undefined,
   };
+};
+
+const formatTokenCount = (value: number | undefined): string => {
+  const normalized = Number(value ?? 0);
+  if (!Number.isFinite(normalized) || normalized <= 0) {
+    return "0";
+  }
+  return Math.round(normalized).toLocaleString();
 };
 
 const toModelGroups = (items: ProviderWithModels[]): ModelGroup[] => {
@@ -685,6 +696,7 @@ export function ComposerBar({
   const hasActiveThread = (activeThreadId ?? "").trim().length > 0;
   const setContextTokens = useChatRuntimeStore((state) => state.setContextTokens);
   const contextSnapshot = useChatRuntimeStore((state) => state.contextTokens[activeThreadId]);
+  const lastRunUsage = useChatRuntimeStore((state) => state.runUsage[activeThreadId]);
   const selectedModelContextLimit = React.useMemo(() => {
     if (!agentProviderId || !agentModelName) {
       return 0;
@@ -720,6 +732,9 @@ export function ComposerBar({
   const contextTotalText = contextTotal.toLocaleString();
   const contextLimitText =
     contextLimit > 0 ? contextLimit.toLocaleString() : t("chat.composer.contextTotalUnknown");
+  const latestPromptTokensText = formatTokenCount(lastRunUsage?.promptTokens);
+  const latestCompletionTokensText = formatTokenCount(lastRunUsage?.completionTokens);
+  const latestTotalTokensText = formatTokenCount(lastRunUsage?.totalTokens);
 
   React.useEffect(() => {
     const threadID = (activeThreadId ?? "").trim();
@@ -1036,6 +1051,22 @@ export function ComposerBar({
                         <div>
                           {t("chat.composer.contextUsageShort")}: {contextUsageText}
                         </div>
+                        {lastRunUsage ? (
+                          <>
+                            <div className="pt-1 text-muted-foreground">
+                              {t("chat.composer.lastRunUsage")}
+                            </div>
+                            <div>
+                              {t("chat.composer.lastInputTokens")}: {latestPromptTokensText}
+                            </div>
+                            <div>
+                              {t("chat.composer.lastOutputTokens")}: {latestCompletionTokensText}
+                            </div>
+                            <div>
+                              {t("chat.composer.lastTotalTokens")}: {latestTotalTokensText}
+                            </div>
+                          </>
+                        ) : null}
                       </div>
                     </TooltipContent>
                   </Tooltip>

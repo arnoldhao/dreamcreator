@@ -72,3 +72,25 @@ func TestCollectPromptMessages_EmptyInputReturnsNil(t *testing.T) {
 		t.Fatalf("expected nil result, got %+v", result)
 	}
 }
+
+func TestBuildPromptContextReportPayload(t *testing.T) {
+	t.Parallel()
+
+	payload := buildPromptContextReportPayload(promptContextBuildReport{
+		Source:                 "stored",
+		StoredMessageCount:     4,
+		InputMessageCount:      3,
+		BuiltMessageCount:      2,
+		UsedPersistedSummary:   true,
+		PersistedSummaryChars:  120,
+		BudgetApplied:          true,
+		InitialEstimatedTokens: 900,
+		FinalEstimatedTokens:   420,
+	})
+	if payload == nil {
+		t.Fatal("expected context payload")
+	}
+	if payload.Source != "stored" || !payload.UsedPersistedSummary || payload.FinalEstimatedTokens != 420 {
+		t.Fatalf("unexpected context payload: %+v", payload)
+	}
+}

@@ -244,6 +244,9 @@ func TestGenerateThreadTitle_UsesRuntimeOneShotWhenAvailable(t *testing.T) {
 	if runtimeStub.request.Tools.Mode != "disabled" {
 		t.Fatalf("expected runtime tools disabled, got %q", runtimeStub.request.Tools.Mode)
 	}
+	if runtimeStub.request.SessionID != "session-3" {
+		t.Fatalf("expected runtime session id %q, got %q", "session-3", runtimeStub.request.SessionID)
+	}
 	if runtimeStub.request.RunKind != "one-shot" {
 		t.Fatalf("expected one-shot run kind, got %q", runtimeStub.request.RunKind)
 	}

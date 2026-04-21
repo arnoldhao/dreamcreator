@@ -17,6 +17,7 @@ import (
 
 const (
 	defaultToolResultMaxChars      = 400_000
+	defaultDetailedBrowserStates   = 1
 	minToolResultKeepChars         = 2_000
 	defaultContextWindowTokens     = 200_000
 	contextInputHeadroomRatio      = 0.75
@@ -61,6 +62,7 @@ type contextGuardReport struct {
 	contextLimitTokens int
 	truncatedResults   int
 	compactedResults   int
+	supersededResults  int
 	droppedMessages    int
 	memoryFlushed      bool
 	memoryFlushError   string
@@ -142,6 +144,12 @@ func resolveContextGuardConfig(settings settingsdto.GatewayRuntimeSettings, cont
 func applyContextGuard(ctx context.Context, state agentruntime.AgentState, config contextGuardConfig, guard *contextGuardState, hooks contextGuardHooks) (agentruntime.AgentState, contextGuardReport, error) {
 	report := contextGuardReport{contextLimitTokens: config.contextWindowTokens}
 	messages := state.Messages
+	var superseded int
+	messages, superseded = applySameTurnBrowserSupersession(messages, defaultDetailedBrowserStates)
+	if superseded > 0 {
+		report.supersededResults = superseded
+		state.Messages = messages
+	}
 	if config.toolResultMaxChars > 0 && config.contextWindowTokens > 0 {
 		var truncated int
 		var compacted int
@@ -324,25 +332,97 @@ func applyToolResultContextGuard(messages []*schema.Message, config contextGuard
 	return updated, truncated, compacted
 }
 
+func applySameTurnBrowserSupersession(messages []*schema.Message, keepDetailed int) ([]*schema.Message, int) {
+	if len(messages) == 0 || keepDetailed < 0 {
+		return messages, 0
+	}
+	lastUserIndex := -1
+	for index := len(messages) - 1; index >= 0; index-- {
+		message := messages[index]
+		if message != nil && message.Role == schema.User {
+			lastUserIndex = index
+			break
+		}
+	}
+	if lastUserIndex < 0 || lastUserIndex >= len(messages)-1 {
+		return messages, 0
+	}
+
+	browserIndexes := make([]int, 0, 4)
+	for index := lastUserIndex + 1; index < len(messages); index++ {
+		message := messages[index]
+		if message == nil || message.Role != schema.Tool {
+			continue
+		}
+		if strings.ToLower(strings.TrimSpace(message.ToolName)) != "browser" {
+			continue
+		}
+		if isBrowserSupersededContent(message.Content) {
+			continue
+		}
+		browserIndexes = append(browserIndexes, index)
+	}
+	if len(browserIndexes) <= keepDetailed {
+		return messages, 0
+	}
+
+	updated := cloneSchemaMessages(messages)
+	superseded := 0
+	for _, index := range browserIndexes[:len(browserIndexes)-keepDetailed] {
+		message := updated[index]
+		if message == nil {
+			continue
+		}
+		nextContent := buildBrowserSupersededContent()
+		if strings.TrimSpace(message.Content) == nextContent {
+			continue
+		}
+		message.Content = nextContent
+		superseded++
+	}
+	if superseded == 0 {
+		return messages, 0
+	}
+	return updated, superseded
+}
+
+const browserSupersededContent = "[superseded: older browser tool result removed to keep the latest browser result in this turn]"
+
+func buildBrowserSupersededContent() string {
+	return browserSupersededContent
+}
+
+func isBrowserSupersededContent(raw string) bool {
+	return strings.TrimSpace(raw) == browserSupersededContent
+}
+
 func truncateToolResultMessage(message *schema.Message, maxChars int) (*schema.Message, bool) {
 	if message == nil || message.Role != schema.Tool || maxChars <= 0 {
+		return message, false
+	}
+	effectiveMaxChars := resolveToolResultMaxChars(message, maxChars)
+	if effectiveMaxChars <= 0 {
 		return message, false
 	}
 	content := strings.TrimSpace(message.Content)
 	if content == "" {
 		return message, false
 	}
-	if next, ok := truncateToolResultBlocks(content, maxChars); ok {
+	if next, ok := truncateToolResultBlocks(content, effectiveMaxChars); ok {
 		cp := *message
 		cp.Content = next
 		return &cp, true
 	}
-	if len(message.Content) <= maxChars {
+	if len(message.Content) <= effectiveMaxChars {
 		return message, false
 	}
 	cp := *message
-	cp.Content = truncateTextWithNotice(message.Content, maxChars, toolResultTruncationNotice)
+	cp.Content = truncateTextWithNotice(message.Content, effectiveMaxChars, toolResultTruncationNotice)
 	return &cp, true
+}
+
+func resolveToolResultMaxChars(_ *schema.Message, maxChars int) int {
+	return maxChars
 }
 
 func truncateToolResultBlocks(content string, maxChars int) (string, bool) {

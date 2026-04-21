@@ -26,16 +26,22 @@ type SystemEvent struct {
 type SystemEventQueue struct {
 	mu      sync.Mutex
 	entries map[string]*systemEventSession
+	now     func() time.Time
 }
 
 type systemEventSession struct {
-	queue []SystemEvent
-	seen  map[string]struct{}
+	queue     []SystemEvent
+	seen      map[string]struct{}
+	touchedAt time.Time
 }
+
+const maxSystemEventSessions = 256
+const systemEventSessionTTL = 24 * time.Hour
 
 func NewSystemEventQueue() *SystemEventQueue {
 	return &SystemEventQueue{
 		entries: make(map[string]*systemEventSession),
+		now:     time.Now,
 	}
 }
 
@@ -55,9 +61,11 @@ func (queue *SystemEventQueue) Enqueue(input SystemEventInput) bool {
 	contextKey := normalizeContextKey(input.ContextKey, source)
 	runID := strings.TrimSpace(input.RunID)
 	dedupeKey := buildEventDedupeKey(contextKey, runID, cleaned)
+	now := queue.now()
 
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
+	queue.pruneSessionsLocked(now)
 	entry := queue.entries[key]
 	if entry == nil {
 		entry = &systemEventSession{
@@ -70,18 +78,20 @@ func (queue *SystemEventQueue) Enqueue(input SystemEventInput) bool {
 	}
 	event := SystemEvent{
 		Text:       cleaned,
-		Timestamp:  time.Now(),
+		Timestamp:  now,
 		ContextKey: contextKey,
 		RunID:      runID,
 		Source:     source,
 	}
 	entry.queue = append(entry.queue, event)
 	entry.seen[dedupeKey] = struct{}{}
+	entry.touchedAt = now
 	for len(entry.queue) > maxSystemEvents {
 		removed := entry.queue[0]
 		entry.queue = entry.queue[1:]
 		delete(entry.seen, buildEventDedupeKey(removed.ContextKey, strings.TrimSpace(removed.RunID), strings.TrimSpace(removed.Text)))
 	}
+	queue.evictOverflowLocked()
 	return true
 }
 
@@ -96,6 +106,7 @@ func (queue *SystemEventQueue) Drain(sessionKey string) []SystemEvent {
 
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
+	queue.pruneSessionsLocked(queue.now())
 	entry := queue.entries[key]
 	if entry == nil || len(entry.queue) == 0 {
 		return nil
@@ -115,8 +126,51 @@ func (queue *SystemEventQueue) Has(sessionKey string) bool {
 	}
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
+	queue.pruneSessionsLocked(queue.now())
 	entry := queue.entries[key]
-	return entry != nil && len(entry.queue) > 0
+	if entry == nil || len(entry.queue) == 0 {
+		return false
+	}
+	entry.touchedAt = queue.now()
+	return true
+}
+
+func (queue *SystemEventQueue) pruneSessionsLocked(now time.Time) {
+	if queue == nil {
+		return
+	}
+	if systemEventSessionTTL > 0 {
+		for key, entry := range queue.entries {
+			if entry == nil {
+				delete(queue.entries, key)
+				continue
+			}
+			if !entry.touchedAt.IsZero() && now.Sub(entry.touchedAt) > systemEventSessionTTL {
+				delete(queue.entries, key)
+			}
+		}
+	}
+}
+
+func (queue *SystemEventQueue) evictOverflowLocked() {
+	for len(queue.entries) > maxSystemEventSessions {
+		oldestKey := ""
+		oldestAt := time.Time{}
+		for key, entry := range queue.entries {
+			if entry == nil {
+				oldestKey = key
+				break
+			}
+			if oldestKey == "" || entry.touchedAt.Before(oldestAt) {
+				oldestKey = key
+				oldestAt = entry.touchedAt
+			}
+		}
+		if oldestKey == "" {
+			return
+		}
+		delete(queue.entries, oldestKey)
+	}
 }
 
 func normalizeSource(value string) string {

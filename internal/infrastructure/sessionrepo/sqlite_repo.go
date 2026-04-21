@@ -41,6 +41,10 @@ func (store *SQLiteGatewaySessionStore) Save(ctx context.Context, entry domainse
 		entry.ContextPromptTokens > 0 ||
 		entry.ContextTotalTokens > 0 ||
 		entry.ContextWindowTokens > 0
+	hasCompactionState := strings.TrimSpace(entry.ContextSummary) != "" ||
+		strings.TrimSpace(entry.ContextFirstKeptMessageID) != "" ||
+		entry.ContextStrategyVersion > 0 ||
+		!entry.ContextCompactedAt.IsZero()
 	row := gatewaySessionRow{
 		SessionID:                  entry.SessionID,
 		SessionKey:                 entry.SessionKey,
@@ -54,6 +58,10 @@ func (store *SQLiteGatewaySessionStore) Save(ctx context.Context, entry domainse
 		ContextWindowTokens:        nullInt(entry.ContextWindowTokens),
 		ContextUpdatedAt:           nullTime(entry.ContextUpdatedAt),
 		ContextFresh:               nullBool(entry.ContextFresh, hasContextSnapshot),
+		ContextSummary:             nullString(entry.ContextSummary),
+		ContextFirstKeptMessageID:  nullString(entry.ContextFirstKeptMessageID),
+		ContextStrategyVersion:     nullIntWithZero(entry.ContextStrategyVersion, hasCompactionState),
+		ContextCompactedAt:         nullTime(entry.ContextCompactedAt),
 		CompactionCount:            nullInt(entry.CompactionCount),
 		MemoryFlushCompactionCount: nullInt(entry.MemoryFlushCompactionCount),
 		CreatedAt:                  createdAt,
@@ -72,6 +80,10 @@ func (store *SQLiteGatewaySessionStore) Save(ctx context.Context, entry domainse
 		Set("context_window_tokens = EXCLUDED.context_window_tokens").
 		Set("context_updated_at = EXCLUDED.context_updated_at").
 		Set("context_fresh = EXCLUDED.context_fresh").
+		Set("context_summary = EXCLUDED.context_summary").
+		Set("context_first_kept_message_id = EXCLUDED.context_first_kept_message_id").
+		Set("context_strategy_version = EXCLUDED.context_strategy_version").
+		Set("context_compacted_at = EXCLUDED.context_compacted_at").
 		Set("compaction_count = EXCLUDED.compaction_count").
 		Set("memory_flush_compaction_count = EXCLUDED.memory_flush_compaction_count").
 		Set("updated_at = EXCLUDED.updated_at").
@@ -126,6 +138,10 @@ func rowToEntry(row gatewaySessionRow) domainsession.Entry {
 		ContextWindowTokens:        intOrZero(row.ContextWindowTokens),
 		ContextUpdatedAt:           timeOrZero(row.ContextUpdatedAt),
 		ContextFresh:               boolOrFalse(row.ContextFresh),
+		ContextSummary:             stringOrEmpty(row.ContextSummary),
+		ContextFirstKeptMessageID:  stringOrEmpty(row.ContextFirstKeptMessageID),
+		ContextStrategyVersion:     intOrZero(row.ContextStrategyVersion),
+		ContextCompactedAt:         timeOrZero(row.ContextCompactedAt),
 		CompactionCount:            intOrZero(row.CompactionCount),
 		MemoryFlushCompactionCount: intOrZero(row.MemoryFlushCompactionCount),
 		CreatedAt:                  row.CreatedAt,
@@ -157,6 +173,13 @@ func stringOrEmpty(value sql.NullString) string {
 
 func nullInt(value int) sql.NullInt64 {
 	if value <= 0 {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: int64(value), Valid: true}
+}
+
+func nullIntWithZero(value int, valid bool) sql.NullInt64 {
+	if !valid {
 		return sql.NullInt64{}
 	}
 	return sql.NullInt64{Int64: int64(value), Valid: true}

@@ -80,6 +80,13 @@ type ContextSnapshotUpdate struct {
 	Fresh        bool
 }
 
+type ContextCompactionStateUpdate struct {
+	Summary            string
+	FirstKeptMessageID string
+	StrategyVersion    int
+	CompactedAt        time.Time
+}
+
 func NewService(store Store) *Service {
 	if store == nil {
 		store = NewInMemoryStore()
@@ -95,6 +102,11 @@ func (service *Service) CreateSession(ctx context.Context, request CreateSession
 	sessionID := strings.TrimSpace(request.SessionID)
 	if sessionID == "" {
 		sessionID = service.newID()
+	}
+	existing, err := service.store.Get(ctx, sessionID)
+	hasExisting := err == nil
+	if err != nil && !errors.Is(err, ErrSessionNotFound) {
+		return domainsession.Entry{}, err
 	}
 	key := strings.TrimSpace(request.SessionKey)
 	if key == "" {
@@ -119,16 +131,51 @@ func (service *Service) CreateSession(ctx context.Context, request CreateSession
 	if strings.TrimSpace(request.Origin.ThreadRef) == "" {
 		request.Origin.ThreadRef = sessionID
 	}
+	agentID := strings.TrimSpace(request.AgentID)
+	if agentID == "" && hasExisting {
+		agentID = existing.AgentID
+	}
+	assistantID := strings.TrimSpace(request.AssistantID)
+	if assistantID == "" && hasExisting {
+		assistantID = existing.AssistantID
+	}
+	title := strings.TrimSpace(request.Title)
+	if title == "" && hasExisting {
+		title = existing.Title
+	}
+	status := domainsession.StatusActive
+	createdAt := now
+	if hasExisting {
+		if existing.Status != "" {
+			status = existing.Status
+		}
+		if !existing.CreatedAt.IsZero() {
+			createdAt = existing.CreatedAt
+		}
+	}
 	entry := domainsession.Entry{
 		SessionID:   sessionID,
 		SessionKey:  key,
-		AgentID:     strings.TrimSpace(request.AgentID),
-		AssistantID: strings.TrimSpace(request.AssistantID),
-		Title:       strings.TrimSpace(request.Title),
-		Status:      domainsession.StatusActive,
+		AgentID:     agentID,
+		AssistantID: assistantID,
+		Title:       title,
+		Status:      status,
 		Origin:      request.Origin,
-		CreatedAt:   now,
+		CreatedAt:   createdAt,
 		UpdatedAt:   now,
+	}
+	if hasExisting {
+		entry.ContextPromptTokens = existing.ContextPromptTokens
+		entry.ContextTotalTokens = existing.ContextTotalTokens
+		entry.ContextWindowTokens = existing.ContextWindowTokens
+		entry.ContextUpdatedAt = existing.ContextUpdatedAt
+		entry.ContextFresh = existing.ContextFresh
+		entry.ContextSummary = existing.ContextSummary
+		entry.ContextFirstKeptMessageID = existing.ContextFirstKeptMessageID
+		entry.ContextStrategyVersion = existing.ContextStrategyVersion
+		entry.ContextCompactedAt = existing.ContextCompactedAt
+		entry.CompactionCount = existing.CompactionCount
+		entry.MemoryFlushCompactionCount = existing.MemoryFlushCompactionCount
 	}
 	if err := service.store.Save(ctx, entry); err != nil {
 		return domainsession.Entry{}, err
@@ -228,6 +275,42 @@ func (service *Service) UpdateContextSnapshot(ctx context.Context, sessionID str
 	entry.ContextWindowTokens = update.WindowTokens
 	entry.ContextUpdatedAt = update.UpdatedAt
 	entry.ContextFresh = update.Fresh
+	entry.UpdatedAt = service.now()
+	return service.store.Save(ctx, entry)
+}
+
+func (service *Service) UpdateContextCompactionState(ctx context.Context, sessionID string, update ContextCompactionStateUpdate) error {
+	if service == nil || service.store == nil {
+		return ErrSessionNotFound
+	}
+	trimmed := strings.TrimSpace(sessionID)
+	if trimmed == "" {
+		return ErrSessionNotFound
+	}
+	entry, err := service.store.Get(ctx, trimmed)
+	if err != nil {
+		return err
+	}
+	summary := strings.TrimSpace(update.Summary)
+	firstKeptMessageID := strings.TrimSpace(update.FirstKeptMessageID)
+	if summary == "" || firstKeptMessageID == "" {
+		entry.ContextSummary = ""
+		entry.ContextFirstKeptMessageID = ""
+		entry.ContextStrategyVersion = 0
+		entry.ContextCompactedAt = time.Time{}
+		entry.UpdatedAt = service.now()
+		return service.store.Save(ctx, entry)
+	}
+	if update.StrategyVersion < 0 {
+		update.StrategyVersion = 0
+	}
+	if update.CompactedAt.IsZero() {
+		update.CompactedAt = service.now()
+	}
+	entry.ContextSummary = summary
+	entry.ContextFirstKeptMessageID = firstKeptMessageID
+	entry.ContextStrategyVersion = update.StrategyVersion
+	entry.ContextCompactedAt = update.CompactedAt
 	entry.UpdatedAt = service.now()
 	return service.store.Save(ctx, entry)
 }

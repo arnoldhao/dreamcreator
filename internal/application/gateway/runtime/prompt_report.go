@@ -20,6 +20,7 @@ type promptReportPayload struct {
 	Prompt           string                       `json:"prompt,omitempty"`
 	PromptChars      int                          `json:"promptChars,omitempty"`
 	Messages         []promptReportMessagePayload `json:"messages,omitempty"`
+	Context          *promptContextReportPayload  `json:"context,omitempty"`
 	SectionLabels    map[string]string            `json:"sectionLabels,omitempty"`
 	SectionsDetailed []promptReportSectionPayload `json:"sectionsDetailed,omitempty"`
 	Report           gatewayprompt.BuildReport    `json:"report"`
@@ -43,6 +44,24 @@ type promptReportSectionPayload struct {
 	Reason    string `json:"reason,omitempty"`
 }
 
+type promptContextReportPayload struct {
+	Source                       string `json:"source,omitempty"`
+	StoredMessageCount           int    `json:"storedMessageCount,omitempty"`
+	InputMessageCount            int    `json:"inputMessageCount,omitempty"`
+	BuiltMessageCount            int    `json:"builtMessageCount,omitempty"`
+	UsedPersistedSummary         bool   `json:"usedPersistedSummary,omitempty"`
+	ClearedStalePersistedSummary bool   `json:"clearedStalePersistedSummary,omitempty"`
+	PersistedSummaryChars        int    `json:"persistedSummaryChars,omitempty"`
+	PersistedFirstKeptMessageID  string `json:"persistedFirstKeptMessageId,omitempty"`
+	BudgetApplied                bool   `json:"budgetApplied,omitempty"`
+	ContextWindowTokens          int    `json:"contextWindowTokens,omitempty"`
+	ReserveTokens                int    `json:"reserveTokens,omitempty"`
+	ExtraTokens                  int    `json:"extraTokens,omitempty"`
+	AvailablePromptTokens        int    `json:"availablePromptTokens,omitempty"`
+	InitialEstimatedTokens       int    `json:"initialEstimatedTokens,omitempty"`
+	FinalEstimatedTokens         int    `json:"finalEstimatedTokens,omitempty"`
+}
+
 func (service *Service) emitPromptReport(
 	ctx context.Context,
 	run thread.ThreadRun,
@@ -52,6 +71,7 @@ func (service *Service) emitPromptReport(
 	document gatewayprompt.Document,
 	report gatewayprompt.BuildReport,
 	sections []gatewayprompt.Section,
+	contextReport promptContextBuildReport,
 	messages []*schema.Message,
 	tools []tooldto.ToolSpec,
 	skills []skillsdto.SkillPromptItem,
@@ -98,6 +118,9 @@ func (service *Service) emitPromptReport(
 		Tools:         collectToolNames(tools),
 		Skills:        collectSkillNames(skills),
 	}
+	if contextPayload := buildPromptContextReportPayload(contextReport); contextPayload != nil {
+		payload.Context = contextPayload
+	}
 	if recordPrompt {
 		promptText := strings.TrimSpace(document.Content)
 		payload.Prompt = promptText
@@ -113,6 +136,43 @@ func (service *Service) emitPromptReport(
 		Type: "prompt.report",
 		Data: data,
 	})
+}
+
+func buildPromptContextReportPayload(report promptContextBuildReport) *promptContextReportPayload {
+	if report.Source == "" &&
+		report.StoredMessageCount == 0 &&
+		report.InputMessageCount == 0 &&
+		report.BuiltMessageCount == 0 &&
+		!report.UsedPersistedSummary &&
+		!report.ClearedStalePersistedSummary &&
+		report.PersistedSummaryChars == 0 &&
+		report.PersistedFirstKeptMessageID == "" &&
+		!report.BudgetApplied &&
+		report.ContextWindowTokens == 0 &&
+		report.ReserveTokens == 0 &&
+		report.ExtraTokens == 0 &&
+		report.AvailablePromptTokens == 0 &&
+		report.InitialEstimatedTokens == 0 &&
+		report.FinalEstimatedTokens == 0 {
+		return nil
+	}
+	return &promptContextReportPayload{
+		Source:                       strings.TrimSpace(report.Source),
+		StoredMessageCount:           report.StoredMessageCount,
+		InputMessageCount:            report.InputMessageCount,
+		BuiltMessageCount:            report.BuiltMessageCount,
+		UsedPersistedSummary:         report.UsedPersistedSummary,
+		ClearedStalePersistedSummary: report.ClearedStalePersistedSummary,
+		PersistedSummaryChars:        report.PersistedSummaryChars,
+		PersistedFirstKeptMessageID:  strings.TrimSpace(report.PersistedFirstKeptMessageID),
+		BudgetApplied:                report.BudgetApplied,
+		ContextWindowTokens:          report.ContextWindowTokens,
+		ReserveTokens:                report.ReserveTokens,
+		ExtraTokens:                  report.ExtraTokens,
+		AvailablePromptTokens:        report.AvailablePromptTokens,
+		InitialEstimatedTokens:       report.InitialEstimatedTokens,
+		FinalEstimatedTokens:         report.FinalEstimatedTokens,
+	}
 }
 
 func collectPromptMessages(systemPrompt string, messages []*schema.Message) []promptReportMessagePayload {

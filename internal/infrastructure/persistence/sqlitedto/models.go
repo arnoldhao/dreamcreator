@@ -223,6 +223,10 @@ type GatewaySessionRow struct {
 	ContextWindowTokens        sql.NullInt64  `bun:"context_window_tokens"`
 	ContextUpdatedAt           sql.NullTime   `bun:"context_updated_at"`
 	ContextFresh               sql.NullBool   `bun:"context_fresh"`
+	ContextSummary             sql.NullString `bun:"context_summary"`
+	ContextFirstKeptMessageID  sql.NullString `bun:"context_first_kept_message_id"`
+	ContextStrategyVersion     sql.NullInt64  `bun:"context_strategy_version"`
+	ContextCompactedAt         sql.NullTime   `bun:"context_compacted_at"`
 	CompactionCount            sql.NullInt64  `bun:"compaction_count"`
 	MemoryFlushCompactionCount sql.NullInt64  `bun:"memory_flush_compaction_count"`
 	CreatedAt                  time.Time      `bun:"created_at"`

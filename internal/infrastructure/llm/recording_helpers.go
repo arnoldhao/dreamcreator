@@ -82,6 +82,10 @@ func (record *activeLLMCallRecord) finishWithStatus(ctx context.Context, status 
 			update.OutputTokens = usage.CompletionTokens
 			update.TotalTokens = usage.TotalTokens
 		}
+		params := runtimeParamsFromContext(ctx)
+		if params.ContextSnapshot != nil {
+			update.ContextPromptTokens, update.ContextTotalTokens, update.ContextWindowTokens = params.ContextSnapshot.Snapshot()
+		}
 		persistCtx := context.Background()
 		if ctx != nil {
 			persistCtx = context.WithoutCancel(ctx)

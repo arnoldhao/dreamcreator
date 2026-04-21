@@ -10,18 +10,23 @@ import (
 type MemoryEventStore struct {
 	mu      sync.RWMutex
 	entries map[string]*memoryEventSession
+	now     func() time.Time
 }
 
 type memoryEventSession struct {
-	last   Event
-	recent []Event
+	last      Event
+	recent    []Event
+	touchedAt time.Time
 }
 
 const maxMemoryEventsPerSession = 256
+const maxMemoryEventSessions = 512
+const memoryEventSessionTTL = 24 * time.Hour
 
 func NewMemoryEventStore() *MemoryEventStore {
 	return &MemoryEventStore{
 		entries: make(map[string]*memoryEventSession),
+		now:     time.Now,
 	}
 }
 
@@ -31,9 +36,10 @@ func (store *MemoryEventStore) Save(_ context.Context, event Event) error {
 	}
 	key := strings.TrimSpace(event.SessionKey)
 	if event.CreatedAt.IsZero() {
-		event.CreatedAt = time.Now()
+		event.CreatedAt = store.now()
 	}
 	store.mu.Lock()
+	store.pruneSessionsLocked(store.now())
 	session := store.entries[key]
 	if session == nil {
 		session = &memoryEventSession{}
@@ -48,6 +54,8 @@ func (store *MemoryEventStore) Save(_ context.Context, event Event) error {
 		copy(session.recent, session.recent[1:])
 		session.recent[len(session.recent)-1] = event
 	}
+	session.touchedAt = store.now()
+	store.evictOverflowLocked()
 	store.mu.Unlock()
 	return nil
 }
@@ -57,12 +65,14 @@ func (store *MemoryEventStore) Last(_ context.Context, sessionKey string) (Event
 		return Event{}, ErrEventNotFound
 	}
 	key := strings.TrimSpace(sessionKey)
-	store.mu.RLock()
-	defer store.mu.RUnlock()
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	store.pruneSessionsLocked(store.now())
 	session := store.entries[key]
 	if session == nil || session.last.CreatedAt.IsZero() {
 		return Event{}, ErrEventNotFound
 	}
+	session.touchedAt = store.now()
 	return session.last, nil
 }
 
@@ -75,12 +85,14 @@ func (store *MemoryEventStore) HasDuplicate(_ context.Context, sessionKey string
 	if key == "" || hash == "" {
 		return false, nil
 	}
-	store.mu.RLock()
-	defer store.mu.RUnlock()
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	store.pruneSessionsLocked(store.now())
 	session := store.entries[key]
 	if session == nil {
 		return false, nil
 	}
+	session.touchedAt = store.now()
 	for index := len(session.recent) - 1; index >= 0; index-- {
 		item := session.recent[index]
 		if strings.TrimSpace(item.ContentHash) != hash {
@@ -92,6 +104,44 @@ func (store *MemoryEventStore) HasDuplicate(_ context.Context, sessionKey string
 		return true, nil
 	}
 	return false, nil
+}
+
+func (store *MemoryEventStore) pruneSessionsLocked(now time.Time) {
+	if store == nil {
+		return
+	}
+	if memoryEventSessionTTL > 0 {
+		for key, session := range store.entries {
+			if session == nil {
+				delete(store.entries, key)
+				continue
+			}
+			if !session.touchedAt.IsZero() && now.Sub(session.touchedAt) > memoryEventSessionTTL {
+				delete(store.entries, key)
+			}
+		}
+	}
+}
+
+func (store *MemoryEventStore) evictOverflowLocked() {
+	for len(store.entries) > maxMemoryEventSessions {
+		oldestKey := ""
+		oldestAt := time.Time{}
+		for key, session := range store.entries {
+			if session == nil {
+				oldestKey = key
+				break
+			}
+			if oldestKey == "" || session.touchedAt.Before(oldestAt) {
+				oldestKey = key
+				oldestAt = session.touchedAt
+			}
+		}
+		if oldestKey == "" {
+			return
+		}
+		delete(store.entries, oldestKey)
+	}
 }
 
 func sanitizeSpec(spec Spec) Spec {

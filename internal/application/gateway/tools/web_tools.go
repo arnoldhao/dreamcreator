@@ -39,6 +39,7 @@ const (
 	defaultWebFetchMaxBodyBytes      = 2 << 20
 	defaultWebSearchTimeoutSeconds   = 30
 	defaultWebSearchCacheTtlMinutes  = 15
+	maxWebSearchCacheEntries         = 256
 	defaultWebSearchCount            = 5
 	maxWebSearchCount                = 10
 	defaultWebSearchType             = "api"
@@ -152,6 +153,7 @@ type tavilySearchResponse struct {
 type webSearchCacheEntry struct {
 	value     webSearchResponse
 	expiresAt time.Time
+	storedAt  time.Time
 }
 
 var webSearchCache = struct {
@@ -285,9 +287,11 @@ func fetchWithCDP(
 	}
 	defer runtime.Stop()
 
-	tabCtx, tabCancel := chromedp.NewContext(runtime.BrowserContext())
+	tabCtx, tabCancel, _, err := browsercdp.AttachOrCreatePageTarget(runtime, 5*time.Second)
+	if err != nil {
+		return webFetchResponse{}, err
+	}
 	defer tabCancel()
-
 	var navResponse *network.Response
 	var finalURL string
 	var contentType string
@@ -554,10 +558,19 @@ func runTavilySearch(ctx context.Context, payload toolArgs, config map[string]an
 }
 
 func loadWebSearchCache(key string) (webSearchResponse, bool) {
+	now := time.Now()
 	webSearchCache.mu.RLock()
 	entry, ok := webSearchCache.entries[key]
 	webSearchCache.mu.RUnlock()
-	if !ok || time.Now().After(entry.expiresAt) {
+	if !ok {
+		return webSearchResponse{}, false
+	}
+	if now.After(entry.expiresAt) {
+		webSearchCache.mu.Lock()
+		if current, exists := webSearchCache.entries[key]; exists && now.After(current.expiresAt) {
+			delete(webSearchCache.entries, key)
+		}
+		webSearchCache.mu.Unlock()
 		return webSearchResponse{}, false
 	}
 	return entry.value, true
@@ -567,12 +580,44 @@ func storeWebSearchCache(key string, value webSearchResponse, ttl time.Duration)
 	if ttl <= 0 {
 		return
 	}
+	now := time.Now()
 	webSearchCache.mu.Lock()
+	pruneExpiredWebSearchCacheLocked(now)
 	webSearchCache.entries[key] = webSearchCacheEntry{
 		value:     value,
-		expiresAt: time.Now().Add(ttl),
+		expiresAt: now.Add(ttl),
+		storedAt:  now,
+	}
+	if len(webSearchCache.entries) > maxWebSearchCacheEntries {
+		evictOldestWebSearchCacheEntriesLocked(len(webSearchCache.entries) - maxWebSearchCacheEntries)
 	}
 	webSearchCache.mu.Unlock()
+}
+
+func pruneExpiredWebSearchCacheLocked(now time.Time) {
+	for key, entry := range webSearchCache.entries {
+		if now.After(entry.expiresAt) {
+			delete(webSearchCache.entries, key)
+		}
+	}
+}
+
+func evictOldestWebSearchCacheEntriesLocked(excess int) {
+	for excess > 0 {
+		oldestKey := ""
+		oldestAt := time.Time{}
+		for key, entry := range webSearchCache.entries {
+			if oldestKey == "" || entry.storedAt.Before(oldestAt) {
+				oldestKey = key
+				oldestAt = entry.storedAt
+			}
+		}
+		if oldestKey == "" {
+			return
+		}
+		delete(webSearchCache.entries, oldestKey)
+		excess--
+	}
 }
 
 func buildWebFetchToolResult(rawURL string, response webFetchResponse, err error) webFetchResult {

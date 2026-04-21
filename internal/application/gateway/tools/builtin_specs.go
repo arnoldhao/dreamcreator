@@ -11,6 +11,7 @@ type toolSpec struct {
 	ID               string
 	Name             string
 	Description      string
+	PromptSnippet    string
 	Kind             string
 	SchemaJSON       string
 	Methods          []tooldto.ToolMethodSpec
@@ -36,6 +37,7 @@ func (spec toolSpec) toDTO() tooldto.ToolSpec {
 		ID:               spec.ID,
 		Name:             spec.Name,
 		Description:      spec.Description,
+		PromptSnippet:    spec.PromptSnippet,
 		Kind:             kind,
 		SchemaJSON:       spec.SchemaJSON,
 		Methods:          spec.Methods,
@@ -168,10 +170,11 @@ func specProcess() toolSpec {
 
 func specWebFetch() toolSpec {
 	return toolSpec{
-		ID:          "web_fetch",
-		Name:        "web_fetch",
-		Description: "Fetch a web page through a local CDP browser, extract token-efficient main content, and return structured status fields (status, retryable, next_action, quality). Do not blind-retry the same call when status is not ok.",
-		Category:    "web",
+		ID:            "web_fetch",
+		Name:          "web_fetch",
+		Description:   "Fetch a web page through a local CDP browser, extract token-efficient main content, and return structured status fields (status, retryable, next_action, quality). Do not blind-retry the same call when status is not ok.",
+		PromptSnippet: "Fetch a page and return token-efficient main content. Prefer this for read-only page reads; if status is not ok, inspect `next_action` instead of blind retry.",
+		Category:      "web",
 		SchemaJSON: schemaJSON(map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -270,11 +273,12 @@ func resolveMessageToolSchemaJSON(baseSchema string, profile messageToolSchemaPr
 
 func specMessageBase() toolSpec {
 	return toolSpec{
-		ID:          "message",
-		Name:        "message",
-		Description: "Send, delete, and manage messages via channel plugins.",
-		Category:    "messaging",
-		RiskLevel:   "medium",
+		ID:            "message",
+		Name:          "message",
+		Description:   "Send, delete, and manage messages via channel plugins.",
+		PromptSnippet: "Send or manage channel messages.",
+		Category:      "messaging",
+		RiskLevel:     "medium",
 		SchemaJSON: schemaJSON(map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -682,11 +686,12 @@ func specGateway() toolSpec {
 
 func specCron() toolSpec {
 	return toolSpec{
-		ID:          "cron",
-		Name:        "cron",
-		Description: "Cron manager. Input: {action,params}. Actions: status|list|add|update|remove|run|runs|wake. Pairing: main=>systemEvent+text; isolated=>agentTurn+message. schedule: every/everyMs | cron/expr | at/at. announce channel: default|app|telegram. add auto-inherits runtime sessionKey when omitted.",
-		Category:    "automation",
-		RiskLevel:   "high",
+		ID:            "cron",
+		Name:          "cron",
+		Description:   "Cron manager. Input: {action,params}. Actions: status|list|add|update|remove|run|runs|wake. Pairing: main=>systemEvent+text; isolated=>agentTurn+message. schedule: every/everyMs | cron/expr | at/at. announce channel: default|app|telegram. add auto-inherits runtime sessionKey when omitted.",
+		PromptSnippet: "Manage cron jobs. Use `action` plus `params`; create/update actions schedule future work instead of waiting inline.",
+		Category:      "automation",
+		RiskLevel:     "high",
 		SchemaJSON: schemaJSON(map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
@@ -1209,11 +1214,12 @@ func specExternalToolsManage() toolSpec {
 func specSkills() toolSpec {
 	actions := []string{"status", "bins", "install", "update"}
 	return toolSpec{
-		ID:          "skills",
-		Name:        "skills",
-		Description: "Inspect skills runtime status and update per-skill runtime dependencies or configuration.",
-		Category:    "skills",
-		RiskLevel:   "medium",
+		ID:            "skills",
+		Name:          "skills",
+		Description:   "Inspect skills runtime status and update per-skill runtime dependencies or configuration.",
+		PromptSnippet: "Inspect installed skill runtime status or update per-skill config.",
+		Category:      "skills",
+		RiskLevel:     "medium",
 		SchemaJSON: schemaJSON(map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
@@ -1298,11 +1304,12 @@ func specSkills() toolSpec {
 func specSkillsManage() toolSpec {
 	actions := []string{"list", "search", "install", "update", "remove", "sync"}
 	return toolSpec{
-		ID:          "skills_manage",
-		Name:        "skills_manage",
-		Description: "Search, install, update, remove, and sync skill packages via ClawHub.",
-		Category:    "skills",
-		RiskLevel:   "medium",
+		ID:            "skills_manage",
+		Name:          "skills_manage",
+		Description:   "Search, install, update, remove, and sync skill packages via ClawHub.",
+		PromptSnippet: "Search, install, update, remove, or sync skill packages.",
+		Category:      "skills",
+		RiskLevel:     "medium",
 		SchemaJSON: schemaJSON(map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
@@ -1361,10 +1368,11 @@ func specSkillsManage() toolSpec {
 
 func specSubagents() toolSpec {
 	return toolSpec{
-		ID:          "subagents",
-		Name:        "subagents",
-		Description: "Manage existing subagent runs (list/info/log/kill/steer/send).",
-		Category:    "sessions",
+		ID:            "subagents",
+		Name:          "subagents",
+		Description:   "Manage existing subagent runs (list/info/log/kill/steer/send).",
+		PromptSnippet: "Inspect or control spawned subagent runs.",
+		Category:      "sessions",
 		SchemaJSON: schemaJSON(map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -1550,26 +1558,28 @@ func specMemoryManage() toolSpec {
 
 func specLibrary() toolSpec {
 	return toolSpec{
-		ID:          "library",
-		Name:        "library",
-		Description: "Read-only library inspector. Use action=overview|files|operations|records|operation_status to list libraries, inspect full library details, browse operations/history, or fetch a single operation by id.",
-		Category:    "library",
-		RiskLevel:   "medium",
-		Methods:     libraryMethodSpecs(),
-		SchemaJSON:  libraryToolSchema(),
-		Enabled:     true,
+		ID:            "library",
+		Name:          "library",
+		Description:   "Read-only library inspector. Use action=overview|files|operations|records|operation_status to list libraries, inspect full library details, browse operations/history, or fetch a single operation by id.",
+		PromptSnippet: "Read-only library inspector for overview, files, operations, records, or a single operation status.",
+		Category:      "library",
+		RiskLevel:     "medium",
+		Methods:       libraryMethodSpecs(),
+		SchemaJSON:    libraryToolSchema(),
+		Enabled:       true,
 	}
 }
 
 func specLibraryManage() toolSpec {
 	return toolSpec{
-		ID:          "library_manage",
-		Name:        "library_manage",
-		Description: "Create and manage asynchronous library jobs for download, transcode, and subtitle processing. Job-creating actions enqueue work and return operationId immediately. Do not wait, loop, or blind-retry in the same call; query progress later with library action=operation_status or library action=operations.",
-		Category:    "library",
-		RiskLevel:   "high",
-		Methods:     libraryManageMethodSpecs(),
-		SchemaJSON:  libraryManageToolSchema(),
-		Enabled:     true,
+		ID:            "library_manage",
+		Name:          "library_manage",
+		Description:   "Create and manage asynchronous library jobs for download, transcode, and subtitle processing. Job-creating actions enqueue work and return operationId immediately. Do not wait, loop, or blind-retry in the same call; query progress later with library action=operation_status or library action=operations.",
+		PromptSnippet: "Create async library jobs and get an `operationId` immediately; check progress later with `library`.",
+		Category:      "library",
+		RiskLevel:     "high",
+		Methods:       libraryManageMethodSpecs(),
+		SchemaJSON:    libraryManageToolSchema(),
+		Enabled:       true,
 	}
 }

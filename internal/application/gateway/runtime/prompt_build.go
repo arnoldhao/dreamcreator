@@ -280,7 +280,7 @@ func formatToolsSection(tools []tooldto.ToolSpec) string {
 		if name == "" {
 			continue
 		}
-		desc := strings.TrimSpace(tool.Description)
+		desc := resolveToolPromptSnippet(tool)
 		line := "- " + name
 		if desc != "" {
 			line += ": " + desc
@@ -293,11 +293,59 @@ func formatToolsSection(tools []tooldto.ToolSpec) string {
 	}
 	lines = append(lines,
 		"Tool names are case-sensitive. Call tools exactly as listed.",
+		"Use `browser` for interactive, login-gated, or personalized pages; use `web_fetch` for one-shot page reads.",
 		"Avoid poll loops for long waits. Prefer `exec`/`process` with bounded waits and event-driven follow-ups.",
 		"For complex work, use `sessions_spawn`; completion is push-based.",
 		"Do not loop on `subagents` list or `sessions_list` to wait for completion.",
 	)
 	return joinLines(lines)
+}
+
+func resolveToolPromptSnippet(tool tooldto.ToolSpec) string {
+	if snippet := normalizeToolPromptText(tool.PromptSnippet); snippet != "" {
+		return snippet
+	}
+	if desc := summarizeToolDescription(tool.Description); desc != "" {
+		return desc
+	}
+	return summarizeToolSchema(tool.SchemaJSON)
+}
+
+func summarizeToolDescription(description string) string {
+	trimmed := normalizeToolPromptText(description)
+	if trimmed == "" {
+		return ""
+	}
+	for _, marker := range []string{". ", "。", "; ", "；"} {
+		if index := strings.Index(trimmed, marker); index > 0 {
+			end := index + len(marker)
+			if marker == ". " || marker == "; " {
+				end--
+			}
+			return strings.TrimSpace(trimmed[:end])
+		}
+	}
+	const maxChars = 140
+	if len(trimmed) <= maxChars {
+		return trimmed
+	}
+	for _, marker := range []string{". ", "。", "; ", "；", ": ", " - "} {
+		if index := strings.Index(trimmed, marker); index > 0 && index <= maxChars {
+			return strings.TrimSpace(trimmed[:index+1])
+		}
+	}
+	cut := strings.LastIndex(trimmed[:maxChars], " ")
+	if cut < maxChars/2 {
+		cut = maxChars
+	}
+	return strings.TrimSpace(trimmed[:cut]) + "..."
+}
+
+func normalizeToolPromptText(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return ""
+	}
+	return strings.Join(strings.Fields(value), " ")
 }
 
 func formatSkillsSection(skills []skillsdto.SkillPromptItem) string {

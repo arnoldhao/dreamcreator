@@ -9,6 +9,11 @@ import (
 func TestActiveLLMCallRecordFinishUsesDetachedContext(t *testing.T) {
 	recorder := &contextCheckingRecorder{}
 	ctx, cancel := context.WithCancel(context.Background())
+	contextSnapshot := NewRuntimeContextSnapshot()
+	contextSnapshot.Set(6400, 7200, 131072)
+	ctx = WithRuntimeParams(ctx, RuntimeParams{
+		ContextSnapshot: contextSnapshot,
+	})
 	record := startActiveLLMCallRecord(ctx, recorder, RuntimeParams{
 		ProviderID:    "provider-1",
 		ModelName:     "model-1",
@@ -41,6 +46,14 @@ func TestActiveLLMCallRecordFinishUsesDetachedContext(t *testing.T) {
 	}
 	if recorder.finished.InputTokens != 200 || recorder.finished.OutputTokens != 170 {
 		t.Fatalf("expected usage 200/170, got %d/%d", recorder.finished.InputTokens, recorder.finished.OutputTokens)
+	}
+	if recorder.finished.ContextPromptTokens != 6400 || recorder.finished.ContextTotalTokens != 7200 || recorder.finished.ContextWindowTokens != 131072 {
+		t.Fatalf(
+			"expected context usage 6400/7200/131072, got %d/%d/%d",
+			recorder.finished.ContextPromptTokens,
+			recorder.finished.ContextTotalTokens,
+			recorder.finished.ContextWindowTokens,
+		)
 	}
 }
 
