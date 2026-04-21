@@ -49,6 +49,6 @@ func (service *ConnectorsService) OpenConnectorSite(ctx context.Context, request
 	if err := chromedp.Run(tabCtx, chromedp.Navigate(targetURL)); err != nil {
 		return err
 	}
-	_, err = waitForConnectorTabClose(ctx, runtime, tabCtx, false, service.readCookies)
+	_, err = waitForConnectorTabClose(ctx, runtime, tabCtx, connectorTargetIDFromContext(tabCtx), false, service.readCookies)
 	return err
 }

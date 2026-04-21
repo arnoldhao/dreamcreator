@@ -56,6 +56,8 @@ type ConnectorConnectSession struct {
 	SessionID            string    `json:"sessionId"`
 	ConnectorID          string    `json:"connectorId"`
 	State                string    `json:"state"`
+	BrowserStatus        string    `json:"browserStatus"`
+	CurrentCookiesCount  int       `json:"currentCookiesCount"`
 	Saved                bool      `json:"saved"`
 	RawCookiesCount      int       `json:"rawCookiesCount"`
 	FilteredCookiesCount int       `json:"filteredCookiesCount"`

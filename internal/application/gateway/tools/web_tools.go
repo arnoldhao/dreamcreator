@@ -287,9 +287,11 @@ func fetchWithCDP(
 	}
 	defer runtime.Stop()
 
-	tabCtx, tabCancel := chromedp.NewContext(runtime.BrowserContext())
+	tabCtx, tabCancel, _, err := browsercdp.AttachOrCreatePageTarget(runtime, 5*time.Second)
+	if err != nil {
+		return webFetchResponse{}, err
+	}
 	defer tabCancel()
-
 	var navResponse *network.Response
 	var finalURL string
 	var contentType string

@@ -3,7 +3,7 @@ import { CircleOff, ExternalLink, Eye, Link2, Loader2, Plug2, RefreshCw, Search,
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
 import { Separator } from "@/shared/ui/separator";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/shared/ui/sidebar";
@@ -111,6 +111,7 @@ export function ConnectorsSection() {
   const [loginResult, setLoginResult] = React.useState<FinishConnectorConnectResult | null>(null);
   const [loginError, setLoginError] = React.useState("");
   const [cookiesDialogOpen, setCookiesDialogOpen] = React.useState(false);
+  const loginStartTokenRef = React.useRef(0);
   const loginSession = useConnectorConnectSession({ sessionId: loginSessionId }, loginDialogOpen && loginSessionId.trim().length > 0);
 
   const items = connectors.data ?? [];
@@ -270,23 +271,18 @@ export function ConnectorsSection() {
     setLoginError("");
   }, []);
 
-  const handleCancelLogin = React.useCallback(async () => {
+  const handleDismissLogin = React.useCallback(async () => {
+    loginStartTokenRef.current += 1;
     const sessionId = loginSessionId.trim();
-    if (sessionId) {
-      try {
-        await disposeLoginSession(sessionId);
-      } catch (error) {
-        messageBus.publishToast({
-          intent: "danger",
-          title: t("settings.connectors.loginTitle"),
-          description: resolveLoginError(error),
-        });
-      }
-    }
     resetLoginState();
-  }, [disposeLoginSession, loginSessionId, resetLoginState, resolveLoginError, t]);
+    if (sessionId) {
+      await disposeLoginSession(sessionId);
+    }
+  }, [disposeLoginSession, loginSessionId, resetLoginState]);
 
   const handleConnect = async (connector: Connector) => {
+    const startToken = loginStartTokenRef.current + 1;
+    loginStartTokenRef.current = startToken;
     setLoginTarget(connector);
     setLoginDialogOpen(true);
     setLoginSessionId("");
@@ -294,13 +290,21 @@ export function ConnectorsSection() {
     setLoginError("");
     try {
       const result = await startConnectorConnect.mutateAsync({ id: connector.id });
+      if (loginStartTokenRef.current !== startToken) {
+        await disposeLoginSession(result.sessionId);
+        return;
+      }
       setLoginSessionId(result.sessionId);
     } catch (error) {
+      if (loginStartTokenRef.current !== startToken) {
+        return;
+      }
       setLoginError(resolveLoginError(error));
     }
   };
 
   const handleFinishLogin = async () => {
+    const finishToken = loginStartTokenRef.current;
     const sessionId = loginSessionId.trim();
     if (!sessionId) {
       setLoginError(t("settings.connectors.loginSessionMissing"));
@@ -309,12 +313,17 @@ export function ConnectorsSection() {
     setLoginError("");
     try {
       const result = await finishConnectorConnect.mutateAsync({ sessionId });
+      if (loginStartTokenRef.current !== finishToken) {
+        return;
+      }
       setLoginResult(result);
       await disposeLoginSession(sessionId);
-      setLoginSessionId("");
       if (!result.saved) {
-        setLoginError(t("settings.connectors.noCookiesRead"));
-        return;
+        messageBus.publishToast({
+          intent: "danger",
+          title: t("settings.connectors.loginTitle"),
+          description: t("settings.connectors.noCookiesRead"),
+        });
       }
       resetLoginState();
     } catch (error) {
@@ -378,22 +387,33 @@ export function ConnectorsSection() {
   };
 
   const rowClassName = SETTINGS_ROW_CLASS;
-  const dialogStatus = startConnectorConnect.isPending
-    ? t("settings.connectors.loginLaunching")
-    : finishConnectorConnect.isPending
-      ? t("settings.connectors.loginReadingCookies")
-      : cancelConnectorConnect.isPending
-        ? t("settings.connectors.loginClosingBrowser")
-        : loginResult
-          ? t("settings.connectors.loginCompleted")
-        : loginSessionId
-          ? t("settings.connectors.loginReady")
-          : t("settings.connectors.loginIdle");
+  const loginSessionData = loginSession.data ?? null;
+  const loginBrowserStatus = startConnectorConnect.isPending
+    ? "opening"
+    : loginSessionData?.browserStatus || (loginSessionId ? "open" : "not_open");
+  const loginConnectionLabel = loginTarget
+    ? resolveConnectorLabel(loginTarget)
+    : loginSessionData?.connector
+      ? resolveConnectorLabel(loginSessionData.connector)
+      : "-";
+  const loginStatusRows = [
+    {
+      label: t("settings.connectors.loginCard.currentConnection"),
+      value: loginConnectionLabel,
+    },
+    {
+      label: t("settings.connectors.loginCard.browserStatus"),
+      value: t(`settings.connectors.browserStatus.${loginBrowserStatus}`),
+    },
+    {
+      label: t("settings.connectors.loginCard.currentCookiesCount"),
+      value: String(loginSessionData?.currentCookiesCount ?? loginResult?.filteredCookiesCount ?? 0),
+    },
+  ];
   const selectedLabel = selected ? resolveConnectorLabel(selected) : "";
   const cookiesCount = selected?.cookiesCount ?? selected?.cookies?.length ?? 0;
   const cookiesList = selected?.cookies ?? [];
   const isConnected = (selected?.status ?? "disconnected") === "connected";
-  const loginDomainsLabel = loginResult?.domains && loginResult.domains.length > 0 ? loginResult.domains.join(", ") : "-";
 
   return (
     <div className="connectors-card flex min-h-0 min-w-0 flex-1">
@@ -584,9 +604,7 @@ export function ConnectorsSection() {
             setLoginDialogOpen(true);
             return;
           }
-          if (!isLoginRunning) {
-            void handleCancelLogin();
-          }
+          void handleDismissLogin();
         }}
       >
         <DialogContent>
@@ -594,39 +612,32 @@ export function ConnectorsSection() {
             <DialogTitle>
               {t("settings.connectors.loginTitle")}
             </DialogTitle>
-            <DialogDescription>
-              {t("settings.connectors.loginDescription")}
-            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-2 text-sm text-muted-foreground">
-            <div>
-              {t("settings.connectors.loginTarget")}: {loginTarget ? resolveConnectorLabel(loginTarget) : "-"}
-            </div>
-            <div>{dialogStatus}</div>
-            {loginResult ? (
-              <div className="rounded-md border border-border/70 bg-muted/40 p-3 text-xs text-muted-foreground">
-                <div>
-                  {t("settings.connectors.cookiesRead")}: {loginResult.rawCookiesCount}
-                </div>
-                <div>
-                  {t("settings.connectors.cookiesSaved")}: {loginResult.filteredCookiesCount}
-                </div>
-                <div>
-                  {t("settings.connectors.cookiesDomains")}: {loginDomainsLabel}
-                </div>
-              </div>
-            ) : null}
+          <div className="grid gap-2">
+            <Card className="border-border/70 bg-muted/20 shadow-none">
+              <CardContent className="p-0">
+                {loginStatusRows.map((row, index) => (
+                  <div
+                    key={row.label}
+                    className={cn(
+                      "flex items-center justify-between gap-4 px-3 py-2.5 text-sm",
+                      index > 0 && "border-t border-border/70"
+                    )}
+                  >
+                    <span className="text-muted-foreground">{row.label}</span>
+                    <span className="max-w-[55%] truncate text-right font-medium text-foreground">{row.value}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
             {loginError ? (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
                 {loginError}
               </div>
             ) : null}
-            <div className="rounded-md border border-border/70 bg-muted/40 p-3 text-xs text-muted-foreground">
-              {t("settings.connectors.loginHint")}
-            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" className="h-7" onClick={() => void handleCancelLogin()} disabled={isLoginRunning}>
+            <Button variant="outline" className="h-7" onClick={() => void handleDismissLogin()} disabled={isLoginRunning}>
               {t("common.cancel")}
             </Button>
             <Button className="h-7" onClick={() => void handleFinishLogin()} disabled={isLoginRunning || !loginSessionId}>

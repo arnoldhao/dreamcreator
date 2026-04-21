@@ -75,11 +75,15 @@ export function useClearConnector() {
 }
 
 export function useStartConnectorConnect() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (request: StartConnectorConnectRequest): Promise<StartConnectorConnectResult> => {
       return toStartConnectorConnectResult(
         await StartConnectorConnectBinding(BindingsStartConnectorConnectRequest.createFrom(request))
       );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CONNECTORS_QUERY_KEY });
     },
   });
 }
@@ -99,9 +103,13 @@ export function useFinishConnectorConnect() {
 }
 
 export function useCancelConnectorConnect() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (request: CancelConnectorConnectRequest): Promise<void> => {
       await CancelConnectorConnectBinding(BindingsCancelConnectorConnectRequest.createFrom(request));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CONNECTORS_QUERY_KEY });
     },
   });
 }

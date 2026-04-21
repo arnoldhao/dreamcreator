@@ -14,6 +14,7 @@ import (
 	"dreamcreator/internal/application/connectors/dto"
 	appcookies "dreamcreator/internal/application/cookies"
 	settingsdto "dreamcreator/internal/application/settings/dto"
+	"dreamcreator/internal/application/sitepolicy"
 	"dreamcreator/internal/domain/connectors"
 )
 
@@ -39,6 +40,16 @@ const (
 	connectorSessionStateRunning   = "running"
 	connectorSessionStateCompleted = "completed"
 	connectorSessionStateFailed    = "failed"
+)
+
+const (
+	connectorBrowserStatusNotOpen       = "not_open"
+	connectorBrowserStatusOpen          = "open"
+	connectorBrowserStatusTabClosed     = "tab_closed"
+	connectorBrowserStatusBrowserClosed = "browser_closed"
+	connectorBrowserStatusCompleted     = "completed"
+	connectorBrowserStatusFailed        = "failed"
+	connectorBrowserStatusUnknown       = "unknown"
 )
 
 type connectorSession struct {
@@ -334,7 +345,11 @@ func (service *ConnectorsService) snapshotSession(ctx context.Context, session *
 	service.mu.Lock()
 	snapshotID := session.ID
 	snapshotConnectorID := session.ConnectorID
+	snapshotConnectorType := session.ConnectorType
 	snapshotState := session.State
+	snapshotRuntime := session.Runtime
+	snapshotTargetID := session.TargetID
+	snapshotLastCookies := append([]appcookies.Record(nil), session.LastCookies...)
 	snapshotLastCookiesAt := session.LastCookiesAt
 	snapshotFinalError := session.FinalError
 	snapshotConnector := session.ConnectorSnapshot
@@ -357,21 +372,68 @@ func (service *ConnectorsService) snapshotSession(ctx context.Context, session *
 		lastCookiesAt = snapshotLastCookiesAt.Format(time.RFC3339)
 	}
 	result := dto.ConnectorConnectSession{
-		SessionID:     snapshotID,
-		ConnectorID:   snapshotConnectorID,
-		State:         snapshotState,
-		Error:         snapshotFinalError,
-		LastCookiesAt: lastCookiesAt,
-		Connector:     connector,
+		SessionID:           snapshotID,
+		ConnectorID:         snapshotConnectorID,
+		State:               snapshotState,
+		BrowserStatus:       connectorSessionBrowserStatus(snapshotState, snapshotRuntime, snapshotTargetID, snapshotFinalResult, snapshotFinalError),
+		CurrentCookiesCount: connectorSessionCookiesCount(snapshotConnectorType, snapshotLastCookies),
+		Error:               snapshotFinalError,
+		LastCookiesAt:       lastCookiesAt,
+		Connector:           connector,
 	}
 	if snapshotFinalResult != nil {
 		result.Saved = snapshotFinalResult.Saved
 		result.RawCookiesCount = snapshotFinalResult.RawCookiesCount
 		result.FilteredCookiesCount = snapshotFinalResult.FilteredCookiesCount
+		result.CurrentCookiesCount = snapshotFinalResult.FilteredCookiesCount
 		result.Domains = append([]string(nil), snapshotFinalResult.Domains...)
 		result.Reason = snapshotFinalResult.Reason
 	}
 	return result
+}
+
+func connectorSessionBrowserStatus(state string, runtime *browsercdp.Runtime, targetID target.ID, finalResult *dto.FinishConnectorConnectResult, finalError string) string {
+	if strings.TrimSpace(finalError) != "" || state == connectorSessionStateFailed {
+		return connectorBrowserStatusFailed
+	}
+	if finalResult != nil || state == connectorSessionStateCompleted {
+		if finalResult != nil {
+			switch strings.TrimSpace(finalResult.Reason) {
+			case "browser_closed":
+				return connectorBrowserStatusBrowserClosed
+			case "tab_closed":
+				return connectorBrowserStatusTabClosed
+			}
+		}
+		return connectorBrowserStatusCompleted
+	}
+	if runtime == nil {
+		return connectorBrowserStatusNotOpen
+	}
+	if !runtime.Status().Ready {
+		return connectorBrowserStatusBrowserClosed
+	}
+	if targetID != "" {
+		exists, err := connectorTargetExistsWithTimeout(runtime, targetID, 750*time.Millisecond)
+		if err != nil {
+			return connectorBrowserStatusUnknown
+		}
+		if !exists {
+			return connectorBrowserStatusTabClosed
+		}
+	}
+	return connectorBrowserStatusOpen
+}
+
+func connectorSessionCookiesCount(connectorType connectors.ConnectorType, records []appcookies.Record) int {
+	if len(records) == 0 {
+		return 0
+	}
+	policy, ok := sitepolicy.ForConnectorType(string(connectorType))
+	if !ok || len(policy.Domains) == 0 {
+		return len(records)
+	}
+	return len(appcookies.FilterByDomains(records, policy.Domains))
 }
 
 func isSupportedConnectorType(connectorType connectors.ConnectorType) bool {

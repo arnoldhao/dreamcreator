@@ -67,6 +67,8 @@ export interface ConnectorConnectSession {
   sessionId: string;
   connectorId: string;
   state: string;
+  browserStatus: string;
+  currentCookiesCount: number;
   saved: boolean;
   rawCookiesCount: number;
   filteredCookiesCount: number;
