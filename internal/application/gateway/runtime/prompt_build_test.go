@@ -217,6 +217,9 @@ func TestBuildPromptDocument_FullIncludesToolingToolCallStyleAndSkillsMandatory(
 	if !strings.Contains(tooling, "Tool names are case-sensitive. Call tools exactly as listed.") {
 		t.Fatalf("expected case-sensitive tooling rule, got %q", tooling)
 	}
+	if !strings.Contains(tooling, "Use `browser` for interactive, login-gated, or personalized pages; use `web_fetch` for one-shot page reads.") {
+		t.Fatalf("expected browser/web_fetch routing rule, got %q", tooling)
+	}
 	if !strings.Contains(tooling, "Do not loop on `subagents` list or `sessions_list`") {
 		t.Fatalf("expected anti-poll tooling rule, got %q", tooling)
 	}
@@ -235,6 +238,45 @@ func TestBuildPromptDocument_FullIncludesToolingToolCallStyleAndSkillsMandatory(
 	}
 	if !strings.Contains(skills, "Recommended flow: `skills.status` -> `skills_manage.search`/`skills_manage.install` -> `skills.status`.") {
 		t.Fatalf("expected skills tool protocol rule, got %q", skills)
+	}
+}
+
+func TestFormatToolsSection_PrefersPromptSnippetOverLongDescription(t *testing.T) {
+	t.Parallel()
+
+	content := formatToolsSection([]tooldto.ToolSpec{
+		{
+			Name:          "browser",
+			Description:   "Control a local CDP browser with a long workflow description that should not be copied into the system prompt verbatim.",
+			PromptSnippet: "Interactive CDP browser. Loop: snapshot before act; prefer ref over selector.",
+			Enabled:       true,
+		},
+	})
+
+	if !strings.Contains(content, "- browser: Interactive CDP browser. Loop: snapshot before act; prefer ref over selector.") {
+		t.Fatalf("expected prompt snippet to be used, got %q", content)
+	}
+	if strings.Contains(content, "long workflow description") {
+		t.Fatalf("expected long description to be omitted, got %q", content)
+	}
+}
+
+func TestFormatToolsSection_FallsBackToShortenedDescription(t *testing.T) {
+	t.Parallel()
+
+	content := formatToolsSection([]tooldto.ToolSpec{
+		{
+			Name:        "message",
+			Description: "Send, delete, and manage messages via channel plugins. This extra detail should be omitted from the prompt summary.",
+			Enabled:     true,
+		},
+	})
+
+	if !strings.Contains(content, "- message: Send, delete, and manage messages via channel plugins.") {
+		t.Fatalf("expected shortened description, got %q", content)
+	}
+	if strings.Contains(content, "This extra detail should be omitted") {
+		t.Fatalf("expected trailing detail to be omitted, got %q", content)
 	}
 }
 

@@ -16,11 +16,12 @@ func specBrowser() toolSpec {
 		"additionalProperties": false,
 	}
 	return toolSpec{
-		ID:          "browser",
-		Name:        "browser",
-		Description: "Control a local CDP browser (`open`/`navigate`/`snapshot`/`act`/`wait`/`scroll`/`upload`/`dialog`/`reset`) using a browser-use style loop. For `open`, `navigate`, or `snapshot`, pass `url` or `targetUrl` when needed; these actions return `stateAvailable`, `itemCount`, and the current page `state`/`items` whenever capture succeeds, so review that result before deciding the next action. After the page changes, call `snapshot` to refresh refs, then continue with `act` using `ref` on the same `targetId`. Do not use raw CSS `selector` for normal interactions; use `ref` from the latest snapshot. Matching connector cookies are injected automatically before navigation.",
-		Category:    "ui",
-		RiskLevel:   "high",
+		ID:            "browser",
+		Name:          "browser",
+		Description:   "Control a local CDP browser (`open`/`navigate`/`snapshot`/`act`/`wait`/`scroll`/`upload`/`dialog`/`reset`) using a browser-use style loop. For `open`, `navigate`, or `snapshot`, pass `url` or `targetUrl` when needed; these actions return `stateAvailable`, `itemCount`, and the current page `state`/`items` whenever capture succeeds, so review that result before deciding the next action. After the page changes, call `snapshot` to refresh refs, then continue with `act` using `ref` on the same `targetId`. Do not use raw CSS `selector` for normal interactions; use `ref` from the latest snapshot. Matching connector cookies are injected automatically before navigation.",
+		PromptSnippet: "Interactive CDP browser. Loop: `open`/`navigate` -> `snapshot` -> `act` with the latest `ref`; after page changes, snapshot again. Prefer `ref` over `selector`.",
+		Category:      "ui",
+		RiskLevel:     "high",
 		SchemaJSON: schemaJSON(map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,

@@ -4,6 +4,7 @@ type ToolSpec struct {
 	ID               string            `json:"id"`
 	Name             string            `json:"name"`
 	Description      string            `json:"description"`
+	PromptSnippet    string            `json:"promptSnippet,omitempty"`
 	Kind             string            `json:"kind"`
 	SchemaJSON       string            `json:"schemaJson"`
 	Methods          []ToolMethodSpec  `json:"methods,omitempty"`

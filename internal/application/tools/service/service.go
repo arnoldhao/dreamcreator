@@ -208,6 +208,7 @@ func normalizeToolSpec(spec dto.ToolSpec) dto.ToolSpec {
 	spec.ID = strings.TrimSpace(spec.ID)
 	spec.Name = strings.TrimSpace(spec.Name)
 	spec.Description = strings.TrimSpace(spec.Description)
+	spec.PromptSnippet = strings.TrimSpace(spec.PromptSnippet)
 	spec.Kind = strings.TrimSpace(spec.Kind)
 	spec.SchemaJSON = strings.TrimSpace(spec.SchemaJSON)
 	spec.SideEffectLevel = strings.TrimSpace(spec.SideEffectLevel)
